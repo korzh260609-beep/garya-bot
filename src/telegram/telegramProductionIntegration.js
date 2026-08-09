@@ -14,6 +14,17 @@ function secureEqual(actual, expected) {
   return left.length === right.length && timingSafeEqual(left, right);
 }
 
+function messageFromUpdate(update) {
+  return update?.message ?? update?.edited_message ?? update?.channel_post ?? null;
+}
+
+function visibleFailureText(update) {
+  const language = String(messageFromUpdate(update)?.from?.language_code ?? update?.locale ?? 'ru').toLowerCase();
+  if (language.startsWith('uk')) return 'Не вдалося обробити повідомлення. Спробуй ще раз трохи пізніше.';
+  if (language.startsWith('ru')) return 'Не удалось обработать сообщение. Попробуй ещё раз немного позже.';
+  return 'SG could not process the message. Please try again a little later.';
+}
+
 export function createInMemoryTelegramUpdateStore() {
   const updates = new Map();
   return Object.freeze({
@@ -45,6 +56,7 @@ export function createTelegramProductionIntegration({
   botUsername = null,
   environment = 'production',
   revision = 'unknown',
+  acknowledgeBeforeProcessing = false,
   idFactory
 } = {}) {
   const hasCredentialManager = credentialManager && typeof credentialManager.useCredential === 'function';
@@ -55,6 +67,8 @@ export function createTelegramProductionIntegration({
   if (!updateStore || typeof updateStore.claim !== 'function' || typeof updateStore.complete !== 'function' || typeof updateStore.fail !== 'function') throw new TypeError('Telegram update store is required');
   if (!identityResolver || typeof identityResolver !== 'function') throw new TypeError('identityResolver is required');
   if (!runtime || typeof runtime.handle !== 'function') throw new TypeError('runtime.handle is required');
+
+  const pending = new Set();
 
   async function verifyWebhookSecret(suppliedSecret) {
     if (!hasCredentialManager) return secureEqual(suppliedSecret, legacySecret);
@@ -72,7 +86,7 @@ export function createTelegramProductionIntegration({
     identityResolver,
     requestHandler: (canonicalInput) => runtime.handle(canonicalInput),
     responseDeliverer: async ({ response, canonicalInput, platformInput }) => {
-      const message = platformInput.message ?? platformInput.edited_message ?? platformInput.channel_post;
+      const message = messageFromUpdate(platformInput);
       if (!deliveryRouter) {
         await botClient.sendMessage({ chatId: message.chat.id, text: response.message, messageThreadId: message.message_thread_id ?? null, replyToMessageId: message.message_id });
         return;
@@ -100,6 +114,53 @@ export function createTelegramProductionIntegration({
     ...(idFactory ? { idFactory } : {})
   });
 
+  async function deliverVisibleFailure(body, originalError) {
+    const message = messageFromUpdate(body);
+    if (!message?.chat?.id || !message?.message_id) return false;
+    try {
+      await botClient.sendMessage({
+        chatId: message.chat.id,
+        text: visibleFailureText(body),
+        messageThreadId: message.message_thread_id ?? null,
+        replyToMessageId: message.message_id
+      });
+      observability?.record?.({
+        eventClass: 'telegram_failure_response_delivered',
+        channel: 'telemetry',
+        stage: 'telegram-webhook',
+        outcome: 'delivered',
+        data: { failureCode: originalError?.code ?? 'telegram-update-failed' }
+      });
+      return true;
+    } catch (fallbackError) {
+      observability?.recordFailure?.({
+        stage: 'telegram-webhook-fallback',
+        reason: redactSensitiveText(fallbackError?.message ?? 'fallback delivery failed'),
+        code: fallbackError?.code ?? 'telegram-fallback-delivery-failed'
+      });
+      return false;
+    }
+  }
+
+  async function processClaimedUpdate(body, claim, invocation) {
+    try {
+      const result = await adapter.receive(body);
+      await updateStore.complete(claim.updateId, 'completed');
+      observability?.record?.({ eventClass: 'telegram_update_completed', channel: 'telemetry', stage: 'telegram-webhook', traceContext: result.canonicalInput.traceContext, outcome: result.response.status, data: { invocation: invocation.reason } });
+      return Object.freeze({ ok: true, result });
+    } catch (error) {
+      await updateStore.fail(claim.updateId, error.code ?? 'telegram-update-failed');
+      observability?.recordFailure?.({ stage: 'telegram-webhook', reason: redactSensitiveText(error.message), code: error.code ?? 'telegram-update-failed' });
+      await deliverVisibleFailure(body, error);
+      return Object.freeze({ ok: false, error });
+    }
+  }
+
+  function trackBackground(promise) {
+    pending.add(promise);
+    promise.finally(() => pending.delete(promise));
+  }
+
   async function handleWebhook({ headers = {}, body } = {}) {
     const suppliedSecret = headers['x-telegram-bot-api-secret-token'] ?? headers['X-Telegram-Bot-Api-Secret-Token'];
     try {
@@ -124,17 +185,20 @@ export function createTelegramProductionIntegration({
       return Object.freeze({ statusCode: 200, body: { ok: true, ignored: true, reason: invocation.reason } });
     }
 
-    try {
-      const result = await adapter.receive(body);
-      await updateStore.complete(claim.updateId, 'completed');
-      observability?.record?.({ eventClass: 'telegram_update_completed', channel: 'telemetry', stage: 'telegram-webhook', traceContext: result.canonicalInput.traceContext, outcome: result.response.status, data: { invocation: invocation.reason } });
-      return Object.freeze({ statusCode: 200, body: { ok: true } });
-    } catch (error) {
-      await updateStore.fail(claim.updateId, error.code ?? 'telegram-update-failed');
-      observability?.recordFailure?.({ stage: 'telegram-webhook', reason: redactSensitiveText(error.message), code: error.code ?? 'telegram-update-failed' });
-      return Object.freeze({ statusCode: 503, body: { ok: false, code: error.code ?? 'telegram-update-failed' } });
+    if (acknowledgeBeforeProcessing) {
+      const work = processClaimedUpdate(body, claim, invocation);
+      trackBackground(work);
+      return Object.freeze({ statusCode: 200, body: { ok: true, accepted: true } });
     }
+
+    const processed = await processClaimedUpdate(body, claim, invocation);
+    if (processed.ok) return Object.freeze({ statusCode: 200, body: { ok: true } });
+    return Object.freeze({ statusCode: 503, body: { ok: false, code: processed.error.code ?? 'telegram-update-failed' } });
   }
 
-  return Object.freeze({ handleWebhook, adapter });
+  async function drainPending() {
+    while (pending.size > 0) await Promise.allSettled([...pending]);
+  }
+
+  return Object.freeze({ handleWebhook, adapter, drainPending });
 }

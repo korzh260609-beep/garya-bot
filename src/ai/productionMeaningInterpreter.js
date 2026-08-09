@@ -1,6 +1,19 @@
 import { parseStructuredAIOutput } from './contracts.js';
 import { createSemanticInterpretation } from '../contracts/semantic.js';
 import { buildDefensivePromptBoundary, deterministicAiFallback } from './productionPolicy.js';
+import { PRODUCTION_CAPABILITY_NAMES } from '../capability/productionCapabilities.js';
+import { MEMORY2_CAPABILITY_NAMES } from '../memory2/memory2Capabilities.js';
+import { TEMPORAL_CAPABILITY_NAMES } from '../temporal/temporalCapabilities.js';
+import { LANGUAGE_CAPABILITY_NAMES } from '../language/languageCapabilities.js';
+import { USER_SETTINGS_CAPABILITY_NAMES } from '../settings/userSettingsCapabilities.js';
+
+const SEMANTIC_CAPABILITY_NAMES = Object.freeze([...new Set([
+  ...PRODUCTION_CAPABILITY_NAMES,
+  ...MEMORY2_CAPABILITY_NAMES,
+  ...TEMPORAL_CAPABILITY_NAMES,
+  ...LANGUAGE_CAPABILITY_NAMES,
+  ...USER_SETTINGS_CAPABILITY_NAMES,
+])]);
 
 const NAMED_VALUE_SCHEMA = Object.freeze({
   type: 'object',
@@ -18,7 +31,7 @@ const CANDIDATE_ACTION_SCHEMA = Object.freeze({
   required: ['type', 'name', 'actionClass'],
   properties: {
     type: { type: 'string', minLength: 1 },
-    name: { type: 'string', minLength: 1 },
+    name: { type: 'string', enum: SEMANTIC_CAPABILITY_NAMES },
     actionClass: { type: 'string', enum: ['analysis', 'external', 'state-change'] },
     payload: { type: 'object', additionalProperties: true },
   },
@@ -89,7 +102,7 @@ export function createProductionMeaningInterpreter({ aiRouter, fallbackOnFailure
     async interpret(canonicalInput) {
       const userPayload = buildUserPayload(canonicalInput);
       const boundary = buildDefensivePromptBoundary({
-        systemInstruction: 'You are the SG semantic interpreter. Return only schema-valid JSON. Interpret meaning; do not execute actions. Language Context is authoritative for SG-selected message/response language metadata but original text remains authoritative for meaning. If the user explicitly asks to make a language their ongoing preferred response language, return candidate action type/name language-preference-set with actionClass state-change and payload.language as the BCP-47 base language code; include payload.locale only if the user explicitly supplies a locale. If the user asks what their preferred language is, use language-preference-get with actionClass analysis. Ordinary one-message requests such as answer this in English remain compose-answer and must not persist a preference. Temporal Context is authoritative for current time, timezone and normalized relative dates; never recalculate or guess those values. External or state-changing requests must be candidates with actionClass external or state-change. Ask one clarification only when essential information is missing.',
+        systemInstruction: 'You are the SG semantic interpreter. Return only schema-valid JSON. Interpret meaning; do not execute actions. Candidate action name MUST be one of the capability names allowed by the response schema; never invent capability names. Ordinary conversational requests, greetings, identity questions, explanations and general Q&A MUST use type answer, name compose-answer, actionClass analysis. Language Context is authoritative for SG-selected message/response language metadata but original text remains authoritative for meaning. If the user explicitly asks to make a language their ongoing preferred response language, return candidate action type/name language-preference-set with actionClass state-change and payload.language as the BCP-47 base language code; include payload.locale only if the user explicitly supplies a locale. If the user asks what their preferred language is, use language-preference-get with actionClass analysis. Ordinary one-message requests such as answer this in English remain compose-answer and must not persist a preference. Temporal Context is authoritative for current time, timezone and normalized relative dates; never recalculate or guess those values. External or state-changing requests must be candidates with actionClass external or state-change. Ask one clarification only when essential information is missing.',
         userInput: JSON.stringify(userPayload),
       });
 

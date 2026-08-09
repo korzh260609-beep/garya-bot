@@ -30,13 +30,18 @@ async function readJson(request, maxBytes = 64 * 1024) {
   return JSON.parse(Buffer.concat(chunks).toString('utf8'));
 }
 
-function uiHtml() {
-  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SG Diagnostics</title><style>body{font-family:system-ui,sans-serif;margin:2rem;max-width:1000px}input,button{font:inherit;padding:.55rem;margin:.25rem}pre{background:#111;color:#eee;padding:1rem;overflow:auto;border-radius:.5rem}.row{display:flex;gap:.5rem;flex-wrap:wrap}.muted{opacity:.7}</style></head><body><h1>SG Diagnostics</h1><p class="muted">Read-only diagnostic console. Full API requires owner authentication headers.</p><div class="row"><input id="trace" placeholder="traceId"><input id="owner" placeholder="global_user_id"><input id="token" type="password" placeholder="diagnostics token"><button onclick="run()">Analyze trace</button><button onclick="health()">System health</button><button onclick="live()">Live probes</button><button onclick="regressions()">Run regressions</button></div><pre id="out">Ready.</pre><script>const out=document.getElementById('out');function headers(){return {'content-type':'application/json','x-sg-global-user-id':document.getElementById('owner').value,'x-diagnostics-token':document.getElementById('token').value}}async function call(path,body={}){const r=await fetch(path,{method:'POST',headers:headers(),body:JSON.stringify(body)});out.textContent=JSON.stringify(await r.json(),null,2)}async function run(){return call('/api/request',{traceId:document.getElementById('trace').value})}async function health(){return call('/api/system')}async function live(){return call('/api/live/run')}async function regressions(){return call('/api/regressions/run')}</script></body></html>`;
+function boundedActor(value) {
+  const normalized = String(value ?? '').trim();
+  return normalized ? normalized.slice(0, 128) : null;
 }
 
-export function createDiagnosticsHttpServer({ service, store, host = '0.0.0.0', port = 8790, adminToken, monarchGlobalUserId, environment = 'unknown', revision = 'unknown' } = {}) {
-  if (!service?.analyzeRequest || !service?.systemHealth) throw new TypeError('diagnostic service is required');
-  if (!store?.getRun || !store?.listRuns || !store?.listRegressions || !store?.putRegression) throw new TypeError('diagnostic store is required');
+function uiHtml() {
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SG Diagnostics</title><style>body{font-family:system-ui,sans-serif;margin:2rem;max-width:1000px}input,button{font:inherit;padding:.55rem;margin:.25rem}pre{background:#111;color:#eee;padding:1rem;overflow:auto;border-radius:.5rem}.row{display:flex;gap:.5rem;flex-wrap:wrap}.muted{opacity:.7}</style></head><body><h1>SG Diagnostics</h1><p class="muted">Read-only diagnostic console. Full API requires owner authentication headers. Trace discovery never reads message text.</p><div class="row"><input id="trace" placeholder="traceId"><input id="owner" placeholder="global_user_id"><input id="token" type="password" placeholder="diagnostics token"><button onclick="latest()">Latest Monarch trace</button><button onclick="run()">Analyze trace</button><button onclick="health()">System health</button><button onclick="live()">Live probes</button><button onclick="regressions()">Run regressions</button></div><pre id="out">Ready.</pre><script>const out=document.getElementById('out');function headers(){return {'content-type':'application/json','x-sg-global-user-id':document.getElementById('owner').value,'x-diagnostics-token':document.getElementById('token').value}}async function post(path,body={}){const r=await fetch(path,{method:'POST',headers:headers(),body:JSON.stringify(body)});const j=await r.json();out.textContent=JSON.stringify(j,null,2);return j}async function get(path){const r=await fetch(path,{headers:headers()});const j=await r.json();out.textContent=JSON.stringify(j,null,2);return j}async function run(){return post('/api/request',{traceId:document.getElementById('trace').value})}async function latest(){const j=await get('/api/traces?limit=1');const t=j.traces&&j.traces[0];if(!t)return j;document.getElementById('trace').value=t.traceId;return post('/api/request',{traceId:t.traceId})}async function health(){return post('/api/system')}async function live(){return post('/api/live/run')}async function regressions(){return post('/api/regressions/run')}</script></body></html>`;
+}
+
+export function createDiagnosticsHttpServer({ service, store, host = '0.0.0.0', port = 8790, adminToken, monarchGlobalUserId, projectScope = 'sg2.1', environment = 'unknown', revision = 'unknown' } = {}) {
+  if (!service?.analyzeRequest || !service?.systemHealth || !service?.recentTraces) throw new TypeError('diagnostic service is required');
+  if (!store?.getRun || !store?.listRuns || !store?.listRegressions || !store?.putRegression || !store?.recordAccess) throw new TypeError('diagnostic store is required');
   if (!String(adminToken ?? '').trim()) throw new TypeError('DIAGNOSTICS_ADMIN_TOKEN is required');
   if (!String(monarchGlobalUserId ?? '').trim()) throw new TypeError('SG_MONARCH_GLOBAL_USER_ID is required');
 
@@ -45,13 +50,38 @@ export function createDiagnosticsHttpServer({ service, store, host = '0.0.0.0', 
       && String(request.headers['x-sg-global-user-id'] ?? '') === String(monarchGlobalUserId);
   }
 
+  async function authorizeAndAudit(request, path) {
+    const allowed = authorized(request);
+    const presentedActor = boundedActor(request.headers['x-sg-global-user-id']);
+    try {
+      await store.recordAccess({
+        actorGlobalUserId: allowed ? monarchGlobalUserId : presentedActor,
+        method: request.method ?? 'UNKNOWN',
+        path,
+        outcome: allowed ? 'allow' : 'deny',
+        reason: allowed ? 'owner-authenticated' : 'diagnostics-owner-auth-required'
+      });
+    } catch {
+      return Object.freeze({ allowed: false, auditFailed: true });
+    }
+    return Object.freeze({ allowed, auditFailed: false });
+  }
+
   const server = http.createServer(async (request, response) => {
     try {
       const url = new URL(request.url ?? '/', `http://${request.headers.host ?? 'localhost'}`);
       if (request.method === 'GET' && url.pathname === '/health') return sendJson(response, 200, { status: 'ok', service: 'sg-diagnostics', environment, revision });
       if (request.method === 'GET' && url.pathname === '/') return sendHtml(response, 200, uiHtml());
-      if (url.pathname.startsWith('/api/') && !authorized(request)) return sendJson(response, 403, { ok: false, code: 'diagnostics-owner-auth-required' });
+      if (url.pathname.startsWith('/api/')) {
+        const access = await authorizeAndAudit(request, url.pathname);
+        if (access.auditFailed) return sendJson(response, 503, { ok: false, code: 'diagnostics-access-audit-unavailable' });
+        if (!access.allowed) return sendJson(response, 403, { ok: false, code: 'diagnostics-owner-auth-required' });
+      }
 
+      if (request.method === 'GET' && url.pathname === '/api/traces') {
+        const traces = await service.recentTraces({ globalUserId: monarchGlobalUserId, projectScope, limit: Math.min(100, Math.max(1, Number(url.searchParams.get('limit') ?? 20))) });
+        return sendJson(response, 200, { ok: true, traces });
+      }
       if (request.method === 'POST' && url.pathname === '/api/request') {
         const body = await readJson(request);
         const result = await service.analyzeRequest({ traceId: body.traceId ?? null, requestId: body.requestId ?? null, pathId: body.pathId ?? null, includeDeployment: body.includeDeployment !== false });

@@ -1,0 +1,107 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { assessFinalResponse, fingerprintFinalResponse } from '../src/response/finalResponseGuard.js';
+import { createTelegramProductionIntegration, createInMemoryTelegramUpdateStore } from '../src/telegram/telegramProductionIntegration.js';
+import { createDiagnosticEvidence } from '../src/diagnostics/contracts.js';
+import { createExpectedPathRegistry } from '../src/diagnostics/pathRegistry.js';
+import { reconstructTrace } from '../src/diagnostics/analyzer.js';
+import { evaluateTraceInvariants } from '../src/diagnostics/invariants.js';
+
+function identityResolver({ platformFacts, scopeFacts }) {
+  return {
+    identityContext: {
+      globalUserId: `global:${platformFacts.platformUserId}`,
+      roles: ['guest'],
+      grants: ['capability:compose-answer'],
+      authenticationLevel: 'platform'
+    },
+    scopeContext: {
+      userScope: `global:${platformFacts.platformUserId}`,
+      projectScope: scopeFacts.projectId ?? 'sg2.1',
+      groupScope: scopeFacts.groupId,
+      threadScope: scopeFacts.threadId,
+      requestedUserScope: `global:${platformFacts.platformUserId}`,
+      requestedProjectScope: scopeFacts.projectId ?? 'sg2.1',
+      requestedGroupScope: scopeFacts.groupId,
+      requestedThreadScope: scopeFacts.threadId,
+      allowedCapabilities: ['compose-answer']
+    }
+  };
+}
+
+function telegramUpdate(text = 'привет') {
+  return {
+    update_id: 9001,
+    message: {
+      message_id: 501,
+      from: { id: 7, is_bot: false, language_code: 'ru' },
+      chat: { id: 70, type: 'private' },
+      text
+    }
+  };
+}
+
+test('final response fingerprint is normalized, deterministic and salt-scoped', () => {
+  assert.equal(assessFinalResponse({ userText: ' Привет ', candidateText: 'привет' }).reason, 'exact-user-echo');
+  const a = fingerprintFinalResponse(' Привет ', { salt: 'trace-a' });
+  const b = fingerprintFinalResponse('привет', { salt: 'trace-a' });
+  const c = fingerprintFinalResponse('привет', { salt: 'trace-b' });
+  assert.equal(a, b);
+  assert.notEqual(a, c);
+  assert.match(a, /^[a-f0-9]{64}$/u);
+});
+
+test('Telegram delivery boundary emits privacy-safe exact echo evidence without message text', async () => {
+  const events = [];
+  const sent = [];
+  const integration = createTelegramProductionIntegration({
+    secretToken: 'secret',
+    botClient: { sendMessage: async (payload) => sent.push(payload) },
+    updateStore: createInMemoryTelegramUpdateStore(),
+    identityResolver,
+    runtime: { handle: async (input) => ({ status: 'success', message: input.text, data: {} }) },
+    observability: {
+      record(event) { events.push(event); },
+      recordFailure(event) { events.push({ ...event, failure: true }); }
+    },
+    environment: 'test',
+    revision: 'echo-test',
+    idFactory: (() => { let i = 0; return () => `echo-${++i}`; })()
+  });
+
+  const result = await integration.handleWebhook({ headers: { 'x-telegram-bot-api-secret-token': 'secret' }, body: telegramUpdate() });
+  assert.equal(result.statusCode, 200);
+  assert.equal(sent[0].text, 'привет');
+
+  const observed = events.find((event) => event.eventClass === 'final_response_observed');
+  assert.ok(observed);
+  assert.equal(observed.stage, 'response');
+  assert.equal(observed.outcome, 'rejected');
+  assert.equal(observed.data.exactEcho, true);
+  assert.equal(observed.data.reason, 'exact-user-echo');
+  assert.equal(observed.data.inputHash, observed.data.outputHash);
+  const serialized = JSON.stringify(observed);
+  assert.equal(serialized.includes('привет'), false);
+});
+
+test('Universal Diagnostics classifies delivery-boundary exact echo as confirmed RESPONSE invariant', () => {
+  const traceId = 'trace-exact-echo';
+  const hash = fingerprintFinalResponse('привет', { salt: traceId });
+  const evidence = [
+    createDiagnosticEvidence({ source: 'sg-observability', traceId, stage: 'request_received', status: 'completed', payload: { eventClass: 'request_received', outcome: 'completed' } }),
+    createDiagnosticEvidence({ source: 'sg-observability', traceId, stage: 'semantic_decision_created', status: 'completed', payload: { eventClass: 'semantic_decision_created', outcome: 'completed' } }),
+    createDiagnosticEvidence({ source: 'sg-observability', traceId, stage: 'action_gate_decision', status: 'completed', payload: { eventClass: 'action_gate_decision', outcome: 'allow' } }),
+    createDiagnosticEvidence({ source: 'sg-observability', traceId, stage: 'capability_started', status: 'unknown', payload: { eventClass: 'capability_started', outcome: 'started' } }),
+    createDiagnosticEvidence({ source: 'sg-observability', traceId, stage: 'capability_completed', status: 'completed', payload: { eventClass: 'capability_completed', outcome: 'success' } }),
+    createDiagnosticEvidence({ source: 'sg-observability', traceId, stage: 'response', status: 'unknown', payload: { eventClass: 'final_response_observed', outcome: 'rejected', data: { responseEventClass: 'final_response_observed', reason: 'exact-user-echo', exactEcho: true, inputHash: hash, outputHash: hash } } }),
+    createDiagnosticEvidence({ source: 'sg-observability', traceId, stage: 'telegram-delivery', status: 'completed', payload: { eventClass: 'delivery_completed', outcome: 'delivered' } })
+  ];
+  const trace = reconstructTrace({ expectedPath: createExpectedPathRegistry().get('conversation'), evidence });
+  const findings = evaluateTraceInvariants(trace);
+  const echo = findings.find((finding) => finding.data?.reason === 'exact-user-echo');
+  assert.ok(echo);
+  assert.equal(echo.errorClass, 'RESPONSE');
+  assert.equal(echo.component, 'final-response-delivery-boundary');
+  assert.equal(echo.confidence, 'CONFIRMED');
+  assert.equal(echo.data.invariant, 'final-response-must-not-exactly-echo-user');
+});

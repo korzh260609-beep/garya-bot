@@ -30,13 +30,25 @@ export function evaluateTraceInvariants(trace) {
   }
 
   const deliveryCompletedIndex = firstIndex(evidence, (item) => hasName(item, 'delivery_completed') || hasName(item, 'telegram_update_completed'));
-  const responseIndex = firstIndex(evidence, (item) => hasName(item, 'response_composed') || hasName(item, 'final_response_guard') || hasName(item, 'capability_completed'));
+  const responseIndex = firstIndex(evidence, (item) => hasName(item, 'final_response_observed') || hasName(item, 'response_composed') || hasName(item, 'final_response_guard') || hasName(item, 'capability_completed'));
   if (deliveryCompletedIndex != null && (responseIndex == null || responseIndex > deliveryCompletedIndex)) {
     const item = evidence[deliveryCompletedIndex];
     findings.push(createDiagnosticFinding({
       kind: 'invariant-violation', errorClass: 'DELIVERY', component: 'delivery', confidence: 'CONFIRMED',
       summary: 'Delivery completed before any response/execution completion evidence.',
       evidenceIds: [item.evidenceId], data: { invariant: 'delivery-requires-response-completion' }
+    }));
+  }
+
+  const observedResponse = evidence.find((item) => hasName(item, 'final_response_observed'));
+  const observedData = observedResponse?.payload?.data ?? {};
+  const hashesMatch = Boolean(observedData.inputHash && observedData.outputHash && observedData.inputHash === observedData.outputHash);
+  if (observedResponse && (observedData.exactEcho === true || hashesMatch)) {
+    findings.push(createDiagnosticFinding({
+      kind: 'invariant-violation', errorClass: 'RESPONSE', component: 'final-response-delivery-boundary', confidence: 'CONFIRMED',
+      summary: 'Final response exactly matches the normalized user input at the delivery boundary.',
+      evidenceIds: [observedResponse.evidenceId],
+      data: { invariant: 'final-response-must-not-exactly-echo-user', reason: 'exact-user-echo' }
     }));
   }
 

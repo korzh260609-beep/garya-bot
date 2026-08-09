@@ -9,6 +9,7 @@ import { createIdentityContext, createScopeContext, createTraceContext } from '.
 
 const fixedNow = new Date('2026-08-06T08:00:00.000Z');
 const clock = () => fixedNow;
+const SAFE_RESPONSE_PLACEHOLDER = 'SG could not produce a final conversational response.';
 
 function scope(user = 'user:1', project = 'sg2.1', groupScope = null, threadScope = null) {
   return { userScope: user, projectScope: project, groupScope, threadScope };
@@ -115,7 +116,7 @@ test('only requested layers are loaded', async () => {
   assert.deepEqual(bundle.records.map((record) => record.layer), ['session']);
 });
 
-test('semantic pipeline receives resolved context while response plan keeps canonical user text', async () => {
+test('semantic pipeline receives resolved context while response plan never exposes canonical user text', async () => {
   const provider = createInMemoryMemoryProvider({ clock });
   await provider.write(writeRequest());
   const resolver = createContextResolver({ memoryProvider: provider });
@@ -145,6 +146,7 @@ test('semantic pipeline receives resolved context while response plan keeps cano
   assert.equal(calls, 2);
   assert.equal(result.contextBundle.records.length, 1);
   assert.equal(finalMeaning, 'Answer with memory');
-  assert.equal(result.responsePlan.message, 'Continue');
+  assert.equal(result.responsePlan.message, SAFE_RESPONSE_PLACEHOLDER);
+  assert.notEqual(result.responsePlan.message, 'Continue');
   assert.notEqual(result.responsePlan.message, finalMeaning);
 });

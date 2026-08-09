@@ -88,8 +88,17 @@ export function createBoundedResponseContextAssembler({
       const runtimeEvidence = runtimeEvidenceProvider ? await runtimeEvidenceProvider({ request, semanticMessage }) : null;
 
       const context = {
-        version: '2.0',
-        identity: { globalUserId: identity.globalUserId, platform: identity.platform ?? null, platformUserId: identity.platformUserId ?? null, roles: [...(identity.roles ?? [])].slice(0, 10), grants: [...(identity.grants ?? [])].slice(0, 20), authenticationLevel: identity.authenticationLevel ?? null },
+        version: '2.1',
+        identity: {
+          globalUserId: identity.globalUserId,
+          platform: identity.platform ?? null,
+          platformUserId: identity.platformUserId ?? null,
+          roles: [...(identity.roles ?? [])].slice(0, 10),
+          grants: [...(identity.grants ?? [])].slice(0, 20),
+          authenticationLevel: identity.authenticationLevel ?? null,
+          profile: clone(identity.profile ?? null),
+          profileAuthority: 'descriptive-only'
+        },
         scope: { userScope: scope.userScope, projectScope: scope.projectScope, groupScope: scope.groupScope ?? null, threadScope: scope.threadScope ?? null },
         confirmedUserMemory: userMemory,
         confirmedProjectMemory: projectMemory,

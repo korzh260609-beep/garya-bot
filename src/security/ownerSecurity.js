@@ -89,7 +89,7 @@ export function createOwnerSecurityGateway({
     return count + 1;
   }
   function emit(decision, actionRequest) {
-    if (!observability?.record) return;
+    if (!decision.ownerOnly || !observability?.record) return;
     const trace = actionRequest.traceContext ?? {};
     observability.record({
       eventClass: 'audit_event',

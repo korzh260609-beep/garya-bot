@@ -10,21 +10,48 @@ function statusFromObservability(row) {
   return 'unknown';
 }
 
+function boundedLimit(value, fallback = 20, max = 100) {
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed <= 0) return fallback;
+  return Math.min(max, parsed);
+}
+
 export function createObservabilityEvidenceSource({ database } = {}) {
   if (!database?.query) throw new TypeError('database.query is required');
   return Object.freeze({
     async collect({ traceId = null, requestId = null, limit = 1000 } = {}) {
       if (!traceId && !requestId) throw new TypeError('traceId or requestId is required');
-      const result = await database.query(`SELECT id,channel,event_class,trace_id,request_id,stage,outcome,payload,created_at
+      const result = await database.query(`SELECT event_id,channel,event_class,trace_id,request_id,stage,outcome,payload,created_at
         FROM observability_events WHERE ($1::text IS NULL OR trace_id=$1) AND ($2::text IS NULL OR request_id=$2)
-        ORDER BY created_at,id LIMIT $3`, [traceId, requestId, limit]);
+        ORDER BY created_at,event_id LIMIT $3`, [traceId, requestId, boundedLimit(limit, 1000, 5000)]);
       return Object.freeze(result.rows.map((row) => createDiagnosticEvidence({
-        source: 'sg-observability', sourceRef: `observability_events:${row.id}`,
+        source: 'sg-observability', sourceRef: `observability_events:${row.event_id}`,
         occurredAt: row.payload?.occurredAt ?? row.created_at?.toISOString?.() ?? String(row.created_at ?? ''),
         traceId: row.trace_id, requestId: row.request_id, stage: row.stage ?? row.event_class,
         status: statusFromObservability(row), component: row.stage ?? row.event_class,
         errorCode: row.payload?.data?.code ?? null,
         payload: { eventClass: row.event_class, channel: row.channel, outcome: row.outcome, ...row.payload }
+      })));
+    },
+    async recentTraces({ globalUserId = null, projectScope = null, limit = 20 } = {}) {
+      const result = await database.query(`SELECT trace_id,
+          max(request_id) FILTER (WHERE request_id IS NOT NULL) AS request_id,
+          min(created_at) AS first_seen_at,
+          max(created_at) AS last_seen_at,
+          count(*)::int AS event_count
+        FROM observability_events
+        WHERE trace_id IS NOT NULL
+          AND ($1::text IS NULL OR global_user_id=$1)
+          AND ($2::text IS NULL OR project_scope=$2)
+        GROUP BY trace_id
+        ORDER BY max(created_at) DESC
+        LIMIT $3`, [globalUserId, projectScope, boundedLimit(limit)]);
+      return Object.freeze(result.rows.map((row) => Object.freeze({
+        traceId: row.trace_id,
+        requestId: row.request_id ?? null,
+        firstSeenAt: row.first_seen_at?.toISOString?.() ?? String(row.first_seen_at ?? ''),
+        lastSeenAt: row.last_seen_at?.toISOString?.() ?? String(row.last_seen_at ?? ''),
+        eventCount: Number(row.event_count ?? 0)
       })));
     }
   });

@@ -136,8 +136,8 @@ export function createOwnerSecurityGateway({
 
       if (classification.ownerOnly) {
         if (!ownerConfigured) { allowed = false; reason = 'owner-identity-unconfigured'; }
-        else if (!ownerVerified) { allowed = false; reason = 'owner-identity-mismatch'; }
         else if (rateLimited) { allowed = false; reason = 'owner-security-rate-limited'; }
+        else if (!ownerVerified) { allowed = false; reason = 'owner-identity-mismatch'; }
         else if (config.lockdown) { allowed = false; reason = 'security-lockdown'; }
         else { allowed = true; reason = 'verified-owner'; }
       }

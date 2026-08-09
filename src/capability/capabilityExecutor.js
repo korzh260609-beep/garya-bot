@@ -4,6 +4,13 @@ function errorRecord(error, fallbackCode = 'capability-failed') {
   return Object.freeze({ code: error?.code ?? fallbackCode, message: error?.message ?? String(error ?? 'Capability failed'), retryable: Boolean(error?.retryable) });
 }
 
+function executionFailure(result) {
+  const error = new Error(result?.error?.message ?? `Capability ${result?.capability ?? 'unknown'} failed`);
+  error.code = result?.error?.code ?? 'capability-failed';
+  error.retryable = Boolean(result?.error?.retryable);
+  return error;
+}
+
 function executionLimits(capability, policyContext) {
   const policy = policyContext?.policy?.capability;
   return Object.freeze({
@@ -86,6 +93,8 @@ export function createCapabilityExecutor({ registry, clock = () => Date.now() } 
         result = await run(fallback, actionRequest, gateDecision, primary.name, attempts, policyContext);
         if (result.status === 'success' || result.status === 'partial') return result;
       }
+
+      if (primary.name === 'compose-answer') throw executionFailure(result);
       return result;
     }
   });

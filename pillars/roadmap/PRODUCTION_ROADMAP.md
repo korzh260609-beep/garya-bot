@@ -47,7 +47,8 @@ Repository-wide audit hardening after Block 16.16 additionally closed cross-modu
 ## Current implementation boundary
 
 - Blocks 11–16.16 listed above are completed and implementation-verified.
-- Block 17 — Render Deployment is next.
+- Block 16.18 — Monarch Control / Owner Security is planned next.
+- Block 17 — Render Deployment follows only after Block 16.18 is implementation- and acceptance-verified.
 - Blocks 18–19 and Pilot Launch remain subsequent stages.
 
 ---
@@ -149,7 +150,7 @@ Acceptance evidence: `16_11_SESSION_AND_CONVERSATION_CONTEXT.md`.
 
 # Completed foundational continuation before Render
 
-These blocks complete core control, ownership, continuity, extensibility and rollout foundations before deployment is treated as the next mandatory stage.
+These blocks complete core control, ownership, continuity, extensibility and rollout foundations. Block 16.18 adds the explicit owner-security boundary before deployment becomes the next mandatory stage.
 
 Canonical dependency direction:
 
@@ -164,10 +165,11 @@ Canonical dependency direction:
 → 16.14 Internal Event Bus [completed]
 → 16.15 Schema & Contract Versioning [completed]
 → 16.16 Feature Flags & Controlled Rollout [completed]
-→ 17 Render Deployment [next]
+→ 16.18 Monarch Control / Owner Security [planned, next]
+→ 17 Render Deployment
 ```
 
-Architecture coordination: `../architecture/FOUNDATIONAL_CONTROL_LAYERS.md`.
+Architecture coordination: `../architecture/FOUNDATIONAL_CONTROL_LAYERS.md` and `../architecture/MONARCH_OWNER_SECURITY.md`.
 
 ---
 
@@ -542,13 +544,54 @@ Detailed specification and evidence: `16_16_FEATURE_FLAGS_AND_CONTROLLED_ROLLOUT
 
 ---
 
-# Block 17 — Render Deployment
+# Block 16.18 — Monarch Control / Owner Security
 
 ## Status
 Planned — next mandatory block.
 
 ## Goal
-Deploy SG 2.1 as a controlled production environment on Render after foundational control layers are implementation-verified.
+Guarantee that only the verified SG owner/Monarch can alter SG-wide security, privileged configuration, roles/grants, owner/global identity administration and other owner-only system state.
+
+## Required scope
+- canonical owner identity rooted in `global_user_id`;
+- deny-by-default owner-only Security Policy Registry;
+- centralized owner Security Gateway composed with existing Action Gate;
+- owner-only protection of system/security configuration, roles/grants, privileged integrations, system automation and administrative operations;
+- original actor propagation and re-authorization through tasks, agents, workers, events, AI and tools;
+- prompt-injection/privilege-escalation resistance by code/policy rather than model judgment;
+- secret/infrastructure protection;
+- privileged audit/security events, bounded rate limits and emergency `SECURITY_LOCKDOWN`;
+- trusted owner recovery without conversational backdoors;
+- impersonation, escalation and anti-bypass automated tests.
+
+## Boundaries
+- owner status is not inferred from username, display name, transport, command, phrase, secret word or AI output;
+- owner authority tightens existing Identity/Scope/Access/Resource Authority/Action Gate controls and does not replace them;
+- delegated administration never implies SG ownership;
+- unknown owner/security state fails closed;
+- no user, AI, agent, task, worker, tool, event consumer or domain module may broaden its own authority.
+
+## Acceptance criteria
+- [ ] exactly one canonical verified owner authority is resolved through `global_user_id`;
+- [ ] non-owner actors cannot change owner-only system/security state;
+- [ ] original actor identity survives deferred/indirect execution and is rechecked at execution time;
+- [ ] raw secrets are non-disclosable through ordinary SG surfaces;
+- [ ] privileged ALLOW/DENY decisions are auditable without secret leakage;
+- [ ] lockdown and owner recovery behavior are tested;
+- [ ] privilege-escalation, impersonation and bypass tests pass.
+
+Detailed specification: `16_18_MONARCH_CONTROL_OWNER_SECURITY.md`.
+Architecture: `../architecture/MONARCH_OWNER_SECURITY.md`.
+
+---
+
+# Block 17 — Render Deployment
+
+## Status
+Planned — follows Block 16.18.
+
+## Goal
+Deploy SG 2.1 as a controlled production environment on Render after foundational control layers and Monarch/Owner Security are implementation-verified.
 
 ## Target services
 
@@ -579,7 +622,8 @@ Deploy SG 2.1 as a controlled production environment on Render after foundationa
 - Telegram webhook registration;
 - connection/credential readiness evidence;
 - resource-authority readiness evidence;
-- conversation/session persistence readiness evidence.
+- conversation/session persistence readiness evidence;
+- Block 16.18 owner-security readiness evidence.
 
 ## Acceptance criteria
 - only approved branch is deployed;
@@ -587,7 +631,8 @@ Deploy SG 2.1 as a controlled production environment on Render after foundationa
 - web/worker reconnect after restart;
 - migrations finish before incompatible runtime startup;
 - failed deployment can be rolled back safely;
-- health distinguishes process health from dependency readiness.
+- health distinguishes process health from dependency readiness;
+- owner-only system changes remain inaccessible to non-owner actors.
 
 ---
 
@@ -615,6 +660,9 @@ Prove the product through real external flows rather than only unit/contract tes
 - conversation/session survival after restart;
 - task creation/scheduled execution;
 - protected confirmation and Action Gate denial;
+- owner-only system-change denial for non-owner actors;
+- original actor preservation through queued/worker/tool execution;
+- owner impersonation/identity-link rejection;
 - retry/DLQ/idempotency;
 - duplicate Telegram update;
 - temporary AI/database/Telegram outage;
@@ -627,6 +675,7 @@ Prove the product through real external flows rather than only unit/contract tes
 - each scenario has reproducible evidence;
 - no identity, resource, connection, settings, conversation, language or memory cross-contamination;
 - protected actions remain blocked when evidence/authorization/authority is missing;
+- non-owner actors cannot execute owner-only SG changes directly or indirectly;
 - restart recovery works without silent work loss;
 - user-visible errors are bounded and secret-safe;
 - critical failures create actionable diagnostic evidence.
@@ -639,12 +688,12 @@ Prove the product through real external flows rather than only unit/contract tes
 Planned.
 
 ## Goal
-Prepare SG for controlled real-user use with operational safeguards after foundational mechanisms and E2E behavior are verified.
+Prepare SG for controlled real-user use with operational safeguards after foundational mechanisms, owner-security controls and E2E behavior are verified.
 
 ## Deliverables
 - rate limiting by identity/transport;
 - webhook/endpoint hardening;
-- role/grant/resource-authority audit;
+- role/grant/resource-authority/owner-security audit;
 - credential/secret scanning and redaction verification;
 - data retention/export/deletion procedures;
 - backup/recovery testing;
@@ -653,11 +702,13 @@ Prepare SG for controlled real-user use with operational safeguards after founda
 - admin operations restricted appropriately;
 - emergency switches for AI, automation and protected capabilities;
 - feature-flag operational controls;
+- owner-security lockdown/recovery operational procedure;
 - incident-response runbook;
 - dependency/vulnerability update process.
 
 ## Acceptance criteria
 - guests cannot access monarch operations/resources;
+- non-owner actors cannot alter SG-wide security/authority state;
 - sensitive fields remain absent from ordinary telemetry/events;
 - emergency switches work without redeployment where designed;
 - backup restoration is tested;
@@ -675,11 +726,12 @@ Planned.
 Validate the production system with deliberately limited real-user scope.
 
 ## Initial scope
-- one monarch account;
+- one verified monarch/owner account;
 - one private Telegram chat;
 - one sandbox group;
 - small test-user cohort;
 - approved low-risk capabilities;
 - mandatory confirmation for protected actions;
 - controlled feature flags;
-- close monitoring of cost, errors, resource authority, delivery, conversation isolation and memory isolation.
+- owner-only SG changes enforced by Block 16.18;
+- close monitoring of cost, errors, resource authority, owner-security denials, delivery, conversation isolation and memory isolation.

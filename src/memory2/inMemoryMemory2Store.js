@@ -26,8 +26,8 @@ export function createInMemoryMemory2Store({ maxRecords = 5000 } = {}) {
     async list({ projectScope = null, groupScope = undefined, threadScope = undefined, ownerGlobalUserId = undefined, includeHistory = false, limit = 500 } = {}) {
       let result = [...records.values()];
       if (projectScope != null) result = result.filter((item) => item.memoryScope.projectScope === projectScope);
-      if (groupScope !== undefined) result = result.filter((item) => (item.memoryScope.groupScope ?? null) === (groupScope ?? null));
-      if (threadScope !== undefined) result = result.filter((item) => (item.memoryScope.threadScope ?? null) === (threadScope ?? null));
+      if (groupScope !== undefined) result = result.filter((item) => item.memoryScope.groupScope == null || item.memoryScope.groupScope === (groupScope ?? null));
+      if (threadScope !== undefined) result = result.filter((item) => item.memoryScope.threadScope == null || item.memoryScope.threadScope === (threadScope ?? null));
       if (ownerGlobalUserId !== undefined) result = result.filter((item) => item.memoryScope.ownerGlobalUserId == null || item.memoryScope.ownerGlobalUserId === (ownerGlobalUserId ?? null));
       if (!includeHistory) result = result.filter((item) => ['active','temporary'].includes(item.lifecycleState));
       result.sort((a,b) => b.updatedAt.localeCompare(a.updatedAt) || a.id.localeCompare(b.id));

@@ -4,7 +4,8 @@ import {
   createInMemorySelfKnowledgeStore,
   createSelfKnowledgeBuilder,
   createSelfKnowledgeConsistencyChecker,
-  createSelfKnowledgeService
+  createSelfKnowledgeService,
+  createSelfKnowledgeSnapshot
 } from '../src/selfKnowledge/selfKnowledge.js';
 
 function source(id, facts) {
@@ -57,6 +58,45 @@ test('Self Knowledge service exposes bounded canonical statuses without full sna
   assert.equal(result.facts.length, 2);
   assert.equal(result.diagnostics.truncated, true);
   assert.equal(result.snapshot.validationStatus, 'valid');
+});
+
+test('Self Knowledge query restores canonical priority when persistence hydrates facts alphabetically', async () => {
+  const alphabeticalFacts = [
+    fact({ category: 'architecture', key: 'a1' }),
+    fact({ category: 'architecture', key: 'a2' }),
+    fact({ category: 'capabilities', key: 'c1' }),
+    fact({ category: 'capabilities', key: 'c2' }),
+    fact({ category: 'deployment', key: 'd1' }),
+    fact({ category: 'development-status', key: 'ds1' }),
+    fact({ category: 'development-status', key: 'ds2' }),
+    fact({ category: 'identity', key: 'entity-type', value: 'system', kind: 'authority' }),
+    fact({ category: 'identity', key: 'system-name', value: { short: 'SG', full: 'Советник GARYA' }, kind: 'authority' }),
+    fact({ category: 'integrations', key: 'i1' }),
+    fact({ category: 'limitations', key: 'l1' }),
+    fact({ category: 'memory', key: 'm1' }),
+    fact({ category: 'modules', key: 'mo1' }),
+    fact({ category: 'owner', key: 'o1', kind: 'authority' }),
+    fact({ category: 'purpose', key: 'core-purpose', value: 'purpose', kind: 'authority' })
+  ].sort((a, b) => a.category.localeCompare(b.category) || a.key.localeCompare(b.key));
+
+  const snapshot = createSelfKnowledgeSnapshot({
+    snapshotId: 'self-knowledge:test:1',
+    version: 1,
+    sourceRevision: 'r1',
+    commitSha: 'r1',
+    environment: 'test',
+    validationStatus: 'valid',
+    materialHash: 'hash',
+    facts: alphabeticalFacts,
+    conflicts: [],
+    metadata: {},
+    createdAt: '2026-08-09T20:00:00.000Z'
+  });
+  const service = createSelfKnowledgeService({ store: { async getLatest() { return snapshot; } } });
+  const result = await service.query({ environment: 'test', maxFacts: 12 });
+
+  assert.equal(result.facts[0].category, 'identity');
+  assert.ok(result.facts.some((item) => item.category === 'identity' && item.key === 'system-name' && item.value.full === 'Советник GARYA'));
 });
 
 test('failed approved source downgrades snapshot validation instead of silently claiming certainty', async () => {

@@ -102,6 +102,63 @@ BEGIN
   END IF;
 END $$;
 
+-- Compatibility bridge: direct writes through the legacy SG 2.1 repository API
+-- receive canonical Memory 2.0 metadata before constraints are evaluated.
+CREATE OR REPLACE FUNCTION memory2_legacy_write_defaults()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.owner_global_user_id IS NULL AND NEW.global_user_id IS NOT NULL THEN
+    NEW.owner_global_user_id := NEW.global_user_id;
+  END IF;
+
+  IF NEW.scope_kind IS NULL THEN
+    IF NEW.owner_global_user_id IS NOT NULL AND NEW.group_scope IS NOT NULL THEN
+      NEW.scope_kind := 'user-group';
+    ELSIF NEW.owner_global_user_id IS NOT NULL THEN
+      NEW.scope_kind := 'user';
+    ELSIF NEW.thread_scope IS NOT NULL THEN
+      NEW.scope_kind := 'thread';
+    ELSIF NEW.group_scope IS NOT NULL THEN
+      NEW.scope_kind := 'group';
+    ELSE
+      NEW.scope_kind := 'project';
+    END IF;
+  END IF;
+
+  IF NEW.privacy_class IS NULL THEN
+    NEW.privacy_class := CASE NEW.scope_kind
+      WHEN 'user' THEN 'private'
+      WHEN 'user-group' THEN 'user-group'
+      WHEN 'group' THEN 'group'
+      WHEN 'thread' THEN 'group'
+      ELSE 'project'
+    END;
+  END IF;
+
+  IF NEW.confirmation_state IS NULL THEN
+    NEW.confirmation_state := CASE WHEN NEW.confirmed THEN 'confirmed' ELSE 'proposed' END;
+  END IF;
+  IF NEW.lifecycle_state IS NULL THEN
+    NEW.lifecycle_state := CASE WHEN NEW.expires_at IS NOT NULL AND NEW.expires_at <= now() THEN 'expired' ELSE 'active' END;
+  END IF;
+  IF NEW.retention_class IS NULL THEN NEW.retention_class := 'durable'; END IF;
+  IF NEW.record_version IS NULL THEN NEW.record_version := 1; END IF;
+
+  IF NEW.semantic_fingerprint IS NULL
+     OR TG_OP = 'UPDATE' AND (NEW.value IS DISTINCT FROM OLD.value OR NEW.memory_key IS DISTINCT FROM OLD.memory_key OR NEW.memory_layer IS DISTINCT FROM OLD.memory_layer) THEN
+    NEW.semantic_fingerprint := md5(
+      COALESCE(NEW.memory_layer,'') || '|' || COALESCE(NEW.memory_key,'') || '|' || NEW.value::text || '|' ||
+      COALESCE(NEW.owner_global_user_id,'-') || '|' || NEW.project_scope || '|' || COALESCE(NEW.group_scope,'-') || '|' || COALESCE(NEW.thread_scope,'-')
+    );
+  END IF;
+  RETURN NEW;
+END $$;
+
+DROP TRIGGER IF EXISTS memory2_legacy_write_defaults_trigger ON memory_records;
+CREATE TRIGGER memory2_legacy_write_defaults_trigger
+BEFORE INSERT OR UPDATE ON memory_records
+FOR EACH ROW EXECUTE FUNCTION memory2_legacy_write_defaults();
+
 CREATE INDEX IF NOT EXISTS memory2_owner_scope_idx
   ON memory_records(owner_global_user_id, project_scope, group_scope, thread_scope, scope_kind, lifecycle_state);
 CREATE INDEX IF NOT EXISTS memory2_shared_scope_idx

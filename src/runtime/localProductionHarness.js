@@ -105,7 +105,10 @@ export function createLocalProductionHarness({ env = {}, interpretationResolver,
     store: selfKnowledgeStore,
     sources: selfKnowledgeSources,
     clock,
-    audit: (event) => observability.record({ eventClass: 'audit_event', channel: 'telemetry', stage: 'self-knowledge', outcome: event.validationStatus, reason: event.reason, data: { selfKnowledgeEventClass: event.eventClass, sourceRevision: event.sourceRevision, previousVersion: event.previousVersion, newVersion: event.newVersion, changed: event.changed, validationStatus: event.validationStatus, conflictCount: event.conflictCount, materialHash: event.materialHash } })
+    audit: (event) => {
+      const correlation = `self-knowledge:${config.environment}:${config.revision}`;
+      return observability.record({ eventClass: 'audit_event', channel: 'telemetry', stage: 'self-knowledge', outcome: event.validationStatus, reason: event.reason, traceContext: { traceId: correlation, requestId: correlation, environment: config.environment, revision: config.revision }, data: { selfKnowledgeEventClass: event.eventClass, sourceRevision: event.sourceRevision, previousVersion: event.previousVersion, newVersion: event.newVersion, changed: event.changed, validationStatus: event.validationStatus, conflictCount: event.conflictCount, materialHash: event.materialHash } });
+    }
   });
   let runtime = null;
   const responseContextAssembler = createBoundedResponseContextAssembler({

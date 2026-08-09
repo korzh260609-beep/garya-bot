@@ -10,7 +10,7 @@ const PATHS = Object.freeze({
       ['capability', ['capability_started', 'capability_completed', 'capability_failed']],
       ['ai', ['model_call']],
       ['response', ['final_response_guard', 'response_composed', 'capability_completed']],
-      ['delivery', ['delivery_attempt', 'telegram_update_completed']]
+      ['delivery', ['delivery_attempt', 'delivery_completed', 'telegram_update_completed']]
     ])
   }),
   memory: Object.freeze({
@@ -18,11 +18,11 @@ const PATHS = Object.freeze({
     stages: Object.freeze([
       ['transport.receive', ['request_received']],
       ['identity', ['identity_resolved', 'request_received']],
-      ['memory', ['memory_query_started', 'memory_query_completed', 'memory_capture']],
+      ['memory', ['memory_query_started', 'memory_query_completed', 'memory_capture', 'memory_capture_completed']],
       ['semantic', ['semantic_decision_created']],
       ['action-gate', ['action_gate_decision']],
       ['capability', ['capability_started', 'capability_completed', 'capability_failed']],
-      ['delivery', ['delivery_attempt', 'telegram_update_completed']]
+      ['delivery', ['delivery_attempt', 'delivery_completed', 'telegram_update_completed']]
     ])
   }),
   task: Object.freeze({
@@ -34,7 +34,7 @@ const PATHS = Object.freeze({
       ['action-gate', ['action_gate_decision']],
       ['capability', ['capability_started', 'capability_completed', 'capability_failed']],
       ['persistence', ['task_created', 'task_updated', 'capability_completed']],
-      ['delivery', ['delivery_attempt', 'telegram_update_completed']]
+      ['delivery', ['delivery_attempt', 'delivery_completed', 'telegram_update_completed']]
     ])
   }),
   worker: Object.freeze({
@@ -44,7 +44,7 @@ const PATHS = Object.freeze({
       ['action-gate', ['action_gate_decision']],
       ['capability', ['capability_started', 'capability_completed', 'capability_failed']],
       ['persistence', ['task_completed', 'task_failed', 'execution_state']],
-      ['delivery', ['delivery_attempt']]
+      ['delivery', ['delivery_attempt', 'delivery_completed']]
     ])
   })
 });
@@ -58,7 +58,7 @@ export function createExpectedPathRegistry({ paths = PATHS } = {}) {
     },
     list() { return Object.freeze(Object.keys(paths)); },
     infer(evidence = []) {
-      const names = new Set(evidence.flatMap((item) => [item.stage, item.payload?.eventClass, item.payload?.eventType].filter(Boolean)));
+      const names = new Set(evidence.flatMap((item) => eventNames(item)));
       if ([...names].some((value) => String(value).includes('worker') || String(value).includes('task_claim'))) return 'worker';
       if ([...names].some((value) => String(value).includes('memory'))) return 'memory';
       if ([...names].some((value) => String(value).includes('task'))) return 'task';
@@ -68,11 +68,14 @@ export function createExpectedPathRegistry({ paths = PATHS } = {}) {
 }
 
 export function eventNames(evidence) {
+  const data = evidence?.payload?.data && typeof evidence.payload.data === 'object' ? evidence.payload.data : {};
+  const nestedEventClasses = Object.entries(data)
+    .filter(([key, value]) => /(?:eventclass|eventtype)$/iu.test(key) && value != null)
+    .map(([, value]) => String(value));
   return Object.freeze([
-    evidence.stage,
-    evidence.payload?.eventClass,
-    evidence.payload?.eventType,
-    evidence.payload?.data?.operationalEventType,
-    evidence.payload?.data?.operationalEventClass
+    evidence?.stage,
+    evidence?.payload?.eventClass,
+    evidence?.payload?.eventType,
+    ...nestedEventClasses
   ].filter(Boolean).map(String));
 }

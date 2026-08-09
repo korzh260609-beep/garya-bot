@@ -11,6 +11,28 @@ function stringList(value, field) {
   return Object.freeze([...new Set(list)]);
 }
 
+function optionalString(value) {
+  if (value == null) return null;
+  const text = String(value).trim();
+  return text === '' ? null : text;
+}
+
+export function createDescriptiveIdentityProfile(value) {
+  if (value == null) return null;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new TypeError('identity profile must be an object');
+  const profile = {
+    displayName: optionalString(value.displayName),
+    preferredName: optionalString(value.preferredName),
+    firstName: optionalString(value.firstName),
+    lastName: optionalString(value.lastName),
+    username: optionalString(value.username),
+    languageCode: optionalString(value.languageCode),
+    source: optionalString(value.source)
+  };
+  if (!Object.values(profile).some(Boolean)) return null;
+  return Object.freeze(profile);
+}
+
 export const IDENTITY_LINK_STATUSES = Object.freeze(['linked', 'guest', 'unlinked', 'local-fixture']);
 
 export function createIdentityContext(input) {
@@ -24,7 +46,8 @@ export function createIdentityContext(input) {
     linkStatus,
     roles: stringList(input.roles, 'roles'),
     grants: stringList(input.grants, 'grants'),
-    authenticationLevel: requireNonEmptyString(input.authenticationLevel ?? 'fixture', 'authenticationLevel')
+    authenticationLevel: requireNonEmptyString(input.authenticationLevel ?? 'fixture', 'authenticationLevel'),
+    profile: createDescriptiveIdentityProfile(input.profile)
   });
 }
 

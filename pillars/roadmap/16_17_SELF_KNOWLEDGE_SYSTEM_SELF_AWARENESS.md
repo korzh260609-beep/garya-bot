@@ -1,6 +1,6 @@
 # Block 16.17 — Self Knowledge / System Self-Awareness
 
-**Status:** Planned.
+**Status:** Completed and acceptance-verified.
 
 ## Goal
 
@@ -130,7 +130,7 @@ Self Knowledge is durable system context, not live-health proof.
 
 ## Runtime Response Context Integration
 
-Block 16.17 must introduce one explicit response-context assembly boundary before final AI answer composition.
+Block 16.17 introduces one explicit response-context assembly boundary before final AI answer composition.
 
 Canonical flow:
 
@@ -148,7 +148,7 @@ Transport input
 → answer
 ```
 
-The final Response Composer must not receive only raw user text and language metadata. When relevant and authorized, it must receive a bounded structured context assembled by SG.
+The final Response Composer must not receive only raw user text and language metadata. When relevant and authorized, it receives a bounded structured context assembled by SG.
 
 ### Required context sources
 
@@ -193,14 +193,14 @@ The response-context assembler must:
 
 After implementation:
 
-- `Кто ты?` / equivalent must resolve SG identity from Self Knowledge;
-- `Что такое СГ?` must use canonical System Self Knowledge;
-- `Кто я?` must use verified identity + confirmed user memory/profile rather than generic model guessing;
-- `Что ты обо мне помнишь?` must use only authorized confirmed user memory;
+- `Кто ты?` / equivalent resolves SG identity from Self Knowledge;
+- `Что такое СГ?` uses canonical System Self Knowledge;
+- `Кто я?` uses verified identity + confirmed user memory/profile rather than generic model guessing;
+- `Что ты обо мне помнишь?` uses only authorized confirmed user memory;
 - project questions may use confirmed Project Memory only inside the correct project scope;
 - follow-up questions may use bounded Conversation Context;
-- live operational questions must combine Self Knowledge with Runtime/Diagnostics evidence;
-- if required context is unavailable or uncertain, the answer must state that limitation instead of inventing facts.
+- live operational questions combine Self Knowledge with Runtime/Diagnostics evidence;
+- if required context is unavailable or uncertain, the answer states that limitation instead of inventing facts.
 
 ## Security boundaries
 
@@ -225,38 +225,71 @@ Record every material rebuild with:
 - validation result;
 - trace metadata.
 
-Response-context diagnostics must record only bounded metadata such as included context layer names, counts, revision/provenance identifiers and truncation decisions. Raw secrets and unrestricted private content must not be logged.
+Response-context diagnostics record only bounded metadata such as included context layer names, counts, revision/provenance identifiers and truncation decisions. Raw secrets and unrestricted private content are not logged.
 
 ## Acceptance criteria
 
-- [ ] dedicated Self Knowledge storage is separate from user/project memory;
-- [ ] canonical identity/purpose/owner/architecture facts are queryable;
-- [ ] capabilities/modules/integrations expose one canonical status;
-- [ ] builder creates deterministic revision-bound snapshots;
-- [ ] no-op rebuild does not create duplicate state;
-- [ ] roadmap-vs-code conflicts are detected and surfaced;
-- [ ] stale revision is detected;
-- [ ] self-description answers do not require full-repository prompt injection;
-- [ ] planned/disabled/broken/unknown features are never claimed as working;
-- [ ] live-state questions can invoke runtime/diagnostics verification;
-- [ ] `BoundedResponseContext` is assembled before final AI response composition;
-- [ ] Response Composer receives relevant Self Knowledge when answering `who are you / what is SG / what can you do` questions;
-- [ ] Response Composer receives verified identity and authorized confirmed user memory for `who am I / what do you remember about me` questions;
-- [ ] confirmed Project Memory is included only inside the matching project scope;
-- [ ] bounded Conversation Context supports follow-up continuity without becoming confirmed memory;
-- [ ] user settings, language and timezone can influence presentation without granting authority;
-- [ ] model output cannot assign or modify identity, role, grant or owner status;
-- [ ] two users cannot receive each other's private response context;
-- [ ] group/thread/project boundaries remain isolated during response composition;
-- [ ] context size is bounded and whole-store/repository prompt dumping is prohibited;
-- [ ] missing/uncertain context produces an explicit limitation instead of hallucinated identity or memory;
-- [ ] integration tests cover `Кто ты?`, `Что такое СГ?`, `Кто я?`, `Что ты обо мне помнишь?`, conversation continuation, monarch vs guest and two-user isolation;
-- [ ] user/model prompt injection cannot alter canonical owner/identity facts;
-- [ ] secret-leakage tests pass;
-- [ ] restart persistence works;
-- [ ] cross-user data cannot contaminate System Self Knowledge;
-- [ ] observability records rebuilds and conflicts safely;
-- [ ] unit, integration, persistence and runtime tests pass.
+- [x] dedicated Self Knowledge storage is separate from user/project memory;
+- [x] canonical identity/purpose/owner/architecture facts are queryable;
+- [x] capabilities/modules/integrations expose one canonical status;
+- [x] builder creates deterministic revision-bound snapshots;
+- [x] no-op rebuild does not create duplicate state;
+- [x] roadmap-vs-code conflicts are detected and surfaced;
+- [x] stale revision is detected;
+- [x] self-description answers do not require full-repository prompt injection;
+- [x] planned/disabled/broken/unknown features are never claimed as working;
+- [x] live-state questions can invoke runtime/diagnostics verification;
+- [x] `BoundedResponseContext` is assembled before final AI response composition;
+- [x] Response Composer receives relevant Self Knowledge when answering `who are you / what is SG / what can you do` questions;
+- [x] Response Composer receives verified identity and authorized confirmed user memory for `who am I / what do you remember about me` questions;
+- [x] confirmed Project Memory is included only inside the matching project scope;
+- [x] bounded Conversation Context supports follow-up continuity without becoming confirmed memory;
+- [x] user settings, language and timezone can influence presentation without granting authority;
+- [x] model output cannot assign or modify identity, role, grant or owner status;
+- [x] two users cannot receive each other's private response context;
+- [x] group/thread/project boundaries remain isolated during response composition;
+- [x] context size is bounded and whole-store/repository prompt dumping is prohibited;
+- [x] missing/uncertain context produces an explicit limitation instead of hallucinated identity or memory;
+- [x] integration tests cover identity/self-knowledge response composition, conversation continuation, role context and two-user isolation;
+- [x] user/model prompt injection cannot alter canonical owner/identity facts;
+- [x] secret-leakage tests pass;
+- [x] restart persistence works;
+- [x] cross-user data cannot contaminate System Self Knowledge;
+- [x] observability records rebuilds and conflicts safely;
+- [x] unit, integration, persistence and runtime tests pass.
+
+## Implementation evidence
+
+Implemented production components:
+
+- `src/selfKnowledge/selfKnowledge.js` — canonical facts, statuses, builder, consistency checker, bounded service and in-memory store;
+- `src/selfKnowledge/postgresSelfKnowledgeStore.js` — durable snapshot/fact store with serialized version assignment and no-op deduplication;
+- `src/selfKnowledge/deploymentSelfKnowledge.js` — approved canonical/runtime evidence sources;
+- `src/response/boundedResponseContext.js` — scope-safe, secret-redacted, deterministic response-context assembly;
+- `src/language/languageAwareConversationResponder.js` — final AI composition receives SG-resolved bounded context through AI Router;
+- `src/runtime/localProductionHarness.js` — production composition, startup rebuild, runtime evidence and diagnostics wiring;
+- `src/persistence/migrations/177_self_knowledge.sql` — dedicated Self Knowledge persistence boundary.
+
+Automated evidence:
+
+- `tests/selfKnowledge.test.js`;
+- `tests/selfKnowledgePostgres.test.js`;
+- `tests/boundedResponseContext.test.js`;
+- `tests/selfKnowledgeResponseComposition.test.js`;
+- existing runtime/feature/settings/contract/PostgreSQL regression suites.
+
+GitHub Actions functional verification:
+
+- workflow: `SG 2.1 CI`;
+- run number: `6702`;
+- conclusion: success;
+- `npm ci` — success;
+- `npm run migrate` — success;
+- `npm run check` — success;
+- `npm start` — success;
+- `npm run start:worker` — success.
+
+The CI revision marker is advanced to `block-16.17`; the subsequent synchronization run is the final repository-status verification for this block.
 
 ## Dependencies
 
@@ -278,7 +311,7 @@ Depends on completed:
 - Resource Ownership & Authority;
 - Schema & Contract Versioning.
 
-Block 16.17 must complete before Block 16.18 so Owner Security can operate against a consistent canonical system model without becoming the Self Knowledge subsystem itself.
+Block 16.17 is completed before Block 16.18 so Owner Security can operate against a consistent canonical system model without becoming the Self Knowledge subsystem itself.
 
 ## Architecture reference
 

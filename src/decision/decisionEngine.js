@@ -31,9 +31,13 @@ function selectCandidate(evaluations) {
   })[0];
 }
 
-function canonicalizeSelectedAction(action) {
+function canonicalizeSelectedAction(action, semanticIntent) {
   if (action?.type === 'answer' && action?.actionClass === 'analysis') {
-    return Object.freeze({ ...action, name: 'compose-answer' });
+    return Object.freeze({
+      ...action,
+      name: 'compose-answer',
+      payload: Object.freeze({ ...(action.payload ?? {}), semanticIntent })
+    });
   }
   return Object.freeze({ ...action });
 }
@@ -80,7 +84,7 @@ export function createDecisionEngine({ uncertaintyThreshold = 0.65 } = {}) {
 
       const evaluations = evaluateCandidates(interpretation.candidateActions);
       const selected = selectCandidate(evaluations);
-      const selectedAction = canonicalizeSelectedAction(selected.action);
+      const selectedAction = canonicalizeSelectedAction(selected.action, interpretation.intent);
       const requiresEvidence = interpretation.evidenceNeeds.length > 0;
       const decisionType = classifyDecision({ interpretation, selected, uncertaintyThreshold });
       const rationale = buildRationale({ decisionType, interpretation, selected, requiresEvidence });

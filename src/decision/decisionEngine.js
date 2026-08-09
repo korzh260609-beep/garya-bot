@@ -43,12 +43,12 @@ function classifyDecision({ interpretation, selected, uncertaintyThreshold }) {
   return 'answer';
 }
 
-function buildMessage({ decisionType, interpretation, selectedAction }) {
+function buildMessage({ decisionType, canonicalInput, interpretation, selectedAction }) {
   if (decisionType === 'clarification') return interpretation.clarificationQuestion;
   if (decisionType === 'prepare') {
     return `Prepared action: ${selectedAction.name ?? selectedAction.type ?? 'requested action'}. Execution is disabled before Action Gate.`;
   }
-  return interpretation.meaning;
+  return canonicalInput.text;
 }
 
 function buildRationale({ decisionType, interpretation, selected, requiresEvidence }) {
@@ -68,6 +68,7 @@ export function createDecisionEngine({ uncertaintyThreshold = 0.65 } = {}) {
     name: 'sg-decision-engine-v1',
     decide({ canonicalInput, interpretation, interpreterName = 'anonymous' }) {
       if (!canonicalInput?.traceContext) throw new TypeError('canonicalInput.traceContext is required');
+      if (typeof canonicalInput.text !== 'string' || canonicalInput.text.trim() === '') throw new TypeError('canonicalInput.text is required');
       if (!interpretation) throw new TypeError('interpretation is required');
       if (interpretation.missingInformation.length > 0 && !interpretation.clarificationQuestion) {
         throw new TypeError('clarificationQuestion is required when essential information is missing');
@@ -103,6 +104,7 @@ export function createDecisionEngine({ uncertaintyThreshold = 0.65 } = {}) {
           executableIntent: selected.executableIntent,
           protectedIntent: selected.protectedIntent,
           conversationalAnswerCanonicalized: selected.action.type === 'answer' && selected.action.actionClass === 'analysis' && selected.action.name !== 'compose-answer',
+          semanticMeaningExposedAsResponse: false,
           permissionChecked: false,
           capabilityExecuted: false
         }
@@ -110,7 +112,7 @@ export function createDecisionEngine({ uncertaintyThreshold = 0.65 } = {}) {
 
       const responsePlan = createResponsePlan({
         mode: decisionType,
-        message: buildMessage({ decisionType, interpretation, selectedAction }),
+        message: buildMessage({ decisionType, canonicalInput, interpretation, selectedAction }),
         requiresConfirmation: false,
         preparedAction: decisionType === 'prepare' ? selectedAction : null
       });

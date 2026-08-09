@@ -46,9 +46,6 @@ integration('Block 12 upgrades an SG 2.0 database in place without deleting lega
     INSERT INTO tasks(user_chat_id,user_global_id,title,type,payload)
       VALUES ('42','tg:42','legacy task','legacy','{}'::jsonb);
 
-    -- Render production exposed this real compatibility class: SG 2.0 can
-    -- already have a table name reused by SG 2.1 without scoped columns.
-    -- The preflight migration must evolve it before 001 creates scope indexes.
     CREATE TABLE conversations (
       id serial PRIMARY KEY,
       chat_id text NOT NULL,
@@ -58,8 +55,6 @@ integration('Block 12 upgrades an SG 2.0 database in place without deleting lega
     INSERT INTO conversations(chat_id, content)
       VALUES ('42', '{"legacy":true}'::jsonb);
 
-    -- SG 2.0 migration 024 created this table without project_scope. Block
-    -- 16.12 later reuses the same table name with project-scoped JSON settings.
     CREATE TABLE user_settings (
       global_user_id text PRIMARY KEY,
       timezone text NOT NULL DEFAULT 'UTC',
@@ -71,8 +66,8 @@ integration('Block 12 upgrades an SG 2.0 database in place without deleting lega
   `);
 
   const migrated = await runMigrations(database);
-  assert.equal(migrated.applied.length, 17);
-  assert.equal(migrated.total, 17);
+  assert.equal(migrated.applied.length, 18);
+  assert.equal(migrated.total, 18);
   assert.ok(migrated.applied.includes('000_legacy_scope_preflight.sql'));
   assert.ok(migrated.applied.includes('165_temporal_context.sql'));
   assert.ok(migrated.applied.includes('166_recurring_schedules.sql'));
@@ -86,6 +81,7 @@ integration('Block 12 upgrades an SG 2.0 database in place without deleting lega
   assert.ok(migrated.applied.includes('175_contract_versioning.sql'));
   assert.ok(migrated.applied.includes('176_feature_flags.sql'));
   assert.ok(migrated.applied.includes('177_self_knowledge.sql'));
+  assert.ok(migrated.applied.includes('178_memory_2_0.sql'));
 
   const legacyUser = await database.query("SELECT chat_id,global_user_id FROM users WHERE global_user_id='tg:42'");
   assert.equal(legacyUser.rows[0].chat_id, '42');
@@ -124,7 +120,7 @@ integration('Block 12 PostgreSQL persistence is durable, isolated and atomic', a
 
   const migrationRepeat = await runMigrations(database);
   assert.deepEqual(migrationRepeat.applied, []);
-  assert.equal(migrationRepeat.total, 17);
+  assert.equal(migrationRepeat.total, 18);
 
   const suffix = randomUUID();
   const scope = { globalUserId: `user:${suffix}`, projectScope: 'sg2.1', groupScope: 'group:1', threadScope: 'thread:1' };

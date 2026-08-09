@@ -34,6 +34,7 @@ Active files:
 - `TRANSPORTS_AND_AI_ROUTING.md`
 - `LANGUAGE_AND_LOCALE_CONTEXT.md`
 - `FOUNDATIONAL_CONTROL_LAYERS.md`
+- `SELF_KNOWLEDGE.md`
 - `MONARCH_OWNER_SECURITY.md`
 - `RUNTIME_COMPOSITION.md`
 - `POSTGRESQL_PERSISTENCE.md`
@@ -73,6 +74,7 @@ Active files:
 - `16_14_INTERNAL_EVENT_BUS.md` — Block 16.14 implementation and acceptance evidence
 - `16_15_SCHEMA_AND_CONTRACT_VERSIONING.md` — Block 16.15 implementation and acceptance evidence
 - `16_16_FEATURE_FLAGS_AND_CONTROLLED_ROLLOUT.md` — Block 16.16 implementation and acceptance evidence
+- `16_17_SELF_KNOWLEDGE_SYSTEM_SELF_AWARENESS.md` — Block 16.17 planned specification/future acceptance evidence
 - `16_18_MONARCH_CONTROL_OWNER_SECURITY.md` — Block 16.18 planned specification/future acceptance evidence
 - `PRODUCTION_ROADMAP.md` — canonical continuation covering Blocks 11–19, intermediate Blocks 16.5–16.18 and Pilot Launch
 

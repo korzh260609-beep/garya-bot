@@ -98,6 +98,35 @@ test('Telegram delivery boundary works with the real observability contract and 
   assert.equal(serialized.includes('привет'), false);
 });
 
+test('a failing final-response diagnostics sensor cannot suppress Telegram delivery', async () => {
+  const sent = [];
+  const events = [];
+  const observability = {
+    record(event) {
+      events.push(event);
+      if (event.eventClass === 'final_response_observed') throw new Error('simulated diagnostics contract failure');
+    },
+    recordFailure(event) { events.push({ ...event, failure: true }); }
+  };
+  const integration = createTelegramProductionIntegration({
+    secretToken: 'secret',
+    botClient: { sendMessage: async (payload) => sent.push(payload) },
+    updateStore: createInMemoryTelegramUpdateStore(),
+    identityResolver,
+    runtime: { handle: async () => ({ status: 'success', message: 'Здравствуйте!', data: {} }) },
+    observability,
+    environment: 'test',
+    revision: 'sensor-isolation-test',
+    idFactory: (() => { let i = 0; return () => `isolation-${++i}`; })()
+  });
+
+  const result = await integration.handleWebhook({ headers: { 'x-telegram-bot-api-secret-token': 'secret' }, body: telegramUpdate() });
+  assert.equal(result.statusCode, 200);
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].text, 'Здравствуйте!');
+  assert.ok(events.some((event) => event.failure === true && event.stage === 'diagnostic-sensor'));
+});
+
 test('Universal Diagnostics classifies delivery-boundary exact echo as confirmed RESPONSE invariant', () => {
   const traceId = 'trace-exact-echo';
   const hash = fingerprintFinalResponse('привет', { salt: traceId });

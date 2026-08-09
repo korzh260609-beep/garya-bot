@@ -169,3 +169,22 @@ Shared group memory is a first-class group/resource scope and must not be repres
 Private memory cannot become shared memory implicitly. Scope/privacy authorization must occur before recall content reaches semantic processing. Automatic capture cannot turn raw dialogue into confirmed truth. Consolidation preserves provenance/history and cannot silently increase trust. Expired/superseded memory is excluded from ordinary recall.
 
 Memory cannot grant identity, roles, permissions, ownership or resource authority, and raw secrets never become ordinary memory.
+
+## D-027 — Universal Diagnostics is an independent observer program
+SG 2.1 must have a universal diagnostic system capable of determining where execution first diverged from the expected path, separating primary root cause from downstream symptoms, and grounding conclusions in explicit evidence.
+
+Universal Diagnostics is a separate cross-cutting program and independent application, not a new SG core reasoning layer and not a mandatory hop in ordinary request execution. SG-side responsibility is limited to versioned, privacy-bounded diagnostic facts and approved read-only observation surfaces. The external Diagnostics application owns collection, trace reconstruction, expected-path/invariant checking, first-divergence analysis, deterministic root-cause analysis, deployment/runtime diagnostics, isolated live diagnostic tests, replay/regression evidence and diagnostic reporting.
+
+The following boundaries are mandatory:
+
+- SG must continue operating when Diagnostics is unavailable;
+- Diagnostics is read-only by default and cannot silently edit code/configuration, deploy, mutate production state, grant roles/permissions/ownership/authority, or repair SG automatically;
+- Diagnostics cannot bypass Identity, Scope, Action Gate, Resource Authority or Monarch/Owner Security;
+- synthetic diagnostic traffic must be explicitly marked and isolated from ordinary confirmed memory, user settings, profile/psychological adaptation and ordinary persistent tasks;
+- diagnostic conclusions require evidence, and missing evidence lowers confidence instead of being guessed;
+- historical incidents/signatures may guide investigation but cannot prove the current cause;
+- deterministic diagnostic findings are authoritative; AI may explain findings but cannot independently promote a cause to `CONFIRMED`;
+- full diagnostic evidence is privileged and must be owner-secured and secret-safe;
+- the Diagnostics application must be independently deployable/reversible, with least-privilege read-only credentials and no hard runtime dependency from SG.
+
+The canonical architecture is `pillars/architecture/UNIVERSAL_DIAGNOSTICS.md`; implementation program is `pillars/roadmap/UNIVERSAL_DIAGNOSTICS_PROGRAM.md`; implementation/verification procedure is `pillars/workflow/UNIVERSAL_DIAGNOSTICS_WORKFLOW.md`.

@@ -102,3 +102,33 @@ integration('Memory 2.0 PostgreSQL serializes concurrent duplicate writes and li
     await restarted.close();
   }
 });
+
+integration('Memory 2.0 production guard blocks durable automatic capture for guest-only identities', async () => {
+  const suffix = randomUUID();
+  const project = `memory2-guest:${suffix}`;
+  const user = `usr_${suffix.replaceAll('-','').slice(0,16)}`;
+  const persistence = createPostgresPersistence({ connectionString, ssl: false, applicationName: 'sg-memory2-guest-guard-test' });
+  await persistence.start();
+  try {
+    await persistence.repositories.users.upsert({ globalUserId: user });
+    await persistence.repositories.access.grantRole({ globalUserId: user, projectScope: project, role: 'guest' });
+    const service = createMemory2Service({ store: createPostgresMemory2Store({ database: persistence.database }) });
+
+    await assert.rejects(
+      () => service.capture({ text: 'Я предпочитаю короткие ответы', scope: scope(user, project), actor: actor(user, ['guest']), metadata: { sourceId: `guest:${suffix}` } }),
+      /guest durable automatic memory is not permitted/i
+    );
+
+    const count = await persistence.database.query('SELECT count(*)::int AS count FROM memory_records WHERE project_scope=$1 AND owner_global_user_id=$2', [project, user]);
+    assert.equal(count.rows[0].count, 0);
+
+    await persistence.repositories.access.grantRole({ globalUserId: user, projectScope: project, role: 'citizen' });
+    const allowed = await service.capture({ text: 'Я предпочитаю короткие ответы', scope: scope(user, project), actor: actor(user, ['guest','citizen']), metadata: { sourceId: `citizen:${suffix}` } });
+    assert.equal(allowed.persisted, true);
+  } finally {
+    await persistence.database.query('DELETE FROM memory_records WHERE project_scope=$1', [project]);
+    await persistence.database.query('DELETE FROM roles WHERE global_user_id=$1 AND project_scope=$2', [user, project]);
+    await persistence.database.query('DELETE FROM users WHERE global_user_id=$1', [user]);
+    await persistence.close();
+  }
+});

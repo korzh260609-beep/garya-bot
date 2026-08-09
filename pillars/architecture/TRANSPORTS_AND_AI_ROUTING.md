@@ -22,6 +22,33 @@ Block 16.10 Resource Ownership & Authority owns verified user/project relationsh
 
 Block 16.13 Notification & Delivery Router owns selection of authorized delivery target/channel for notifications and cross-transport delivery. Transports execute the final protocol call only.
 
+## Discord production extension — Block 8.1
+
+Block 8 already contains the generic Discord transport adapter contract. Block 8.1 is the production extension that connects this adapter to a live Discord bot without changing SG core ownership boundaries.
+
+The production Discord path is:
+
+```text
+Discord Gateway / REST
+→ thin Discord production integration
+→ existing Discord TransportAdapter normalization
+→ centralized Identity / Scope
+→ canonical global_user_id
+→ shared SG Core / Memory 2.0
+→ existing Delivery Router
+→ Discord delivery transport
+```
+
+Discord platform IDs, usernames, display names, nicknames, server roles and message text are platform facts only. They cannot create SG roles, grants, ownership or Monarch authority.
+
+Cross-platform personal continuity is rooted in verified canonical `global_user_id` linking. Telegram and Discord accounts may share personal memory/settings/roles only after both resolve to the same verified Global ID. Descriptive profile similarity must never merge identities automatically.
+
+Discord guild/channel/thread context must reuse existing Scope, Conversation Context and Resource Ownership & Authority boundaries. A new canonical scope dimension is introduced only if implementation evidence proves the current model is insufficient and a separate architecture decision is approved.
+
+Discord delivery remains behind the existing Delivery Router. Discord server permissions determine only whether the bot can technically execute an already-approved platform action; they do not replace SG authorization.
+
+Canonical implementation specification: `../roadmap/08_1_DISCORD_TRANSPORT_INTEGRATION.md`.
+
 ## AI routing
 AI Router is a model-selection and cost-control component, not SG brain.
 

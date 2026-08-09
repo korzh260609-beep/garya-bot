@@ -115,10 +115,13 @@ test('live runner refuses mutating probes', () => {
   assert.throws(() => createLiveDiagnosticRunner({ probes: [{ id: 'bad', safe: true, mutatesUserState: true, run: async () => ({ ok: true }) }] }), /forbidden/);
 });
 
-test('diagnostics HTTP API is owner authenticated and exposes regression library', async () => {
+test('diagnostics HTTP API is owner authenticated, audited and can analyze latest Monarch trace', async () => {
   const regressions = [];
+  const audits = [];
+  const analyzed = [];
   const service = {
-    async analyzeRequest() { return { report: { status: 'healthy' }, evidence: [] }; },
+    async recentTraces(input) { assert.deepEqual(input, { globalUserId: 'usr_monarch', projectScope: 'sg2.1', limit: 1 }); return [{ traceId: 'trace-latest', requestId: 'request-latest', eventCount: 8 }]; },
+    async analyzeRequest(input) { analyzed.push(input); return { report: { status: 'healthy', traceId: input.traceId }, evidence: [] }; },
     async systemHealth() { return { report: { status: 'healthy' }, evidence: [] }; },
     async runLive() { return { report: { status: 'healthy' }, result: { failed: 0 }, evidence: [] }; },
     async runRegressions() { return { total: regressions.length, passed: regressions.length, failed: 0, results: [] }; }
@@ -126,9 +129,10 @@ test('diagnostics HTTP API is owner authenticated and exposes regression library
   const store = {
     async getRun() { return null; }, async listRuns() { return []; }, async listEvidence() { return []; },
     async listRegressions() { return regressions; },
-    async putRegression(input) { const row = { regression_id: input.regressionId ?? 'reg-1', name: input.name, fixture: input.fixture, expected: input.expected }; regressions.push(row); return row; }
+    async putRegression(input) { const row = { regression_id: input.regressionId ?? 'reg-1', name: input.name, fixture: input.fixture, expected: input.expected }; regressions.push(row); return row; },
+    async recordAccess(input) { audits.push(input); return input; }
   };
-  const server = createDiagnosticsHttpServer({ service, store, host: '127.0.0.1', port: 0, adminToken: 'secret-token', monarchGlobalUserId: 'usr_monarch', environment: 'test', revision: 'abc' });
+  const server = createDiagnosticsHttpServer({ service, store, host: '127.0.0.1', port: 0, adminToken: 'secret-token', monarchGlobalUserId: 'usr_monarch', projectScope: 'sg2.1', environment: 'test', revision: 'abc' });
   const address = await server.start();
   const headers = { 'content-type': 'application/json', 'x-diagnostics-token': 'secret-token', 'x-sg-global-user-id': 'usr_monarch' };
   try {
@@ -136,6 +140,13 @@ test('diagnostics HTTP API is owner authenticated and exposes regression library
     assert.equal(health.status, 200);
     const forbidden = await fetch(`http://127.0.0.1:${address.port}/api/system`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
     assert.equal(forbidden.status, 403);
+    const tracesResponse = await fetch(`http://127.0.0.1:${address.port}/api/traces?limit=1`, { headers });
+    assert.equal(tracesResponse.status, 200);
+    const traces = (await tracesResponse.json()).traces;
+    assert.equal(traces[0].traceId, 'trace-latest');
+    const latestAnalysis = await fetch(`http://127.0.0.1:${address.port}/api/request`, { method: 'POST', headers, body: JSON.stringify({ traceId: traces[0].traceId }) });
+    assert.equal(latestAnalysis.status, 200);
+    assert.equal(analyzed[0].traceId, 'trace-latest');
     const allowed = await fetch(`http://127.0.0.1:${address.port}/api/system`, { method: 'POST', headers, body: '{}' });
     assert.equal(allowed.status, 200);
     const created = await fetch(`http://127.0.0.1:${address.port}/api/regressions`, { method: 'POST', headers, body: JSON.stringify({ name: 'echo regression', fixture: { pathId: 'conversation', evidence: [] }, expected: { errorClass: 'TRANSPORT' } }) });
@@ -143,6 +154,22 @@ test('diagnostics HTTP API is owner authenticated and exposes regression library
     const listed = await fetch(`http://127.0.0.1:${address.port}/api/regressions`, { headers });
     assert.equal(listed.status, 200);
     assert.equal((await listed.json()).regressions.length, 1);
+    assert.equal(audits[0].outcome, 'deny');
+    assert.ok(audits.slice(1).every((item) => item.outcome === 'allow'));
+    assert.ok(audits.some((item) => item.path === '/api/traces'));
+    assert.ok(audits.every((item) => !JSON.stringify(item).includes('secret-token')));
+  } finally { await server.stop(); }
+});
+
+test('diagnostics privileged API fails closed when access audit is unavailable', async () => {
+  const service = { recentTraces: async () => [], analyzeRequest: async () => ({}), systemHealth: async () => ({}), runLive: async () => ({ result: { failed: 0 } }), runRegressions: async () => ({ failed: 0 }) };
+  const store = { getRun: async () => null, listRuns: async () => [], listEvidence: async () => [], listRegressions: async () => [], putRegression: async () => ({}), recordAccess: async () => { throw new Error('audit db unavailable'); } };
+  const server = createDiagnosticsHttpServer({ service, store, host: '127.0.0.1', port: 0, adminToken: 'secret-token', monarchGlobalUserId: 'usr_monarch' });
+  const address = await server.start();
+  try {
+    const response = await fetch(`http://127.0.0.1:${address.port}/api/system`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-diagnostics-token': 'secret-token', 'x-sg-global-user-id': 'usr_monarch' }, body: '{}' });
+    assert.equal(response.status, 503);
+    assert.equal((await response.json()).code, 'diagnostics-access-audit-unavailable');
   } finally { await server.stop(); }
 });
 

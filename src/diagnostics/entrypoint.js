@@ -40,6 +40,7 @@ const liveRunner = createLiveDiagnosticRunner({ probes });
 
 const revision = env.SG_REVISION ?? env.RENDER_GIT_COMMIT ?? 'unknown';
 const environment = env.SG_ENVIRONMENT ?? env.NODE_ENV ?? 'production';
+const projectScope = env.SG_PROJECT_SCOPE ?? 'sg2.1';
 const service = createDiagnosticService({
   store, observabilitySource, deploymentSource, infrastructureSource, liveRunner, environment, revision,
   inFlightGraceMs: Number(env.DIAGNOSTICS_IN_FLIGHT_GRACE_MS ?? 300000)
@@ -50,6 +51,7 @@ const httpServer = createDiagnosticsHttpServer({
   port: Number(env.PORT ?? env.DIAGNOSTICS_PORT ?? 8790),
   adminToken: required(env.DIAGNOSTICS_ADMIN_TOKEN, 'DIAGNOSTICS_ADMIN_TOKEN'),
   monarchGlobalUserId: required(env.SG_MONARCH_GLOBAL_USER_ID ?? env.MONARCH_GLOBAL_USER_ID, 'SG_MONARCH_GLOBAL_USER_ID/MONARCH_GLOBAL_USER_ID'),
+  projectScope,
   environment, revision
 });
 

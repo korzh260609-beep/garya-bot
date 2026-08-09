@@ -31,12 +31,12 @@ async function readJson(request, maxBytes = 64 * 1024) {
 }
 
 function uiHtml() {
-  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SG Diagnostics</title><style>body{font-family:system-ui,sans-serif;margin:2rem;max-width:1000px}input,button{font:inherit;padding:.55rem;margin:.25rem}pre{background:#111;color:#eee;padding:1rem;overflow:auto;border-radius:.5rem}.row{display:flex;gap:.5rem;flex-wrap:wrap}.muted{opacity:.7}</style></head><body><h1>SG Diagnostics</h1><p class="muted">Read-only diagnostic console. Full API requires owner authentication headers.</p><div class="row"><input id="trace" placeholder="traceId"><input id="owner" placeholder="global_user_id"><input id="token" type="password" placeholder="diagnostics token"><button onclick="run()">Analyze trace</button><button onclick="health()">System health</button><button onclick="live()">Live probes</button></div><pre id="out">Ready.</pre><script>const out=document.getElementById('out');function headers(){return {'content-type':'application/json','x-sg-global-user-id':document.getElementById('owner').value,'x-diagnostics-token':document.getElementById('token').value}}async function run(){const r=await fetch('/api/request',{method:'POST',headers:headers(),body:JSON.stringify({traceId:document.getElementById('trace').value})});out.textContent=JSON.stringify(await r.json(),null,2)}async function health(){const r=await fetch('/api/system',{method:'POST',headers:headers(),body:'{}'});out.textContent=JSON.stringify(await r.json(),null,2)}async function live(){const r=await fetch('/api/live/run',{method:'POST',headers:headers(),body:'{}'});out.textContent=JSON.stringify(await r.json(),null,2)}</script></body></html>`;
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SG Diagnostics</title><style>body{font-family:system-ui,sans-serif;margin:2rem;max-width:1000px}input,button{font:inherit;padding:.55rem;margin:.25rem}pre{background:#111;color:#eee;padding:1rem;overflow:auto;border-radius:.5rem}.row{display:flex;gap:.5rem;flex-wrap:wrap}.muted{opacity:.7}</style></head><body><h1>SG Diagnostics</h1><p class="muted">Read-only diagnostic console. Full API requires owner authentication headers.</p><div class="row"><input id="trace" placeholder="traceId"><input id="owner" placeholder="global_user_id"><input id="token" type="password" placeholder="diagnostics token"><button onclick="run()">Analyze trace</button><button onclick="health()">System health</button><button onclick="live()">Live probes</button><button onclick="regressions()">Run regressions</button></div><pre id="out">Ready.</pre><script>const out=document.getElementById('out');function headers(){return {'content-type':'application/json','x-sg-global-user-id':document.getElementById('owner').value,'x-diagnostics-token':document.getElementById('token').value}}async function call(path,body={}){const r=await fetch(path,{method:'POST',headers:headers(),body:JSON.stringify(body)});out.textContent=JSON.stringify(await r.json(),null,2)}async function run(){return call('/api/request',{traceId:document.getElementById('trace').value})}async function health(){return call('/api/system')}async function live(){return call('/api/live/run')}async function regressions(){return call('/api/regressions/run')}</script></body></html>`;
 }
 
 export function createDiagnosticsHttpServer({ service, store, host = '0.0.0.0', port = 8790, adminToken, monarchGlobalUserId, environment = 'unknown', revision = 'unknown' } = {}) {
   if (!service?.analyzeRequest || !service?.systemHealth) throw new TypeError('diagnostic service is required');
-  if (!store?.getRun || !store?.listRuns) throw new TypeError('diagnostic store is required');
+  if (!store?.getRun || !store?.listRuns || !store?.listRegressions || !store?.putRegression) throw new TypeError('diagnostic store is required');
   if (!String(adminToken ?? '').trim()) throw new TypeError('DIAGNOSTICS_ADMIN_TOKEN is required');
   if (!String(monarchGlobalUserId ?? '').trim()) throw new TypeError('SG_MONARCH_GLOBAL_USER_ID is required');
 
@@ -65,6 +65,16 @@ export function createDiagnosticsHttpServer({ service, store, host = '0.0.0.0', 
         const body = await readJson(request);
         const result = await service.runLive({ probeIds: Array.isArray(body.probeIds) ? body.probeIds : undefined });
         return sendJson(response, result.result.failed ? 409 : 200, { ok: result.result.failed === 0, ...result });
+      }
+      if (request.method === 'GET' && url.pathname === '/api/regressions') {
+        const regressions = await store.listRegressions({ enabledOnly: url.searchParams.get('all') !== 'true' });
+        return sendJson(response, 200, { ok: true, regressions });
+      }
+      if (request.method === 'POST' && url.pathname === '/api/regressions') {
+        const body = await readJson(request);
+        if (!body.name || !body.fixture || !body.expected) return sendJson(response, 400, { ok: false, code: 'invalid-regression-fixture' });
+        const regression = await store.putRegression({ regressionId: body.regressionId, name: body.name, fixture: body.fixture, expected: body.expected, fixedRevision: body.fixedRevision ?? null, enabled: body.enabled !== false });
+        return sendJson(response, 201, { ok: true, regression });
       }
       if (request.method === 'POST' && url.pathname === '/api/regressions/run') {
         const result = await service.runRegressions();

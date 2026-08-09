@@ -126,7 +126,7 @@ export function createTelegramProductionIntegration({
           transport: 'telegram'
         }
       });
-      observability?.record?.({ eventClass: 'delivery_attempt', channel: 'telemetry', stage: 'telegram-delivery', traceContext, outcome: 'started', actorRef: canonicalInput.identityContext.globalUserId, data: { transport: 'telegram', routed: Boolean(deliveryRouter) } });
+      recordDiagnosticSensor({ eventClass: 'delivery_attempt', channel: 'telemetry', stage: 'telegram-delivery', traceContext, outcome: 'started', actorRef: canonicalInput.identityContext.globalUserId, data: { transport: 'telegram', routed: Boolean(deliveryRouter) } });
       try {
         if (!deliveryRouter) {
           await botClient.sendMessage({ chatId: message.chat.id, text: response.message, messageThreadId: message.message_thread_id ?? null, replyToMessageId: message.message_id });
@@ -149,9 +149,9 @@ export function createTelegramProductionIntegration({
             throw error;
           }
         }
-        observability?.record?.({ eventClass: 'delivery_completed', channel: 'telemetry', stage: 'telegram-delivery', traceContext, outcome: 'delivered', actorRef: canonicalInput.identityContext.globalUserId, data: { transport: 'telegram', routed: Boolean(deliveryRouter) } });
+        recordDiagnosticSensor({ eventClass: 'delivery_completed', channel: 'telemetry', stage: 'telegram-delivery', traceContext, outcome: 'delivered', actorRef: canonicalInput.identityContext.globalUserId, data: { transport: 'telegram', routed: Boolean(deliveryRouter) } });
       } catch (error) {
-        observability?.recordFailure?.({ traceContext, stage: 'telegram-delivery', reason: redactSensitiveText(error.message), code: error.code ?? 'telegram-delivery-failed', data: { transport: 'telegram' } });
+        try { observability?.recordFailure?.({ traceContext, stage: 'telegram-delivery', reason: redactSensitiveText(error.message), code: error.code ?? 'telegram-delivery-failed', data: { transport: 'telegram' } }); } catch {}
         throw error;
       }
     },
@@ -172,12 +172,14 @@ export function createTelegramProductionIntegration({
       });
       return true;
     } catch (fallbackError) {
-      observability?.recordFailure?.({
-        stage: 'telegram-webhook-fallback',
-        reason: redactSensitiveText(fallbackError?.message ?? 'fallback delivery failed'),
-        code: fallbackError?.code ?? 'telegram-fallback-delivery-failed',
-        data: { originalFailureCode: originalError?.code ?? 'telegram-update-failed' }
-      });
+      try {
+        observability?.recordFailure?.({
+          stage: 'telegram-webhook-fallback',
+          reason: redactSensitiveText(fallbackError?.message ?? 'fallback delivery failed'),
+          code: fallbackError?.code ?? 'telegram-fallback-delivery-failed',
+          data: { originalFailureCode: originalError?.code ?? 'telegram-update-failed' }
+        });
+      } catch {}
       return false;
     }
   }
@@ -186,14 +188,14 @@ export function createTelegramProductionIntegration({
     try {
       const result = await adapter.receive(body);
       await updateStore.complete(claim.updateId, 'completed');
-      observability?.record?.({ eventClass: 'telegram_update_completed', channel: 'telemetry', stage: 'telegram-webhook', traceContext: result.canonicalInput.traceContext, outcome: result.response.status, data: { invocation: invocation.reason } });
+      recordDiagnosticSensor({ eventClass: 'telegram_update_completed', channel: 'telemetry', stage: 'telegram-webhook', traceContext: result.canonicalInput.traceContext, outcome: result.response.status, data: { invocation: invocation.reason } });
       return Object.freeze({ ok: true, result });
     } catch (error) {
       try { await updateStore.fail(claim.updateId, error.code ?? 'telegram-update-failed'); }
       catch (storeError) {
-        observability?.recordFailure?.({ stage: 'telegram-webhook', reason: redactSensitiveText(storeError?.message ?? 'update failure persistence failed'), code: 'telegram-update-failure-persist-failed' });
+        try { observability?.recordFailure?.({ stage: 'telegram-webhook', reason: redactSensitiveText(storeError?.message ?? 'update failure persistence failed'), code: 'telegram-update-failure-persist-failed' }); } catch {}
       }
-      observability?.recordFailure?.({ stage: 'telegram-webhook', reason: redactSensitiveText(error.message), code: error.code ?? 'telegram-update-failed' });
+      try { observability?.recordFailure?.({ stage: 'telegram-webhook', reason: redactSensitiveText(error.message), code: error.code ?? 'telegram-update-failed' }); } catch {}
       await deliverVisibleFailure(body, error);
       return Object.freeze({ ok: false, error });
     }
@@ -212,7 +214,7 @@ export function createTelegramProductionIntegration({
     try {
       if (!(await verifyWebhookSecret(suppliedSecret))) return Object.freeze({ statusCode: 401, body: { ok: false, code: 'invalid-webhook-secret' } });
     } catch (error) {
-      observability?.recordFailure?.({ stage: 'telegram-webhook', reason: redactSensitiveText(error?.message ?? 'webhook credential unavailable'), code: error?.code ?? 'telegram-webhook-credential-failed' });
+      try { observability?.recordFailure?.({ stage: 'telegram-webhook', reason: redactSensitiveText(error?.message ?? 'webhook credential unavailable'), code: error?.code ?? 'telegram-webhook-credential-failed' }); } catch {}
       return Object.freeze({ statusCode: 503, body: { ok: false, code: 'telegram-webhook-credential-failed' } });
     }
     if (!body || typeof body !== 'object' || Array.isArray(body)) return Object.freeze({ statusCode: 400, body: { ok: false, code: 'invalid-update' } });
@@ -220,7 +222,7 @@ export function createTelegramProductionIntegration({
     let claim;
     try { claim = await updateStore.claim(body); }
     catch (error) {
-      observability?.recordFailure?.({ stage: 'telegram-webhook', reason: redactSensitiveText(error.message), code: 'telegram-dedupe-failed' });
+      try { observability?.recordFailure?.({ stage: 'telegram-webhook', reason: redactSensitiveText(error.message), code: 'telegram-dedupe-failed' }); } catch {}
       return Object.freeze({ statusCode: 503, body: { ok: false, code: 'telegram-dedupe-failed' } });
     }
     if (!claim.claimed) return Object.freeze({ statusCode: 200, body: { ok: true, duplicate: true } });

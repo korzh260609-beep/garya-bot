@@ -26,6 +26,7 @@ export function createBoundedResponseContextAssembler({
   memoryProvider,
   selfKnowledgeService,
   environment,
+  revision = 'unknown',
   conversationContextStore = null,
   temporalService = null,
   runtimeEvidenceProvider = null,
@@ -39,6 +40,7 @@ export function createBoundedResponseContextAssembler({
   if (!memoryProvider?.query) throw new TypeError('memoryProvider.query is required');
   if (!selfKnowledgeService?.query) throw new TypeError('selfKnowledgeService.query is required');
   const env = required(environment, 'environment');
+  const runtimeRevision = required(revision, 'revision');
   for (const [name, value, max] of [['maxUserMemory',maxUserMemory,50],['maxProjectMemory',maxProjectMemory,50],['maxConversationTurns',maxConversationTurns,50],['maxSelfKnowledgeFacts',maxSelfKnowledgeFacts,50]]) {
     if (!Number.isInteger(value) || value < 0 || value > max) throw new TypeError(`${name} must be 0..${max}`);
   }
@@ -102,8 +104,14 @@ export function createBoundedResponseContextAssembler({
         if (!changed) break;
       }
       if (jsonLength(safe) > maxCharacters) throw new RangeError('bounded response context cannot satisfy character budget');
+      const telemetryTrace = Object.freeze({
+        traceId: required(request.traceContext?.traceId, 'request.traceContext.traceId'),
+        requestId: required(request.traceContext?.requestId, 'request.traceContext.requestId'),
+        environment: request.traceContext?.environment ?? env,
+        revision: request.traceContext?.revision ?? runtimeRevision
+      });
       observability?.record?.({
-        eventClass: 'audit_event', channel: 'telemetry', stage: 'response-context', outcome: 'assembled', traceContext: request.traceContext,
+        eventClass: 'audit_event', channel: 'telemetry', stage: 'response-context', outcome: 'assembled', traceContext: telemetryTrace,
         actorRef: identity.globalUserId,
         data: { responseContextEventClass: 'response_context_assembled', userMemoryCount: safe.confirmedUserMemory.length, projectMemoryCount: safe.confirmedProjectMemory.length, conversationTurnCount: safe.conversationContext.recentTurns.length, selfKnowledgeFactCount: safe.selfKnowledge.facts.length, selfKnowledgeVersion: safe.selfKnowledge.snapshotVersion, selfKnowledgeValidationStatus: safe.selfKnowledge.validationStatus, truncated: safe.truncationEvidence }
       });

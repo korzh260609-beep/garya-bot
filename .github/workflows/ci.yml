@@ -60,11 +60,11 @@ jobs:
         shell: bash
         run: |
           set +e
-          node --test --test-concurrency=1 --test-reporter=spec > /tmp/sg-tests.log 2>&1
+          npm test > /tmp/sg-tests.log 2>&1
           status=$?
           if [ "$status" -ne 0 ]; then
             echo "=== FAILURE LOCATOR ==="
-            grep -n -E -A18 -B6 '✖|not ok|AssertionError|ERR_ASSERTION|testCodeFailure' /tmp/sg-tests.log | tail -n 220 || tail -n 220 /tmp/sg-tests.log
+            grep -n -E -A18 -B6 'not ok|AssertionError|ERR_ASSERTION|testCodeFailure|Error:' /tmp/sg-tests.log | tail -n 260 || tail -n 260 /tmp/sg-tests.log
           else
             tail -n 40 /tmp/sg-tests.log
           fi

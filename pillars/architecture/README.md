@@ -27,6 +27,7 @@ SG 2.1 is one global transport-independent project system whose reasoning layer 
 13. `MONARCH_OWNER_SECURITY.md`
 14. `RUNTIME_COMPOSITION.md`
 15. `POSTGRESQL_PERSISTENCE.md`
+16. `UNIVERSAL_DIAGNOSTICS.md`
 
 ## Core flow
 
@@ -53,6 +54,8 @@ Memory 2.0 is the canonical durable memory subsystem layered behind Context Reso
 
 Self Knowledge is a shared system-context layer used for evidence-aware descriptions of SG itself. It does not sit as a mandatory reasoning hop in every request and does not replace live diagnostics.
 
+Universal Diagnostics is an independent observer application outside the mandatory SG request path. SG emits bounded diagnostic facts through Observability and approved read-only surfaces; the separate Diagnostics application reconstructs traces, compares expected vs actual paths, finds first divergence, performs deterministic root-cause analysis, runs isolated synthetic checks, and produces evidence-backed reports. SG must continue operating if Diagnostics is unavailable.
+
 ## Non-negotiable boundaries
 - Connected AI models provide reasoning and may also execute specialized tasks.
 - SG code does not imitate reasoning with keyword routing.
@@ -60,6 +63,12 @@ Self Knowledge is a shared system-context layer used for evidence-aware descript
 - Memory supplies bounded context and does not own SG identity.
 - Memory 2.0 cannot broaden scope, privacy, authority or trust during capture/recall/consolidation.
 - System Self Knowledge is separate from user/project memory and cannot grant authority.
+- Universal Diagnostics is not SG brain, Decision Engine, Action Gate, authorization or ordinary request routing.
+- Diagnostics is read-only by default; it must not silently edit code/config, deploy, mutate production state, grant authority or repair SG automatically.
+- Diagnostics failure must not block, restart or degrade normal SG request execution by architectural dependency.
+- Diagnostic synthetic runs must be isolated from ordinary confirmed memory, user settings, profile/psychological adaptation and ordinary persistent tasks.
+- Diagnostic conclusions require evidence; unavailable evidence lowers confidence instead of being invented.
+- AI may explain deterministic diagnostic findings but cannot independently declare a root cause confirmed.
 - Commands are shortcuts; natural language is primary.
 - Transports are thin adapters.
 - Language and locale are shared SG context, not transport-owned business logic.

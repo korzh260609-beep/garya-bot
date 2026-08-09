@@ -63,10 +63,18 @@ test('Block 17 reuses the existing SG 2.0 Render service settings', async () => 
   await assert.rejects(readFile(new URL('../render.yaml', import.meta.url), 'utf8'));
 });
 
-test('production Telegram identity resolver bootstraps only configured monarch and bounds guests', async () => {
+test('production Telegram identity resolver uses canonical global id for monarch and usr ids for guests', async () => {
   const persistence = fakePersistence();
-  const resolver = createProductionTelegramIdentityResolver({ persistence, projectScope: 'sg2.1', monarchTelegramUserId: '100' });
+  const monarchGlobalUserId = 'usr_48cc07c069030fb3';
+  const resolver = createProductionTelegramIdentityResolver({
+    persistence,
+    projectScope: 'sg2.1',
+    monarchTelegramUserId: '100',
+    monarchGlobalUserId
+  });
+
   const monarch = await resolver({ platformFacts: { platform: 'telegram', platformUserId: '100' }, scopeFacts: { projectId: 'sg2.1' } });
+  assert.equal(monarch.identityContext.globalUserId, monarchGlobalUserId);
   assert.ok(monarch.identityContext.roles.includes('monarch'));
   assert.ok(monarch.scopeContext.allowedCapabilities.includes('compose-answer'));
   assert.ok(monarch.scopeContext.allowedCapabilities.includes('memory-write'));
@@ -77,11 +85,34 @@ test('production Telegram identity resolver bootstraps only configured monarch a
   assert.ok(monarch.identityContext.grants.includes('repository.read'));
 
   const guest = await resolver({ platformFacts: { platform: 'telegram', platformUserId: '200' }, scopeFacts: { projectId: 'sg2.1', groupId: 'g', threadId: 't' } });
+  assert.match(guest.identityContext.globalUserId, /^usr_[0-9a-f]{16}$/);
+  assert.notEqual(guest.identityContext.globalUserId, monarchGlobalUserId);
   assert.deepEqual(guest.identityContext.roles, ['guest']);
   assert.deepEqual(guest.scopeContext.allowedCapabilities, ['compose-answer', 'time-read', 'timezone-set', 'memory-time-read', 'language-preference-set', 'language-preference-get', 'user-settings-get', 'user-settings-set']);
   assert.equal(guest.identityContext.grants.includes('psychology.use'), false);
   assert.equal(guest.scopeContext.groupScope, 'g');
   assert.equal(guest.scopeContext.threadScope, 't');
+
+  const sameGuest = await resolver({ platformFacts: { platform: 'telegram', platformUserId: '200' }, scopeFacts: { projectId: 'sg2.1' } });
+  assert.equal(sameGuest.identityContext.globalUserId, guest.identityContext.globalUserId);
+});
+
+test('Telegram id alone cannot confer monarch authority', async () => {
+  const persistence = fakePersistence();
+  assert.throws(() => createProductionTelegramIdentityResolver({
+    persistence,
+    projectScope: 'sg2.1',
+    monarchTelegramUserId: '100'
+  }), /MONARCH_GLOBAL_USER_ID is required/);
+
+  const resolver = createProductionTelegramIdentityResolver({
+    persistence,
+    projectScope: 'sg2.1',
+    monarchTelegramUserId: '100',
+    monarchGlobalUserId: 'usr_aaaaaaaaaaaaaaaa'
+  });
+  const other = await resolver({ platformFacts: { platform: 'telegram', platformUserId: '999' }, scopeFacts: { projectId: 'sg2.1' } });
+  assert.equal(other.identityContext.roles.includes('monarch'), false);
 });
 
 test('Render web application reuses SG 2.0-style environment and reports deployed commit revision', async () => {
@@ -122,6 +153,7 @@ test('Render web application reuses SG 2.0-style environment and reports deploye
       TELEGRAM_BOT_TOKEN: 'test-token',
       BASE_URL: 'https://garya-bot.onrender.com',
       MONARCH_USER_ID: '100',
+      MONARCH_GLOBAL_USER_ID: 'usr_48cc07c069030fb3',
       RENDER_GIT_COMMIT: 'abc123def456',
       TELEGRAM_REGISTER_WEBHOOK: 'false'
     },
@@ -133,6 +165,7 @@ test('Render web application reuses SG 2.0-style environment and reports deploye
   assert.equal(receivedEnv.SG_PROJECT_SCOPE, 'sg2.1');
   assert.equal(receivedEnv.SG_PERSISTENCE_MODE, 'postgres');
   assert.equal(receivedEnv.SG_MONARCH_TELEGRAM_USER_ID, '100');
+  assert.equal(receivedEnv.SG_MONARCH_GLOBAL_USER_ID, 'usr_48cc07c069030fb3');
   assert.equal(receivedEnv.SG_REVISION, 'abc123def456');
   assert.equal(app.effectiveEnv.DATABASE_URL, undefined);
   assert.equal(app.effectiveEnv.TELEGRAM_BOT_TOKEN, undefined);

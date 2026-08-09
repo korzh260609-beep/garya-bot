@@ -1,12 +1,20 @@
 import { createDiagnosticEvidence, createDiagnosticFinding } from './contracts.js';
 
+function effectiveEventClass(row) {
+  return row.payload?.data?.operationalEventClass
+    ?? row.payload?.data?.responseEventClass
+    ?? row.payload?.data?.contextEventClass
+    ?? row.payload?.data?.settingsEventClass
+    ?? row.event_class;
+}
+
 function statusFromObservability(row) {
   const outcome = String(row.outcome ?? row.payload?.outcome ?? '').toLowerCase();
   const code = row.payload?.data?.code ?? null;
   if (outcome === 'timeout' || String(code ?? '').toLowerCase().includes('timeout')) return 'timeout';
   if (['failed', 'failure', 'error', 'denied'].includes(outcome)) return 'failed';
   if (['completed', 'success', 'succeeded', 'ok', 'allow', 'allowed', 'delivered'].includes(outcome)) return 'completed';
-  if (row.event_class === 'capability_failed') return 'failed';
+  if (effectiveEventClass(row) === 'capability_failed') return 'failed';
   return 'unknown';
 }
 
@@ -24,14 +32,17 @@ export function createObservabilityEvidenceSource({ database } = {}) {
       const result = await database.query(`SELECT event_id,channel,event_class,trace_id,request_id,stage,outcome,payload,created_at
         FROM observability_events WHERE ($1::text IS NULL OR trace_id=$1) AND ($2::text IS NULL OR request_id=$2)
         ORDER BY created_at,event_id LIMIT $3`, [traceId, requestId, boundedLimit(limit, 1000, 5000)]);
-      return Object.freeze(result.rows.map((row) => createDiagnosticEvidence({
-        source: 'sg-observability', sourceRef: `observability_events:${row.event_id}`,
-        occurredAt: row.payload?.occurredAt ?? row.created_at?.toISOString?.() ?? String(row.created_at ?? ''),
-        traceId: row.trace_id, requestId: row.request_id, stage: row.stage ?? row.event_class,
-        status: statusFromObservability(row), component: row.stage ?? row.event_class,
-        errorCode: row.payload?.data?.code ?? null,
-        payload: { eventClass: row.event_class, channel: row.channel, outcome: row.outcome, ...row.payload }
-      })));
+      return Object.freeze(result.rows.map((row) => {
+        const eventClass = effectiveEventClass(row);
+        return createDiagnosticEvidence({
+          source: 'sg-observability', sourceRef: `observability_events:${row.event_id}`,
+          occurredAt: row.payload?.occurredAt ?? row.created_at?.toISOString?.() ?? String(row.created_at ?? ''),
+          traceId: row.trace_id, requestId: row.request_id, stage: row.stage ?? eventClass,
+          status: statusFromObservability(row), component: row.stage ?? eventClass,
+          errorCode: row.payload?.data?.code ?? null,
+          payload: { rawEventClass: row.event_class, eventClass, channel: row.channel, outcome: row.outcome, ...row.payload, eventClass }
+        });
+      }));
     },
     async recentTraces({ globalUserId = null, projectScope = null, limit = 20 } = {}) {
       const result = await database.query(`SELECT trace_id,

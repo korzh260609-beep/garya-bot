@@ -1,3 +1,5 @@
+import { createDescriptiveIdentityProfile } from './context.js';
+
 const ACTION_CLASSES = Object.freeze([
   'read-only',
   'analysis-only',
@@ -66,7 +68,8 @@ export function createActionRequest(input) {
       globalUserId: requireNonEmptyString(actor.globalUserId, 'actor.globalUserId'),
       roles: Object.freeze([...(actor.roles ?? [])]),
       grants: Object.freeze([...(actor.grants ?? [])]),
-      authenticationLevel: actor.authenticationLevel ?? 'unknown'
+      authenticationLevel: actor.authenticationLevel ?? 'unknown',
+      profile: createDescriptiveIdentityProfile(actor.profile)
     }),
     scope: Object.freeze({
       userScope: requireNonEmptyString(scope.userScope, 'scope.userScope'),

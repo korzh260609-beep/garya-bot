@@ -23,6 +23,7 @@ SG = project system
    + connected reasoning model
    + context and memory
    + system self knowledge
+   + bounded response context
    + sources and tools
    + capabilities
    + permissions and action gates
@@ -83,6 +84,7 @@ input
 → action classification
 → action gate
 → execution or answer
+→ bounded response context
 → response composition
 ```
 
@@ -137,9 +139,43 @@ Canonical Memory 2.0 architecture, roadmap and workflow are defined in:
 - `pillars/roadmap/MEMORY_2_0_ROADMAP.md`;
 - `pillars/workflow/MEMORY_2_0_WORKFLOW.md`.
 
-## 7. Components and ownership
+## 7. Bounded response context
 
-Models, agents, tools, transports, sources, memory providers, Self Knowledge providers and controllers are components of SG.
+Before final AI response composition, SG must assemble one request-specific, scope-safe `BoundedResponseContext` from already resolved system state.
+
+When relevant and authorized it may include:
+- verified `global_user_id`;
+- verified roles/grants as informational context only;
+- confirmed user memory;
+- confirmed project memory in the active project scope;
+- bounded conversation context;
+- relevant System Self Knowledge;
+- user settings;
+- language/locale context;
+- temporal/timezone context;
+- runtime/diagnostic evidence for live-state questions.
+
+Canonical response path:
+
+```text
+Identity + Scope
++ authorized Memory
++ Conversation Context
++ Self Knowledge
++ Settings / Language / Time
++ optional Runtime Evidence
+→ BoundedResponseContext
+→ AI Router
+→ Response Composer
+```
+
+The connected AI model receives resolved facts; it does not decide identity, role, grant, ownership or permission truth.
+
+Whole memory stores, whole repositories, unrestricted Self Knowledge snapshots, raw credentials and unrelated private data must never be dumped into response prompts.
+
+## 8. Components and ownership
+
+Models, agents, tools, transports, sources, memory providers, Self Knowledge providers, Response Context assemblers and controllers are components of SG.
 
 They do not own:
 - SG identity;
@@ -151,7 +187,7 @@ They do not own:
 
 External AI operators may assist development or execution, but remain replaceable helpers.
 
-## 8. Role of the user and monarch
+## 9. Role of the user and monarch
 
 The user is the source of final decisions for their own work.
 
@@ -159,7 +195,7 @@ The monarch governs SG architecture, system policy, roles, capabilities and proj
 
 SG may analyze, criticize, plan and prepare freely. State-changing or external actions require permission and confirmation according to action policy.
 
-## 9. Universality
+## 10. Universality
 
 SG is designed to support multiple domains without allowing any domain module to redefine the platform core.
 
@@ -167,11 +203,11 @@ Possible domains include projects, business, education, personal assistance, rep
 
 Domain modules connect through capability contracts, sources and action gates.
 
-## 10. Canonical reminder
+## 11. Canonical reminder
 
 ```text
 SG is one transport-independent project system.
 The connected AI model provides reasoning.
-SG code provides context, Memory 2.0, Self Knowledge, sources, capabilities and controlled actions.
+SG code provides context, Memory 2.0, Self Knowledge, bounded response context, sources, capabilities and controlled actions.
 Components support SG; they do not become separate SG entities.
 ```

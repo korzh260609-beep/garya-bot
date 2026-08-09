@@ -4,6 +4,8 @@ Roadmap defines what is built, dependency order, gates and acceptance boundaries
 
 Memory 2.0 is a completed cross-cutting memory program documented separately in `MEMORY_2_0_ROADMAP.md`. It extends the existing Context/Memory foundation without changing the numbered production order.
 
+Universal Diagnostics is a separate planned cross-cutting diagnostic program documented in `UNIVERSAL_DIAGNOSTICS_PROGRAM.md`. It is implemented as an independent observer application around SG, not as a new core layer and not as a renumbering of Blocks 0–19.
+
 ## Order
 0. `00_ENGINEERING_FOUNDATION.md`
 1. `00_PRINCIPLES_AND_GATES.md`
@@ -40,6 +42,7 @@ Memory 2.0 is a completed cross-cutting memory program documented separately in 
 32. `16_17_SELF_KNOWLEDGE_SYSTEM_SELF_AWARENESS.md` — Block 16.17 specification/evidence
 33. `16_18_MONARCH_CONTROL_OWNER_SECURITY.md` — Block 16.18 specification/evidence
 34. `MEMORY_2_0_ROADMAP.md` — completed cross-cutting Memory 2.0 M1–M9 program
+35. `UNIVERSAL_DIAGNOSTICS_PROGRAM.md` — planned cross-cutting Universal Diagnostics D1–D12 program
 
 ## Memory 2.0
 
@@ -55,11 +58,25 @@ Detailed completion evidence: `MEMORY_2_0_ROADMAP.md`.
 Architecture: `../architecture/MEMORY_2_0.md`.
 Workflow: `../workflow/MEMORY_2_0_WORKFLOW.md`.
 
+## Universal Diagnostics
+
+**Status: Planned and architecturally specified.**
+
+Canonical implementation order:
+
+`D1 Diagnostic Contract & Read-Only Boundary → D2 Collector & Evidence Storage → D3 Trace Reconstruction → D4 Expected Paths & Invariants → D5 First Divergence Engine → D6 Root Cause Analyzer → D7 Deployment/Runtime/Infrastructure Diagnostics → D8 Live Diagnostic Runner → D9 Replay & Regression Library → D10 Reports/API/UI/Security → D11 E2E Verification → D12 Independent Production Deployment`.
+
+Universal Diagnostics is external to the mandatory SG request path. SG supplies bounded diagnostic facts; the separate application analyzes them. Diagnostics must be independently deployable, read-only by default, evidence-based, secret-safe, and unable to grant authority or block normal SG operation.
+
+Detailed specification: `UNIVERSAL_DIAGNOSTICS_PROGRAM.md`.
+Architecture: `../architecture/UNIVERSAL_DIAGNOSTICS.md`.
+Workflow: `../workflow/UNIVERSAL_DIAGNOSTICS_WORKFLOW.md`.
+
 ## Production continuation
 
-`PRODUCTION_ROADMAP.md` remains the canonical numbered continuation after Block 10. Memory 2.0 is a separate completed cross-cutting program and does not renumber Blocks 11–19.
+`PRODUCTION_ROADMAP.md` remains the canonical numbered continuation after Block 10. Memory 2.0 and Universal Diagnostics are separate cross-cutting programs and do not renumber Blocks 11–19.
 
-Each production block must still be independently verifiable, reversible and completed through code, tests, documentation, CI and runtime evidence.
+Each production block/program stage must still be independently verifiable, reversible and completed through code, tests, documentation, CI and runtime evidence.
 
 ## Foundation rule
 Before Semantic Kernel implementation begins, Block 0 establishes the repository, test and CI baseline plus minimal canonical `IdentityContext`, `ScopeContext` and `TraceContext` contracts.

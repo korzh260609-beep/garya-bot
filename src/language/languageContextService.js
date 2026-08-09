@@ -57,6 +57,11 @@ function scoreHints(tokens, groups) {
   return best;
 }
 
+function uniqueHintLanguage(token, groups) {
+  const matches = Object.entries(groups).filter(([, hints]) => hints.includes(token)).map(([language]) => language);
+  return matches.length === 1 ? matches[0] : null;
+}
+
 function scriptLanguage(text) {
   if (/\p{Script=Arabic}/u.test(text)) return 'ar';
   if (/\p{Script=Hebrew}/u.test(text)) return 'he';
@@ -73,8 +78,13 @@ function cyrillicLanguage(text) {
   if (/[іїєґ]/iu.test(text)) return { language: 'uk', confidence: 0.98 };
   if (/[ыэъё]/iu.test(text)) return { language: 'ru', confidence: 0.96 };
   if (/[ў]/iu.test(text)) return { language: 'be', confidence: 0.96 };
-  const hint = scoreHints(words(text), CYRILLIC_HINTS);
+  const tokenList = words(text);
+  const hint = scoreHints(tokenList, CYRILLIC_HINTS);
   if (hint?.score >= 2) return { language: hint.language, confidence: Math.min(0.95, 0.66 + hint.score * 0.07) };
+  if (tokenList.length === 1) {
+    const uniqueLanguage = uniqueHintLanguage(tokenList[0], CYRILLIC_HINTS);
+    if (uniqueLanguage) return { language: uniqueLanguage, confidence: 0.82 };
+  }
   return { language: 'und', confidence: 0.35 };
 }
 

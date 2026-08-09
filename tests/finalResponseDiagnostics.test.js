@@ -6,6 +6,8 @@ import { createDiagnosticEvidence } from '../src/diagnostics/contracts.js';
 import { createExpectedPathRegistry } from '../src/diagnostics/pathRegistry.js';
 import { reconstructTrace } from '../src/diagnostics/analyzer.js';
 import { evaluateTraceInvariants } from '../src/diagnostics/invariants.js';
+import { createInMemoryObservabilityStore } from '../src/observability/inMemoryObservabilityStore.js';
+import { createObservabilityService } from '../src/observability/observabilityService.js';
 
 function identityResolver({ platformFacts, scopeFacts }) {
   return {
@@ -41,6 +43,17 @@ function telegramUpdate(text = 'привет') {
   };
 }
 
+function realObservability() {
+  let i = 0;
+  const store = createInMemoryObservabilityStore();
+  const service = createObservabilityService({
+    store,
+    clock: () => '2026-08-09T18:20:00.000Z',
+    idFactory: () => `event-${++i}`
+  });
+  return { store, service };
+}
+
 test('final response fingerprint is normalized, deterministic and salt-scoped', () => {
   assert.equal(assessFinalResponse({ userText: ' Привет ', candidateText: 'привет' }).reason, 'exact-user-echo');
   const a = fingerprintFinalResponse(' Привет ', { salt: 'trace-a' });
@@ -51,19 +64,16 @@ test('final response fingerprint is normalized, deterministic and salt-scoped', 
   assert.match(a, /^[a-f0-9]{64}$/u);
 });
 
-test('Telegram delivery boundary emits privacy-safe exact echo evidence without message text', async () => {
-  const events = [];
+test('Telegram delivery boundary works with the real observability contract and emits privacy-safe echo evidence', async () => {
   const sent = [];
+  const { service } = realObservability();
   const integration = createTelegramProductionIntegration({
     secretToken: 'secret',
     botClient: { sendMessage: async (payload) => sent.push(payload) },
     updateStore: createInMemoryTelegramUpdateStore(),
     identityResolver,
     runtime: { handle: async (input) => ({ status: 'success', message: input.text, data: {} }) },
-    observability: {
-      record(event) { events.push(event); },
-      recordFailure(event) { events.push({ ...event, failure: true }); }
-    },
+    observability: service,
     environment: 'test',
     revision: 'echo-test',
     idFactory: (() => { let i = 0; return () => `echo-${++i}`; })()
@@ -71,8 +81,10 @@ test('Telegram delivery boundary emits privacy-safe exact echo evidence without 
 
   const result = await integration.handleWebhook({ headers: { 'x-telegram-bot-api-secret-token': 'secret' }, body: telegramUpdate() });
   assert.equal(result.statusCode, 200);
+  assert.equal(sent.length, 1);
   assert.equal(sent[0].text, 'привет');
 
+  const events = service.list({ traceId: 'echo-1' });
   const observed = events.find((event) => event.eventClass === 'final_response_observed');
   assert.ok(observed);
   assert.equal(observed.stage, 'response');
@@ -80,6 +92,8 @@ test('Telegram delivery boundary emits privacy-safe exact echo evidence without 
   assert.equal(observed.data.exactEcho, true);
   assert.equal(observed.data.reason, 'exact-user-echo');
   assert.equal(observed.data.inputHash, observed.data.outputHash);
+  assert.ok(events.some((event) => event.eventClass === 'delivery_completed'));
+  assert.ok(events.some((event) => event.eventClass === 'telegram_update_completed'));
   const serialized = JSON.stringify(observed);
   assert.equal(serialized.includes('привет'), false);
 });

@@ -77,23 +77,36 @@ test('live runner refuses mutating probes', () => {
   assert.throws(() => createLiveDiagnosticRunner({ probes: [{ id: 'bad', safe: true, mutatesUserState: true, run: async () => ({ ok: true }) }] }), /forbidden/);
 });
 
-test('diagnostics HTTP API is owner authenticated and health remains bounded', async () => {
+test('diagnostics HTTP API is owner authenticated and exposes regression library', async () => {
+  const regressions = [];
   const service = {
     async analyzeRequest() { return { report: { status: 'healthy' }, evidence: [] }; },
     async systemHealth() { return { report: { status: 'healthy' }, evidence: [] }; },
     async runLive() { return { report: { status: 'healthy' }, result: { failed: 0 }, evidence: [] }; },
-    async runRegressions() { return { total: 0, passed: 0, failed: 0, results: [] }; }
+    async runRegressions() { return { total: regressions.length, passed: regressions.length, failed: 0, results: [] }; }
   };
-  const store = { async getRun() { return null; }, async listRuns() { return []; }, async listEvidence() { return []; } };
+  const store = {
+    async getRun() { return null; },
+    async listRuns() { return []; },
+    async listEvidence() { return []; },
+    async listRegressions() { return regressions; },
+    async putRegression(input) { const row = { regression_id: input.regressionId ?? 'reg-1', name: input.name, fixture: input.fixture, expected: input.expected }; regressions.push(row); return row; }
+  };
   const server = createDiagnosticsHttpServer({ service, store, host: '127.0.0.1', port: 0, adminToken: 'secret-token', monarchGlobalUserId: 'usr_monarch', environment: 'test', revision: 'abc' });
   const address = await server.start();
+  const headers = { 'content-type': 'application/json', 'x-diagnostics-token': 'secret-token', 'x-sg-global-user-id': 'usr_monarch' };
   try {
     const health = await fetch(`http://127.0.0.1:${address.port}/health`);
     assert.equal(health.status, 200);
     const forbidden = await fetch(`http://127.0.0.1:${address.port}/api/system`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
     assert.equal(forbidden.status, 403);
-    const allowed = await fetch(`http://127.0.0.1:${address.port}/api/system`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-diagnostics-token': 'secret-token', 'x-sg-global-user-id': 'usr_monarch' }, body: '{}' });
+    const allowed = await fetch(`http://127.0.0.1:${address.port}/api/system`, { method: 'POST', headers, body: '{}' });
     assert.equal(allowed.status, 200);
+    const created = await fetch(`http://127.0.0.1:${address.port}/api/regressions`, { method: 'POST', headers, body: JSON.stringify({ name: 'echo regression', fixture: { pathId: 'conversation', evidence: [] }, expected: { errorClass: 'TRANSPORT' } }) });
+    assert.equal(created.status, 201);
+    const listed = await fetch(`http://127.0.0.1:${address.port}/api/regressions`, { headers });
+    assert.equal(listed.status, 200);
+    assert.equal((await listed.json()).regressions.length, 1);
   } finally { await server.stop(); }
 });
 

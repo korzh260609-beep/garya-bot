@@ -42,7 +42,7 @@ async function closeResource(resource) {
   else if (resource?.stop) await resource.stop();
 }
 
-export function createProductionRuntime({ config, semanticPipeline, actionGate, capabilityRegistry = null, capabilityExecutor, domainRuntime = null, observability, languageContextService = null, conversationContextService = null, userSettingsService = null, policyLayer = null, resourceAuthorityRegistry = null, resources = [] } = {}) {
+export function createProductionRuntime({ config, semanticPipeline, actionGate, capabilityRegistry = null, capabilityExecutor, domainRuntime = null, observability, languageContextService = null, conversationContextService = null, userSettingsService = null, policyLayer = null, resourceAuthorityRegistry = null, memoryCaptureService = null, resources = [] } = {}) {
   if (!config?.environment || !config?.revision || !config?.shutdownTimeoutMs) throw new TypeError('validated runtime config is required');
   requireMethod(semanticPipeline, 'process', 'semanticPipeline');
   requireMethod(actionGate, 'evaluate', 'actionGate');
@@ -55,6 +55,7 @@ export function createProductionRuntime({ config, semanticPipeline, actionGate, 
   if (userSettingsService) requireMethod(userSettingsService, 'resolve', 'userSettingsService');
   if (policyLayer) requireMethod(policyLayer, 'resolve', 'policyLayer');
   if (resourceAuthorityRegistry) requireMethod(resourceAuthorityRegistry, 'checkAuthority', 'resourceAuthorityRegistry');
+  if (memoryCaptureService) requireMethod(memoryCaptureService, 'capture', 'memoryCaptureService');
   if (!Array.isArray(resources)) throw new TypeError('resources must be an array');
 
   let phase = 'created', accepting = false, inFlight = 0, failure = null;
@@ -117,6 +118,27 @@ export function createProductionRuntime({ config, semanticPipeline, actionGate, 
     const context = await languageContextService.resolve({ globalUserId: canonicalInput.identityContext.globalUserId, text: canonicalInput.text, platformLocale: canonicalInput.locale, conversationLanguage: canonicalInput.metadata?.conversationLanguage ?? null, conversationKey: conversationKey(canonicalInput), traceContext: canonicalInput.traceContext, identityContext: canonicalInput.identityContext });
     return Object.freeze({ ...canonicalInput, locale: context.locale ?? canonicalInput.locale, metadata: Object.freeze({ ...(canonicalInput.metadata ?? {}), languageContext: context }) });
   }
+  async function captureMemory(requestInput) {
+    if (!memoryCaptureService) return null;
+    try {
+      return await memoryCaptureService.capture({
+        text: requestInput.text,
+        scope: requestInput.scopeContext,
+        actor: requestInput.identityContext,
+        metadata: {
+          sourceId: requestInput.metadata?.platformMessageId ?? requestInput.traceContext.requestId,
+          platformMessageId: requestInput.metadata?.platformMessageId ?? null,
+          transport: requestInput.metadata?.transport ?? 'unknown',
+          conversationId: requestInput.metadata?.conversationContext?.conversationId ?? null,
+          topicId: requestInput.metadata?.conversationContext?.topicId ?? null,
+          memoryCandidate: requestInput.metadata?.memoryCandidate ?? null
+        }
+      });
+    } catch (error) {
+      observability.recordFailure({ traceContext: requestInput.traceContext, stage: 'memory2-capture', reason: redactSensitiveText(error.message), code: error.code ?? 'memory2-capture-failed' });
+      return Object.freeze({ status: 'failed', reason: error.code ?? 'memory2-capture-failed' });
+    }
+  }
   async function persistResponse(requestInput, response) {
     const conversationContext = requestInput.metadata?.conversationContext;
     if (!conversationContextService || !conversationContext || !response?.message) return response;
@@ -153,6 +175,7 @@ export function createProductionRuntime({ config, semanticPipeline, actionGate, 
       const languageContext = requestInput.metadata?.languageContext ?? null;
       if (languageContext) observability.record({ eventClass: 'language_context_resolved', channel: 'telemetry', stage: 'language-context', traceContext, outcome: languageContext.responseLanguage, data: { detectedLanguage: languageContext.messageLanguage, confidence: languageContext.confidence, responseLanguage: languageContext.responseLanguage, detectionSource: languageContext.detectionSource, responseLanguageSource: languageContext.responseLanguageSource, locale: languageContext.locale } });
 
+      const memoryCapture = await captureMemory(requestInput);
       const semantic = await semanticPipeline.process(requestInput);
       observability.record({ eventClass: 'semantic_decision_created', channel: 'telemetry', stage: 'decision-engine', traceContext, outcome: semantic.decisionEnvelope.decisionType, data: { intent: semantic.decisionEnvelope.intent } });
       const selectedName = semantic.decisionEnvelope.selectedAction?.name ?? semantic.decisionEnvelope.selectedAction?.type;
@@ -163,7 +186,7 @@ export function createProductionRuntime({ config, semanticPipeline, actionGate, 
       const gateDecision = actionGate.evaluate(actionRequest, { policyContext });
       observability.record({ eventClass: 'action_gate_decision', channel: 'audit', stage: 'action-gate', traceContext, outcome: gateDecision.outcome, data: { capability: actionRequest.capability, authorized: gateDecision.authorized, resourceId: actionRequest.resourceRequirement?.resourceId ?? null, resourceAuthority: gateDecision.checks.resourceAuthority } });
       const gatedResponse = responseFromGate(gateDecision, semantic.responsePlan);
-      if (gatedResponse) return persistResponse(requestInput, { ...gatedResponse, data: { ...(gatedResponse.data ?? {}), languageContext, policyContext } });
+      if (gatedResponse) return persistResponse(requestInput, { ...gatedResponse, data: { ...(gatedResponse.data ?? {}), languageContext, policyContext, memoryCapture } });
 
       let result;
       if (actionRequest.payload?.domainId && actionRequest.capability !== 'domain-dispatch') {
@@ -175,7 +198,7 @@ export function createProductionRuntime({ config, semanticPipeline, actionGate, 
         observability.record({ eventClass: 'capability_completed', channel: 'telemetry', stage: 'capability', traceContext, outcome: result.status, durationMs: result.durationMs, costUsd: result.costUsd, data: { capability: result.capability } });
       }
       const message = result?.data?.message ?? result?.data?.text ?? semantic.responsePlan.message;
-      return persistResponse(requestInput, { status: result.status ?? 'success', message, data: { decisionEnvelope: semantic.decisionEnvelope, gateDecision, execution: result, languageContext, policyContext } });
+      return persistResponse(requestInput, { status: result.status ?? 'success', message, data: { decisionEnvelope: semantic.decisionEnvelope, gateDecision, execution: result, languageContext, policyContext, memoryCapture } });
     } catch (error) {
       failure = phase === 'ready' ? null : error;
       observability.recordFailure({ traceContext, stage: 'runtime', reason: redactSensitiveText(error.message), code: error.code ?? 'runtime-request-failed' });

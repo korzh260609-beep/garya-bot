@@ -92,7 +92,10 @@ test('Telegram delivery boundary works with the real observability contract and 
   assert.equal(observed.data.exactEcho, true);
   assert.equal(observed.data.reason, 'exact-user-echo');
   assert.equal(observed.data.inputHash, observed.data.outputHash);
-  assert.ok(events.some((event) => event.eventClass === 'delivery_attempt'));
+  const deliveryAttempt = events.find((event) => event.data?.operationalEventClass === 'delivery_attempt');
+  assert.ok(deliveryAttempt);
+  assert.equal(deliveryAttempt.eventClass, 'audit_event');
+  assert.equal(deliveryAttempt.stage, 'telegram-delivery');
   assert.ok(events.some((event) => event.eventClass === 'delivery_completed'));
   assert.ok(events.some((event) => event.eventClass === 'telegram_update_completed'));
   const serialized = JSON.stringify(observed);

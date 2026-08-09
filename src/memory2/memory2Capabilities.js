@@ -1,6 +1,7 @@
 import { createCapability } from '../contracts/capability.js';
 
 export const MEMORY2_CAPABILITY_NAMES = Object.freeze([
+  'memory2-write',
   'memory2-recall',
   'memory2-diagnostics',
   'memory2-confirm',
@@ -21,8 +22,34 @@ function capability(input) {
 }
 
 export function createMemory2Capabilities({ memory2Service } = {}) {
-  if (!memory2Service?.recall || !memory2Service?.diagnostics) throw new TypeError('memory2Service is required');
+  if (!memory2Service?.write || !memory2Service?.recall || !memory2Service?.diagnostics) throw new TypeError('memory2Service is required');
   return Object.freeze([
+    capability({
+      name: 'memory2-write', description: 'Write personal or shared Memory 2.0 through scope/privacy policy.', actionTypes: ['memory-write'], actionClasses: ['state-changing','private-data'], confirmationRequired: true,
+      execute: async (request) => {
+        const input = request.input ?? {};
+        const result = await memory2Service.write({
+          layer: input.layer,
+          key: required(input.key,'input.key'),
+          value: input.value,
+          scope: scopeFrom(request),
+          scopeKind: input.scopeKind ?? null,
+          shared: input.shared === true,
+          privacyClass: input.privacyClass ?? null,
+          actor: request.actor,
+          resourceAuthority: request.resourceAuthority ?? null,
+          provenance: { sourceType: 'capability', sourceId: request.traceContext.requestId, actorId: request.actor.globalUserId },
+          trust: input.trust ?? (input.confirmed === false ? 'reported' : 'confirmed'),
+          confirmed: input.confirmed !== false,
+          expiresAt: input.expiresAt ?? null,
+          temporary: input.temporary === true,
+          retentionClass: input.retentionClass ?? null,
+          tags: input.tags ?? [],
+          confidence: input.confidence ?? null
+        });
+        return { status: result.status === 'conflict' ? 'partial' : 'success', data: { ...result, message: `Memory ${result.status}` }, warnings: result.status === 'conflict' ? ['memory-conflict-visible'] : [] };
+      }
+    }),
     capability({
       name: 'memory2-recall', description: 'Recall the smallest authorized Memory 2.0 context.', actionTypes: ['memory-read'], actionClasses: ['read-only','private-data'],
       execute: async (request) => {

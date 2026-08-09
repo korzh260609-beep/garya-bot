@@ -22,9 +22,10 @@ SG 2.1 is one global transport-independent project system whose reasoning layer 
 8. `TRANSPORTS_AND_AI_ROUTING.md`
 9. `LANGUAGE_AND_LOCALE_CONTEXT.md`
 10. `FOUNDATIONAL_CONTROL_LAYERS.md`
-11. `MONARCH_OWNER_SECURITY.md`
-12. `RUNTIME_COMPOSITION.md`
-13. `POSTGRESQL_PERSISTENCE.md`
+11. `SELF_KNOWLEDGE.md`
+12. `MONARCH_OWNER_SECURITY.md`
+13. `RUNTIME_COMPOSITION.md`
+14. `POSTGRESQL_PERSISTENCE.md`
 
 ## Core flow
 
@@ -43,27 +44,31 @@ Input
 → Action Gate
 → Execution or Answer
 → Delivery Routing where required
-→ Response Composition
+→ Response
 → Observability / Internal Events
 ```
+
+Self Knowledge is a shared system-context layer used for evidence-aware descriptions of SG itself. It does not sit as a mandatory reasoning hop in every request and does not replace live diagnostics.
 
 ## Non-negotiable boundaries
 - Connected AI models provide reasoning and may also execute specialized tasks.
 - SG code does not imitate reasoning with keyword routing.
 - Gates protect actions and do not become a second brain.
 - Memory supplies bounded context and does not own SG identity.
+- System Self Knowledge is separate from user/project memory and cannot grant authority.
 - Commands are shortcuts; natural language is primary.
 - Transports are thin adapters.
 - Language and locale are shared SG context, not transport-owned business logic.
 - Ordinary multilingual input reaches Semantic Kernel without mandatory pre-translation.
 - Response-language policy belongs to SG, not to transports or AI providers.
 - Configuration/policy is centralized and cannot silently become authorization.
-- Raw secrets remain outside ordinary memory, prompts and telemetry.
+- Raw secrets remain outside ordinary memory, Self Knowledge, prompts and telemetry.
 - External connections are registered components, not identities or proof of resource ownership.
 - Resource Ownership & Authority complements Identity, Scope and Access rather than replacing them.
 - Verified owner/Monarch authority is rooted in `global_user_id`, not usernames, phrases, commands or AI interpretation.
 - Only the verified owner may change SG-wide security/authority state; delegated permissions never imply SG ownership.
 - AI, agents, tasks, workers, tools, events and domain modules cannot self-escalate or bypass owner/security authorization.
+- User/model text cannot redefine canonical SG identity, ownership or architecture truth.
 - Conversation context is separate from confirmed long-term memory.
 - User preferences cannot weaken mandatory security or Action Gate requirements.
 - Delivery cannot target unauthorized users or resources.

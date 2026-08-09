@@ -4,8 +4,11 @@ import { createFixtureMeaningInterpreter } from '../semantic/meaningInterpreter.
 import { createSemanticKernel } from '../semantic/semanticKernel.js';
 import { createContextAwareSemanticPipeline } from '../memory/contextAwareSemanticPipeline.js';
 import { createContextResolver } from '../memory/contextResolver.js';
-import { createInMemoryMemoryProvider } from '../memory/inMemoryMemoryProvider.js';
-import { createPostgresMemoryProvider, createPostgresObservabilityStore, createPostgresPersistence } from '../persistence/index.js';
+import { createPostgresObservabilityStore, createPostgresPersistence } from '../persistence/index.js';
+import { createMemory2Service, createMemory2Provider } from '../memory2/memory2.js';
+import { createInMemoryMemory2Store } from '../memory2/inMemoryMemory2Store.js';
+import { createPostgresMemory2Store } from '../memory2/postgresMemory2Store.js';
+import { createMemory2Capabilities, MEMORY2_CAPABILITY_NAMES } from '../memory2/memory2Capabilities.js';
 import { createPostgresTaskQueue } from '../automation/postgresTaskQueue.js';
 import { createPostgresRecurringScheduler } from '../automation/postgresRecurringScheduler.js';
 import { createActionGate } from '../action/actionGate.js';
@@ -55,7 +58,7 @@ function createCredentialAuditAdapter(observability, config) { let sequence = 0;
 function enrichTrace(traceContext, config) { return Object.freeze({ ...(traceContext ?? {}), environment: traceContext?.environment ?? config.environment, revision: traceContext?.revision ?? config.revision }); }
 
 export function createLocalProductionHarness({ env = {}, interpretationResolver, fetchImpl = globalThis.fetch, clock = () => new Date() } = {}) {
-  const config = loadRuntimeConfig({ SG_ENVIRONMENT: 'local-production-like', SG_REVISION: 'block-16.18', SG_PROJECT_SCOPE: 'sg2.1', ...env });
+  const config = loadRuntimeConfig({ SG_ENVIRONMENT: 'local-production-like', SG_REVISION: 'memory-2.0', SG_PROJECT_SCOPE: 'sg2.1', ...env });
   const policyLayer = createDefaultConfigurationPolicyLayer({ environment: createEnvironmentPolicyOverrides(env) });
   const basePolicy = policyLayer.resolve().policy;
   const persistence = config.persistenceMode === 'postgres' ? createPostgresPersistence({ connectionString: config.databaseUrl, ssl: config.databaseSsl, applicationName: 'sg-2-1-runtime' }) : null;
@@ -82,7 +85,21 @@ export function createLocalProductionHarness({ env = {}, interpretationResolver,
   const userSettingsService = createUserSettingsService({ store: settingsStore, clock });
   const timezoneStore = createTimezoneSettingsAdapter({ userSettingsService });
   const languageStore = createLanguageSettingsAdapter({ userSettingsService });
-  const baseMemoryProvider = persistence ? createPostgresMemoryProvider({ memoryRepository: persistence.repositories.memory, clock }) : createInMemoryMemoryProvider({ clock });
+  const memory2Store = persistence ? createPostgresMemory2Store({ database: persistence.database }) : createInMemoryMemory2Store();
+  const memory2Service = createMemory2Service({
+    store: memory2Store,
+    clock,
+    audit: (event) => {
+      const correlation = `memory2:${event.memoryId ?? event.newMemoryId ?? event.eventClass}:${config.environment}`;
+      return observability.record({
+        eventClass: 'audit_event', channel: 'telemetry', stage: 'memory2', outcome: event.reason ?? event.eventClass,
+        traceContext: { traceId: correlation, requestId: correlation, environment: config.environment, revision: config.revision },
+        actorRef: event.actorGlobalUserId ?? null,
+        data: { memoryEventClass: event.eventClass, memoryId: event.memoryId ?? null, newMemoryId: event.newMemoryId ?? null, projectScope: event.projectScope ?? null, scopeKind: event.scopeKind ?? null, privacyClass: event.privacyClass ?? null, reason: event.reason ?? null, conflictCount: event.conflictCount ?? event.conflictGroupCount ?? null, selectedCount: event.selectedCount ?? null, candidateCount: event.candidateCount ?? null, expiredCount: event.expiredCount ?? null, automatic: event.automatic ?? null }
+      });
+    }
+  });
+  const baseMemoryProvider = createMemory2Provider({ service: memory2Service, clock });
   const memoryProvider = createTemporalMemoryProvider({ memoryProvider: baseMemoryProvider });
   const selfKnowledgeStore = persistence ? createPostgresSelfKnowledgeStore({ database: persistence.database }) : createInMemorySelfKnowledgeStore({ clock });
   const selfKnowledgeService = createSelfKnowledgeService({ store: selfKnowledgeStore });
@@ -103,7 +120,8 @@ export function createLocalProductionHarness({ env = {}, interpretationResolver,
   const temporalCapabilities = createTemporalCapabilities({ temporalService, memoryProvider, recurringScheduler });
   const languageCapabilities = createLanguageCapabilities({ languageContextService });
   const userSettingsCapabilities = createUserSettingsCapabilities({ userSettingsService });
-  const capabilityNames = Object.freeze([...PRODUCTION_CAPABILITY_NAMES, ...temporalCapabilities.map((item) => item.name), ...languageCapabilities.map((item) => item.name), ...userSettingsCapabilities.map((item) => item.name)]);
+  const memory2Capabilities = createMemory2Capabilities({ memory2Service });
+  const capabilityNames = Object.freeze([...PRODUCTION_CAPABILITY_NAMES, ...MEMORY2_CAPABILITY_NAMES, ...temporalCapabilities.map((item) => item.name), ...languageCapabilities.map((item) => item.name), ...userSettingsCapabilities.map((item) => item.name)]);
 
   const selfKnowledgeSources = createDeploymentSelfKnowledgeSources({ config, capabilityNames, persistence, productionAI, connectionRegistry, resourceAuthorityRegistry, conversationContextService, userSettingsService, languageContextService, temporalService, featureFlags, eventBus: controlPlane.eventBus, contractVersioning: controlPlane.contractVersioning, domainRuntime: controlPlane.domainRuntime });
   const selfKnowledgeBuilder = createSelfKnowledgeBuilder({
@@ -128,6 +146,7 @@ export function createLocalProductionHarness({ env = {}, interpretationResolver,
       runtime: runtime ? runtime.health() : { phase: 'starting', ok: true },
       persistence: persistence ? persistence.health() : { mode: 'memory', started: true },
       ai: { initialized: Boolean(productionAI), enabled: aiRequested(env) },
+      memory2: { enabled: true },
       ownerSecurity: ownerSecurityGateway.status(),
       revision: config.revision,
       environment: config.environment
@@ -136,14 +155,27 @@ export function createLocalProductionHarness({ env = {}, interpretationResolver,
   const conversationResponder = createLanguageAwareConversationResponder({ aiRouter: productionAI?.aiRouter ?? null, responseContextAssembler });
   const selfKnowledgeResource = Object.freeze({
     async start() {
-      await selfKnowledgeBuilder.rebuild({ sourceRevision: config.revision, commitSha: config.revision, environment: config.environment, reason: 'runtime-startup', metadata: { block: '16.18' } });
+      await selfKnowledgeBuilder.rebuild({ sourceRevision: config.revision, commitSha: config.revision, environment: config.environment, reason: 'runtime-startup', metadata: { block: 'memory-2.0' } });
+    },
+    async stop() {}
+  });
+  const memory2Resource = Object.freeze({
+    async start() {
+      await memory2Service.reconcileLifecycle({ projectScope: config.projectScope });
+      const integrity = await memory2Service.integrityCheck({ projectScope: config.projectScope });
+      if (!integrity.ok) {
+        const error = new Error(`Memory 2.0 integrity check failed: ${integrity.issueCount}`);
+        error.code = 'memory2-integrity-failed';
+        throw error;
+      }
     },
     async stop() {}
   });
 
   const domainDispatcher = async ({ domainId, capability, input, request }) => controlPlane.domainRuntime.execute({ domainId, capability, input, identityContext: request.actor, scopeContext: request.scope, traceContext: enrichTrace(request.traceContext, config), gateDecision: request.gateDecision });
   const capabilities = Object.freeze([
-    ...createProductionCapabilities({ memoryProvider, taskStore, conversationResponder, domainDispatcher, sourceRetriever: async ({ sourceId, query }) => sourceId === 'local-fixture' ? { ok: true, message: 'Approved local source retrieved', query, data: { sourceId, query }, sources: [sourceId] } : { ok: false, code: 'source-not-approved', message: 'Source is not approved', retryable: false, sources: [] }, repositoryAnalyzer: async ({ mode, files = [] }) => ({ mode, files: [...files], findings: [], mutated: false, message: 'Repository analysis completed in read/prepare-only mode', sources: ['repository-read-source'] }), diagnosticsProvider: async () => ({ status: 'ready', revision: config.revision, environment: config.environment, capabilityCount: capabilityNames.length, languageContext: 'ready', conversationContext: 'ready', userSettings: 'ready', selfKnowledge: (await selfKnowledgeService.getSnapshot({ environment: config.environment }))?.validationStatus ?? 'unavailable', responseContext: 'ready', ownerSecurity: ownerSecurityGateway.status(), policyLayer: 'ready', featureFlags: 'ready', internalEventBus: 'ready', contractVersioning: 'ready', domainRuntime: 'ready', credentialBoundary: 'ready', credentialProviders: credentialDeployment.providers, connectionRegistry: 'ready', connectionIds: connectionDeployment.connectionIds, resourceAuthority: 'ready' }) }),
+    ...createProductionCapabilities({ memoryProvider, taskStore, conversationResponder, domainDispatcher, sourceRetriever: async ({ sourceId, query }) => sourceId === 'local-fixture' ? { ok: true, message: 'Approved local source retrieved', query, data: { sourceId, query }, sources: [sourceId] } : { ok: false, code: 'source-not-approved', message: 'Source is not approved', retryable: false, sources: [] }, repositoryAnalyzer: async ({ mode, files = [] }) => ({ mode, files: [...files], findings: [], mutated: false, message: 'Repository analysis completed in read/prepare-only mode', sources: ['repository-read-source'] }), diagnosticsProvider: async () => ({ status: 'ready', revision: config.revision, environment: config.environment, capabilityCount: capabilityNames.length, languageContext: 'ready', conversationContext: 'ready', userSettings: 'ready', memory2: await memory2Service.diagnostics({ scope: { userScope: ownerSecurityConfig.monarchGlobalUserId ?? 'diagnostic', projectScope: config.projectScope }, actor: { globalUserId: ownerSecurityConfig.monarchGlobalUserId ?? 'diagnostic', roles: ownerSecurityConfig.monarchGlobalUserId ? ['monarch'] : ['guest'], grants: [] } }), selfKnowledge: (await selfKnowledgeService.getSnapshot({ environment: config.environment }))?.validationStatus ?? 'unavailable', responseContext: 'ready', ownerSecurity: ownerSecurityGateway.status(), policyLayer: 'ready', featureFlags: 'ready', internalEventBus: 'ready', contractVersioning: 'ready', domainRuntime: 'ready', credentialBoundary: 'ready', credentialProviders: credentialDeployment.providers, connectionRegistry: 'ready', connectionIds: connectionDeployment.connectionIds, resourceAuthority: 'ready' }) }),
+    ...memory2Capabilities,
     ...temporalCapabilities, ...languageCapabilities, ...userSettingsCapabilities
   ]);
   const capabilityRegistry = createCapabilityRegistry({ capabilities });
@@ -152,9 +184,9 @@ export function createLocalProductionHarness({ env = {}, interpretationResolver,
   const capabilityExecutor = createFeatureFlaggedCapabilityExecutor({ executor: versionedCapabilityExecutor, featureFlags });
   const baseActionGate = createActionGate({ availableSources: ['approved-source-registry', 'repository-read-source'], availableTools: ['source-retriever', 'document-analyzer', 'repository-analyzer'] });
   const actionGate = createOwnerSecurityActionGate({ actionGate: baseActionGate, ownerSecurityGateway });
-  const resources = persistence ? [persistence, store, connectionDeployment.resource, controlPlane.eventBus, selfKnowledgeResource] : [connectionDeployment.resource, controlPlane.eventBus, selfKnowledgeResource];
-  runtime = createProductionRuntime({ config, semanticPipeline, actionGate, capabilityRegistry, capabilityExecutor, domainRuntime: controlPlane.domainRuntime, observability, languageContextService, conversationContextService, userSettingsService, policyLayer, resourceAuthorityRegistry, resources });
-  const identityResolver = async ({ platformFacts, scopeFacts }) => { const globalUserId = `${platformFacts.platform}:${platformFacts.platformUserId}`; const roles = ['monarch']; const grants = [...capabilityNames.map((name) => `capability:${name}`), ...BUILT_IN_DOMAIN_PERMISSIONS]; if (persistence) { await persistence.repositories.identities.link({ platform: platformFacts.platform, platformUserId: platformFacts.platformUserId, globalUserId, metadata: { fixture: true } }); await persistence.repositories.access.grantRole({ globalUserId, projectScope: scopeFacts.projectId ?? config.projectScope, role: 'monarch' }); for (const grantName of grants) await persistence.repositories.access.grantPermission({ globalUserId, projectScope: scopeFacts.projectId ?? config.projectScope, grantName }); } return { identityContext: createIdentityContext({ globalUserId, platform: platformFacts.platform, platformUserId: platformFacts.platformUserId, linkStatus: persistence ? 'linked' : 'local-fixture', roles, grants, authenticationLevel: 'verified' }), scopeContext: createScopeContext({ userScope: globalUserId, projectScope: scopeFacts.projectId ?? config.projectScope, groupScope: scopeFacts.groupId ?? null, threadScope: scopeFacts.threadId ?? null, allowedCapabilities: capabilityNames }) }; };
+  const resources = persistence ? [persistence, store, connectionDeployment.resource, controlPlane.eventBus, memory2Resource, selfKnowledgeResource] : [connectionDeployment.resource, controlPlane.eventBus, memory2Resource, selfKnowledgeResource];
+  runtime = createProductionRuntime({ config, semanticPipeline, actionGate, capabilityRegistry, capabilityExecutor, domainRuntime: controlPlane.domainRuntime, observability, languageContextService, conversationContextService, userSettingsService, policyLayer, resourceAuthorityRegistry, memoryCaptureService: memory2Service, resources });
+  const identityResolver = async ({ platformFacts, scopeFacts }) => { const globalUserId = `${platformFacts.platform}:${platformFacts.platformUserId}`; const roles = ['monarch']; const grants = [...capabilityNames.map((name) => `capability:${name}`), 'memory:group:write', 'memory:project:write', 'memory:confirm', 'memory:promote', ...BUILT_IN_DOMAIN_PERMISSIONS]; if (persistence) { await persistence.repositories.identities.link({ platform: platformFacts.platform, platformUserId: platformFacts.platformUserId, globalUserId, metadata: { fixture: true } }); await persistence.repositories.access.grantRole({ globalUserId, projectScope: scopeFacts.projectId ?? config.projectScope, role: 'monarch' }); for (const grantName of grants) await persistence.repositories.access.grantPermission({ globalUserId, projectScope: scopeFacts.projectId ?? config.projectScope, grantName }); } return { identityContext: createIdentityContext({ globalUserId, platform: platformFacts.platform, platformUserId: platformFacts.platformUserId, linkStatus: persistence ? 'linked' : 'local-fixture', roles, grants, authenticationLevel: 'verified' }), scopeContext: createScopeContext({ userScope: globalUserId, projectScope: scopeFacts.projectId ?? config.projectScope, groupScope: scopeFacts.groupId ?? null, threadScope: scopeFacts.threadId ?? null, allowedCapabilities: capabilityNames }) }; };
   const transport = createLocalInterfaceHarness({ identityResolver, requestHandler: runtime.handle });
-  return Object.freeze({ config, runtime, transport, observability, store, memoryProvider, persistence, productionAI, capabilities, capabilityRegistry, durableTaskQueue, taskStore, temporalService, recurrenceEngine, recurringScheduler, languageStore, languageDetector, languageContextService, languageCapabilities, userSettingsService, settingsStore, userSettingsCapabilities, capabilityNames, policyLayer, featureFlags, featureFlagStore, credentialManager, credentialAccessContext, credentialProviders: credentialDeployment.providers, connectionRegistry, connectionAccessContext, connectionStore: connectionDeployment.store, connectionIds: connectionDeployment.connectionIds, resourceAuthorityRegistry, resourceAuthorityAccessContext, resourceAuthorityStore: authorityDeployment.store, conversationContextService, conversationContextStore: conversationDeployment.store, selfKnowledgeStore, selfKnowledgeService, selfKnowledgeBuilder, selfKnowledgeSources, responseContextAssembler, ownerSecurityConfig, securityPolicyRegistry, ownerSecurityGateway, actionGate, eventBus: controlPlane.eventBus, eventStore: controlPlane.eventStore, contractVersioning: controlPlane.contractVersioning, contractQuarantineStore: controlPlane.contractQuarantineStore, domainRegistry: controlPlane.domainRegistry, domainRuntime: controlPlane.domainRuntime, domainPermissions: BUILT_IN_DOMAIN_PERMISSIONS });
+  return Object.freeze({ config, runtime, transport, observability, store, memoryProvider, memory2Service, memory2Store, memory2Capabilities, persistence, productionAI, capabilities, capabilityRegistry, durableTaskQueue, taskStore, temporalService, recurrenceEngine, recurringScheduler, languageStore, languageDetector, languageContextService, languageCapabilities, userSettingsService, settingsStore, userSettingsCapabilities, capabilityNames, policyLayer, featureFlags, featureFlagStore, credentialManager, credentialAccessContext, credentialProviders: credentialDeployment.providers, connectionRegistry, connectionAccessContext, connectionStore: connectionDeployment.store, connectionIds: connectionDeployment.connectionIds, resourceAuthorityRegistry, resourceAuthorityAccessContext, resourceAuthorityStore: authorityDeployment.store, conversationContextService, conversationContextStore: conversationDeployment.store, selfKnowledgeStore, selfKnowledgeService, selfKnowledgeBuilder, selfKnowledgeSources, responseContextAssembler, ownerSecurityConfig, securityPolicyRegistry, ownerSecurityGateway, actionGate, eventBus: controlPlane.eventBus, eventStore: controlPlane.eventStore, contractVersioning: controlPlane.contractVersioning, contractQuarantineStore: controlPlane.contractQuarantineStore, domainRegistry: controlPlane.domainRegistry, domainRuntime: controlPlane.domainRuntime, domainPermissions: BUILT_IN_DOMAIN_PERMISSIONS });
 }

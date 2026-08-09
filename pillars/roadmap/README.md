@@ -6,6 +6,8 @@ Memory 2.0 is a completed cross-cutting memory program documented separately in 
 
 Universal Diagnostics is a separate planned cross-cutting diagnostic program documented in `UNIVERSAL_DIAGNOSTICS_PROGRAM.md`. It is implemented as an independent observer application around SG, not as a new core layer and not as a renumbering of Blocks 0–19.
 
+Block 8.1 is a production extension of completed Block 8 Interfaces. It adds the real Discord production transport on top of the existing Discord adapter contract and does not renumber Blocks 9–19.
+
 ## Order
 0. `00_ENGINEERING_FOUNDATION.md`
 1. `00_PRINCIPLES_AND_GATES.md`
@@ -18,31 +20,40 @@ Universal Diagnostics is a separate planned cross-cutting diagnostic program doc
 8. `06_IDENTITY_AND_SCOPE.md`
 9. `07_OBSERVABILITY.md`
 10. `08_INTERFACES.md`
-11. `09_AUTOMATION_AND_AGENTS.md`
-12. `10_DOMAIN_MODULES.md`
-13. `PRODUCTION_ROADMAP.md`
-14. `11_RUNTIME_COMPOSITION.md` — implementation and acceptance evidence for Block 11
-15. `12_POSTGRESQL_PERSISTENCE.md` — implementation and acceptance evidence for Block 12
-16. `13_DURABLE_AUTOMATION_AND_WORKERS.md` — implementation and acceptance evidence for Block 13
-17. `14_TELEGRAM_PRODUCTION_INTEGRATION.md` — implementation and acceptance evidence for Block 14
-18. `15_PRODUCTION_AI_INTEGRATION.md` — implementation and acceptance evidence for Block 15
-19. `16_PRODUCTION_CAPABILITIES.md` — implementation and acceptance evidence for Block 16
-20. `16_5_TEMPORAL_CONTEXT.md` — implementation and acceptance evidence for Block 16.5
-21. `16_6_LANGUAGE_AND_LOCALE_CONTEXT.md` — implementation and acceptance evidence for Block 16.6
-22. `16_7_CONFIGURATION_AND_POLICY_LAYER.md` — implementation and acceptance evidence for Block 16.7
-23. `16_8_SECRETS_AND_CREDENTIALS_MANAGEMENT.md` — implementation and acceptance evidence for Block 16.8
-24. `16_9_EXTERNAL_CONNECTIONS_REGISTRY.md` — implementation and acceptance evidence for Block 16.9
-25. `16_10_RESOURCE_OWNERSHIP_AND_AUTHORITY_MODEL.md` — implementation and acceptance evidence for Block 16.10
-26. `16_11_SESSION_AND_CONVERSATION_CONTEXT.md` — implementation and acceptance evidence for Block 16.11
-27. `16_12_USER_SETTINGS_AND_PREFERENCES.md` — implementation and acceptance evidence for Block 16.12
-28. `16_13_NOTIFICATION_AND_DELIVERY_ROUTER.md` — implementation and acceptance evidence for Block 16.13
-29. `16_14_INTERNAL_EVENT_BUS.md` — implementation and acceptance evidence for Block 16.14
-30. `16_15_SCHEMA_AND_CONTRACT_VERSIONING.md` — implementation and acceptance evidence for Block 16.15
-31. `16_16_FEATURE_FLAGS_AND_CONTROLLED_ROLLOUT.md` — implementation and acceptance evidence for Block 16.16
-32. `16_17_SELF_KNOWLEDGE_SYSTEM_SELF_AWARENESS.md` — Block 16.17 specification/evidence
-33. `16_18_MONARCH_CONTROL_OWNER_SECURITY.md` — Block 16.18 specification/evidence
-34. `MEMORY_2_0_ROADMAP.md` — completed cross-cutting Memory 2.0 M1–M9 program
-35. `UNIVERSAL_DIAGNOSTICS_PROGRAM.md` — planned cross-cutting Universal Diagnostics D1–D12 program
+11. `08_1_DISCORD_TRANSPORT_INTEGRATION.md` — Block 8.1 production extension of Interfaces
+12. `09_AUTOMATION_AND_AGENTS.md`
+13. `10_DOMAIN_MODULES.md`
+14. `PRODUCTION_ROADMAP.md`
+15. `11_RUNTIME_COMPOSITION.md` — implementation and acceptance evidence for Block 11
+16. `12_POSTGRESQL_PERSISTENCE.md` — implementation and acceptance evidence for Block 12
+17. `13_DURABLE_AUTOMATION_AND_WORKERS.md` — implementation and acceptance evidence for Block 13
+18. `14_TELEGRAM_PRODUCTION_INTEGRATION.md` — implementation and acceptance evidence for Block 14
+19. `15_PRODUCTION_AI_INTEGRATION.md` — implementation and acceptance evidence for Block 15
+20. `16_PRODUCTION_CAPABILITIES.md` — implementation and acceptance evidence for Block 16
+21. `16_5_TEMPORAL_CONTEXT.md` — implementation and acceptance evidence for Block 16.5
+22. `16_6_LANGUAGE_AND_LOCALE_CONTEXT.md` — implementation and acceptance evidence for Block 16.6
+23. `16_7_CONFIGURATION_AND_POLICY_LAYER.md` — implementation and acceptance evidence for Block 16.7
+24. `16_8_SECRETS_AND_CREDENTIALS_MANAGEMENT.md` — implementation and acceptance evidence for Block 16.8
+25. `16_9_EXTERNAL_CONNECTIONS_REGISTRY.md` — implementation and acceptance evidence for Block 16.9
+26. `16_10_RESOURCE_OWNERSHIP_AND_AUTHORITY_MODEL.md` — implementation and acceptance evidence for Block 16.10
+27. `16_11_SESSION_AND_CONVERSATION_CONTEXT.md` — implementation and acceptance evidence for Block 16.11
+28. `16_12_USER_SETTINGS_AND_PREFERENCES.md` — implementation and acceptance evidence for Block 16.12
+29. `16_13_NOTIFICATION_AND_DELIVERY_ROUTER.md` — implementation and acceptance evidence for Block 16.13
+30. `16_14_INTERNAL_EVENT_BUS.md` — implementation and acceptance evidence for Block 16.14
+31. `16_15_SCHEMA_AND_CONTRACT_VERSIONING.md` — implementation and acceptance evidence for Block 16.15
+32. `16_16_FEATURE_FLAGS_AND_CONTROLLED_ROLLOUT.md` — implementation and acceptance evidence for Block 16.16
+33. `16_17_SELF_KNOWLEDGE_SYSTEM_SELF_AWARENESS.md` — Block 16.17 specification/evidence
+34. `16_18_MONARCH_CONTROL_OWNER_SECURITY.md` — Block 16.18 specification/evidence
+35. `MEMORY_2_0_ROADMAP.md` — completed cross-cutting Memory 2.0 M1–M9 program
+36. `UNIVERSAL_DIAGNOSTICS_PROGRAM.md` — planned cross-cutting Universal Diagnostics D1–D12 program
+
+## Block 8.1 — Discord Transport Integration
+
+**Status: Planned / contract foundation already present.**
+
+The existing Block 8 code already contains a thin Discord adapter and contract tests. Block 8.1 owns the missing production path: Gateway/REST connection, durable deduplication, production Discord identity resolution, safe verified cross-platform Global ID linking, Discord delivery through the existing Delivery Router, scope/resource isolation, diagnostics, observability and live acceptance evidence.
+
+Canonical specification: `08_1_DISCORD_TRANSPORT_INTEGRATION.md`.
 
 ## Memory 2.0
 
@@ -74,7 +85,7 @@ Workflow: `../workflow/UNIVERSAL_DIAGNOSTICS_WORKFLOW.md`.
 
 ## Production continuation
 
-`PRODUCTION_ROADMAP.md` remains the canonical numbered continuation after Block 10. Memory 2.0 and Universal Diagnostics are separate cross-cutting programs and do not renumber Blocks 11–19.
+`PRODUCTION_ROADMAP.md` remains the canonical numbered continuation after Block 10. Memory 2.0 and Universal Diagnostics are separate cross-cutting programs and do not renumber Blocks 11–19. Block 8.1 remains an extension of Block 8 rather than a renumbering of that continuation.
 
 Each production block/program stage must still be independently verifiable, reversible and completed through code, tests, documentation, CI and runtime evidence.
 

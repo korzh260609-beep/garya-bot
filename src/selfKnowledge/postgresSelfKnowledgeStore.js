@@ -51,7 +51,10 @@ export function createPostgresSelfKnowledgeStore({ database } = {}) {
       if (existing.rowCount > 0) return Object.freeze({ status: 'duplicate', snapshot: await hydrate(existing.rows[0]) });
 
       const created = await database.transaction(async (tx) => {
-        const latest = await tx.query('SELECT COALESCE(MAX(version),0)::int AS version FROM system_self_knowledge_snapshots WHERE environment=$1 FOR UPDATE', [env]);
+        await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`sg-self-knowledge:${env}`]);
+        const duplicate = await tx.query('SELECT * FROM system_self_knowledge_snapshots WHERE environment=$1 AND material_hash=$2 LIMIT 1', [env, materialHash]);
+        if (duplicate.rowCount > 0) return { duplicate: duplicate.rows[0] };
+        const latest = await tx.query('SELECT COALESCE(MAX(version),0)::int AS version FROM system_self_knowledge_snapshots WHERE environment=$1', [env]);
         const version = Number(latest.rows[0].version) + 1;
         const snapshotId = `self-knowledge:${env}:${version}`;
         const snapshotResult = await tx.query(`
@@ -67,9 +70,10 @@ export function createPostgresSelfKnowledgeStore({ database } = {}) {
             snapshotId, fact.factId, fact.category, fact.key, JSON.stringify(fact.value), fact.status, fact.kind, fact.confidence, JSON.stringify(fact.provenance)
           ]);
         }
-        return snapshotResult.rows[0];
+        return { duplicate: null, row: snapshotResult.rows[0] };
       }, { isolationLevel: 'SERIALIZABLE' });
-      return Object.freeze({ status: 'written', snapshot: await hydrate(created) });
+      if (created.duplicate) return Object.freeze({ status: 'duplicate', snapshot: await hydrate(created.duplicate) });
+      return Object.freeze({ status: 'written', snapshot: await hydrate(created.row) });
     },
     async list({ environment } = {}) {
       const env = required(environment, 'environment');

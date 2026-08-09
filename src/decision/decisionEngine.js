@@ -6,6 +6,8 @@ const DEFAULT_ACTION = Object.freeze({
   actionClass: 'analysis'
 });
 
+const SAFE_INTERNAL_ANSWER_PLACEHOLDER = 'SG could not produce a final conversational response.';
+
 function finitePriority(value) {
   const priority = Number(value ?? 0);
   return Number.isFinite(priority) ? priority : 0;
@@ -43,12 +45,14 @@ function classifyDecision({ interpretation, selected, uncertaintyThreshold }) {
   return 'answer';
 }
 
-function buildMessage({ decisionType, canonicalInput, interpretation, selectedAction }) {
+function buildMessage({ decisionType, interpretation, selectedAction }) {
   if (decisionType === 'clarification') return interpretation.clarificationQuestion;
   if (decisionType === 'prepare') {
     return `Prepared action: ${selectedAction.name ?? selectedAction.type ?? 'requested action'}. Execution is disabled before Action Gate.`;
   }
-  return canonicalInput.text;
+  // This is an internal response-plan placeholder only. Never copy user input here:
+  // Gate downgrade/deny paths may surface this value without running compose-answer.
+  return SAFE_INTERNAL_ANSWER_PLACEHOLDER;
 }
 
 function buildRationale({ decisionType, interpretation, selected, requiresEvidence }) {
@@ -112,7 +116,7 @@ export function createDecisionEngine({ uncertaintyThreshold = 0.65 } = {}) {
 
       const responsePlan = createResponsePlan({
         mode: decisionType,
-        message: buildMessage({ decisionType, canonicalInput, interpretation, selectedAction }),
+        message: buildMessage({ decisionType, interpretation, selectedAction }),
         requiresConfirmation: false,
         preparedAction: decisionType === 'prepare' ? selectedAction : null
       });

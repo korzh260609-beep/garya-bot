@@ -54,7 +54,7 @@ const MODE_PATTERNS = Object.freeze({
   comparison: [/\bcompare/u,/\bversus\b/u,/\bvs\b/u,/\bdifference/u,/\bbefore and after\b/u,/сравн/u,/отлич/u,/до и после/u,/порівн/u,/відмін/u],
   evidence: [/\bevidence\b/u,/\bprovenance\b/u,/\bproof\b/u,/\bverified\b/u,/\bverification\b/u,/\bci\b/u,/доказ/u,/подтверж/u,/проверен/u,/провенанс/u,/підтвердж/u,/перевір/u],
   rationale: [/\bwhy\b/u,/\brationale\b/u,/\breason\b/u,/\bdecision reason\b/u,/почему/u,/зачем/u,/причин/u,/обоснован/u,/чому/u,/навіщо/u,/обґрунт/u],
-  evolution: [/\bevolution\b/u,/\bevolved\b/u,/\bchanged over time\b/u,/\bhow .* changed\b/u,/истори.*развит/u,/эволюц/u,/как .* менял/u,/развивал/u,/істор.*розвит/u,/еволюц/u,/як .* змін/u],
+  evolution: [/\bevolution\b/u,/\bevolv(?:e|ed|es|ing)\b/u,/\bchanged over time\b/u,/\bhow .* changed\b/u,/истори.*развит/u,/эволюц/u,/как .* менял/u,/развивал/u,/істор.*розвит/u,/еволюц/u,/як .* змін/u],
   historical: [/\bhistorical\b/u,/\bhistory\b/u,/\bpreviously\b/u,/\bformerly\b/u,/\bat that time\b/u,/истор/u,/раньше/u,/ранее/u,/тогда/u,/істор/u,/раніше/u,/тоді/u]
 });
 

@@ -1,7 +1,7 @@
 # SG 2.1 — PROJECT DEVELOPMENT KNOWLEDGE 4.0 PROGRAM
 
 ## Status
-In progress. **PDK4.1–PDK4.5 CLOSED and CI-verified.** PDK4.6–PDK4.12 remain planned.
+In progress. **PDK4.1–PDK4.6 CLOSED and CI-verified.** PDK4.7–PDK4.12 remain planned.
 
 Project Development Knowledge 4.0 (PDK4) is a cross-cutting program built on the completed Project Memory 3.0 foundation. It does not renumber Blocks 0–19 and does not reopen PM3.1–PM3.12.
 
@@ -174,12 +174,37 @@ Evidence:
 **Gate:** PASSED — model output cannot self-confirm or mutate durable Project Memory; extracted events remain bounded, provenance-backed and evidence-state constrained. Full repository code gate passed in SG 2.1 CI #7084 on commit `d8eb324b6ecc19697f75b6d884e8b79638d15868` before final documentation synchronization.
 
 ### PDK4.6 — Commit/Event Clustering & Milestones
-- correlate multiple commits/PRs/tests/docs belonging to one product change;
-- create coherent milestone/change candidates while preserving all source references;
-- prevent semantic similarity from collapsing distinct changes;
-- maintain relation links between atomic evidence and milestone views.
+**Status: CLOSED / CI-verified.**
 
-**Gate:** one multi-commit implementation can be represented as one coherent milestone without losing source-level auditability.
+Implemented:
+- deterministic bounded clustering of PDK4.5 extracted candidates by project, domain, normalized component, temporal proximity and semantic anchors;
+- hard project/domain/component/time boundaries preventing semantic similarity from collapsing unrelated product changes;
+- bounded milestone `DevelopmentEvent` candidates that preserve every atomic event's immutable provenance and source-level verification;
+- deterministic cluster and aggregate fingerprints for replay/audit consistency;
+- explicit `belongs-to-milestone` relation-link records from every atomic event to the derived milestone;
+- PDK4.4 `supporting-evidence` sources may attach only with explicit links to known atomic event ids;
+- supporting CI/workflow evidence remains audit/correlation metadata and cannot promote the milestone lifecycle state or verification set by itself;
+- AI Router is used only for ambiguous hard-compatible pairs and receives bounded data-only event material;
+- malformed/unavailable AI deterministically falls back to split rather than silently merging changes;
+- AI output can decide only merge/split and cannot confirm truth, set trust, mutate lifecycle/evidence, claim deployment/runtime state or grant authority;
+- milestone output remains `trust=unverified`, `confirmed=false`, `confirmationState=proposed` through the existing PM3 candidate adapter;
+- PDK4.6 performs no direct Project Memory write or confirmation.
+
+Implementation:
+- `src/projectDevelopmentKnowledge/developmentEventClustering.js`
+- `src/projectDevelopmentKnowledge/index.js`
+- `tests/projectDevelopmentKnowledge4Clustering.test.js`
+- `package.json` (`test:project-development-knowledge`)
+
+Evidence:
+- correlated multi-commit implementation becomes one auditable milestone with all source provenance preserved;
+- distinct semantic changes, mismatched components/domains and distant events stay split;
+- cross-project and authoritative/mutated inputs fail closed;
+- supporting CI evidence attaches without promoting `implemented` to `ci-verified` or later states;
+- ambiguous clustering uses AI Router only and cannot self-confirm or alter authority/evidence state;
+- malformed/provider-failure fallback is deterministic and replay-stable.
+
+**Gate:** PASSED — one multi-commit implementation is represented as one coherent milestone while atomic evidence remains independently auditable and distinct changes are not collapsed by similarity alone. Full repository gate passed in SG 2.1 CI #7092 on commit `02b2d8c0cce035e6a954354814f7d5002fb4d5b4` before final documentation synchronization.
 
 ### PDK4.7 — Historical Reconstruction & Project Genesis
 - reconstruct earliest verified project evidence;

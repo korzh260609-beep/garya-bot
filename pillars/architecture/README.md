@@ -16,18 +16,19 @@ SG 2.1 is one global transport-independent project system whose reasoning layer 
 2. `SEMANTIC_KERNEL.md`
 3. `CONTEXT_AND_MEMORY.md`
 4. `MEMORY_2_0.md`
-5. `DECISION_AND_ACTION_GATE.md`
-6. `CAPABILITY_SYSTEM.md`
-7. `IDENTITY_AND_SCOPE.md`
-8. `OBSERVABILITY.md`
-9. `TRANSPORTS_AND_AI_ROUTING.md`
-10. `LANGUAGE_AND_LOCALE_CONTEXT.md`
-11. `FOUNDATIONAL_CONTROL_LAYERS.md`
-12. `SELF_KNOWLEDGE.md`
-13. `MONARCH_OWNER_SECURITY.md`
-14. `RUNTIME_COMPOSITION.md`
-15. `POSTGRESQL_PERSISTENCE.md`
-16. `UNIVERSAL_DIAGNOSTICS.md`
+5. `PROJECT_MEMORY_3_0.md`
+6. `DECISION_AND_ACTION_GATE.md`
+7. `CAPABILITY_SYSTEM.md`
+8. `IDENTITY_AND_SCOPE.md`
+9. `OBSERVABILITY.md`
+10. `TRANSPORTS_AND_AI_ROUTING.md`
+11. `LANGUAGE_AND_LOCALE_CONTEXT.md`
+12. `FOUNDATIONAL_CONTROL_LAYERS.md`
+13. `SELF_KNOWLEDGE.md`
+14. `MONARCH_OWNER_SECURITY.md`
+15. `RUNTIME_COMPOSITION.md`
+16. `POSTGRESQL_PERSISTENCE.md`
+17. `UNIVERSAL_DIAGNOSTICS.md`
 
 ## Core flow
 
@@ -52,6 +53,8 @@ Input
 
 Memory 2.0 is the canonical durable memory subsystem layered behind Context Resolution and response-context assembly. It preserves user/group/thread/project isolation, privacy-first recall, lifecycle, provenance and verified `global_user_id` continuity without replacing Conversation Context or System Self Knowledge.
 
+Project Memory 3.0 is the specialized project-knowledge program inside the Memory 2.0 Project Memory domain. It adds evidence-backed project facts, trusted-source ingestion, candidate/confirmation, duplicate/conflict handling, temporal supersession, bounded relations, hybrid semantic/metadata retrieval and a Project Memory Context Guard. It does not replace System Self Knowledge or live diagnostics and cannot treat Render as a live source until a real Render Connector exists.
+
 Self Knowledge is a shared system-context layer used for evidence-aware descriptions of SG itself. It does not sit as a mandatory reasoning hop in every request and does not replace live diagnostics.
 
 Universal Diagnostics is an independent observer application outside the mandatory SG request path. SG emits bounded diagnostic facts through Observability and approved read-only surfaces; the separate Diagnostics application reconstructs traces, compares expected vs actual paths, finds first divergence, performs deterministic root-cause analysis, runs isolated synthetic checks, and produces evidence-backed reports. SG must continue operating if Diagnostics is unavailable.
@@ -62,6 +65,9 @@ Universal Diagnostics is an independent observer application outside the mandato
 - Gates protect actions and do not become a second brain.
 - Memory supplies bounded context and does not own SG identity.
 - Memory 2.0 cannot broaden scope, privacy, authority or trust during capture/recall/consolidation.
+- Project Memory 3.0 reuses Memory 2.0 scope/privacy/trust/provenance/lifecycle boundaries and cannot become a parallel authority or identity system.
+- Project Memory facts require bounded provenance; raw chat/model output cannot become verified project truth automatically.
+- Project Memory live-state claims prefer current authoritative evidence when an approved connector exists; unavailable connectors must produce uncertainty rather than invented current state.
 - System Self Knowledge is separate from user/project memory and cannot grant authority.
 - Universal Diagnostics is not SG brain, Decision Engine, Action Gate, authorization or ordinary request routing.
 - Diagnostics is read-only by default; it must not silently edit code/config, deploy, mutate production state, grant authority or repair SG automatically.

@@ -53,10 +53,14 @@ function verifiedFetch(expectedSha = SHA) {
   };
 }
 
-test('PM3.3: trusted project event has deterministic source idempotency identity', () => {
+test('PM3.3: trusted project event has deterministic source-event idempotency identity', () => {
   const first = createTrustedProjectEvent(sourceEvent());
   const second = createTrustedProjectEvent(sourceEvent());
+  const changedCandidate = createTrustedProjectEvent(sourceEvent({
+    candidate: { ...sourceEvent().candidate, fact: { status: 'different-candidate' } }
+  }));
   assert.equal(first.idempotencyKey, second.idempotencyKey);
+  assert.equal(first.idempotencyKey, changedCandidate.idempotencyKey);
   assert.match(first.idempotencyKey, /^pm3-source:[a-f0-9]{64}$/);
   assert.equal(first.sourceEventId, `github:commit:${REPOSITORY}:${SHA}`);
 });
@@ -99,6 +103,15 @@ test('PM3.3: GitHub verification fails closed on unapproved repository', async (
   );
 });
 
+test('PM3.3: GitHub verification fails closed when sourceRef and immutable evidence disagree', async () => {
+  const verifier = createGitHubCommitVerifier({ fetchImpl: verifiedFetch(), allowedRepositories: [REPOSITORY] });
+  const boundary = createProjectMemoryIngestionBoundary({ githubVerifier: verifier });
+  await assert.rejects(
+    () => boundary.ingest(sourceEvent({ sourceRef: `github:${REPOSITORY}@${'0'.repeat(40)}` })),
+    (error) => error.code === 'project-memory-source-verification-failed'
+  );
+});
+
 test('PM3.3: GitHub verification fails closed when immutable SHA does not match provider response', async () => {
   const verifier = createGitHubCommitVerifier({
     fetchImpl: verifiedFetch('0'.repeat(40)),
@@ -124,6 +137,13 @@ test('PM3.3: Render is explicitly unavailable until a real verified connector ex
   assert.throws(
     () => createTrustedProjectEvent(sourceEvent({ sourceKind: 'render' })),
     (error) => error.code === 'project-memory-source-render-unavailable'
+  );
+});
+
+test('PM3.3: unknown source kinds fail closed', () => {
+  assert.throws(
+    () => createTrustedProjectEvent(sourceEvent({ sourceKind: 'unknown-provider' })),
+    (error) => error.code === 'project-memory-source-denied'
   );
 });
 

@@ -49,15 +49,20 @@ export function createGitHubDevelopmentSourceVerifier({
     } catch {
       fail('pdk4-source-connector-unavailable', 'GitHub request headers are unavailable');
     }
-    const response = await fetchImpl(`${base}${path}`, {
-      method: 'GET',
-      headers: {
-        Accept: 'application/vnd.github+json',
-        'X-GitHub-Api-Version': '2022-11-28',
-        'User-Agent': 'sg-pdk4-source-verifier',
-        ...(extraHeaders ?? {})
-      }
-    });
+    let response;
+    try {
+      response = await fetchImpl(`${base}${path}`, {
+        method: 'GET',
+        headers: {
+          Accept: 'application/vnd.github+json',
+          'X-GitHub-Api-Version': '2022-11-28',
+          'User-Agent': 'sg-pdk4-source-verifier',
+          ...(extraHeaders ?? {})
+        }
+      });
+    } catch {
+      fail('pdk4-source-connector-unavailable', 'GitHub source verification network request failed');
+    }
     if (!response?.ok) fail('pdk4-source-verification-failed', `GitHub source verification failed with status ${response?.status ?? 'unknown'}`, response?.status ?? null);
     try {
       return await response.json();

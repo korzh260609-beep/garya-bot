@@ -1,5 +1,11 @@
 import { createPostgresDatabase } from '../persistence/database.js';
 import { runMigrations } from '../persistence/migrator.js';
+import {
+  createPostgresProjectMemoryStore,
+  createProjectMemoryHybridRetrieval,
+  createProjectMemoryContextGuard,
+  createProjectMemoryDiagnostics
+} from '../projectMemory/index.js';
 import { createPostgresDiagnosticStore } from './postgresDiagnosticStore.js';
 import { createObservabilityEvidenceSource, createDeploymentEvidenceSource, createInfrastructureEvidenceSource } from './sourceAdapters.js';
 import { createDiagnosticService } from './diagnosticService.js';
@@ -21,6 +27,10 @@ const database = createPostgresDatabase({
 await database.start();
 if (truthy(env.RUN_DIAGNOSTICS_MIGRATIONS_ON_BOOT)) await runMigrations(database);
 
+const projectScope = env.SG_PROJECT_SCOPE ?? 'sg2.1';
+const monarchGlobalUserId = required(env.SG_MONARCH_GLOBAL_USER_ID ?? env.MONARCH_GLOBAL_USER_ID, 'SG_MONARCH_GLOBAL_USER_ID/MONARCH_GLOBAL_USER_ID');
+const diagnosticsAuthorize = ({ actor, projectKey }) => actor?.globalUserId === monarchGlobalUserId && projectKey === projectScope;
+
 const store = createPostgresDiagnosticStore({ database });
 const observabilitySource = createObservabilityEvidenceSource({ database });
 const infrastructureSource = createInfrastructureEvidenceSource({ database });
@@ -33,6 +43,16 @@ const deploymentSource = createDeploymentEvidenceSource({
   expectedRevision: env.DIAGNOSTICS_EXPECTED_REVISION ?? env.RENDER_GIT_COMMIT ?? null
 });
 
+const projectMemoryStore = createPostgresProjectMemoryStore(database);
+const projectMemoryRetrieval = createProjectMemoryHybridRetrieval({ database, store: projectMemoryStore, authorize: diagnosticsAuthorize });
+const projectMemoryContextGuard = createProjectMemoryContextGuard({ database, retrieval: projectMemoryRetrieval, authorize: diagnosticsAuthorize });
+const projectMemoryDiagnostics = createProjectMemoryDiagnostics({
+  database,
+  retrieval: projectMemoryRetrieval,
+  contextGuard: projectMemoryContextGuard,
+  authorize: diagnosticsAuthorize
+});
+
 const probes = [];
 if (env.DIAGNOSTICS_SG_HEALTH_URL) probes.push(createHttpHealthProbe({ id: 'sg-web-health', url: env.DIAGNOSTICS_SG_HEALTH_URL }));
 if (env.DIAGNOSTICS_WORKER_HEALTH_URL) probes.push(createHttpHealthProbe({ id: 'sg-worker-health', url: env.DIAGNOSTICS_WORKER_HEALTH_URL }));
@@ -40,17 +60,26 @@ const liveRunner = createLiveDiagnosticRunner({ probes });
 
 const revision = env.SG_REVISION ?? env.RENDER_GIT_COMMIT ?? 'unknown';
 const environment = env.SG_ENVIRONMENT ?? env.NODE_ENV ?? 'production';
-const projectScope = env.SG_PROJECT_SCOPE ?? 'sg2.1';
-const service = createDiagnosticService({
+const baseService = createDiagnosticService({
   store, observabilitySource, deploymentSource, infrastructureSource, liveRunner, environment, revision,
   inFlightGraceMs: Number(env.DIAGNOSTICS_IN_FLIGHT_GRACE_MS ?? 300000)
+});
+const service = Object.freeze({
+  ...baseService,
+  projectMemory(input = {}) {
+    return projectMemoryDiagnostics.runAll({
+      actor: { globalUserId: monarchGlobalUserId, projects: [projectScope] },
+      projectKey: input.projectKey ?? projectScope,
+      query: input.query ?? 'project memory'
+    });
+  }
 });
 const httpServer = createDiagnosticsHttpServer({
   service, store,
   host: env.DIAGNOSTICS_HOST ?? '0.0.0.0',
   port: Number(env.PORT ?? env.DIAGNOSTICS_PORT ?? 8790),
   adminToken: required(env.DIAGNOSTICS_ADMIN_TOKEN, 'DIAGNOSTICS_ADMIN_TOKEN'),
-  monarchGlobalUserId: required(env.SG_MONARCH_GLOBAL_USER_ID ?? env.MONARCH_GLOBAL_USER_ID, 'SG_MONARCH_GLOBAL_USER_ID/MONARCH_GLOBAL_USER_ID'),
+  monarchGlobalUserId,
   projectScope,
   environment, revision
 });

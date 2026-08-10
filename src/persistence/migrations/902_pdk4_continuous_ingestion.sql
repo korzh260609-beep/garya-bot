@@ -32,8 +32,11 @@ CREATE TABLE IF NOT EXISTS pdk4_continuous_triggers (
   repository text NOT NULL,
   trigger_id text NOT NULL,
   trigger_type text NOT NULL,
+  status text NOT NULL DEFAULT 'processing',
   metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
   received_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY(project_key, repository, trigger_id),
-  CHECK (trigger_type IN ('poll','webhook','event'))
+  CHECK (trigger_type IN ('poll','webhook','event')),
+  CHECK (status IN ('processing','completed','failed'))
 );

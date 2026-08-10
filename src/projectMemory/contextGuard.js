@@ -52,9 +52,7 @@ function hasSensitiveValue(value) {
   }
   return false;
 }
-function sensitivity(record) {
-  return normalizeKey(record?.metadata?.sensitivity ?? record?.metadata?.classification ?? '');
-}
+function sensitivity(record) { return normalizeKey(record?.metadata?.sensitivity ?? record?.metadata?.classification ?? ''); }
 function temporalState(record, nowMs) {
   const from = Date.parse(record.validFrom ?? 0);
   const to = record.validTo == null ? Infinity : Date.parse(record.validTo);
@@ -87,8 +85,7 @@ function exclusionReason(record, policy, nowMs) {
   if (!policy.allowedTrust.includes(record.trust)) return 'trust';
   if (!policy.allowedLifecycleStates.includes(record.lifecycleState)) return 'lifecycle';
   const temporal = temporalState(record, nowMs);
-  if (!policy.includeHistorical && temporal !== 'current') return temporal;
-  if (policy.includeHistorical && temporal === 'not-yet-valid') return temporal;
+  if (temporal !== 'current') return temporal;
   if (BLOCKED_SENSITIVITY.has(sensitivity(record))) return 'sensitive';
   if (hasSensitiveValue(record.fact) || hasSensitiveValue(record.metadata) || hasSensitiveValue(record.tags)) return 'secret-bearing';
   if (!sufficientProvenance(record)) return 'insufficient-provenance';
@@ -144,8 +141,7 @@ export function createProjectMemoryContextGuard({ database, authorize, retrieval
       allowedNamespaces,
       allowedTrust: uniqueStrings(input.allowedTrust ?? DEFAULT_TRUST, 'allowedTrust'),
       allowedLifecycleStates: uniqueStrings(input.allowedLifecycleStates ?? DEFAULT_LIFECYCLE, 'allowedLifecycleStates'),
-      includeProposed: input.includeProposed === true,
-      includeHistorical: input.includeHistorical === true
+      includeProposed: input.includeProposed === true
     };
     const maxFacts = boundedInteger(input.maxFacts, DEFAULT_MAX_FACTS, MAX_FACTS);
     const maxTokens = boundedInteger(input.maxTokens, DEFAULT_MAX_TOKENS, MAX_TOKENS);
@@ -225,7 +221,11 @@ export function createProjectMemoryContextGuard({ database, authorize, retrieval
 
   async function retrieve(input = {}) {
     if (!retrieval) throw new TypeError('retrieval service was not configured');
-    const retrievalResult = await retrieval.search(input);
+    const retrievalResult = await retrieval.search({
+      ...input,
+      includeHistorical: false,
+      lifecycleStates: input.lifecycleStates ?? DEFAULT_LIFECYCLE
+    });
     return build({ ...input, retrievalResult });
   }
 

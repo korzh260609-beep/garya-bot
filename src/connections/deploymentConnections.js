@@ -11,7 +11,21 @@ function auditAdapter(observability, config) {
 }
 
 export function createDeploymentExternalConnections({ persistence = null, credentialManager, observability, config, env = {}, clock = () => new Date() } = {}) {
-  if (!credentialManager || typeof credentialManager.listCredentials !== 'function') throw new TypeError('credentialManager is required');
+  if (!credentialManager || typeof credentialManager.listCredentials !== 'function' || typeof credentialManager.registerCredential !== 'function') throw new TypeError('credentialManager is required');
+
+  if (typeof env.DISCORD_BOT_TOKEN === 'string' && env.DISCORD_BOT_TOKEN !== '' && !credentialManager.listCredentials().some((item) => item.credentialId === 'sg.discord.bot')) {
+    credentialManager.registerCredential({
+      credentialId: 'sg.discord.bot',
+      type: 'bot-token',
+      secretRef: { provider: 'environment', key: 'DISCORD_BOT_TOKEN' },
+      ownerUserId: 'system:runtime',
+      projectScope: config.projectScope,
+      connectionId: 'discord',
+      requiredPermission: 'credential:use:system',
+      metadata: { provider: 'discord', source: 'deployment-config' }
+    });
+  }
+
   const store = persistence ? createPostgresExternalConnectionStore({ database: persistence.database }) : createInMemoryExternalConnectionStore();
   const registry = createExternalConnectionsRegistry({ store, clock, audit: auditAdapter(observability, config), credentialManager });
   const actor = Object.freeze({ globalUserId: 'system:runtime', roles: Object.freeze(['system']), grants: Object.freeze(['connection:manage','connection:read','connection:verify','connection:manage:any']) });
@@ -22,6 +36,7 @@ export function createDeploymentExternalConnections({ persistence = null, creden
     const items = [];
     if (credentialIds.has('sg.openai.primary')) items.push({ connectionId: 'openai', provider: 'openai', serviceType: 'ai-provider', ownerGlobalUserId: 'system:runtime', projectScope: config.projectScope, externalAccountId: 'primary', externalAccount: { label: 'OpenAI primary' }, credentialId: 'sg.openai.primary', grantedScopes: ['responses'], permissions: ['responses:create'], capabilities: ['ai.responses'], provenance: { source: 'deployment-config' } });
     if (credentialIds.has('sg.telegram.bot')) items.push({ connectionId: 'telegram', provider: 'telegram', serviceType: 'messaging-platform', ownerGlobalUserId: 'system:runtime', projectScope: config.projectScope, externalAccountId: String(env.TELEGRAM_BOT_ID ?? env.TELEGRAM_BOT_USERNAME ?? 'primary'), externalAccount: { botId: env.TELEGRAM_BOT_ID ?? null, botUsername: env.TELEGRAM_BOT_USERNAME ?? null }, credentialId: 'sg.telegram.bot', grantedScopes: ['bot-api'], permissions: ['messages:send','webhook:manage'], capabilities: ['telegram.bot-api','notification.delivery','transport.telegram'], provenance: { source: 'deployment-config' } });
+    if (credentialIds.has('sg.discord.bot')) items.push({ connectionId: 'discord', provider: 'discord', serviceType: 'messaging-platform', ownerGlobalUserId: 'system:runtime', projectScope: config.projectScope, externalAccountId: String(env.DISCORD_APPLICATION_ID ?? env.DISCORD_BOT_USER_ID ?? 'primary'), externalAccount: { applicationId: env.DISCORD_APPLICATION_ID ?? null, botUserId: env.DISCORD_BOT_USER_ID ?? env.DISCORD_APPLICATION_ID ?? null }, credentialId: 'sg.discord.bot', grantedScopes: ['gateway','bot-api'], permissions: ['messages:read','messages:send'], capabilities: ['discord.bot-api','discord.gateway','notification.delivery','transport.discord'], provenance: { source: 'deployment-config' } });
     return items;
   }
 
@@ -37,7 +52,12 @@ export function createDeploymentExternalConnections({ persistence = null, creden
           const deploymentManaged = existing.provenance?.source === 'deployment-config';
           if (existing.status === 'revoked') continue;
           if (!deploymentManaged) continue;
-          if (!['unavailable', 'degraded'].includes(existing.status)) continue;
+          const descriptorChanged = existing.credentialId !== descriptor.credentialId
+            || JSON.stringify(existing.externalAccount ?? {}) !== JSON.stringify(descriptor.externalAccount ?? {})
+            || JSON.stringify(existing.grantedScopes ?? []) !== JSON.stringify(descriptor.grantedScopes ?? [])
+            || JSON.stringify(existing.permissions ?? []) !== JSON.stringify(descriptor.permissions ?? [])
+            || JSON.stringify(existing.capabilities ?? []) !== JSON.stringify(descriptor.capabilities ?? []);
+          if (!descriptorChanged && !['unavailable', 'degraded'].includes(existing.status)) continue;
 
           await registry.reconnect({
             connectionId: descriptor.connectionId,
@@ -48,7 +68,7 @@ export function createDeploymentExternalConnections({ persistence = null, creden
             grantedScopes: descriptor.grantedScopes,
             permissions: descriptor.permissions,
             capabilities: descriptor.capabilities,
-            purpose: 'deployment-connection-recovery'
+            purpose: descriptorChanged ? 'deployment-connection-refresh' : 'deployment-connection-recovery'
           });
         }
       }

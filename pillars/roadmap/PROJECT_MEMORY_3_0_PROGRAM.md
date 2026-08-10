@@ -3,8 +3,8 @@
 ## Status
 Implementation in progress.
 
-Closed stages: **PM3.1, PM3.2, PM3.3, PM3.4**.
-Next stage: **PM3.5 — Deduplication & Conflict Resolver**.
+Closed stages: **PM3.1, PM3.2, PM3.3, PM3.4, PM3.5**.
+Next stage: **PM3.6 — Temporal History & Supersession**.
 
 Project Memory 3.0 specializes the completed Memory 2.0 `Project Memory` domain. It does not renumber Blocks 0–19 and must not replace System Self Knowledge, Conversation Context, Identity/Scope, Action Gate, Resource Authority, PostgreSQL persistence or Universal Diagnostics.
 
@@ -54,6 +54,8 @@ Deliver a production Project Memory that automatically captures only policy-appr
 - semantic similarity only as secondary evidence;
 - conflict records remain visible;
 - source/trust/time/Monarch policy resolves only when evidence is sufficient.
+
+**Status:** CLOSED. Canonical project-fact fingerprints are order-stable; source-event replay is protected by deterministic keys plus a PostgreSQL unique index; concurrent same-entity ingestion is serialized with a transaction advisory lock; exact canonical duplicates are suppressed; contradictory facts remain separately durable and create visible `open` conflict records instead of overwriting either side; semantic similarity is secondary evidence only; explicit conflict resolution is Owner Security-gated and records the authorized Monarch winner without silently mutating the underlying facts. PostgreSQL integration tests cover replay, exact duplicate suppression, contradiction, concurrency, cross-project isolation and authorized/unauthorized conflict resolution. Code gate verified by SG 2.1 CI #6974 SUCCESS.
 
 **Gate:** replay of one trusted event is idempotent; contradictory sources do not silently overwrite current truth.
 

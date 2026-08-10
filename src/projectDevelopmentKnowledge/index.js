@@ -42,3 +42,8 @@ export {
   PDK4_SIGNIFICANCE_LIMITS,
   createDevelopmentSignificanceClassifier
 } from './developmentSignificanceClassifier.js';
+export {
+  PDK4_EVENT_EXTRACTION_CONTRACT_VERSION,
+  PDK4_EVENT_EXTRACTION_LIMITS,
+  createDevelopmentEventExtractor
+} from './developmentEventExtractor.js';

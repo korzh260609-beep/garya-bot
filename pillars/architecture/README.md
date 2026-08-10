@@ -17,18 +17,19 @@ SG 2.1 is one global transport-independent project system whose reasoning layer 
 3. `CONTEXT_AND_MEMORY.md`
 4. `MEMORY_2_0.md`
 5. `PROJECT_MEMORY_3_0.md`
-6. `DECISION_AND_ACTION_GATE.md`
-7. `CAPABILITY_SYSTEM.md`
-8. `IDENTITY_AND_SCOPE.md`
-9. `OBSERVABILITY.md`
-10. `TRANSPORTS_AND_AI_ROUTING.md`
-11. `LANGUAGE_AND_LOCALE_CONTEXT.md`
-12. `FOUNDATIONAL_CONTROL_LAYERS.md`
-13. `SELF_KNOWLEDGE.md`
-14. `MONARCH_OWNER_SECURITY.md`
-15. `RUNTIME_COMPOSITION.md`
-16. `POSTGRESQL_PERSISTENCE.md`
-17. `UNIVERSAL_DIAGNOSTICS.md`
+6. `PROJECT_DEVELOPMENT_KNOWLEDGE_4_0.md`
+7. `DECISION_AND_ACTION_GATE.md`
+8. `CAPABILITY_SYSTEM.md`
+9. `IDENTITY_AND_SCOPE.md`
+10. `OBSERVABILITY.md`
+11. `TRANSPORTS_AND_AI_ROUTING.md`
+12. `LANGUAGE_AND_LOCALE_CONTEXT.md`
+13. `FOUNDATIONAL_CONTROL_LAYERS.md`
+14. `SELF_KNOWLEDGE.md`
+15. `MONARCH_OWNER_SECURITY.md`
+16. `RUNTIME_COMPOSITION.md`
+17. `POSTGRESQL_PERSISTENCE.md`
+18. `UNIVERSAL_DIAGNOSTICS.md`
 
 ## Core flow
 
@@ -55,6 +56,8 @@ Memory 2.0 is the canonical durable memory subsystem layered behind Context Reso
 
 Project Memory 3.0 is the specialized project-knowledge program inside the Memory 2.0 Project Memory domain. It adds evidence-backed project facts, trusted-source ingestion, candidate/confirmation, duplicate/conflict handling, temporal supersession, bounded relations, hybrid semantic/metadata retrieval and a Project Memory Context Guard. It does not replace System Self Knowledge or live diagnostics and cannot treat Render as a live source until a real Render Connector exists.
 
+Project Development Knowledge 4.0 is the development-history and project-evolution layer built on Project Memory 3.0. It reconstructs and continuously maintains SG's evidence-backed product biography: origin, requirements, proposals, decisions and rationale, implementation, rework, incidents/fixes, CI/deployment/runtime verification, supersession, current state and next plan. It reuses PM3 storage/trust/provenance/temporal/retrieval boundaries and must not become a parallel memory, authority, identity or diagnostics system.
+
 Self Knowledge is a shared system-context layer used for evidence-aware descriptions of SG itself. It does not sit as a mandatory reasoning hop in every request and does not replace live diagnostics.
 
 Universal Diagnostics is an independent observer application outside the mandatory SG request path. SG emits bounded diagnostic facts through Observability and approved read-only surfaces; the separate Diagnostics application reconstructs traces, compares expected vs actual paths, finds first divergence, performs deterministic root-cause analysis, runs isolated synthetic checks, and produces evidence-backed reports. SG must continue operating if Diagnostics is unavailable.
@@ -68,6 +71,10 @@ Universal Diagnostics is an independent observer application outside the mandato
 - Project Memory 3.0 reuses Memory 2.0 scope/privacy/trust/provenance/lifecycle boundaries and cannot become a parallel authority or identity system.
 - Project Memory facts require bounded provenance; raw chat/model output cannot become verified project truth automatically.
 - Project Memory live-state claims prefer current authoritative evidence when an approved connector exists; unavailable connectors must produce uncertainty rather than invented current state.
+- Project Development Knowledge 4.0 reuses Project Memory 3.0 as its durable fact/trust/history/retrieval substrate and cannot create a second project-memory store.
+- PDK4 must distinguish `implemented`, `ci-verified`, `deployed` and `live-verified`; evidence from one state cannot silently promote another.
+- PDK4 historical/superseded facts remain available for history but cannot override current-state retrieval.
+- PDK4 raw chat/model output cannot self-confirm, and AI summaries/classifications are not primary evidence.
 - System Self Knowledge is separate from user/project memory and cannot grant authority.
 - Universal Diagnostics is not SG brain, Decision Engine, Action Gate, authorization or ordinary request routing.
 - Diagnostics is read-only by default; it must not silently edit code/config, deploy, mutate production state, grant authority or repair SG automatically.

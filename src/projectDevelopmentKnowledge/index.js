@@ -79,3 +79,9 @@ export {
   PDK4_COMPONENT_SNAPSHOT_LIMITS,
   createProductComponentRegistrySnapshotBuilder
 } from './productComponentRegistrySnapshot.js';
+export {
+  PDK4_DEVELOPMENT_QUERY_INTEGRATION_CONTRACT_VERSION,
+  PDK4_DEVELOPMENT_QUERY_MODES,
+  classifyDevelopmentQueryMode,
+  createDevelopmentQueryIntegration
+} from './developmentQueryIntegration.js';

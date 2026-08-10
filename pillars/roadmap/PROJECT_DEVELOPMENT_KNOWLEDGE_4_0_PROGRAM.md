@@ -1,7 +1,7 @@
 # SG 2.1 — PROJECT DEVELOPMENT KNOWLEDGE 4.0 PROGRAM
 
 ## Status
-In progress. **PDK4.1–PDK4.4 CLOSED and CI-verified.** PDK4.5–PDK4.12 remain planned.
+In progress. **PDK4.1–PDK4.5 CLOSED and CI-verified.** PDK4.6–PDK4.12 remain planned.
 
 Project Development Knowledge 4.0 (PDK4) is a cross-cutting program built on the completed Project Memory 3.0 foundation. It does not renumber Blocks 0–19 and does not reopen PM3.1–PM3.12.
 
@@ -138,12 +138,40 @@ Evidence:
 **Gate:** PASSED — trivial/generated churn is prevented from becoming development-event input, significant architecture/product evidence is retained, and ambiguous classification stays bounded, Router-only and non-authoritative. Full repository code gate passed in SG 2.1 CI #7075 on commit `41276bc952c6eb51e107c532b65a885be00238d6` before final documentation synchronization.
 
 ### PDK4.5 — Development Event Extraction
-- extract problem, intent, proposal, decision, rationale, alternatives, implementation, result, limitation and lifecycle transition from already-authorized evidence;
-- preserve source provenance for every extracted field/claim;
-- route model assistance only through AI Router;
-- emit PM3 candidates rather than direct durable truth.
+**Status: CLOSED / CI-verified.**
 
-**Gate:** model output cannot self-confirm or mutate durable Project Memory; extracted events remain bounded and provenance-backed.
+Implemented:
+- bounded extractor accepting only verified PDK4.3 source envelopes paired with matching non-authoritative PDK4.4 classifications;
+- suppressed/supporting-only sources rejected from standalone DevelopmentEvent extraction;
+- deterministic event type/domain/component/state baseline from source evidence and significance categories;
+- extraction of title, summary, intent, problem, rationale, alternatives, implementation, result, limitations and lifecycle transition fields;
+- immutable source provenance and verification copied into every DevelopmentEvent;
+- evidence-gated state validation prevents source-only/model output from claiming implemented/CI/deployed/live state;
+- AI assistance routed only through AI Router with bounded `untrusted-data-only` payload and explicit no-confirm/no-authority metadata;
+- malformed/unavailable AI falls back to deterministic extraction;
+- secret-shaped AI output is redacted and list/text fields remain bounded;
+- deterministic event semantic/extraction fingerprints provide replay consistency;
+- output is a `DevelopmentEvent` plus PM3 `project-event` candidate forced to `trust=unverified`, `confirmed=false`, `confirmationState=proposed`;
+- extractor has no Project Memory store write path and cannot self-confirm durable truth.
+
+Implementation:
+- `src/projectDevelopmentKnowledge/developmentEventExtractor.js`
+- `src/projectDevelopmentKnowledge/index.js`
+- `tests/projectDevelopmentKnowledge4EventExtraction.test.js`
+- `package.json` (`test:project-development-knowledge`)
+
+Evidence:
+- deterministic provenance-backed implementation extraction;
+- replay-stable event/extraction fingerprints;
+- suppressed/supporting-evidence denial;
+- source/classification mismatch and weak-trust fail-closed tests;
+- bounded AI semantic enrichment while candidate stays unverified/proposed;
+- explicit denial of AI-driven code→deployed/live promotion;
+- canonical source-only roadmap evidence cannot claim implemented state;
+- malformed/provider-failure deterministic fallback;
+- secret-shaped model output redaction and bounded alternatives.
+
+**Gate:** PASSED — model output cannot self-confirm or mutate durable Project Memory; extracted events remain bounded, provenance-backed and evidence-state constrained. Full repository code gate passed in SG 2.1 CI #7084 on commit `d8eb324b6ecc19697f75b6d884e8b79638d15868` before final documentation synchronization.
 
 ### PDK4.6 — Commit/Event Clustering & Milestones
 - correlate multiple commits/PRs/tests/docs belonging to one product change;

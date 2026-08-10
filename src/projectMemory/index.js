@@ -64,4 +64,4 @@ export {
   PROJECT_MEMORY3_DIAGNOSTICS_CONTRACT_VERSION,
   PROJECT_MEMORY3_DIAGNOSTIC_CHECKS,
   createProjectMemoryDiagnostics
-} from './diagnosticsObservability.js';
+} from './diagnosticsBoundary.js';

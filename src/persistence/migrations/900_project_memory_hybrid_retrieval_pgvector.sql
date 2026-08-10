@@ -13,17 +13,15 @@ CREATE INDEX IF NOT EXISTS project_memory_embeddings_project_idx
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_available_extensions WHERE name = 'vector') THEN
-    CREATE EXTENSION IF NOT EXISTS vector;
-    IF NOT EXISTS (
-      SELECT 1
-      FROM information_schema.columns
-      WHERE table_schema = current_schema()
-        AND table_name = 'project_memory_embeddings'
-        AND column_name = 'embedding_vector'
-    ) THEN
-      EXECUTE 'ALTER TABLE project_memory_embeddings ADD COLUMN embedding_vector vector';
-    END IF;
+  IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector')
+     AND NOT EXISTS (
+       SELECT 1
+       FROM information_schema.columns
+       WHERE table_schema = current_schema()
+         AND table_name = 'project_memory_embeddings'
+         AND column_name = 'embedding_vector'
+     ) THEN
+    EXECUTE 'ALTER TABLE project_memory_embeddings ADD COLUMN embedding_vector vector';
   END IF;
 END
 $$;

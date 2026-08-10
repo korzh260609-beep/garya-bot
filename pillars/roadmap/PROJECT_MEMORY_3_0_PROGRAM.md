@@ -3,8 +3,8 @@
 ## Status
 Implementation in progress.
 
-Closed stages: **PM3.1, PM3.2, PM3.3, PM3.4, PM3.5, PM3.6, PM3.7, PM3.8, PM3.9, PM3.10**.
-Next stage: **PM3.11 — Diagnostics & Observability**.
+Closed stages: **PM3.1, PM3.2, PM3.3, PM3.4, PM3.5, PM3.6, PM3.7, PM3.8, PM3.9, PM3.10, PM3.11**.
+Next stage: **PM3.12 — Production E2E & Live Acceptance**.
 
 Project Memory 3.0 specializes the completed Memory 2.0 `Project Memory` domain. It does not renumber Blocks 0–19 and must not replace System Self Knowledge, Conversation Context, Identity/Scope, Action Gate, Resource Authority, PostgreSQL persistence or Universal Diagnostics.
 
@@ -118,6 +118,8 @@ Required checks/events include:
 - `project_memory_context_test`;
 - `project_memory_restart_continuity_test`;
 - bounded write/read/retrieval/supersession/conflict audit metadata.
+
+**Status:** CLOSED. Project Memory diagnostics are integrated into the existing Universal Diagnostics service rather than creating a parallel diagnostic subsystem. `createProjectMemoryDiagnostics` runs the eight required checks against the same PostgreSQL Project Memory store, PM3.7 retrieval and PM3.8 Context Guard, rechecks `diagnostics-read` authorization, exposes an owner-authenticated `/api/project-memory` endpoint, and returns only bounded diagnostic metadata. A hardened output boundary removes raw fact/payload/source-reference fields and normalizes internal failures so sensitive values cannot be reflected through diagnostic error text. Existing Project Memory history/conflict storage remains canonical for audit evidence: writes use `stored`, supersession uses `superseded`, conflicts remain in `project_memory_conflicts`, and bounded `read-audit`/`retrieval-audit` metadata is recorded without raw memory content. Tests cover all required checks, unauthorized and cross-project denial, retrieval/context failures, restart continuity, owner-only HTTP access/auditing, and explicit non-leakage of raw Project Memory. Full migration/security/check/runtime/worker/independent-diagnostics gate verified by SG 2.1 CI #7022 SUCCESS before documentation synchronization.
 
 **Gate:** diagnostics identify store/retrieval/source/context failures without dumping raw sensitive memory.
 

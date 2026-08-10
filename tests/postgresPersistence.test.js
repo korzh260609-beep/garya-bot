@@ -149,24 +149,31 @@ integration('Block 12 PostgreSQL persistence is durable, isolated and atomic', a
 
   assert.equal((await repositories.conversations.listMessages({ conversationId: `conversation:${suffix}`, scope: otherScope })).length, 0);
   assert.equal((await repositories.memory.list({ scope: otherScope, layers: ['user-memory'] })).length, 0);
+  await assert.rejects(() => repositories.identities.link({ platform: 'telegram', platformUserId: `tg:${suffix}`, globalUserId: otherScope.globalUserId }), /another global user/);
 
-  const storedMessage = (await repositories.conversations.listMessages({ conversationId: `conversation:${suffix}`, scope }))[0];
-  assert.equal(storedMessage.content.text, 'persist me');
-  const storedMemory = (await repositories.memory.list({ scope, layers: ['user-memory'] }))[0];
-  assert.equal(storedMemory.value.concise, true);
-  const storedTask = await repositories.automation.getTask({ taskId: `task:${suffix}`, scope });
-  assert.equal(storedTask.status, 'queued');
-  const storedSchedule = await repositories.automation.getSchedule({ scheduleId: `schedule:${suffix}`, scope });
-  assert.equal(storedSchedule.taskId, `task:${suffix}`);
-  const storedExecution = await repositories.automation.getExecution({ executionId: `execution:${suffix}`, scope });
-  assert.equal(storedExecution.status, 'pending');
-  const storedIdempotency = await repositories.idempotency.get({ key: `idem:${suffix}`, scope });
-  assert.equal(storedIdempotency.status, 'completed');
-  const storedDomain = await repositories.domains.get({ domainId: 'test-domain', recordId: `record:${suffix}`, scope });
-  assert.equal(storedDomain.payload.value, 1);
-  const audit = await database.query("SELECT payload FROM observability_events WHERE trace_id=$1 ORDER BY created_at DESC LIMIT 1", [suffix]);
-  assert.equal(JSON.stringify(audit.rows[0]?.payload ?? {}).includes('must-not-persist'), false);
-  assert.equal(JSON.stringify(audit.rows[0]?.payload ?? {}).includes('hidden'), false);
+  const rollbackUser = `rollback:${suffix}`;
+  await assert.rejects(() => repositories.protectedTransaction(async (repos, tx) => {
+    await repos.users.upsert({ globalUserId: rollbackUser }, tx);
+    await repos.automation.putTask({ taskId: `rollback-task:${suffix}`, scope: { globalUserId: rollbackUser, projectScope: 'sg2.1' }, status: 'queued', payload: {} }, tx);
+    throw new Error('force rollback');
+  }), /force rollback/);
+  assert.equal(await repositories.users.get(rollbackUser), null);
+
+  const redacted = await database.query('SELECT payload FROM observability_events WHERE trace_id=$1', [suffix]);
+  assert.equal(redacted.rows[0].payload.token, '[REDACTED]');
+  assert.equal(redacted.rows[0].payload.nested.password, '[REDACTED]');
+  assert.equal(redacted.rows[0].payload.nested.safe, true);
 
   await persistence.close();
+
+  const restarted = createPostgresPersistence({ connectionString, ssl: false, applicationName: 'sg-block12-restart-test' });
+  await restarted.start();
+  assert.equal((await restarted.repositories.users.get(scope.globalUserId)).profile.displayName, 'Gary');
+  assert.equal((await restarted.repositories.identities.resolve('telegram', `tg:${suffix}`)).global_user_id, scope.globalUserId);
+  assert.deepEqual((await restarted.repositories.access.list({ globalUserId: scope.globalUserId, projectScope: scope.projectScope })).roles, ['monarch']);
+  assert.equal((await restarted.repositories.conversations.listMessages({ conversationId: `conversation:${suffix}`, scope })).length, 1);
+  assert.equal((await restarted.repositories.memory.list({ scope, layers: ['user-memory'] })).length, 1);
+  assert.equal((await restarted.database.query('SELECT count(*)::int AS count FROM tasks WHERE task_id=$1', [`task:${suffix}`])).rows[0].count, 1);
+  assert.equal((await restarted.database.query('SELECT count(*)::int AS count FROM domain_records WHERE domain_id=$1 AND record_id=$2', ['test-domain', `record:${suffix}`])).rows[0].count, 1);
+  await restarted.close();
 });

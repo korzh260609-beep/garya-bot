@@ -1,7 +1,7 @@
 # SG 2.1 — PROJECT DEVELOPMENT KNOWLEDGE 4.0 WORKFLOW
 
 ## Status
-In progress. **PDK4.1–PDK4.5 CLOSED and CI-verified.** PDK4.6–PDK4.12 remain planned.
+In progress. **PDK4.1–PDK4.6 CLOSED and CI-verified.** PDK4.7–PDK4.12 remain planned.
 
 ## Purpose
 Defines the implementation and verification procedure for PDK4. It does not redefine the architecture or create a parallel memory system.
@@ -121,6 +121,24 @@ PDK4.4 verification is covered by `tests/projectDevelopmentKnowledge4Significanc
 - deterministic semantic/extraction fingerprints support replay consistency.
 
 PDK4.5 verification is covered by `tests/projectDevelopmentKnowledge4EventExtraction.test.js`, including provenance/state extraction, replay determinism, non-event-eligible denial, classification/source mismatch denial, bounded Router enrichment, anti-promotion checks, source-only roadmap behavior, provider-failure fallback and secret-output redaction. The complete repository code gate passed in SG 2.1 CI #7084 on commit `d8eb324b6ecc19697f75b6d884e8b79638d15868` before final documentation synchronization.
+
+### Implemented PDK4.6 clustering discipline
+- clustering accepts only PDK4.5 extracted candidates whose PM3 candidate remains `unverified`, unconfirmed and `proposed`;
+- deterministic project/domain/normalized-component/time/semantic compatibility runs before any model assistance;
+- project, domain, component or temporal incompatibility is a hard split that AI cannot override;
+- sufficiently strong compatible semantic overlap may merge deterministically;
+- only an ambiguous hard-compatible pair may invoke AI Router;
+- Router receives bounded data-only event material and may decide only merge/split;
+- AI cannot create trust, confirmation, evidence, lifecycle state, deployment/runtime claims, identity, roles, permissions, ownership or authority;
+- malformed or unavailable AI deterministically falls back to split rather than merging uncertain changes;
+- each milestone preserves every unique atomic provenance reference and only the verification already present on clustered atomic events;
+- each atomic event yields an explicit `belongs-to-milestone` relation-link record to the derived milestone;
+- PDK4.4 `supporting-evidence` sources may attach only through explicit links to known atomic event ids;
+- supporting workflow/CI evidence remains audit/correlation metadata and cannot independently promote the milestone lifecycle or verification state;
+- cluster and aggregate fingerprints are deterministic for replay/audit consistency;
+- milestone output remains an unverified/proposed PM3 candidate and PDK4.6 has no direct Project Memory write/confirmation path.
+
+PDK4.6 verification is covered by `tests/projectDevelopmentKnowledge4Clustering.test.js`, including coherent multi-commit clustering, distinct-change separation, hard component/domain/time boundaries, supporting-CI non-promotion, explicit support-link validation, cross-project and mutated-input denial, Router-only ambiguous merge assistance and deterministic AI-failure fallback. The complete repository gate passed in SG 2.1 CI #7092 on commit `02b2d8c0cce035e6a954354814f7d5002fb4d5b4` before final documentation synchronization.
 
 ## Continuous ingestion workflow
 

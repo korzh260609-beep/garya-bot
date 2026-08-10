@@ -44,8 +44,9 @@ Block 8.1 is a production extension of completed Block 8 Interfaces. It adds the
 32. `16_16_FEATURE_FLAGS_AND_CONTROLLED_ROLLOUT.md` — implementation and acceptance evidence for Block 16.16
 33. `16_17_SELF_KNOWLEDGE_SYSTEM_SELF_AWARENESS.md` — Block 16.17 specification/evidence
 34. `16_18_MONARCH_CONTROL_OWNER_SECURITY.md` — Block 16.18 specification/evidence
-35. `MEMORY_2_0_ROADMAP.md` — completed cross-cutting Memory 2.0 M1–M9 program
-36. `UNIVERSAL_DIAGNOSTICS_PROGRAM.md` — planned cross-cutting Universal Diagnostics D1–D12 program
+35. `18_END_TO_END_VERIFICATION.md` — completed Block 18 implementation and acceptance evidence
+36. `MEMORY_2_0_ROADMAP.md` — completed cross-cutting Memory 2.0 M1–M9 program
+37. `UNIVERSAL_DIAGNOSTICS_PROGRAM.md` — planned cross-cutting Universal Diagnostics D1–D12 program
 
 ## Block 8.1 — Discord Transport Integration
 
@@ -54,6 +55,14 @@ Block 8.1 is a production extension of completed Block 8 Interfaces. It adds the
 The existing Block 8 code already contains a thin Discord adapter and contract tests. Block 8.1 owns the missing production path: Gateway/REST connection, durable deduplication, production Discord identity resolution, safe verified cross-platform Global ID linking, Discord delivery through the existing Delivery Router, scope/resource isolation, diagnostics, observability and live acceptance evidence.
 
 Canonical specification: `08_1_DISCORD_TRANSPORT_INTEGRATION.md`.
+
+## Block 18 — End-to-End Verification
+
+**Status: Completed and CI-verified.**
+
+The dedicated `tests/e2eVerification.test.js` suite verifies the composed SG runtime across identity/scope/language/conversation/memory boundaries, approved cross-transport continuation, owner-security anti-impersonation, original actor preservation, feature controls, Self Knowledge/runtime evidence and PostgreSQL restart continuity. The remaining roadmap scenarios reuse existing production integration suites for Telegram deduplication, retry/DLQ/idempotency, external failures, delivery routing, resource authority and worker recovery.
+
+Detailed completion evidence: `18_END_TO_END_VERIFICATION.md`.
 
 ## Memory 2.0
 

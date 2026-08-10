@@ -8,7 +8,7 @@ export const PDK4_NORMALIZED_SOURCE_KINDS = Object.freeze([
   'github-workflow',
   'canonical-document'
 ]);
-export const PDK4_EVIDENCE_DIMENSIONS = Object.freeze(['code', 'ci', 'deployment', 'runtime']);
+export const PDK4_EVIDENCE_DIMENSIONS = Object.freeze(['source', 'code', 'ci', 'deployment', 'runtime']);
 export const PDK4_SOURCE_LIMITS = Object.freeze({
   maxTitleChars: 500,
   maxTextChars: 8000,
@@ -47,10 +47,17 @@ function isoTimestamp(value, name) {
   if (Number.isNaN(Date.parse(text))) throw new TypeError(`${name} must be ISO timestamp`);
   return new Date(text).toISOString();
 }
+function redactSensitiveText(value) {
+  return String(value)
+    .replace(/\bgh[pousr]_[A-Za-z0-9_]{20,}\b/g, '[REDACTED]')
+    .replace(/\bsk-[A-Za-z0-9_-]{16,}\b/g, '[REDACTED]')
+    .replace(/(authorization\s*[:=]\s*)([^\s,;]+)/gi, '$1[REDACTED]')
+    .replace(/((?:api[_-]?key|access[_-]?token|refresh[_-]?token|password|secret)\s*[:=]\s*)([^\s,;]+)/gi, '$1[REDACTED]');
+}
 function boundedText(value, limit) {
   const text = optionalString(value);
   if (text == null) return null;
-  return text.slice(0, limit);
+  return redactSensitiveText(text).slice(0, limit);
 }
 function stable(value) {
   if (value === null || typeof value !== 'object') return JSON.stringify(value);
@@ -156,6 +163,7 @@ async function normalizePullRequest(input, context) {
   if (Number(record.number) !== number) fail('pdk4-source-identity-mismatch', 'GitHub PR number does not match requested source');
   const headSha = normalizeSha(record.headSha ?? record.head?.sha, 'verified PR headSha');
   if (headSha !== expectedHeadSha) fail('pdk4-source-identity-mismatch', 'GitHub PR head SHA does not match requested immutable source');
+  const baseShaInput = record.baseSha ?? record.base?.sha ?? null;
   const projectKey = normalizeProjectKey(input.projectKey);
   const identity = createDevelopmentSourceIdentity({ kind: 'github-pr', projectKey, repository, number, headSha });
   return createEnvelope({
@@ -165,7 +173,7 @@ async function normalizePullRequest(input, context) {
     payload: {
       number,
       headSha,
-      baseSha: record.baseSha ?? record.base?.sha ? normalizeSha(record.baseSha ?? record.base.sha, 'PR baseSha') : null,
+      baseSha: baseShaInput ? normalizeSha(baseShaInput, 'PR baseSha') : null,
       state: boundedText(record.state, 32),
       merged: record.merged === true || record.mergedAt != null,
       title: boundedText(record.title, PDK4_SOURCE_LIMITS.maxTitleChars),
@@ -230,7 +238,7 @@ async function normalizeDocument(input, context) {
   return createEnvelope({
     projectKey, identity, kind: 'canonical-document', repository,
     occurredAt: isoTimestamp(record.committedAt ?? record.updatedAt, 'document timestamp'),
-    evidenceDimension: 'code', verificationKinds: ['source', 'code'],
+    evidenceDimension: 'source', verificationKinds: ['source'],
     payload: {
       path,
       revision,

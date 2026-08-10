@@ -16,7 +16,7 @@ const baseSha = 'c'.repeat(40);
 
 function createVerifier(overrides = {}) {
   return {
-    async getCommit({ repository, sha }) {
+    async getCommit({ sha }) {
       return {
         sha,
         committedAt: '2026-08-10T10:00:00Z',
@@ -112,6 +112,25 @@ test('PDK4.3: commit diffs are bounded and cannot exceed file-count guard', asyn
   );
 });
 
+test('PDK4.3: repository text is redacted for secrets and remains data-only', async () => {
+  const secret = `ghp_${'A'.repeat(30)}`;
+  const normalizer = createNormalizer(createVerifier({
+    async getCommit({ sha }) {
+      return {
+        sha,
+        committedAt: '2026-08-10T10:00:00Z',
+        message: `Authorization: ${secret}`,
+        files: [{ path: 'a.js', patch: `api_key=${secret}` }]
+      };
+    }
+  }));
+  const result = await normalizer.normalizeAndVerify({ kind: 'github-commit', projectKey, repository: repo, sha: commitSha });
+  assert.doesNotMatch(JSON.stringify(result.payload), new RegExp(secret));
+  assert.match(result.payload.message, /\[REDACTED\]/);
+  assert.match(result.payload.files[0].patch, /\[REDACTED\]/);
+  assert.equal(result.contentMode, 'untrusted-data-only');
+});
+
 test('PDK4.3: PR identity is verified against immutable head SHA', async () => {
   const normalizer = createNormalizer();
   const result = await normalizer.normalizeAndVerify({ kind: 'github-pr', projectKey, repository: repo, number: 326, headSha: commitSha });
@@ -148,7 +167,7 @@ test('PDK4.3: successful workflow supplies CI evidence while failed workflow doe
   assert.equal(failed.payload.conclusion, 'failure');
 });
 
-test('PDK4.3: canonical document is revision-bound, hashed, bounded and data-only', async () => {
+test('PDK4.3: canonical document is revision-bound source evidence and cannot claim code verification', async () => {
   const normalizer = createNormalizer();
   const result = await normalizer.normalizeAndVerify({
     kind: 'canonical-document',
@@ -160,7 +179,8 @@ test('PDK4.3: canonical document is revision-bound, hashed, bounded and data-onl
   assert.equal(result.payload.revision, commitSha);
   assert.match(result.payload.contentHash, /^[a-f0-9]{64}$/);
   assert.equal(result.contentMode, 'untrusted-data-only');
-  assert.deepEqual(result.verificationKinds, ['code', 'source']);
+  assert.equal(result.evidenceDimension, 'source');
+  assert.deepEqual(result.verificationKinds, ['source']);
 });
 
 test('PDK4.3: unapproved repository and unavailable live connectors fail closed', async () => {
@@ -250,7 +270,7 @@ test('PDK4.3: GitHub REST verifier reads immutable commit, PR, workflow and cano
       id: 7057, run_attempt: 1, name: 'SG 2.1 CI', head_sha: commitSha, status: 'completed', conclusion: 'success', updated_at: '2026-08-10T12:00:00Z'
     });
     if (url.endsWith('/actions/runs/7057/attempts/1/jobs?per_page=100')) return json({ jobs: [{ name: 'foundation', status: 'completed', conclusion: 'success' }] });
-    if (url.includes('/contents/pillars%2Froadmap%2F') || url.includes('/contents/pillars/roadmap/')) return json({
+    if (url.includes('/contents/pillars/roadmap/PDK.md?ref=')) return json({
       type: 'file', path: 'pillars/roadmap/PDK.md', encoding: 'base64', content: Buffer.from('# verified').toString('base64')
     });
     throw new Error(`unexpected url ${url}`);
@@ -267,11 +287,12 @@ test('PDK4.3: GitHub REST verifier reads immutable commit, PR, workflow and cano
   assert.equal(pr.payload.headSha, commitSha);
   assert.deepEqual(workflow.verificationKinds, ['ci', 'source']);
   assert.equal(document.payload.content, '# verified');
+  assert.deepEqual(document.verificationKinds, ['source']);
   assert.ok(calls.every((call) => call.options.method === 'GET'));
   assert.ok(calls.every((call) => call.options.headers.Accept === 'application/vnd.github+json'));
 });
 
-test('PDK4.3: GitHub REST verifier enforces repository policy and workflow attempt identity', async () => {
+test('PDK4.3: GitHub REST verifier enforces repository policy, workflow attempt and network failure boundaries', async () => {
   assert.throws(
     () => createGitHubDevelopmentSourceVerifier({ fetchImpl: async () => null, allowedRepositories: [] }),
     (error) => error.code === 'pdk4-source-policy-missing'
@@ -284,5 +305,14 @@ test('PDK4.3: GitHub REST verifier enforces repository policy and workflow attem
   await assert.rejects(
     () => verifier.getWorkflowRun({ repository: repo, runId: '7057', attempt: 1 }),
     (error) => error.code === 'pdk4-source-identity-mismatch'
+  );
+
+  const offline = createGitHubDevelopmentSourceVerifier({
+    allowedRepositories: [repo],
+    fetchImpl: async () => { throw new Error('network secret detail'); }
+  });
+  await assert.rejects(
+    () => offline.getCommit({ repository: repo, sha: commitSha }),
+    (error) => error.code === 'pdk4-source-connector-unavailable' && !error.message.includes('secret detail')
   );
 });

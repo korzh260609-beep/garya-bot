@@ -1,7 +1,7 @@
 # SG 2.1 — PROJECT DEVELOPMENT KNOWLEDGE 4.0 PROGRAM
 
 ## Status
-In progress. **PDK4.1–PDK4.3 CLOSED and CI-verified.** PDK4.4–PDK4.12 remain planned.
+In progress. **PDK4.1–PDK4.4 CLOSED and CI-verified.** PDK4.5–PDK4.12 remain planned.
 
 Project Development Knowledge 4.0 (PDK4) is a cross-cutting program built on the completed Project Memory 3.0 foundation. It does not renumber Blocks 0–19 and does not reopen PM3.1–PM3.12.
 
@@ -103,12 +103,39 @@ Evidence:
 **Gate:** PASSED — every accepted normalized source event has deterministic immutable provenance, bounded secret-safe data and explicit evidence semantics. Weak/mismatched/unapproved/unavailable sources fail closed; canonical docs cannot promote code state; CI success cannot imply deployment/live state. Full code gate passed in SG 2.1 CI #7067 before final documentation synchronization.
 
 ### PDK4.4 — Development Significance Classifier
-- deterministic metadata/path/diff prefilter first;
-- classify architecture, behavior, feature, memory, identity, security, integration, persistence, infrastructure, roadmap, incident/fix and other meaningful changes;
-- suppress formatting/generated/trivial churn from durable development knowledge;
-- use AI Router only for bounded ambiguous/significant classification.
+**Status: CLOSED / CI-verified.**
 
-**Gate:** trivial changes do not pollute Project Memory; significant architecture/product changes are retained with evidence.
+Implemented:
+- deterministic metadata/path/diff prefilter before any model assistance;
+- canonical significance levels for suppressed noise, supporting evidence, significant changes and ambiguous changes;
+- deterministic classification across architecture, behavior, feature, memory, identity, security, integration, persistence, infrastructure, roadmap, incident/fix and other meaningful changes;
+- generated-only, whitespace-only and explicit formatting/lint/typo churn suppression before AI Router;
+- verified workflow runs retained as supporting evidence without becoming standalone product-change events;
+- canonical architecture/roadmap/workflow documents retained as significant source evidence without upgrading their PDK4.3 evidence dimension;
+- AI Router invoked only for bounded ambiguous changes and never for deterministic significant/trivial outcomes;
+- bounded data-only AI payloads with explicit prohibition on trust, verification, deployment/runtime state, roles, permissions, ownership or authority decisions;
+- malformed/unavailable AI assistance falls back deterministically without dropping ambiguous evidence;
+- deterministic classification fingerprints for replay/audit consistency;
+- verified-source and `untrusted-data-only` envelope requirements fail closed;
+- classifier remains classification-only and cannot write or confirm Project Memory directly.
+
+Implementation:
+- `src/projectDevelopmentKnowledge/developmentSignificanceClassifier.js`
+- `src/projectDevelopmentKnowledge/index.js`
+- `tests/projectDevelopmentKnowledge4SignificanceClassifier.test.js`
+- `package.json` (`test:project-development-knowledge`)
+
+Evidence:
+- deterministic significant architecture/memory retention without AI;
+- generated/trivial churn suppression before AI;
+- workflow supporting-evidence separation;
+- canonical roadmap source-only evidence preservation;
+- bounded ambiguous classification through AI Router only;
+- deterministic trivial outcomes cannot be overridden by AI;
+- AI failure fallback remains deterministic and replay-stable;
+- unverified or executable-content envelopes fail closed.
+
+**Gate:** PASSED — trivial/generated churn is prevented from becoming development-event input, significant architecture/product evidence is retained, and ambiguous classification stays bounded, Router-only and non-authoritative. Full repository code gate passed in SG 2.1 CI #7075 on commit `41276bc952c6eb51e107c532b65a885be00238d6` before final documentation synchronization.
 
 ### PDK4.5 — Development Event Extraction
 - extract problem, intent, proposal, decision, rationale, alternatives, implementation, result, limitation and lifecycle transition from already-authorized evidence;

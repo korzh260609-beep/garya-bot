@@ -1,5 +1,8 @@
 # SG 2.1 — PROJECT MEMORY 3.0 WORKFLOW
 
+## Status
+Completed. PM3.1–PM3.12 are implemented, CI/runtime verified and closed.
+
 ## Purpose
 Defines the implementation and verification procedure for Project Memory 3.0. It does not redefine architecture or roadmap order.
 
@@ -33,10 +36,10 @@ scope
 - Live-state claims must prefer current authoritative evidence when the appropriate connector/tool exists.
 
 ## Implementation order
-Follow PM3.1 through PM3.12 in `../roadmap/PROJECT_MEMORY_3_0_PROGRAM.md`. Do not mark later stages complete because earlier interfaces merely exist.
+PM3.1 through PM3.12 in `../roadmap/PROJECT_MEMORY_3_0_PROGRAM.md` are complete. Future changes must preserve all closed-stage gates rather than reopening or bypassing them implicitly.
 
 ## Stage evidence
-Each stage must leave:
+Each stage leaves:
 - implementation diff;
 - contract/unit tests;
 - integration tests where applicable;
@@ -48,7 +51,7 @@ Each stage must leave:
 - documentation synchronization when architecture or contracts change.
 
 ## Required negative tests
-At minimum verify:
+The completed program verifies:
 - cross-project retrieval blocked;
 - raw chat cannot self-confirm;
 - model output cannot self-confirm;
@@ -62,22 +65,26 @@ At minimum verify:
 - memory cannot alter roles/permissions/owner state.
 
 ## E2E acceptance workflow
-Final acceptance must execute a real path:
+Final PM3.12 acceptance executes:
 
 ```text
 verified trusted source event
 → Project Memory candidate
 → confirmation policy
 → PostgreSQL active fact
+→ duplicate/conflict/supersession handling
 → process restart
 → normal SG user question
 → hybrid retrieval
 → Project Memory Context Guard
-→ AI Router
+→ response composition / AI Router boundary
 → answer grounded in retrieved project facts
 ```
 
-The E2E suite must additionally exercise duplicate replay, conflict handling, temporal supersession and stale/live-evidence behavior.
+The E2E suite additionally exercises duplicate replay, conflict visibility, temporal supersession, stale/live-evidence qualification, raw-chat rejection and Render-source denial.
+
+## Completion evidence
+PM3.12 production-style acceptance is fail-closed: all acceptance criteria must pass together. The full migration/security/check/runtime/worker/independent-diagnostics gate passed in SG 2.1 CI #7028 before final documentation synchronization.
 
 ## Completion rule
-Project Memory 3.0 is complete only when PM3.1–PM3.12 acceptance gates are proven by code, tests, CI and runtime evidence. Documentation-only completion is forbidden.
+**Satisfied.** Project Memory 3.0 is complete because PM3.1–PM3.12 acceptance gates are proven by code, PostgreSQL tests, runtime-path tests, CI and synchronized canonical documentation. Documentation alone is not treated as completion evidence.

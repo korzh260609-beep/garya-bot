@@ -2,9 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createSecurityOperationsConfig, createSecurityOperations, redactOperationalData, scanTextForSecrets, verifyBackupRestore } from '../src/operations/securityOperations.js';
 
-function clockSequence(...times) {
-  let index = 0;
-  return () => new Date(times[Math.min(index++, times.length - 1)]);
+function controlledClock(initial) {
+  let current = new Date(initial);
+  return {
+    clock: () => new Date(current),
+    set(value) { current = new Date(value); }
+  };
 }
 
 test('Block 19 rate limiting is bounded by transport, identity and network', () => {
@@ -18,10 +21,13 @@ test('Block 19 rate limiting is bounded by transport, identity and network', () 
 });
 
 test('Block 19 rate window recovers after expiry', () => {
+  const time = controlledClock('2026-08-10T05:00:00.000Z');
   const config = createSecurityOperationsConfig({ SG_RATE_LIMIT_WINDOW_MS: '1000', SG_RATE_LIMIT_IDENTITY_MAX: '1' });
-  const ops = createSecurityOperations({ config, clock: clockSequence('2026-08-10T05:00:00.000Z','2026-08-10T05:00:00.100Z','2026-08-10T05:00:02.000Z') });
+  const ops = createSecurityOperations({ config, clock: time.clock });
   assert.equal(ops.checkRateLimit({ globalUserId: 'usr_a' }).allowed, true);
+  time.set('2026-08-10T05:00:00.100Z');
   assert.equal(ops.checkRateLimit({ globalUserId: 'usr_a' }).allowed, false);
+  time.set('2026-08-10T05:00:02.000Z');
   assert.equal(ops.checkRateLimit({ globalUserId: 'usr_a' }).allowed, true);
 });
 
@@ -38,6 +44,7 @@ test('Block 19 emergency controls fail closed for disabled operational classes',
 test('Block 19 secret scanner and operational redaction remove credential-shaped values', () => {
   const token = 'sk-abcdefghijklmnopqrstuvwxyz1234567890';
   assert.equal(scanTextForSecrets(`key=${token}`).clean, false);
+  assert.equal(scanTextForSecrets('risk-confirmation-required').clean, true);
   const redacted = redactOperationalData({ apiKey: token, nested: { message: `postgres://user:pass@example/db`, safe: 'ok' } });
   assert.equal(redacted.apiKey, '[REDACTED]');
   assert.equal(redacted.nested.message, '[REDACTED]');

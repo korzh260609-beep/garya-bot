@@ -14,3 +14,9 @@ export {
   selectProjectFactsForProject
 } from './projectFactContract.js';
 export { createPostgresProjectMemoryStore } from './postgresProjectMemoryStore.js';
+export {
+  PROJECT_MEMORY3_TRUSTED_SOURCE_KINDS,
+  createTrustedProjectEvent,
+  createGitHubCommitVerifier,
+  createProjectMemoryIngestionBoundary
+} from './trustedProjectEvent.js';

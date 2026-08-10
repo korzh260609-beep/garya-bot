@@ -6,7 +6,7 @@ Memory 2.0 is a completed cross-cutting memory program documented separately in 
 
 Project Memory 3.0 is a completed specialized cross-cutting program documented in `PROJECT_MEMORY_3_0_PROGRAM.md`. It strengthens only the Memory 2.0 `Project Memory` domain and does not renumber Blocks 0–19.
 
-Project Development Knowledge 4.0 is a planned cross-cutting development-history/project-evolution program documented in `PROJECT_DEVELOPMENT_KNOWLEDGE_4_0_PROGRAM.md`. It is built on Project Memory 3.0 and does not create a parallel memory system or renumber Blocks 0–19.
+Project Development Knowledge 4.0 is an in-progress cross-cutting development-history/project-evolution program documented in `PROJECT_DEVELOPMENT_KNOWLEDGE_4_0_PROGRAM.md`. PDK4.1–PDK4.2 are CLOSED and CI-verified; PDK4.3–PDK4.12 remain planned. It is built on Project Memory 3.0 and does not create a parallel memory system or renumber Blocks 0–19.
 
 Universal Diagnostics is a separate planned cross-cutting diagnostic program documented in `UNIVERSAL_DIAGNOSTICS_PROGRAM.md`. It is implemented as an independent observer application around SG, not as a new core layer and not as a renumbering of Blocks 0–19.
 
@@ -34,25 +34,25 @@ Block 8.1 is a production extension of completed Block 8 Interfaces. It adds the
 18. `14_TELEGRAM_PRODUCTION_INTEGRATION.md` — implementation and acceptance evidence for Block 14
 19. `15_PRODUCTION_AI_INTEGRATION.md` — implementation and acceptance evidence for Block 15
 20. `16_PRODUCTION_CAPABILITIES.md` — implementation and acceptance evidence for Block 16
-21. `16_5_TEMPORAL_CONTEXT.md` — implementation and acceptance evidence for Block 16.5
-22. `16_6_LANGUAGE_AND_LOCALE_CONTEXT.md` — implementation and acceptance evidence for Block 16.6
-23. `16_7_CONFIGURATION_AND_POLICY_LAYER.md` — implementation and acceptance evidence for Block 16.7
-24. `16_8_SECRETS_AND_CREDENTIALS_MANAGEMENT.md` — implementation and acceptance evidence for Block 16.8
-25. `16_9_EXTERNAL_CONNECTIONS_REGISTRY.md` — implementation and acceptance evidence for Block 16.9
-26. `16_10_RESOURCE_OWNERSHIP_AND_AUTHORITY_MODEL.md` — implementation and acceptance evidence for Block 16.10
-27. `16_11_SESSION_AND_CONVERSATION_CONTEXT.md` — implementation and acceptance evidence for Block 16.11
-28. `16_12_USER_SETTINGS_AND_PREFERENCES.md` — implementation and acceptance evidence for Block 16.12
-29. `16_13_NOTIFICATION_AND_DELIVERY_ROUTER.md` — implementation and acceptance evidence for Block 16.13
-30. `16_14_INTERNAL_EVENT_BUS.md` — implementation and acceptance evidence for Block 16.14
-31. `16_15_SCHEMA_AND_CONTRACT_VERSIONING.md` — implementation and acceptance evidence for Block 16.15
-32. `16_16_FEATURE_FLAGS_AND_CONTROLLED_ROLLOUT.md` — implementation and acceptance evidence for Block 16.16
+21. `16_5_TEMPORAL_CONTEXT.md` — Block 16.5 implementation and acceptance evidence
+22. `16_6_LANGUAGE_AND_LOCALE_CONTEXT.md` — Block 16.6 implementation and acceptance evidence
+23. `16_7_CONFIGURATION_AND_POLICY_LAYER.md` — Block 16.7 implementation and acceptance evidence
+24. `16_8_SECRETS_AND_CREDENTIALS_MANAGEMENT.md` — Block 16.8 implementation and acceptance evidence
+25. `16_9_EXTERNAL_CONNECTIONS_REGISTRY.md` — Block 16.9 implementation and acceptance evidence
+26. `16_10_RESOURCE_OWNERSHIP_AND_AUTHORITY_MODEL.md` — Block 16.10 implementation and acceptance evidence
+27. `16_11_SESSION_AND_CONVERSATION_CONTEXT.md` — Block 16.11 implementation and acceptance evidence
+28. `16_12_USER_SETTINGS_AND_PREFERENCES.md` — Block 16.12 implementation and acceptance evidence
+29. `16_13_NOTIFICATION_AND_DELIVERY_ROUTER.md` — Block 16.13 implementation and acceptance evidence
+30. `16_14_INTERNAL_EVENT_BUS.md` — Block 16.14 implementation and acceptance evidence
+31. `16_15_SCHEMA_AND_CONTRACT_VERSIONING.md` — Block 16.15 implementation and acceptance evidence
+32. `16_16_FEATURE_FLAGS_AND_CONTROLLED_ROLLOUT.md` — Block 16.16 implementation and acceptance evidence
 33. `16_17_SELF_KNOWLEDGE_SYSTEM_SELF_AWARENESS.md` — Block 16.17 specification/evidence
 34. `16_18_MONARCH_CONTROL_OWNER_SECURITY.md` — Block 16.18 specification/evidence
 35. `18_END_TO_END_VERIFICATION.md` — completed Block 18 implementation and acceptance evidence
 36. `19_SECURITY_AND_OPERATIONS.md` — completed Block 19 implementation and acceptance evidence
 37. `MEMORY_2_0_ROADMAP.md` — completed cross-cutting Memory 2.0 M1–M9 program
 38. `PROJECT_MEMORY_3_0_PROGRAM.md` — completed specialized Project Memory 3.0 PM3.1–PM3.12 program
-39. `PROJECT_DEVELOPMENT_KNOWLEDGE_4_0_PROGRAM.md` — planned PDK4.1–PDK4.12 development-history/project-evolution program
+39. `PROJECT_DEVELOPMENT_KNOWLEDGE_4_0_PROGRAM.md` — in-progress PDK4 program; PDK4.1–PDK4.2 CLOSED, PDK4.3–PDK4.12 planned
 40. `UNIVERSAL_DIAGNOSTICS_PROGRAM.md` — planned cross-cutting Universal Diagnostics D1–D12 program
 
 ## Block 8.1 — Discord Transport Integration
@@ -109,15 +109,15 @@ Workflow: `../workflow/PROJECT_MEMORY_3_0_WORKFLOW.md`.
 
 ## Project Development Knowledge 4.0
 
-**Status: Planned.**
+**Status: In progress; PDK4.1–PDK4.2 CLOSED and CI-verified.**
 
 Canonical implementation order:
 
 `PDK4.1 Development Knowledge Contract & Taxonomy → PDK4.2 GitHub Historical Scanner & Durable Cursor → PDK4.3 Source Normalization & Verification → PDK4.4 Development Significance Classifier → PDK4.5 Development Event Extraction → PDK4.6 Commit/Event Clustering & Milestones → PDK4.7 Historical Reconstruction & Project Genesis → PDK4.8 Temporal/Causal Linking & Reconciliation → PDK4.9 Continuous GitHub Ingestion → PDK4.10 Product Component Registry & Current Project Snapshot → PDK4.11 Development Query & Normal SG Answer Integration → PDK4.12 Diagnostics, Production Bootstrap & Live Acceptance`.
 
-PDK4 builds on the completed Project Memory 3.0 foundation. It must reconstruct the relevant history of SG from earliest verified evidence, preserve why/how changes occurred, distinguish implementation/CI/deployment/live states, build ProjectGenesis/Product Timeline/Component Histories/ProjectSnapshot, then keep knowledge current by processing only new verified development events. It reuses PM3 PostgreSQL storage, provenance, trust, confirmation, dedup/conflict, temporal history, retrieval and Context Guard and cannot create a parallel memory or authority system.
+PDK4 builds on the completed Project Memory 3.0 foundation. PDK4.1 provides the development contract/taxonomy; PDK4.2 provides bounded historical GitHub scanning with durable PostgreSQL cursor/checkpoints, restart/resume and replay-idempotent processed-source bookkeeping. PDK4 must reconstruct the relevant history of SG from earliest verified evidence, preserve why/how changes occurred, distinguish implementation/CI/deployment/live states, build ProjectGenesis/Product Timeline/Component Histories/ProjectSnapshot, then keep knowledge current by processing only new verified development events. It reuses PM3 PostgreSQL storage for durable project facts, provenance, trust, confirmation, dedup/conflict, temporal history, retrieval and Context Guard and cannot create a parallel memory or authority system.
 
-Detailed specification: `PROJECT_DEVELOPMENT_KNOWLEDGE_4_0_PROGRAM.md`.
+Detailed specification and stage evidence: `PROJECT_DEVELOPMENT_KNOWLEDGE_4_0_PROGRAM.md`.
 Architecture: `../architecture/PROJECT_DEVELOPMENT_KNOWLEDGE_4_0.md`.
 Workflow: `../workflow/PROJECT_DEVELOPMENT_KNOWLEDGE_4_0_WORKFLOW.md`.
 

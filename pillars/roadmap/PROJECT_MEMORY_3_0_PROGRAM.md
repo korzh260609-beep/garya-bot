@@ -3,8 +3,8 @@
 ## Status
 Implementation in progress.
 
-Closed stages: **PM3.1, PM3.2, PM3.3, PM3.4, PM3.5, PM3.6, PM3.7**.
-Next stage: **PM3.8 — Project Memory Context Guard**.
+Closed stages: **PM3.1, PM3.2, PM3.3, PM3.4, PM3.5, PM3.6, PM3.7, PM3.8**.
+Next stage: **PM3.9 — AI Router Integration**.
 
 Project Memory 3.0 specializes the completed Memory 2.0 `Project Memory` domain. It does not renumber Blocks 0–19 and must not replace System Self Knowledge, Conversation Context, Identity/Scope, Action Gate, Resource Authority, PostgreSQL persistence or Universal Diagnostics.
 
@@ -83,6 +83,8 @@ Deliver a production Project Memory that automatically captures only policy-appr
 - enforce project scope, namespace, lifecycle, trust, confirmation, sensitivity, conflict visibility and token/fact limits;
 - isolate embedded prompt/instruction text as data;
 - expose provenance needed for evidence-aware answers.
+
+**Status:** CLOSED. `createProjectMemoryContextGuard` is the mandatory boundary between Project Memory retrieval and future model-facing context. It performs a fresh `context-read` authorization check, rejects project/namespace mismatches, rejected or unconfirmed facts, disallowed trust/lifecycle states, non-current/superseded facts, sensitivity-marked records, secret-bearing payloads and records with insufficient provenance. The guard forces normal retrieval to current active state even if a caller requests historical retrieval. Open PostgreSQL conflict records remain visible in each accepted fact and in a context-level conflict summary. Project content is emitted as `factData` with `dataOnly=true`; the context contract explicitly forbids executable embedded instructions, authority transfer from memory and secrets. Fact count and approximate token budgets are hard-bounded, and exclusions are returned only as aggregate reason counts. PM3.8 integration tests cover authorization denial, rejected/unconfirmed/historical exclusion, conflict visibility, provenance exposure, cross-project fail-closed behavior, secret-bearing exclusion, embedded instruction isolation and context budgets.
 
 **Gate:** rejected/superseded/unauthorized/secret-bearing facts cannot reach the model context.
 

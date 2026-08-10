@@ -1,10 +1,10 @@
 # SG 2.1 — PROJECT MEMORY 3.0 PROGRAM
 
 ## Status
-Implementation in progress.
+Completed and CI/runtime verified.
 
-Closed stages: **PM3.1, PM3.2, PM3.3, PM3.4, PM3.5, PM3.6, PM3.7, PM3.8, PM3.9, PM3.10, PM3.11**.
-Next stage: **PM3.12 — Production E2E & Live Acceptance**.
+Closed stages: **PM3.1, PM3.2, PM3.3, PM3.4, PM3.5, PM3.6, PM3.7, PM3.8, PM3.9, PM3.10, PM3.11, PM3.12**.
+Next stage: **none — Project Memory 3.0 program is CLOSED**.
 
 Project Memory 3.0 specializes the completed Memory 2.0 `Project Memory` domain. It does not renumber Blocks 0–19 and must not replace System Self Knowledge, Conversation Context, Identity/Scope, Action Gate, Resource Authority, PostgreSQL persistence or Universal Diagnostics.
 
@@ -143,10 +143,12 @@ Also prove:
 - raw chat cannot self-confirm;
 - Render is not claimed as a live source before Render Connector implementation.
 
+**Status:** CLOSED. `createProjectMemoryProductionAcceptanceReport` is a fail-closed PM3.12 acceptance contract: all production criteria must be true or the report is rejected. The PostgreSQL E2E executes trusted immutable GitHub-source verification → candidate creation → deterministic deduplication/replay protection → Owner Security-authorized confirmation → contradictory successor/conflict visibility → temporal supersession → current-only hybrid retrieval → PM3.8 guarded context → PostgreSQL process restart → ordinary SG `compose-answer` runtime request. The answer is grounded in the current successor fact, carries GitHub provenance, explicitly states that stored memory is not independently re-verified live state, and excludes the superseded fact. Negative acceptance proves raw chat cannot self-confirm and Render cannot be represented as a trusted live source before a real connector exists. The acceptance report exposes only bounded metadata and never raw memory or secret material. Full migration/security/check/runtime/worker/independent-diagnostics gate verified by SG 2.1 CI #7028 SUCCESS before final documentation synchronization.
+
 **Gate:** all acceptance criteria in `../architecture/PROJECT_MEMORY_3_0.md` are verified by code, tests, CI and runtime evidence.
 
 ## Definition of DONE
-Project Memory 3.0 is not complete because architecture files exist or unit tests pass. DONE requires production evidence that SG automatically uses Project Memory in ordinary relevant requests and can answer current project-state questions from authorized evidence with provenance, temporal correctness and explicit uncertainty where live verification is missing.
+**DONE.** PM3.1–PM3.12 are implemented and acceptance-gated. Project Memory 3.0 automatically participates in ordinary relevant SG requests through authorized retrieval and Context Guard, preserves provenance/temporal correctness/conflict visibility, survives PostgreSQL restart, and fails closed when live verification or trusted source authority is unavailable.
 
 ## Dependencies
 Uses existing:

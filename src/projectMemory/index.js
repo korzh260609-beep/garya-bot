@@ -52,3 +52,11 @@ export {
   PROJECT_MEMORY3_AI_ASSISTANCE_OPERATIONS,
   createProjectMemoryAIRouterIntegration
 } from './aiRouterIntegration.js';
+export {
+  PROJECT_MEMORY3_DECISION_INCIDENT_CONTRACT_VERSION,
+  PROJECT_MEMORY3_DECISION_STATUSES,
+  PROJECT_MEMORY3_INCIDENT_STATUSES,
+  createProjectDecision,
+  createProjectIncident,
+  createProjectDecisionIncidentMemory
+} from './decisionIncidentMemory.js';

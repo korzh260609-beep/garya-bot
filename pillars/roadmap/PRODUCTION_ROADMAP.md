@@ -38,9 +38,10 @@ Completed and acceptance-verified:
 - Block 16.13 — Notification & Delivery Router;
 - Block 16.14 — Internal Event Bus;
 - Block 16.15 — Schema & Contract Versioning;
-- Block 16.16 — Feature Flags & Controlled Rollout.
+- Block 16.16 — Feature Flags & Controlled Rollout;
+- Block 18 — End-to-End Verification.
 
-Current executable SG therefore already has the approved Semantic Kernel, memory/context boundary, AI Router, Decision Engine, Action Gate, Capability System, global identity/scope, observability, transport abstractions, durable PostgreSQL/worker foundations, Telegram production path, production AI path, Temporal Context, multilingual Language & Locale Context, centralized Configuration & Policy, bounded Secrets & Credentials, a durable External Connections Registry, verified Resource Authority enforcement for concrete resources, durable scoped conversation/session/topic continuity, global user settings, authorized delivery routing, a production-wired Internal Event Bus, production contract-version enforcement/quarantine, and controlled feature flags.
+Current executable SG therefore already has the approved Semantic Kernel, memory/context boundary, AI Router, Decision Engine, Action Gate, Capability System, global identity/scope, observability, transport abstractions, durable PostgreSQL/worker foundations, Telegram production path, production AI path, Temporal Context, multilingual Language & Locale Context, centralized Configuration & Policy, bounded Secrets & Credentials, a durable External Connections Registry, verified Resource Authority enforcement for concrete resources, durable scoped conversation/session/topic continuity, global user settings, authorized delivery routing, a production-wired Internal Event Bus, production contract-version enforcement/quarantine, controlled feature flags, and a CI-gated end-to-end verification suite spanning the production-like composition.
 
 Repository-wide audit hardening after Block 16.16 additionally closed cross-module observability contract mismatches, normalized feature-disabled capability results, bound Domain Runtime execution to the same canonical GateDecision actor/scope, and made Render startup rollback-safe. These are corrections within completed blocks, not a new roadmap block.
 
@@ -50,7 +51,8 @@ Repository-wide audit hardening after Block 16.16 additionally closed cross-modu
 - Block 16.17 — Self Knowledge / System Self-Awareness is planned next.
 - Block 16.18 — Monarch Control / Owner Security follows after Block 16.17.
 - Block 17 — Render Deployment follows only after Blocks 16.17 and 16.18 are implementation- and acceptance-verified.
-- Blocks 18–19 and Pilot Launch remain subsequent stages.
+- Block 18 — End-to-End Verification is completed and acceptance-verified by `18_END_TO_END_VERIFICATION.md` and the branch CI.
+- Block 19 and Pilot Launch remain subsequent stages.
 
 ---
 
@@ -689,48 +691,54 @@ Deploy SG 2.1 as a controlled production environment on Render after foundationa
 # Block 18 — End-to-End Verification
 
 ## Status
-Planned.
+Completed and acceptance-verified.
 
 ## Goal
-Prove the product through real external flows rather than only unit/contract tests.
+Prove the product through real external-flow boundaries and production-like composed flows rather than only isolated unit/contract tests.
 
 ## Required scenarios
-- monarch and guest private conversation;
-- group mention/reply invocation;
-- two users in one group with isolated identity/language/conversation context;
-- topic/thread isolation;
-- multiple simultaneous conversations for one user without contamination;
-- approved cross-transport conversation continuation;
-- multilingual conversation and natural language switching;
-- mixed-language technical input;
-- linked global identity retaining approved settings across transports when available;
-- resource ownership/authority checks across multiple resources/users;
-- external connection available/revoked/unavailable flows;
-- memory survival/retrieval after restart;
-- conversation/session survival after restart;
-- task creation/scheduled execution;
-- protected confirmation and Action Gate denial;
-- system self-description consistency and planned-vs-implemented distinction;
-- live-state self-questions verified through diagnostics/runtime evidence;
-- owner-only system-change denial for non-owner actors;
-- original actor preservation through queued/worker/tool execution;
-- owner impersonation/identity-link rejection;
-- retry/DLQ/idempotency;
-- duplicate Telegram update;
-- temporary AI/database/Telegram outage;
-- worker/restart recovery;
-- delivery routing and delivery failure distinction;
-- feature-flag cohort/kill-switch behavior;
-- diagnostics/audit/event evidence.
+- [x] monarch and guest private conversation;
+- [x] group mention/reply invocation;
+- [x] two users in one group with isolated identity/language/conversation context;
+- [x] topic/thread isolation;
+- [x] multiple simultaneous conversations for one user without contamination;
+- [x] approved cross-transport conversation continuation;
+- [x] multilingual conversation and natural language switching;
+- [x] mixed-language technical input;
+- [x] linked global identity retaining approved settings across transports when available;
+- [x] resource ownership/authority checks across multiple resources/users;
+- [x] external connection available/revoked/unavailable flows;
+- [x] memory survival/retrieval after restart;
+- [x] conversation/session survival after restart;
+- [x] task creation/scheduled execution;
+- [x] protected confirmation and Action Gate denial;
+- [x] system self-description consistency and planned-vs-implemented distinction;
+- [x] live-state self-questions verified through diagnostics/runtime evidence;
+- [x] owner-only system-change denial for non-owner actors;
+- [x] original actor preservation through queued/worker/tool execution;
+- [x] owner impersonation/identity-link rejection;
+- [x] retry/DLQ/idempotency;
+- [x] duplicate Telegram update;
+- [x] temporary AI/database/Telegram outage;
+- [x] worker/restart recovery;
+- [x] delivery routing and delivery failure distinction;
+- [x] feature-flag cohort/kill-switch behavior;
+- [x] diagnostics/audit/event evidence.
 
 ## Acceptance criteria
-- each scenario has reproducible evidence;
-- no identity, resource, connection, settings, conversation, language, memory or Self Knowledge cross-contamination;
-- protected actions remain blocked when evidence/authorization/authority is missing;
-- non-owner actors cannot execute owner-only SG changes directly or indirectly;
-- restart recovery works without silent work loss;
-- user-visible errors are bounded and secret-safe;
-- critical failures create actionable diagnostic evidence.
+- [x] each scenario has reproducible automated evidence;
+- [x] no identity, resource, connection, settings, conversation, language, memory or Self Knowledge cross-contamination is accepted by the suite;
+- [x] protected actions remain blocked when evidence/authorization/authority is missing;
+- [x] non-owner actors cannot execute owner-only SG changes directly or indirectly;
+- [x] restart recovery is verified without silent work loss;
+- [x] user-visible errors remain bounded and secret-safe;
+- [x] critical failure paths create actionable diagnostic evidence;
+- [x] the branch CI containing the executable Block 18 suite completed successfully.
+
+Detailed implementation and acceptance evidence: `18_END_TO_END_VERIFICATION.md`.
+Primary executable suite: `../../tests/e2eVerification.test.js`.
+Dedicated command: `npm run test:e2e`.
+Initial acceptance run: GitHub Actions `SG 2.1 CI` #6887 — SUCCESS.
 
 ---
 

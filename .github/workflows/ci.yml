@@ -35,7 +35,7 @@ jobs:
       DATABASE_SSL: "false"
       SG_PERSISTENCE_MODE: postgres
       SG_ENVIRONMENT: ci
-      SG_REVISION: block-18
+      SG_REVISION: block-19
       SG_PROJECT_SCOPE: sg2.1
       SG_WORKER_VERIFY: "1"
     steps:
@@ -46,6 +46,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run migrate
+      - name: Block 19 security gate
+        run: npm run security:check
       - run: npm run check
       - run: npm start
       - run: npm run start:worker

@@ -1,7 +1,7 @@
 # SG 2.1 — PROJECT MEMORY 3.0 CANONICAL ARCHITECTURE
 
 ## Status
-Planned cross-cutting architecture program. It specializes the completed Memory 2.0 `Project Memory` domain and does not replace Memory 2.0, System Self Knowledge, Conversation Context, Identity/Scope, Action Gate, Resource Authority or PostgreSQL persistence.
+Completed and CI/runtime verified through PM3.12. It specializes the completed Memory 2.0 `Project Memory` domain and does not replace Memory 2.0, System Self Knowledge, Conversation Context, Identity/Scope, Action Gate, Resource Authority or PostgreSQL persistence.
 
 ## Purpose
 Project Memory 3.0 gives SG durable, evidence-backed knowledge about the project itself: current implementation state, architectural decisions, roadmap state, incidents, verified project events, relationships and historical evolution.
@@ -250,6 +250,8 @@ Project Memory 3.0 is DONE only when code, tests, CI and runtime evidence prove:
 18. normal live SG requests automatically use Project Memory when relevant;
 19. E2E proves `trusted source → durable memory → retrieval → guarded context → correct answer`;
 20. SG answers current project-state questions from evidence, with uncertainty when live verification is unavailable.
+
+PM3.12 production-style E2E acceptance now proves these criteria as one fail-closed chain, including trusted GitHub verification, confirmation, idempotent replay, conflict visibility, supersession, PostgreSQL restart continuity, guarded normal-runtime response composition with provenance/currentness qualification, raw-chat self-confirm rejection and Render live-source rejection. Code/runtime gate verified by SG 2.1 CI #7028 SUCCESS before final documentation synchronization.
 
 ## Relationship to Memory 2.0
 Memory 2.0 remains the canonical general memory subsystem. Project Memory 3.0 is a specialized program inside its `Project Memory` domain and must reuse Memory 2.0 scope, privacy, provenance, trust, lifecycle, consolidation and recall boundaries instead of creating a parallel memory architecture.

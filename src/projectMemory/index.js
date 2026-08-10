@@ -21,3 +21,9 @@ export {
   createGitHubCommitVerifier,
   createProjectMemoryIngestionBoundary
 } from './trustedProjectEvent.js';
+export {
+  PROJECT_MEMORY3_CONTROL_OPERATIONS,
+  PROJECT_MEMORY3_CONTROL_LIMITS,
+  createProjectMemoryConfirmationPolicy,
+  createProjectMemoryConfirmationControl
+} from './confirmationControl.js';

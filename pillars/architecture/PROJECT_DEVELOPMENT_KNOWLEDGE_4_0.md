@@ -319,7 +319,7 @@ Every DevelopmentKnowledgeGap has a deterministic identity, remains open/derived
 ### PDK4.9 continuous GitHub ingestion contract
 PDK4.9 operates only after the project/repository-specific PDK4.2 GitHub historical cursor is complete. Its bootstrap anchor must be the canonical `github:<repository>:commit:<full SHA>` source identity; the immutable SHA from that identity initializes the incremental cursor so the first continuous poll starts strictly after historical bootstrap rather than from an empty cursor.
 
-The trigger surface is bounded to polling, approved webhook delivery and internal event scheduling. A webhook is only a wake-up/metadata signal: repository identity is checked, but webhook text or commit payload does not become trusted evidence. Every unseen commit is independently passed through PDK4.3 immutable verification and then the existing PDK4.4/P DK4.5 significance/extraction boundaries. Suppressed or supporting-only changes are recorded as processed source bookkeeping and advance the incremental cursor, but they cannot create DevelopmentEvents or Project Memory facts.
+The trigger surface is bounded to polling, approved webhook delivery and internal event scheduling. A webhook is only a wake-up/metadata signal: repository identity is checked, but webhook text or commit payload does not become trusted evidence. Every unseen commit is independently passed through PDK4.3 immutable verification and then the existing PDK4.4/PDK4.5 significance/extraction boundaries. Suppressed or supporting-only changes are recorded as processed source bookkeeping and advance the incremental cursor, but they cannot create DevelopmentEvents or Project Memory facts.
 
 Continuous bookkeeping is durable and separate from Project Memory facts:
 

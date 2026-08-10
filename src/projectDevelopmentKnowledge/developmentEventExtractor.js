@@ -68,8 +68,15 @@ function stable(value) {
   return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stable(value[key])}`).join(',')}}`;
 }
 function sha256(value) { return createHash('sha256').update(String(value)).digest('hex'); }
+function redactSensitiveText(value) {
+  return String(value)
+    .replace(/\bgh[pousr]_[A-Za-z0-9_]{20,}\b/g, '[REDACTED]')
+    .replace(/\bsk-[A-Za-z0-9_-]{16,}\b/g, '[REDACTED]')
+    .replace(/(authorization\s*[:=]\s*)([^\s,;]+)/gi, '$1[REDACTED]')
+    .replace(/((?:api[_-]?key|access[_-]?token|refresh[_-]?token|password|secret)\s*[:=]\s*)([^\s,;]+)/gi, '$1[REDACTED]');
+}
 function bounded(value, limit) {
-  const text = value == null ? '' : String(value).trim();
+  const text = value == null ? '' : redactSensitiveText(String(value).trim());
   return text ? text.slice(0, limit) : null;
 }
 function boundedList(value) {

@@ -1,7 +1,7 @@
 # SG 2.1 — PROJECT DEVELOPMENT KNOWLEDGE 4.0 WORKFLOW
 
 ## Status
-Planned.
+In progress. **PDK4.1–PDK4.2 CLOSED and CI-verified.** PDK4.3–PDK4.12 remain planned.
 
 ## Purpose
 Defines the implementation and verification procedure for PDK4. It does not redefine the architecture or create a parallel memory system.
@@ -60,6 +60,19 @@ resolve authorized repository/project
 ```
 
 A failed batch must not advance the durable cursor beyond uncommitted source processing.
+
+### Implemented PDK4.2 checkpoint discipline
+- source history is requested oldest-first in bounded batches;
+- cursor identity is scoped by project, source kind and repository/source scope;
+- `pdk4_processed_sources` is bookkeeping only and is not a Project Memory fact store;
+- source callback completion precedes checkpoint commit;
+- processed-source rows and cursor advancement are persisted in one PostgreSQL transaction;
+- cursor conflict, source failure and source stall fail closed;
+- restart resumes from the last committed cursor;
+- completed replay performs no additional history fetch;
+- accepted PM3 facts are not created by PDK4.2 and therefore cannot be promoted by scanner bookkeeping.
+
+PDK4.2 verification is covered by `tests/projectDevelopmentKnowledge4HistoricalScanner.test.js`, including a real PostgreSQL close/restart/resume sequence and replay-idempotency assertions. The complete repository gate passed in SG 2.1 CI #7053 before final documentation synchronization.
 
 ## Continuous ingestion workflow
 

@@ -1,7 +1,7 @@
 # SG 2.1 — PROJECT DEVELOPMENT KNOWLEDGE 4.0 WORKFLOW
 
 ## Status
-In progress. **PDK4.1–PDK4.2 CLOSED and CI-verified.** PDK4.3–PDK4.12 remain planned.
+In progress. **PDK4.1–PDK4.3 CLOSED and CI-verified.** PDK4.4–PDK4.12 remain planned.
 
 ## Purpose
 Defines the implementation and verification procedure for PDK4. It does not redefine the architecture or create a parallel memory system.
@@ -74,6 +74,23 @@ A failed batch must not advance the durable cursor beyond uncommitted source pro
 
 PDK4.2 verification is covered by `tests/projectDevelopmentKnowledge4HistoricalScanner.test.js`, including a real PostgreSQL close/restart/resume sequence and replay-idempotency assertions. The complete repository gate passed in SG 2.1 CI #7053 before final documentation synchronization.
 
+### Implemented PDK4.3 source verification discipline
+- source normalization is read-only and cannot mutate Project Memory;
+- repository access requires an explicit approved-repository allowlist;
+- GitHub commit verification binds to immutable commit SHA;
+- PR verification binds to PR number plus immutable head SHA;
+- workflow verification binds to run id plus attempt;
+- canonical documents bind to path plus revision SHA;
+- source text/diffs/docs are bounded, secret-redacted and tagged `untrusted-data-only`;
+- commit/PR evidence may provide `code` verification;
+- only a verified successful workflow may provide `ci` verification;
+- canonical documents provide `source` verification only and cannot prove implementation state;
+- deployment/runtime sources remain unavailable until real approved connectors exist;
+- network/provider failure, weak records, identity mismatch and repository policy denial fail closed;
+- scanner bookkeeping is never treated as equivalent to source verification.
+
+PDK4.3 verification is covered by `tests/projectDevelopmentKnowledge4SourceNormalization.test.js`, including production-style GitHub REST request-contract tests, source mismatch/allowlist/network failure tests, secret redaction, bounded diffs, evidence-dimension separation and scanner→normalizer integration. The complete repository code gate passed in SG 2.1 CI #7067 before final documentation synchronization.
+
 ## Continuous ingestion workflow
 
 ```text
@@ -94,14 +111,14 @@ Retries/replays must not duplicate accepted facts.
 PDK4 records evidence dimensions rather than collapsing them:
 
 ```text
-idea/plan
-< implementation evidence
+source/plan evidence
+< implementation/code evidence
 < test/CI evidence
 < deployment evidence
 < live runtime verification
 ```
 
-A higher state requires evidence appropriate to that state. Old documentation, user statements or model summaries cannot silently promote state.
+A higher state requires evidence appropriate to that state. Old documentation, user statements or model summaries cannot silently promote state. Canonical repository documents remain source evidence unless independently corroborated by implementation/CI/deployment/runtime evidence.
 
 ## AI assistance workflow
 Before any model call:

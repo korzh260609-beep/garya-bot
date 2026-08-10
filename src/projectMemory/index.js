@@ -27,3 +27,11 @@ export {
   createProjectMemoryConfirmationPolicy,
   createProjectMemoryConfirmationControl
 } from './confirmationControl.js';
+export {
+  PROJECT_MEMORY3_DEDUP_CONTRACT_VERSION,
+  createProjectMemoryContentFingerprint,
+  createProjectMemoryDedupKeys,
+  createProjectMemorySimilarityEvidence,
+  evaluateProjectMemoryConflictResolution,
+  createProjectMemoryDedupConflictResolver
+} from './deduplicationConflictResolver.js';

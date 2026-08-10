@@ -1,4 +1,4 @@
-CREATE TABLE discord_events (
+CREATE TABLE IF NOT EXISTS discord_events (
   event_id text PRIMARY KEY,
   event_type text NOT NULL,
   guild_id text,
@@ -10,6 +10,6 @@ CREATE TABLE discord_events (
   completed_at timestamptz
 );
 
-CREATE INDEX discord_events_received_at_idx ON discord_events(received_at DESC);
-CREATE INDEX discord_events_scope_idx ON discord_events(guild_id, channel_id, received_at DESC);
-CREATE INDEX discord_events_user_idx ON discord_events(user_id, received_at DESC);
+CREATE INDEX IF NOT EXISTS discord_events_received_at_idx ON discord_events(received_at DESC);
+CREATE INDEX IF NOT EXISTS discord_events_scope_idx ON discord_events(guild_id, channel_id, received_at DESC);
+CREATE INDEX IF NOT EXISTS discord_events_user_idx ON discord_events(user_id, received_at DESC);

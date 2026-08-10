@@ -1,7 +1,7 @@
 # SG 2.1 — PROJECT DEVELOPMENT KNOWLEDGE 4.0 PROGRAM
 
 ## Status
-In progress. **PDK4.1–PDK4.8 CLOSED and CI-verified.** PDK4.9–PDK4.12 remain planned.
+In progress. **PDK4.1–PDK4.9 CLOSED and CI-verified.** PDK4.10–PDK4.12 remain planned.
 
 Project Development Knowledge 4.0 (PDK4) is a cross-cutting program built on the completed Project Memory 3.0 foundation. It does not renumber Blocks 0–19 and does not reopen PM3.1–PM3.12.
 
@@ -277,13 +277,45 @@ Evidence:
 **Gate:** PASSED — `implemented`, `ci-verified`, `deployed` and `live-verified` remain distinct, temporal/causal links are auditable, and contradictions/evidence gaps remain explicit. Full repository gate passed in SG 2.1 CI #7108 on commit `4873fa255fc916cb5a6ea120e26b69870d941ee6` before final documentation synchronization.
 
 ### PDK4.9 — Continuous GitHub Ingestion
-- after historical bootstrap, process only new source events from the durable cursor;
-- support approved webhook/event or bounded polling/worker triggering;
-- preserve External Connections Registry, Resource Authority, Owner Security, secrets and observability boundaries;
-- update temporal links and Project Memory incrementally;
-- remain idempotent under retries/replay.
+**Status: CLOSED / CI-verified.**
 
-**Gate:** new verified GitHub development changes appear in Project Memory automatically without full-history rescan.
+Implemented:
+- continuous GitHub ingestion starts only after the matching PDK4.2 historical cursor is `complete`;
+- the incremental cursor is anchored to the immutable SHA parsed from the PDK4.2 `lastSourceId`, preventing a null-cursor full-history rescan;
+- bounded `poll`, `webhook` and internal `event` trigger contract with batch limits and bounded catch-up;
+- GitHub webhook payload is trigger metadata only: repository identity is checked, but every unseen commit is independently re-verified by immutable SHA through the existing PDK4.3 source normalizer/verifier;
+- durable PostgreSQL state in `pdk4_continuous_ingestion_state`, `pdk4_continuous_processed_sources` and `pdk4_continuous_triggers`;
+- trigger lifecycle `processing → completed|failed`; completed/in-flight duplicates are suppressed and failed deliveries may retry safely;
+- source-level idempotency prevents duplicate commit processing across retries/restart;
+- PDK4.4-suppressed/non-event commits advance source bookkeeping but cannot create DevelopmentEvents or PM3 facts;
+- event-eligible commits reuse PDK4.3→PDK4.4→PDK4.5 processing and are written only as unconfirmed/unverified PM3 candidates;
+- optional incremental reconciliation update is required to remain non-authoritative/unconfirmed;
+- authorization hook runs before GitHub fetch; observability records bounded trigger/source outcomes;
+- cross-project/source mismatch, incomplete bootstrap, invalid bootstrap anchor, state-anchor loss, repository mismatch and attempted PM3/reconciliation promotion fail closed;
+- migration compatibility count updated from 26 to 27 without changing existing security/runtime logic.
+
+Implementation:
+- `src/projectDevelopmentKnowledge/continuousGitHubIngestion.js`
+- `src/projectDevelopmentKnowledge/postgresContinuousIngestionStore.js`
+- `src/projectDevelopmentKnowledge/incrementalDevelopmentKnowledgeProcessor.js`
+- `src/persistence/migrations/902_pdk4_continuous_ingestion.sql`
+- `src/projectDevelopmentKnowledge/index.js`
+- `tests/projectDevelopmentKnowledge4ContinuousIngestion.test.js`
+- `tests/postgresPersistence.test.js`
+- `package.json` (`test:project-development-knowledge`)
+
+Evidence:
+- polling starts strictly after the completed historical bootstrap SHA;
+- repeated trigger/source replay does not duplicate processing;
+- failed trigger can retry while completed trigger remains idempotent;
+- webhook repository mismatch fails closed and webhook content never substitutes for immutable source verification;
+- suppressed changes advance durable cursor without Project Memory mutation;
+- incomplete/invalid historical bootstrap and denied authorization fail before GitHub fetch;
+- incremental processor re-verifies commit identity and stores only unconfirmed PM3 candidates;
+- PostgreSQL integration proves incremental cursor, processed-source identity and trigger lifecycle survive service restart;
+- migration/security/full runtime gates remain green.
+
+**Gate:** PASSED — new verified GitHub development commits can be processed incrementally after historical bootstrap without full-history rescan, duplicate PM3 promotion or webhook-as-truth behavior. Full repository code gate passed in SG 2.1 CI #7129 on commit `963ca2c1dec84fdff6e582e49df7b72cbb3d6500` before final documentation synchronization.
 
 ### PDK4.10 — Product Component Registry & Current Project Snapshot
 - build/rebuild bounded component registry from canonical facts;

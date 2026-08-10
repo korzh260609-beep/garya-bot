@@ -1,12 +1,12 @@
 # SG 2.1 — PROJECT DEVELOPMENT KNOWLEDGE 4.0 CANONICAL ARCHITECTURE
 
 ## Status
-In progress. **PDK4.1–PDK4.6 CLOSED and CI-verified.** PDK4.7–PDK4.12 remain planned.
+In progress. **PDK4.1–PDK4.7 CLOSED and CI-verified.** PDK4.8–PDK4.12 remain planned.
 
 Project Development Knowledge 4.0 (PDK4) is a specialized development-history and project-evolution layer built on top of the completed Project Memory 3.0 program. It is not a parallel memory system and does not replace Memory 2.0, Project Memory 3.0, System Self Knowledge, Universal Diagnostics, Identity/Scope, Owner Security, Action Gate, Resource Authority, PostgreSQL persistence or AI Router.
 
 ## Implemented foundation
-PDK4.1 provides the executable development-event/taxonomy and derived-view contracts. PDK4.2 provides bounded historical GitHub commit scanning with a project/repository/source-scoped PostgreSQL cursor and separate processed-source bookkeeping. Cursor advancement and processed-source recording are transactional; restart resumes from the last committed cursor and replay is idempotent. PDK4.3 provides bounded read-only normalization and immutable verification for GitHub commits/diffs, pull requests, workflow/CI runs and canonical repository files. Source text is secret-redacted and marked `untrusted-data-only`; commits/PRs provide code evidence, successful workflows provide CI evidence, canonical documents provide source evidence only, and deployment/runtime evidence remains unavailable without a real approved connector. PDK4.4 provides deterministic significance filtering over those verified normalized envelopes, suppresses generated/formatting/trivial churn, retains material development evidence, treats workflow runs as supporting evidence rather than standalone product changes, and uses bounded AI Router assistance only for ambiguous classification. PDK4.5 converts only event-eligible verified evidence into bounded provenance-backed DevelopmentEvents and unverified/proposed PM3 candidates; model assistance is Router-only and cannot promote evidence state, confirm facts, write Project Memory or grant authority. PDK4.6 deterministically clusters compatible extracted events into bounded milestone candidates while preserving every atomic event and provenance source, keeps hard project/domain/component/time separation, attaches explicit supporting evidence only through known atomic-event links, and permits Router assistance only for ambiguous merge/split decisions. None of PDK4.1–PDK4.6 creates accepted Project Memory facts directly.
+PDK4.1 provides the executable development-event/taxonomy and derived-view contracts. PDK4.2 provides bounded historical GitHub commit scanning with a project/repository/source-scoped PostgreSQL cursor and separate processed-source bookkeeping. Cursor advancement and processed-source recording are transactional; restart resumes from the last committed cursor and replay is idempotent. PDK4.3 provides bounded read-only normalization and immutable verification for GitHub commits/diffs, pull requests, workflow/CI runs and canonical repository files. Source text is secret-redacted and marked `untrusted-data-only`; commits/PRs provide code evidence, successful workflows provide CI evidence, canonical documents provide source evidence only, and deployment/runtime evidence remains unavailable without a real approved connector. PDK4.4 provides deterministic significance filtering over those verified normalized envelopes, suppresses generated/formatting/trivial churn, retains material development evidence, treats workflow runs as supporting evidence rather than standalone product changes, and uses bounded AI Router assistance only for ambiguous classification. PDK4.5 converts only event-eligible verified evidence into bounded provenance-backed DevelopmentEvents and unverified/proposed PM3 candidates; model assistance is Router-only and cannot promote evidence state, confirm facts, write Project Memory or grant authority. PDK4.6 deterministically clusters compatible extracted events into bounded milestone candidates while preserving every atomic event and provenance source, keeps hard project/domain/component/time separation, attaches explicit supporting evidence only through known atomic-event links, and permits Router assistance only for ambiguous merge/split decisions. PDK4.7 deterministically rebuilds ProjectGenesis, ProductTimeline, ComponentHistory views and development phases from complete PDK4.5/PDK4.6 evidence, preserves superseded historical truth, and explicitly distinguishes earliest verified evidence from an exact project creation date. None of PDK4.1–PDK4.7 creates accepted Project Memory facts directly.
 
 ## Purpose
 PDK4 gives SG durable, evidence-backed knowledge of its own development as a product and project:
@@ -298,6 +298,15 @@ Each cluster emits a milestone `DevelopmentEvent` candidate with deterministic c
 
 Malformed/unavailable AI assistance fails deterministically to split. PDK4.6 has no direct durable Project Memory mutation or self-confirmation path; its milestone candidate remains subject to the existing PM3 trust/confirmation/dedup/conflict pipeline.
 
+### PDK4.7 historical reconstruction contract
+PDK4.7 accepts only project-consistent PDK4.5 extracted candidates and a complete PDK4.6 clustering result whose milestones remain non-authoritative, unverified and proposed. Every atomic event must be represented by exactly one cluster; unknown, duplicated or omitted atomic-event links fail closed.
+
+The historical reconstructor is deterministic and does not call AI. It derives `ProjectGenesis`, `ProductTimeline`, `ComponentHistory` views and bounded development phases from existing evidence while preserving the atomic events and milestone provenance that produced those views. It creates no parallel database and has no Project Memory write/confirmation path.
+
+`ProjectGenesis` may contain original idea/goal only when explicit origin/requirement evidence exists. It records the earliest verified evidence and first relevant commit when present, but explicitly marks that earliest-known point as not proving the exact project creation date. Initial architecture, first working milestone, foundational decisions and major evolution milestones are derived only from source-backed events/milestones.
+
+`ProductTimeline` is built from chronological PDK4.6 milestone views. Component histories retain both atomic event snapshots and milestone summaries, including lifecycle/supersession metadata. Superseded/rejected/deprecated historical facts remain visible as historical truth instead of being deleted or promoted back into current truth. Reconstruction fingerprints are deterministic over ordered semantic/cluster fingerprints, so replay or input ordering cannot silently rewrite history.
+
 ## Project Genesis
 PDK4 maintains a derived ProjectGenesis view containing bounded evidence-backed fields such as:
 
@@ -314,7 +323,7 @@ earlyLimitations
 majorEvolutionMilestones
 ```
 
-ProjectGenesis is a derived view over evidence-backed facts; it is not a privileged identity source and cannot redefine canonical SG identity.
+ProjectGenesis is a derived view over evidence-backed facts; it is not a privileged identity source and cannot redefine canonical SG identity. PDK4.7 implements this view as rebuildable, `historical-derived`, unconfirmed and non-authoritative output. `earliestVerifiedEvidence` is qualified as earliest-known evidence unless separate evidence proves an exact creation date.
 
 ## Significance filtering
 Not every source event becomes a durable development fact.
@@ -344,13 +353,14 @@ The deterministic merge boundary uses project, domain, normalized component, tem
 Supporting PDK4.4 evidence such as successful CI workflows may attach to a cluster only through explicit known atomic-event links. It remains supporting audit/correlation evidence and does not silently upgrade the milestone's lifecycle or verification state. Milestones expose `belongs-to-milestone` relation links back to every atomic event, deterministic fingerprints for replay, and unverified/proposed PM3 candidates rather than direct durable facts.
 
 ## Historical reconstruction
-PDK4 reconstructs three complementary views:
+PDK4.7 reconstructs complementary rebuildable views:
 
-1. **Product Timeline** — major chronological milestones and transitions.
-2. **Component History** — origin, decisions, implementations, reworks, incidents and current state for each product component.
-3. **Decision Evolution** — what was decided, why, what alternatives existed, what later superseded it and why.
+1. **Project Genesis** — earliest-known evidence, first relevant commit, evidence-backed idea/goal when explicitly present, initial architecture, first working milestone, foundational decisions and major evolution milestones.
+2. **Product Timeline** — major chronological milestone views with atomic-event/source auditability.
+3. **Component History** — origin, decisions, implementations, reworks, incidents, milestones and superseded history for each product component.
+4. **Development Phases** — bounded chronological phase groups derived from event semantics and evidence-compatible lifecycle states.
 
-Historical facts remain queryable after supersession but are excluded from ordinary current-state answers unless the query is historical.
+Historical facts remain queryable after supersession and are not deleted. PDK4.7 does not infer an exact creation date from an earliest commit/evidence point, and it does not independently decide current truth; later PM3 retrieval/Context Guard and PDK4 reconciliation/current-snapshot stages remain responsible for current-state semantics.
 
 ## Continuous Development Ingestion
 After Historical Bootstrap reaches the current verified cursor, PDK4 switches to incremental processing.
@@ -494,6 +504,8 @@ AI cannot:
 - bypass PM3 storage/contracts;
 - call providers directly.
 
+PDK4.7 historical reconstruction itself does not call AI; this prevents model summarization from manufacturing genesis/history facts.
+
 ## Cost controls
 Historical Bootstrap must not send every commit blindly to a reasoning model.
 
@@ -519,7 +531,7 @@ workflow = repository + workflow run id + attempt
 canonical document = repository + path + revision SHA
 ```
 
-Replay must not duplicate Project Memory facts or advance trust. PDK4.6 additionally derives deterministic cluster and aggregate fingerprints from ordered atomic semantic fingerprints plus attached supporting-source fingerprints; replay cannot use clustering to confirm facts or change trust.
+Replay must not duplicate Project Memory facts or advance trust. PDK4.6 additionally derives deterministic cluster and aggregate fingerprints from ordered atomic semantic fingerprints plus attached supporting-source fingerprints; replay cannot use clustering to confirm facts or change trust. PDK4.7 derives a deterministic reconstruction fingerprint from ordered atomic semantic fingerprints, cluster fingerprints and timeline milestone ids; input ordering cannot alter the resulting historical identity.
 
 ## Observability and diagnostics
 PDK4 must expose bounded secret-safe diagnostics including at least:
@@ -562,6 +574,8 @@ Diagnostics expose counts, cursors, states and bounded evidence identifiers, not
 - All connector access remains subject to connection/resource/owner security policy.
 - Clustering cannot collapse events across hard project/domain/component/time boundaries solely because model/text similarity is high.
 - Supporting workflow/CI evidence cannot silently promote a milestone's evidence state.
+- Historical reconstruction cannot treat earliest-known evidence as an exact project creation date without separate proof.
+- Derived genesis/timeline/component history cannot grant trust, confirmation or authority and cannot replace source-level atomic events.
 
 ## Acceptance definition
 PDK4 is DONE only when code, tests, CI and production evidence prove that SG can:

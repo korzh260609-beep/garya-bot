@@ -13,3 +13,4 @@ export {
   assertProjectFactForProject,
   selectProjectFactsForProject
 } from './projectFactContract.js';
+export { createPostgresProjectMemoryStore } from './postgresProjectMemoryStore.js';

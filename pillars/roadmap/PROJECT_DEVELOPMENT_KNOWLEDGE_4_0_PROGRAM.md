@@ -1,7 +1,7 @@
 # SG 2.1 — PROJECT DEVELOPMENT KNOWLEDGE 4.0 PROGRAM
 
 ## Status
-In progress. **PDK4.1–PDK4.7 CLOSED and CI-verified.** PDK4.8–PDK4.12 remain planned.
+In progress. **PDK4.1–PDK4.8 CLOSED and CI-verified.** PDK4.9–PDK4.12 remain planned.
 
 Project Development Knowledge 4.0 (PDK4) is a cross-cutting program built on the completed Project Memory 3.0 foundation. It does not renumber Blocks 0–19 and does not reopen PM3.1–PM3.12.
 
@@ -241,12 +241,40 @@ Evidence:
 **Gate:** PASSED — SG now has executable rebuildable ProjectGenesis/Product Timeline/Component History/development-phase reconstruction with provenance and explicit temporal qualification. Full repository gate passed in SG 2.1 CI #7100 on commit `14445ad7cfc413c241cccc759359bfb018cb2022` before final documentation synchronization.
 
 ### PDK4.8 — Temporal/Causal Linking & Reconciliation
-- link `motivated-by`, `implements`, `fixes`, `verified-by-ci`, `deployed-as`, `supersedes`, `depends-on` and other bounded development relations;
-- reconcile roadmap, code, CI, deployment and runtime dimensions;
-- detect missing supersession, stale plan and evidence gaps;
-- create explicit DevelopmentKnowledgeGap records/candidates instead of guessing.
+**Status: CLOSED / CI-verified.**
 
-**Gate:** `implemented`, `ci-verified`, `deployed` and `live-verified` remain distinct and contradictions are visible.
+Implemented:
+- deterministic temporal/causal reconciliation over matching non-authoritative PDK4.5 extraction, complete PDK4.6 clustering and PDK4.7 historical reconstruction outputs;
+- bounded relation graph including preserved `belongs-to-milestone` and explicit event relations plus deterministic `next-after`, `motivated-by`, `implements`, `fixes`, `verified-by-ci`, `deployed-as`, `verified-in-runtime`, `supersedes` and `superseded-by` links;
+- explicit `depends-on` and other canonical relations are preserved when present in source-backed event relations; unknown targets become gaps rather than invented events;
+- per-component reconciliation keeps source/roadmap-plan, code, test, CI, deployment and runtime evidence logically separate instead of flattening them into one done state;
+- implementation/code without CI creates `missing-ci-evidence`; CI without deployment creates `missing-deployment-evidence`; deployment without runtime creates `missing-runtime-evidence`;
+- active plans followed by delivery evidence without explicit close/supersession produce `stale-plan` gaps;
+- missing/unknown supersession targets and successive active decision/plan records without explicit supersession produce `missing-supersession` gaps;
+- stronger-dimension evidence that predates the latest prerequisite evidence is retained as a visible `temporal-evidence-order` contradiction;
+- every `DevelopmentKnowledgeGap` is deterministic, open, derived-only and also exposed as an unverified/unconfirmed/proposed gap candidate rather than accepted Project Memory truth;
+- reconciliation fingerprint is deterministic across extraction input ordering;
+- cross-project, authoritative, incomplete clustering and mismatched historical reconstruction inputs fail closed;
+- PDK4.8 performs no AI call, no direct Project Memory write and no trust/confirmation/authority promotion.
+
+Implementation:
+- `src/projectDevelopmentKnowledge/temporalCausalReconciliation.js`
+- `src/projectDevelopmentKnowledge/index.js`
+- `tests/projectDevelopmentKnowledge4TemporalCausalReconciliation.test.js`
+- `package.json` (`test:project-development-knowledge`)
+
+Evidence:
+- implementation→CI→deployment→runtime is linked while each evidence dimension remains distinct;
+- code-only state generates an explicit CI evidence gap instead of being promoted;
+- stale plan and absent supersession replacement generate deterministic gaps;
+- fixes correlate to prior incident/root-cause evidence inside the same bounded project/domain/component scope;
+- explicit supersession links remain bidirectionally visible;
+- contradictory code/CI chronology remains visible instead of being silently reordered;
+- reversed extraction input ordering preserves the same reconciliation fingerprint, relations and gaps;
+- cross-project, authoritative and mismatched PDK4.7 inputs fail closed;
+- gap candidates remain `trust=unverified`, `confirmed=false`, `confirmationState=proposed` and cannot grant authority.
+
+**Gate:** PASSED — `implemented`, `ci-verified`, `deployed` and `live-verified` remain distinct, temporal/causal links are auditable, and contradictions/evidence gaps remain explicit. Full repository gate passed in SG 2.1 CI #7108 on commit `4873fa255fc916cb5a6ea120e26b69870d941ee6` before final documentation synchronization.
 
 ### PDK4.9 — Continuous GitHub Ingestion
 - after historical bootstrap, process only new source events from the durable cursor;

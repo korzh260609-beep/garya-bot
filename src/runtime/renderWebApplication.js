@@ -7,9 +7,18 @@ import { createTelegramProductionIntegration } from '../telegram/telegramProduct
 import { createTelegramWebhookHttpHandler } from '../telegram/telegramWebhookHttpHandler.js';
 import { createDeploymentDeliveryRouter } from '../delivery/deploymentDeliveryRouter.js';
 import { createTelegramDeliveryTransport } from '../delivery/telegramDeliveryTransport.js';
+import { createDiscordDeliveryTransport } from '../delivery/discordDeliveryTransport.js';
 import { createProductionTelegramIdentityResolver } from '../identity/productionTelegramIdentityResolver.js';
+import { createProductionDiscordIdentityResolver } from '../identity/productionDiscordIdentityResolver.js';
+import { loadDiscordConfig } from '../discord/discordConfig.js';
+import { createDiscordRestClient } from '../discord/discordRestClient.js';
+import { createPostgresDiscordEventStore } from '../discord/postgresDiscordEventStore.js';
+import { createDiscordProductionIntegration } from '../discord/discordProductionIntegration.js';
+import { createDiscordGatewayClient } from '../discord/discordGatewayClient.js';
+import { registerDiscordDeploymentCredential, bootstrapDiscordExternalConnection } from '../discord/discordDeployment.js';
 
 export { createProductionTelegramIdentityResolver } from '../identity/productionTelegramIdentityResolver.js';
+export { createProductionDiscordIdentityResolver } from '../identity/productionDiscordIdentityResolver.js';
 
 const SENSITIVE_ENV_KEY = /(?:TOKEN|SECRET|PASSWORD|API[_-]?KEY|DATABASE_URL|PRIVATE[_-]?KEY|CREDENTIAL)/i;
 
@@ -27,6 +36,7 @@ function envPort(env) {
 function productionEnv(env) {
   const monarchTelegramUserId = envString(env, 'SG_MONARCH_TELEGRAM_USER_ID', envString(env, 'MONARCH_USER_ID'));
   const monarchGlobalUserId = envString(env, 'SG_MONARCH_GLOBAL_USER_ID', envString(env, 'MONARCH_GLOBAL_USER_ID'));
+  const monarchDiscordUserId = envString(env, 'SG_MONARCH_DISCORD_USER_ID');
   const revision = envString(env, 'SG_REVISION', envString(env, 'RENDER_GIT_COMMIT', 'sg2.1'));
   const explicitAiEnabled = envString(env, 'SG_AI_ENABLED');
   const openAiCredentialPresent = envString(env, 'OPENAI_API_KEY') !== '';
@@ -39,6 +49,7 @@ function productionEnv(env) {
     SG_PERSISTENCE_MODE: envString(env, 'SG_PERSISTENCE_MODE', envString(env, 'DATABASE_URL') ? 'postgres' : 'memory'),
     SG_AI_ENABLED: aiEnabled,
     SG_MONARCH_TELEGRAM_USER_ID: monarchTelegramUserId,
+    SG_MONARCH_DISCORD_USER_ID: monarchDiscordUserId,
     SG_MONARCH_GLOBAL_USER_ID: monarchGlobalUserId,
     SG_MONARCH_TIMEZONE: envString(env, 'SG_MONARCH_TIMEZONE'),
     SG_MONARCH_LANGUAGE: envString(env, 'SG_MONARCH_LANGUAGE')
@@ -65,6 +76,9 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
   if (effectiveEnv.SG_AI_ENABLED === 'true' && !harness.productionAI) throw new Error('Production AI was enabled but did not initialize');
 
   const telegramConfig = loadTelegramConfig(effectiveEnv);
+  const discordConfig = loadDiscordConfig(effectiveEnv);
+  if (discordConfig.enabled) registerDiscordDeploymentCredential({ credentialManager: harness.credentialManager, env: effectiveEnv, projectScope: harness.config.projectScope });
+
   const botClient = createTelegramBotApiClient({
     credentialManager: harness.credentialManager,
     credentialAccessContext: harness.credentialAccessContext,
@@ -77,6 +91,18 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
     maxRetries: telegramConfig.apiMaxRetries
   });
 
+  const discordRestClient = discordConfig.enabled ? createDiscordRestClient({
+    credentialManager: harness.credentialManager,
+    credentialAccessContext: harness.credentialAccessContext,
+    credentialId: discordConfig.botTokenCredentialId,
+    connectionRegistry: harness.connectionRegistry,
+    connectionAccessContext: harness.connectionAccessContext,
+    connectionId: 'discord',
+    fetchImpl,
+    timeoutMs: discordConfig.apiTimeoutMs,
+    maxRetries: discordConfig.apiMaxRetries
+  }) : null;
+
   const deliveryDeployment = createDeploymentDeliveryRouter({
     persistence: harness.persistence,
     userSettingsService: harness.userSettingsService,
@@ -86,6 +112,7 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
     observability: harness.observability
   });
   deliveryDeployment.transportRegistry.register(createTelegramDeliveryTransport({ botClient }));
+  if (discordRestClient) deliveryDeployment.transportRegistry.register(createDiscordDeliveryTransport({ restClient: discordRestClient }));
 
   const identityResolver = createProductionTelegramIdentityResolver({
     persistence: harness.persistence,
@@ -97,6 +124,17 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
     languageContextService: harness.languageContextService,
     monarchLanguage: effectiveEnv.SG_MONARCH_LANGUAGE
   });
+
+  const discordIdentityResolver = discordConfig.enabled ? createProductionDiscordIdentityResolver({
+    persistence: harness.persistence,
+    projectScope: harness.config.projectScope,
+    monarchDiscordUserId: effectiveEnv.SG_MONARCH_DISCORD_USER_ID,
+    monarchGlobalUserId: effectiveEnv.SG_MONARCH_GLOBAL_USER_ID,
+    temporalService: harness.temporalService,
+    monarchTimeZone: effectiveEnv.SG_MONARCH_TIMEZONE,
+    languageContextService: harness.languageContextService,
+    monarchLanguage: effectiveEnv.SG_MONARCH_LANGUAGE
+  }) : null;
 
   const integration = createTelegramProductionIntegration({
     credentialManager: harness.credentialManager,
@@ -116,18 +154,50 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
   });
   const telegramHandler = createTelegramWebhookHttpHandler({ integration, path: telegramConfig.webhookPath });
 
+  const discordIntegration = discordConfig.enabled ? createDiscordProductionIntegration({
+    restClient: discordRestClient,
+    deliveryRouter: deliveryDeployment.router,
+    eventStore: createPostgresDiscordEventStore(harness.persistence.database),
+    identityResolver: discordIdentityResolver,
+    runtime: harness.runtime,
+    observability: harness.observability,
+    botUserId: discordConfig.botUserId,
+    environment: harness.config.environment,
+    revision: harness.config.revision
+  }) : null;
+
+  const discordGateway = discordConfig.enabled ? createDiscordGatewayClient({
+    restClient: discordRestClient,
+    credentialManager: harness.credentialManager,
+    credentialAccessContext: harness.credentialAccessContext,
+    credentialId: discordConfig.botTokenCredentialId,
+    intents: discordConfig.gatewayIntents,
+    onDispatch: (dispatch) => discordIntegration.handleDispatch(dispatch),
+    observability: harness.observability,
+    readyTimeoutMs: discordConfig.gatewayReadyTimeoutMs,
+    reconnectMinMs: discordConfig.reconnectMinMs,
+    reconnectMaxMs: discordConfig.reconnectMaxMs
+  }) : null;
+
+  function discordHealth() {
+    return discordGateway ? discordGateway.status() : Object.freeze({ phase: 'disabled', connected: false });
+  }
+
   const requestHandler = async (request, response) => {
     const url = new URL(request.url ?? '/', 'http://localhost');
     if (url.pathname === '/health') {
       const runtimeHealth = harness.runtime.health();
-      json(response, runtimeHealth.ok ? 200 : 503, { ok: runtimeHealth.ok, service: 'sg-2-1-web', runtime: runtimeHealth, revision: harness.config.revision });
+      const discord = discordHealth();
+      json(response, runtimeHealth.ok ? 200 : 503, { ok: runtimeHealth.ok, service: 'sg-2-1-web', runtime: runtimeHealth, discord: { enabled: discordConfig.enabled, ...discord }, revision: harness.config.revision });
       return;
     }
     if (url.pathname === '/ready') {
       const runtimeReadiness = harness.runtime.readiness();
       const databaseHealth = harness.persistence.health();
-      const ready = runtimeReadiness.ready && databaseHealth.started;
-      json(response, ready ? 200 : 503, { ok: ready, service: 'sg-2-1-web', runtime: runtimeReadiness, database: { started: databaseHealth.started }, ai: { enabled: effectiveEnv.SG_AI_ENABLED === 'true', initialized: Boolean(harness.productionAI) }, revision: harness.config.revision });
+      const discord = discordHealth();
+      const discordReady = !discordConfig.enabled || discord.connected === true;
+      const ready = runtimeReadiness.ready && databaseHealth.started && discordReady;
+      json(response, ready ? 200 : 503, { ok: ready, service: 'sg-2-1-web', runtime: runtimeReadiness, database: { started: databaseHealth.started }, ai: { enabled: effectiveEnv.SG_AI_ENABLED === 'true', initialized: Boolean(harness.productionAI) }, discord: { enabled: discordConfig.enabled, ready: discordReady, ...discord }, revision: harness.config.revision });
       return;
     }
     if (await telegramHandler(request, response)) return;
@@ -144,9 +214,20 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
 
   async function start() {
     let runtimeStarted = false;
+    let discordStarted = false;
     try {
       await harness.runtime.start();
       runtimeStarted = true;
+      if (discordConfig.enabled) {
+        await bootstrapDiscordExternalConnection({
+          connectionRegistry: harness.connectionRegistry,
+          connectionAccessContext: harness.connectionAccessContext,
+          credentialManager: harness.credentialManager,
+          config: harness.config,
+          applicationId: discordConfig.applicationId,
+          botUserId: discordConfig.botUserId
+        });
+      }
       server = http.createServer((request, response) => requestHandler(request, response).catch(() => json(response, 500, { ok: false, code: 'internal-error' })));
       const port = envPort(effectiveEnv);
       await new Promise((resolve, reject) => {
@@ -163,8 +244,15 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
           operation: (webhookSecret) => botClient.setWebhook({ url: telegramConfig.webhookUrl, secretToken: webhookSecret })
         });
       }
-      return Object.freeze({ port, health: harness.runtime.health(), readiness: harness.runtime.readiness(), revision: harness.config.revision });
+      if (discordGateway) {
+        await discordGateway.start();
+        discordStarted = true;
+      }
+      return Object.freeze({ port, health: harness.runtime.health(), readiness: harness.runtime.readiness(), discord: discordHealth(), revision: harness.config.revision });
     } catch (error) {
+      if (discordStarted || discordGateway) {
+        try { await discordGateway?.stop?.(); } catch {}
+      }
       try { await closeServer(); } catch {}
       if (runtimeStarted) {
         try { await harness.runtime.stop(); } catch {}
@@ -174,6 +262,8 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
   }
 
   async function stop() {
+    await discordIntegration?.drainPending?.();
+    await discordGateway?.stop?.();
     await integration.drainPending();
     await closeServer();
     await harness.runtime.stop();
@@ -183,6 +273,9 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
     effectiveEnv: publicEnvironmentView(effectiveEnv),
     harness,
     telegramIntegration: integration,
+    discordIntegration,
+    discordGateway,
+    discordRestClient,
     deliveryRouter: deliveryDeployment.router,
     deliveryStore: deliveryDeployment.store,
     deliveryTransportRegistry: deliveryDeployment.transportRegistry,

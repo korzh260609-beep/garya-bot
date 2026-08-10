@@ -6,6 +6,8 @@ Memory 2.0 is a completed cross-cutting memory program documented separately in 
 
 Project Memory 3.0 is a completed specialized cross-cutting program documented in `PROJECT_MEMORY_3_0_PROGRAM.md`. It strengthens only the Memory 2.0 `Project Memory` domain and does not renumber Blocks 0–19.
 
+Project Development Knowledge 4.0 is a planned cross-cutting development-history/project-evolution program documented in `PROJECT_DEVELOPMENT_KNOWLEDGE_4_0_PROGRAM.md`. It is built on Project Memory 3.0 and does not create a parallel memory system or renumber Blocks 0–19.
+
 Universal Diagnostics is a separate planned cross-cutting diagnostic program documented in `UNIVERSAL_DIAGNOSTICS_PROGRAM.md`. It is implemented as an independent observer application around SG, not as a new core layer and not as a renumbering of Blocks 0–19.
 
 Block 8.1 is a production extension of completed Block 8 Interfaces. It adds the real Discord production transport on top of the existing Discord adapter contract and does not renumber Blocks 9–19.
@@ -50,7 +52,8 @@ Block 8.1 is a production extension of completed Block 8 Interfaces. It adds the
 36. `19_SECURITY_AND_OPERATIONS.md` — completed Block 19 implementation and acceptance evidence
 37. `MEMORY_2_0_ROADMAP.md` — completed cross-cutting Memory 2.0 M1–M9 program
 38. `PROJECT_MEMORY_3_0_PROGRAM.md` — completed specialized Project Memory 3.0 PM3.1–PM3.12 program
-39. `UNIVERSAL_DIAGNOSTICS_PROGRAM.md` — planned cross-cutting Universal Diagnostics D1–D12 program
+39. `PROJECT_DEVELOPMENT_KNOWLEDGE_4_0_PROGRAM.md` — planned PDK4.1–PDK4.12 development-history/project-evolution program
+40. `UNIVERSAL_DIAGNOSTICS_PROGRAM.md` — planned cross-cutting Universal Diagnostics D1–D12 program
 
 ## Block 8.1 — Discord Transport Integration
 
@@ -104,6 +107,20 @@ Detailed completion evidence: `PROJECT_MEMORY_3_0_PROGRAM.md`.
 Architecture: `../architecture/PROJECT_MEMORY_3_0.md`.
 Workflow: `../workflow/PROJECT_MEMORY_3_0_WORKFLOW.md`.
 
+## Project Development Knowledge 4.0
+
+**Status: Planned.**
+
+Canonical implementation order:
+
+`PDK4.1 Development Knowledge Contract & Taxonomy → PDK4.2 GitHub Historical Scanner & Durable Cursor → PDK4.3 Source Normalization & Verification → PDK4.4 Development Significance Classifier → PDK4.5 Development Event Extraction → PDK4.6 Commit/Event Clustering & Milestones → PDK4.7 Historical Reconstruction & Project Genesis → PDK4.8 Temporal/Causal Linking & Reconciliation → PDK4.9 Continuous GitHub Ingestion → PDK4.10 Product Component Registry & Current Project Snapshot → PDK4.11 Development Query & Normal SG Answer Integration → PDK4.12 Diagnostics, Production Bootstrap & Live Acceptance`.
+
+PDK4 builds on the completed Project Memory 3.0 foundation. It must reconstruct the relevant history of SG from earliest verified evidence, preserve why/how changes occurred, distinguish implementation/CI/deployment/live states, build ProjectGenesis/Product Timeline/Component Histories/ProjectSnapshot, then keep knowledge current by processing only new verified development events. It reuses PM3 PostgreSQL storage, provenance, trust, confirmation, dedup/conflict, temporal history, retrieval and Context Guard and cannot create a parallel memory or authority system.
+
+Detailed specification: `PROJECT_DEVELOPMENT_KNOWLEDGE_4_0_PROGRAM.md`.
+Architecture: `../architecture/PROJECT_DEVELOPMENT_KNOWLEDGE_4_0.md`.
+Workflow: `../workflow/PROJECT_DEVELOPMENT_KNOWLEDGE_4_0_WORKFLOW.md`.
+
 ## Universal Diagnostics
 
 **Status: Planned and architecturally specified.**
@@ -120,7 +137,7 @@ Workflow: `../workflow/UNIVERSAL_DIAGNOSTICS_WORKFLOW.md`.
 
 ## Production continuation
 
-`PRODUCTION_ROADMAP.md` remains the canonical numbered continuation after Block 10. Memory 2.0, Project Memory 3.0 and Universal Diagnostics are separate cross-cutting programs and do not renumber Blocks 11–19. Block 8.1 remains an extension of Block 8 rather than a renumbering of that continuation.
+`PRODUCTION_ROADMAP.md` remains the canonical numbered continuation after Block 10. Memory 2.0, Project Memory 3.0, Project Development Knowledge 4.0 and Universal Diagnostics are separate cross-cutting programs and do not renumber Blocks 11–19. Block 8.1 remains an extension of Block 8 rather than a renumbering of that continuation.
 
 Each production block/program stage must still be independently verifiable, reversible and completed through code, tests, documentation, CI and runtime evidence.
 

@@ -17,3 +17,10 @@ export {
   createProjectSnapshotView,
   createDevelopmentEventProjectFactCandidate
 } from './developmentKnowledgeContract.js';
+export {
+  PDK4_HISTORICAL_SCANNER_CONTRACT_VERSION,
+  PDK4_HISTORICAL_SOURCE_KIND,
+  PDK4_HISTORICAL_BATCH_LIMITS,
+  createGitHubHistoricalScanner
+} from './githubHistoricalScanner.js';
+export { createPostgresHistoricalCursorStore } from './postgresHistoricalCursorStore.js';

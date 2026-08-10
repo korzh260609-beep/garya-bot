@@ -4,6 +4,7 @@ import {
   PDK4_SOURCE_NORMALIZATION_CONTRACT_VERSION,
   PDK4_SOURCE_LIMITS,
   createDevelopmentSourceNormalizer,
+  createGitHubDevelopmentSourceVerifier,
   createGitHubHistoricalScanner
 } from '../src/projectDevelopmentKnowledge/index.js';
 
@@ -228,4 +229,60 @@ test('PDK4.3: historical scanner can feed only verified normalized source events
   assert.equal(normalizedEvents.length, 1);
   assert.equal(normalizedEvents[0].payload.sha, commitSha);
   assert.equal(normalizedEvents[0].trust, 'verified-source');
+});
+
+test('PDK4.3: GitHub REST verifier reads immutable commit, PR, workflow and canonical file sources', async () => {
+  const calls = [];
+  const json = (payload) => ({ ok: true, status: 200, async json() { return payload; } });
+  const fetchImpl = async (url, options) => {
+    calls.push({ url, options });
+    if (url.endsWith(`/commits/${commitSha}`)) return json({
+      sha: commitSha,
+      commit: { message: 'verified commit', committer: { date: '2026-08-10T10:00:00Z' } },
+      parents: [{ sha: parentSha }], files: [{ filename: 'src/a.js', status: 'modified', patch: '+x' }]
+    });
+    if (url.endsWith('/pulls/326')) return json({
+      number: 326, head: { sha: commitSha }, base: { sha: baseSha }, state: 'closed', merged: true,
+      merged_at: '2026-08-10T11:00:00Z', title: 'verified PR', body: 'data'
+    });
+    if (url.endsWith('/pulls/326/files?per_page=100')) return json([{ filename: 'src/a.js', status: 'modified', patch: '+x' }]);
+    if (url.endsWith('/actions/runs/7057')) return json({
+      id: 7057, run_attempt: 1, name: 'SG 2.1 CI', head_sha: commitSha, status: 'completed', conclusion: 'success', updated_at: '2026-08-10T12:00:00Z'
+    });
+    if (url.endsWith('/actions/runs/7057/attempts/1/jobs?per_page=100')) return json({ jobs: [{ name: 'foundation', status: 'completed', conclusion: 'success' }] });
+    if (url.includes('/contents/pillars%2Froadmap%2F') || url.includes('/contents/pillars/roadmap/')) return json({
+      type: 'file', path: 'pillars/roadmap/PDK.md', encoding: 'base64', content: Buffer.from('# verified').toString('base64')
+    });
+    throw new Error(`unexpected url ${url}`);
+  };
+  const verifier = createGitHubDevelopmentSourceVerifier({ fetchImpl, allowedRepositories: [repo] });
+  const normalizer = createDevelopmentSourceNormalizer({ githubVerifier: verifier, approvedRepositories: [repo] });
+
+  const commit = await normalizer.normalizeAndVerify({ kind: 'github-commit', projectKey, repository: repo, sha: commitSha });
+  const pr = await normalizer.normalizeAndVerify({ kind: 'github-pr', projectKey, repository: repo, number: 326, headSha: commitSha });
+  const workflow = await normalizer.normalizeAndVerify({ kind: 'github-workflow', projectKey, repository: repo, runId: '7057', attempt: 1 });
+  const document = await normalizer.normalizeAndVerify({ kind: 'canonical-document', projectKey, repository: repo, path: 'pillars/roadmap/PDK.md', revision: commitSha });
+
+  assert.equal(commit.payload.sha, commitSha);
+  assert.equal(pr.payload.headSha, commitSha);
+  assert.deepEqual(workflow.verificationKinds, ['ci', 'source']);
+  assert.equal(document.payload.content, '# verified');
+  assert.ok(calls.every((call) => call.options.method === 'GET'));
+  assert.ok(calls.every((call) => call.options.headers.Accept === 'application/vnd.github+json'));
+});
+
+test('PDK4.3: GitHub REST verifier enforces repository policy and workflow attempt identity', async () => {
+  assert.throws(
+    () => createGitHubDevelopmentSourceVerifier({ fetchImpl: async () => null, allowedRepositories: [] }),
+    (error) => error.code === 'pdk4-source-policy-missing'
+  );
+
+  const verifier = createGitHubDevelopmentSourceVerifier({
+    allowedRepositories: [repo],
+    fetchImpl: async () => ({ ok: true, status: 200, async json() { return { id: 7057, run_attempt: 2 }; } })
+  });
+  await assert.rejects(
+    () => verifier.getWorkflowRun({ repository: repo, runId: '7057', attempt: 1 }),
+    (error) => error.code === 'pdk4-source-identity-mismatch'
+  );
 });

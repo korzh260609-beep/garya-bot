@@ -4,6 +4,7 @@ import { createObservabilityService } from '../observability/observabilityServic
 import { createTemporalContextService } from '../temporal/temporalContextService.js';
 import { createRecurrenceEngine } from '../temporal/recurrenceEngine.js';
 import { createOwnerSecurityConfig, createOwnerSecurityGateway, createSecurityPolicyRegistry } from '../security/ownerSecurity.js';
+import { createSecurityOperationsConfig } from '../operations/securityOperations.js';
 import { createPostgresTaskQueue } from './postgresTaskQueue.js';
 import { createPostgresRecurringScheduler } from './postgresRecurringScheduler.js';
 import { createDurableWorker } from './durableWorker.js';
@@ -42,8 +43,16 @@ const ownerSecurityGateway = createOwnerSecurityGateway({
   revision
 });
 const verifyMode = process.env.SG_WORKER_VERIFY === '1' || process.env.SG_ENVIRONMENT === 'ci';
-const workerId = process.env.SG_WORKER_ID ?? `worker:${randomUUID()}`;
+const operationsConfig = createSecurityOperationsConfig(process.env);
 
+if (operationsConfig.automationDisabled && !verifyMode) {
+  console.log(JSON.stringify({ status: 'worker-disabled', reason: 'automation-emergency-disabled', revision }));
+  await observabilityStore.close();
+  await persistence.close();
+  process.exit(0);
+}
+
+const workerId = process.env.SG_WORKER_ID ?? `worker:${randomUUID()}`;
 const worker = createDurableWorker({
   workerId,
   queue,
@@ -89,7 +98,7 @@ if (verifyMode) {
   await shutdown('verification-complete');
 } else {
   await worker.start();
-  console.log(JSON.stringify({ status: 'worker-ready', health: worker.health(), ownerSecurity: ownerSecurityGateway.status() }));
+  console.log(JSON.stringify({ status: 'worker-ready', health: worker.health(), ownerSecurity: ownerSecurityGateway.status(), operations: { automationDisabled: operationsConfig.automationDisabled } }));
   process.once('SIGTERM', () => shutdown('SIGTERM').then(() => process.exit(0)));
   process.once('SIGINT', () => shutdown('SIGINT').then(() => process.exit(0)));
 }

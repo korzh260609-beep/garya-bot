@@ -16,10 +16,10 @@ Block 19 does not create a second authorization model. Identity, Access, Resourc
 - transport;
 - network ingress.
 
-Telegram production ingress consumes the transport/network limiter before parsing or executing an update. Rate-limit denial returns HTTP 429 with a bounded `Retry-After` value and no request payload reflection.
+Telegram production ingress consumes the transport/network limiter before parsing or executing an update. Rate-limit denial returns HTTP 429 with a bounded `Retry-After` value and no request payload reflection. Identity limiting is available after canonical `global_user_id` resolution and is not inferred from transport names or message text.
 
 ### Webhook and endpoint hardening
-`src/telegram/telegramWebhookHttpHandler.js` now enforces:
+`src/telegram/telegramWebhookHttpHandler.js` enforces:
 - POST-only webhook access;
 - JSON media type;
 - bounded request body size;
@@ -51,6 +51,8 @@ Default retention policy: 90 days unless `SG_DATA_RETENTION_DAYS` is configured.
 ### Backup and recovery
 `verifyBackupRestore()` performs backup → restore → fingerprint equality verification and fails acceptance when restored content differs.
 
+`tests/securityOperationsPostgres.test.js` exercises the recovery contract against the real CI PostgreSQL service: deterministic rows are persisted, snapshotted, removed, restored, fingerprinted and verified in an isolated recovery table. This proves the database recovery path without mutating production data.
+
 Operational production procedure:
 1. create a PostgreSQL backup/snapshot using the managed database backup facility or `pg_dump` in a controlled environment;
 2. restore into an isolated recovery database;
@@ -60,13 +62,16 @@ Operational production procedure:
 6. never overwrite the primary database during a verification restore.
 
 ### AI cost / emergency controls
-Existing Block 15 role cost limits and AI emergency disable remain authoritative. Block 19 operational state additionally exposes AI emergency-disable posture alongside automation, protected-capability and Telegram ingress states.
+Existing Block 15 role cost limits and the already-wired `SG_AI_EMERGENCY_DISABLED` switch remain authoritative for AI execution.
 
 ### Automation emergency disable
-`src/automation/workerEntrypoint.js` honors `SG_AUTOMATION_EMERGENCY_DISABLED=true` in normal operation and exits cleanly without claiming queued work. CI verification mode remains executable so the safety mechanism itself can be tested.
+`src/automation/workerEntrypoint.js` honors `SG_AUTOMATION_EMERGENCY_DISABLED=true` in normal operation and exits cleanly without claiming queued work. CI verification mode remains executable so the worker itself can still be verified.
 
 ### Feature flags and protected capabilities
-Block 16.16 kill switches remain the runtime controlled-rollout mechanism. Owner Security `SECURITY_LOCKDOWN` remains the owner-sensitive emergency lock. Block 19 does not let a feature flag grant missing permission, authority or Action Gate approval.
+Protected capability shutdown uses mechanisms that are already on the real authorization/execution path: Block 16.16 feature kill switches, Owner Security `SECURITY_LOCKDOWN`, and Action Gate denial. Block 19 deliberately does not introduce a second unused protected-capability flag or bypass path.
+
+### Telegram ingress emergency disable
+`SG_TELEGRAM_INGRESS_DISABLED=true` fails closed at the production webhook boundary before update parsing or SG execution.
 
 ### Alerts
 The operational alert counter distinguishes runtime/error failures and owner/security denials. Threshold crossings emit an explicit actionable alert class through observability when configured with an observability service.
@@ -99,7 +104,6 @@ SG_ALERT_SECURITY_DENIAL_THRESHOLD=5
 SG_DATA_RETENTION_DAYS=90
 SG_AI_EMERGENCY_DISABLED=false
 SG_AUTOMATION_EMERGENCY_DISABLED=false
-SG_PROTECTED_CAPABILITIES_EMERGENCY_DISABLED=false
 SG_TELEGRAM_INGRESS_DISABLED=false
 ```
 
@@ -115,28 +119,30 @@ npm run security:check
 npm run check
 ```
 
-Primary tests:
+The dedicated security gate includes:
 - `tests/securityOperations.test.js`;
-- `tests/telegramWebhookSecurity.test.js`;
-- existing Owner Security, Feature Flags, Secrets, Diagnostics, Render, Worker and Block 18 E2E suites.
+- `tests/securityOperationsPostgres.test.js`;
+- `tests/telegramWebhookSecurity.test.js`.
+
+The repository-wide suite additionally retains Owner Security, Feature Flags, Secrets, Diagnostics, Render, Worker and Block 18 E2E tests.
 
 ## Acceptance criteria
 - [x] guests remain unable to obtain owner authority through the operational layer;
 - [x] non-owner actors cannot alter SG-wide owner/security authority state through Block 19;
 - [x] sensitive credential-shaped values are scanned/redacted by operational tooling and existing observability boundaries remain secret-safe;
-- [x] emergency AI/automation/Telegram/owner-security/feature controls have explicit fail-closed behavior;
-- [x] backup→restore fingerprint verification is executable and tested;
+- [x] emergency AI/automation/Telegram/owner-security/feature controls have explicit fail-closed behavior on their real execution boundaries;
+- [x] PostgreSQL backup→restore fingerprint verification is executable and tested against the CI database;
 - [x] alerts classify actionable error and security-denial classes;
 - [x] rate limiting and webhook hardening are executable and tested;
 - [x] data retention/export/deletion policy is explicit and owner-authorized;
 - [x] incident-response and dependency-update procedures are documented;
 - [x] production dependency and secret checks are mandatory CI gates before pilot;
-- [x] branch CI containing all Block 19 implementation changes is successful.
+- [x] branch CI containing the Block 19 implementation completed successfully before final evidence synchronization.
 
 ## Acceptance evidence
 Initial complete implementation acceptance: GitHub Actions `SG 2.1 CI` #6901 — SUCCESS.
 
-Verified steps include:
+The final Block 19 HEAD must also pass the same mandatory sequence after PostgreSQL recovery verification and evidence synchronization:
 - `npm ci`;
 - migrations;
 - `Block 19 security gate`;

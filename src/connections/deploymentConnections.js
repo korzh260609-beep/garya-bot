@@ -15,10 +15,16 @@ function enabled(value) {
 }
 
 export function createDeploymentExternalConnections({ persistence = null, credentialManager, observability, config, env = {}, clock = () => new Date() } = {}) {
-  if (!credentialManager || typeof credentialManager.listCredentials !== 'function' || typeof credentialManager.registerCredential !== 'function') throw new TypeError('credentialManager is required');
+  if (!credentialManager || typeof credentialManager.listCredentials !== 'function') throw new TypeError('credentialManager is required');
 
   const discordEnabled = enabled(env.SG_DISCORD_ENABLED ?? env.DISCORD_ENABLED);
-  if (discordEnabled && typeof env.DISCORD_BOT_TOKEN === 'string' && env.DISCORD_BOT_TOKEN !== '' && !credentialManager.listCredentials().some((item) => item.credentialId === 'sg.discord.bot')) {
+  const discordTokenAvailable = typeof env.DISCORD_BOT_TOKEN === 'string' && env.DISCORD_BOT_TOKEN !== '';
+  const existingCredentialIds = new Set(credentialManager.listCredentials().map((item) => item.credentialId));
+
+  if (discordEnabled && discordTokenAvailable && !existingCredentialIds.has('sg.discord.bot')) {
+    if (typeof credentialManager.registerCredential !== 'function') {
+      throw new TypeError('credentialManager.registerCredential is required for enabled Discord deployment');
+    }
     credentialManager.registerCredential({
       credentialId: 'sg.discord.bot',
       type: 'bot-token',

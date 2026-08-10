@@ -31,3 +31,7 @@ export {
   PDK4_SOURCE_LIMITS,
   createDevelopmentSourceNormalizer
 } from './sourceNormalizationVerification.js';
+export {
+  PDK4_GITHUB_VERIFIER_CONTRACT_VERSION,
+  createGitHubDevelopmentSourceVerifier
+} from './githubDevelopmentSourceVerifier.js';

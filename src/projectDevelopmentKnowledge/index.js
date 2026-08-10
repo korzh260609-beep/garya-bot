@@ -52,3 +52,8 @@ export {
   PDK4_CLUSTERING_LIMITS,
   createDevelopmentEventClusterer
 } from './developmentEventClustering.js';
+export {
+  PDK4_HISTORICAL_RECONSTRUCTION_CONTRACT_VERSION,
+  PDK4_HISTORICAL_RECONSTRUCTION_LIMITS,
+  createHistoricalReconstructor
+} from './historicalReconstruction.js';

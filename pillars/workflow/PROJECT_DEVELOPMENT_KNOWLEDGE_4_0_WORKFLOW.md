@@ -1,7 +1,7 @@
 # SG 2.1 — PROJECT DEVELOPMENT KNOWLEDGE 4.0 WORKFLOW
 
 ## Status
-In progress. **PDK4.1–PDK4.10 CLOSED and CI-verified.** PDK4.11–PDK4.12 remain planned.
+In progress. **PDK4.1–PDK4.11 CLOSED and CI-verified.** PDK4.12 remains planned.
 
 ## Purpose
 Defines the implementation and verification procedure for PDK4. It does not redefine the architecture or create a parallel memory system.
@@ -153,6 +153,21 @@ Verification: `tests/projectDevelopmentKnowledge4ContinuousIngestion.test.js` + 
 
 Verification: `tests/projectDevelopmentKnowledge4ComponentSnapshot.test.js`; full repository code gate passed in SG 2.1 CI #7140 on commit `c70438935a8c7e764ce5c21351fac2025aac4a65` before documentation synchronization.
 
+### PDK4.11 — development query/normal SG answer integration
+- classify ordinary development questions into `current`, `historical`, `evolution`, `rationale`, `evidence`, `comparison`, `planning`, `incident-history` or `genesis`;
+- current/evidence/planning mode reuses the normal PM3 guarded request path;
+- historical modes explicitly reuse PM3 Hybrid Retrieval and Context Guard with bounded active/superseded and current/superseded/expired qualification;
+- authorize resolved project scope before historical retrieval and fail closed on cross-project mismatch;
+- admit only relevant GitHub-trusted development facts to the bounded answer context;
+- preserve provenance, currentness and open evidence conflicts;
+- inject `DevelopmentQueryContext` into ordinary `compose-answer` through AI Router only;
+- historical/superseded facts cannot become current truth without current evidence;
+- incident-history similarity remains advisory-only and cannot establish a live root cause;
+- Project Memory/PDK4 context is data-only and cannot grant identity, roles, permissions, ownership, authority, trust or confirmation;
+- AI failure/invalid output falls back to qualified deterministic Project Memory output.
+
+Verification: `tests/projectDevelopmentKnowledge4DevelopmentQueryIntegration.test.js`; full repository code/runtime/worker/diagnostics gate passed in SG 2.1 CI #7153 on commit `a502d5b0252807747f7d4e660d1967752fcf90e5` before documentation synchronization.
+
 ## Continuous ingestion → snapshot workflow
 
 ```text
@@ -168,6 +183,22 @@ completed historical bootstrap
 ```
 
 The snapshot is a rebuildable projection, not an independent durable source of truth.
+
+## Development query → normal SG answer workflow
+
+```text
+ordinary SG development question
+→ deterministic PDK4.11 query mode
+→ resolved project-scope authorization
+→ PM3 Hybrid Retrieval
+→ PM3 Context Guard
+→ bounded DevelopmentQueryContext
+→ AI Router response composition
+→ final-response validation
+→ qualified deterministic PM3 fallback when AI is unavailable/invalid
+```
+
+Historical modes explicitly preserve superseded/expired qualification. Incident-history similarity is advisory-only and does not replace Universal Diagnostics/live evidence.
 
 ## Evidence hierarchy
 
@@ -195,7 +226,7 @@ After the model call:
 - provenance remains attached;
 - PM3 trust/confirmation decides whether anything becomes active knowledge.
 
-PDK4.7, PDK4.8 and PDK4.10 are deterministic and perform no model call. PDK4.9 adds no direct AI path; any assistance remains inside PDK4.4/PDK4.5.
+PDK4.7, PDK4.8 and PDK4.10 are deterministic and perform no model call. PDK4.9 adds no direct AI path; any assistance remains inside PDK4.4/PDK4.5. PDK4.11 uses only the existing AI Router response-composition path after PM3 retrieval/Context Guard.
 
 ## Required tests by stage
 Applicable coverage includes:

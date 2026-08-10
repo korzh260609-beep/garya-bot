@@ -9,4 +9,5 @@ Workflow defines how one selected roadmap item is implemented safely. It does no
 4. `RELEASE_AND_ROLLBACK_PROTOCOL.md`
 5. `ARCHITECTURE_DECISION_PROTOCOL.md`
 6. `MEMORY_2_0_WORKFLOW.md` — canonical implementation and verification workflow for Memory 2.0 M1–M9
-7. `UNIVERSAL_DIAGNOSTICS_WORKFLOW.md` — canonical implementation and verification workflow for Universal Diagnostics D1–D12
+7. `PROJECT_MEMORY_3_0_WORKFLOW.md` — canonical implementation and verification workflow for Project Memory 3.0 PM3.1–PM3.12
+8. `UNIVERSAL_DIAGNOSTICS_WORKFLOW.md` — canonical implementation and verification workflow for Universal Diagnostics D1–D12

@@ -55,6 +55,8 @@ Provides bounded session, user, project, archive, digest, evidence and runtime c
 
 Memory supports continuity but does not replace reasoning or become an automatic source of truth.
 
+Memory 2.0 remains the canonical memory subsystem. Project Memory 3.0 specializes durable project facts. Project Development Knowledge 4.0 builds on Project Memory 3.0 to reconstruct and continuously maintain the evidence-backed history of SG development: origin, requirements, proposals, decisions/rationale, implementation/rework, incidents/fixes, CI/deployment/runtime verification, current state and next plans. PDK4 is not a parallel memory store and cannot redefine identity, ownership or authority.
+
 ### 4.3 Decision and Safety
 Transforms semantic understanding into a proposed next step and classifies the action.
 
@@ -111,6 +113,8 @@ The AI model is not a factual source by default.
 
 When facts matter, SG uses verified sources, documents, APIs, files, repositories or runtime evidence and preserves source metadata, freshness, uncertainty and failure state.
 
+For project-development knowledge SG must distinguish implementation evidence, CI evidence, deployment evidence and live runtime evidence. Historical summaries and AI interpretation do not replace primary evidence.
+
 ## 8. Controlled execution
 
 SG distinguishes:
@@ -141,6 +145,8 @@ Constitution
 
 Telegram, Discord, databases, schedulers and domain modules must not define the early core architecture.
 
+Cross-cutting completion/evolution programs such as Memory 2.0, Project Memory 3.0 and Project Development Knowledge 4.0 extend this foundation without renumbering the canonical production blocks.
+
 ## 10. Domain modules
 
 Crypto, psychology support, documents, repository analysis, business automation, billing and future modules are consumers of the platform core.
@@ -163,6 +169,8 @@ skeleton
 
 Architecture changes require an accepted decision. One change block should remain coherent, reversible and testable.
 
+Project Development Knowledge must preserve this development evidence as structured history without treating documentation, chat or AI output as automatic verified truth.
+
 ## 12. GARYA relationship
 
 The Kingdom of GARYA provides the governance, ownership and long-term purpose of the project.
@@ -181,7 +189,8 @@ SG 2.1 is correctly built when:
 - protected actions cannot bypass the gate;
 - user contexts remain isolated;
 - facts are source-backed;
-- domain modules can be added without rewriting the core.
+- domain modules can be added without rewriting the core;
+- SG can reconstruct and maintain evidence-backed knowledge of its own product development without confusing historical, implemented, CI-verified, deployed and live-verified states.
 
 ## 14. Canonical formula
 
@@ -194,4 +203,5 @@ SG 2.1
 + source-backed capabilities
 + controlled actions
 + replaceable interfaces
++ evidence-backed project development continuity
 ```

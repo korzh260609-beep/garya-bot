@@ -47,3 +47,8 @@ export {
   PDK4_EVENT_EXTRACTION_LIMITS,
   createDevelopmentEventExtractor
 } from './developmentEventExtractor.js';
+export {
+  PDK4_CLUSTERING_CONTRACT_VERSION,
+  PDK4_CLUSTERING_LIMITS,
+  createDevelopmentEventClusterer
+} from './developmentEventClustering.js';

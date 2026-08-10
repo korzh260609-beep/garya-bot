@@ -28,7 +28,6 @@ export function createSecurityOperationsConfig(env = process.env) {
     retentionDays: integer(env.SG_DATA_RETENTION_DAYS, 90, 'SG_DATA_RETENTION_DAYS'),
     aiDisabled: bool(env.SG_AI_EMERGENCY_DISABLED, false),
     automationDisabled: bool(env.SG_AUTOMATION_EMERGENCY_DISABLED, false),
-    protectedCapabilitiesDisabled: bool(env.SG_PROTECTED_CAPABILITIES_EMERGENCY_DISABLED, false),
     telegramIngressDisabled: bool(env.SG_TELEGRAM_INGRESS_DISABLED, false)
   });
 }
@@ -75,12 +74,11 @@ export function createSecurityOperations({ config = createSecurityOperationsConf
       return result;
     },
     emergencyState() {
-      return Object.freeze({ aiDisabled: config.aiDisabled, automationDisabled: config.automationDisabled, protectedCapabilitiesDisabled: config.protectedCapabilitiesDisabled, telegramIngressDisabled: config.telegramIngressDisabled });
+      return Object.freeze({ aiDisabled: config.aiDisabled, automationDisabled: config.automationDisabled, telegramIngressDisabled: config.telegramIngressDisabled });
     },
     permits(kind) {
       if (kind === 'ai') return !config.aiDisabled;
       if (kind === 'automation') return !config.automationDisabled;
-      if (kind === 'protected-capability') return !config.protectedCapabilitiesDisabled;
       if (kind === 'telegram-ingress') return !config.telegramIngressDisabled;
       return true;
     },

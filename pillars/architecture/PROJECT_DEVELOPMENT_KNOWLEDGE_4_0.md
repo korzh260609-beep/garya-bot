@@ -1,12 +1,12 @@
 # SG 2.1 — PROJECT DEVELOPMENT KNOWLEDGE 4.0 CANONICAL ARCHITECTURE
 
 ## Status
-In progress. **PDK4.1–PDK4.2 CLOSED and CI-verified.** PDK4.3–PDK4.12 remain planned.
+In progress. **PDK4.1–PDK4.3 CLOSED and CI-verified.** PDK4.4–PDK4.12 remain planned.
 
 Project Development Knowledge 4.0 (PDK4) is a specialized development-history and project-evolution layer built on top of the completed Project Memory 3.0 program. It is not a parallel memory system and does not replace Memory 2.0, Project Memory 3.0, System Self Knowledge, Universal Diagnostics, Identity/Scope, Owner Security, Action Gate, Resource Authority, PostgreSQL persistence or AI Router.
 
 ## Implemented foundation
-PDK4.1 provides the executable development-event/taxonomy and derived-view contracts. PDK4.2 provides bounded historical GitHub commit scanning with a project/repository/source-scoped PostgreSQL cursor and separate processed-source bookkeeping. Cursor advancement and processed-source recording are transactional; restart resumes from the last committed cursor and replay is idempotent. PDK4.2 does not create accepted Project Memory facts directly: normalization, verification, extraction and PM3 candidate creation remain later-stage responsibilities.
+PDK4.1 provides the executable development-event/taxonomy and derived-view contracts. PDK4.2 provides bounded historical GitHub commit scanning with a project/repository/source-scoped PostgreSQL cursor and separate processed-source bookkeeping. Cursor advancement and processed-source recording are transactional; restart resumes from the last committed cursor and replay is idempotent. PDK4.3 provides bounded read-only normalization and immutable verification for GitHub commits/diffs, pull requests, workflow/CI runs and canonical repository files. Source text is secret-redacted and marked `untrusted-data-only`; commits/PRs provide code evidence, successful workflows provide CI evidence, canonical documents provide source evidence only, and deployment/runtime evidence remains unavailable without a real approved connector. None of PDK4.1–PDK4.3 creates accepted Project Memory facts directly: extraction and PM3 candidate creation remain later-stage responsibilities.
 
 ## Purpose
 PDK4 gives SG durable, evidence-backed knowledge of its own development as a product and project:
@@ -161,17 +161,43 @@ Preferred source for technical development evidence:
 - repository architecture/roadmap/workflow documents;
 - migrations/tests/configuration relevant to project evolution.
 
+PDK4.3 implements a read-only GitHub REST verifier with an explicit repository allowlist. Commit identity is bound to immutable SHA; PR identity is bound to PR number plus immutable head SHA; workflow identity is bound to run id plus attempt; canonical files are bound to repository path plus revision SHA. Network/provider errors, mismatches and unapproved repositories fail closed.
+
 ### Canonical pillars
-Pillars provide purpose, architectural rationale, accepted decisions, roadmap intent, Definition of Done and implementation procedure. Pillars are not runtime evidence by themselves.
+Pillars provide purpose, architectural rationale, accepted decisions, roadmap intent, Definition of Done and implementation procedure. Pillars are not runtime evidence by themselves. PDK4.3 therefore marks canonical repository documents as `source` evidence only; they cannot by themselves prove `implemented`, `ci-verified`, `deployed` or `live-verified`.
 
 ### CI/test evidence
-CI verifies that a revision passed its declared gates. `CI SUCCESS` does not automatically mean deployed or live-verified.
+CI verifies that a revision passed its declared gates. PDK4.3 grants `ci` verification only when the verified workflow conclusion is `success`; failed/non-success workflow runs remain source evidence and cannot claim CI verification. `CI SUCCESS` does not automatically mean deployed or live-verified.
 
 ### Deployment/runtime evidence
-Deployment and runtime facts require an approved verified connector or explicit bounded evidence path. `deployed` and `live-verified` are distinct states.
+Deployment and runtime facts require an approved verified connector or explicit bounded evidence path. `deployed` and `live-verified` are distinct states. PDK4.3 keeps deployment/runtime source kinds explicitly unavailable rather than simulating evidence.
 
 ### Development conversations
 Conversation may contain important intent/rationale, but raw chat is never automatically verified project truth. Conversation-derived knowledge enters only as a bounded candidate and requires correlation with trusted evidence and/or authorized Monarch confirmation under existing PM3 policy.
+
+### Normalized source envelope
+PDK4.3 produces a bounded source envelope containing deterministic immutable provenance and explicit evidence semantics:
+
+```text
+NormalizedDevelopmentSource {
+  contractVersion
+  projectKey
+  kind
+  repository
+  sourceId
+  sourceFingerprint
+  immutableIdentity
+  occurredAt
+  evidenceDimension
+  verificationKinds[]
+  trust = verified-source
+  contentMode = untrusted-data-only
+  payload
+  normalizedFingerprint
+}
+```
+
+Repository text is bounded and secret-shaped values are redacted before downstream analysis. Embedded repository/document instructions remain data only and cannot become executable prompt instructions. Normalized source envelopes are evidence inputs, not durable PM3 facts and not authority records.
 
 ## Trust and state separation
 PDK4 must distinguish evidence states explicitly:
@@ -236,6 +262,9 @@ pdk4_processed_sources
 ```
 
 The cursor key is `(project, source kind, source scope/repository)`. A batch is committed only after every source selected for that batch has completed the stage callback. Processed-source rows and cursor advancement are written in one PostgreSQL transaction. A failure before that transaction leaves the previous cursor authoritative. Replaying a completed source identity does not duplicate bookkeeping. This bookkeeping proves scan continuity only; it does not itself assert that any development fact is verified or accepted.
+
+### PDK4.3 normalization/verification contract
+The historical scanner callback may pass discovered source identities into PDK4.3. PDK4.3 independently re-verifies the source through its approved read-only verifier before producing a normalized envelope. A scanner bookkeeping record cannot substitute for source verification. The normalized envelope remains non-authoritative until later PDK4 extraction produces PM3 candidates and existing PM3 trust/confirmation rules accept them.
 
 ## Project Genesis
 PDK4 maintains a derived ProjectGenesis view containing bounded evidence-backed fields such as:

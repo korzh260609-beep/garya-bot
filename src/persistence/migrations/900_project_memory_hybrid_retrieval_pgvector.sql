@@ -5,15 +5,11 @@ CREATE TABLE IF NOT EXISTS project_memory_embeddings (
   dimensions integer NOT NULL CHECK (dimensions > 0 AND dimensions <= 4096),
   embedding double precision[] NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT project_memory_embeddings_project_fk
-    FOREIGN KEY (memory_id, project_key)
-    REFERENCES project_memory_entries(memory_id, project_key)
-    ON DELETE CASCADE
+  updated_at timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS project_memory_embeddings_project_idx
-  ON project_memory_embeddings(project_key, model_key);
+  ON project_memory_embeddings(project_key, model_key, dimensions);
 
 DO $$
 BEGIN

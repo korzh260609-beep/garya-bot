@@ -1,7 +1,7 @@
 # SG 2.1 — PROJECT DEVELOPMENT KNOWLEDGE 4.0 WORKFLOW
 
 ## Status
-In progress. **PDK4.1–PDK4.6 CLOSED and CI-verified.** PDK4.7–PDK4.12 remain planned.
+In progress. **PDK4.1–PDK4.7 CLOSED and CI-verified.** PDK4.8–PDK4.12 remain planned.
 
 ## Purpose
 Defines the implementation and verification procedure for PDK4. It does not redefine the architecture or create a parallel memory system.
@@ -56,6 +56,7 @@ resolve authorized repository/project
 → PM3 dedup/conflict/confirmation/temporal pipeline
 → persist checkpoint
 → repeat
+→ reconstruct ProjectGenesis/ProductTimeline/ComponentHistories
 → reconcile timeline/components/current snapshot
 → mark bootstrap complete only after gap/integrity checks
 ```
@@ -140,6 +141,22 @@ PDK4.5 verification is covered by `tests/projectDevelopmentKnowledge4EventExtrac
 
 PDK4.6 verification is covered by `tests/projectDevelopmentKnowledge4Clustering.test.js`, including coherent multi-commit clustering, distinct-change separation, hard component/domain/time boundaries, supporting-CI non-promotion, explicit support-link validation, cross-project and mutated-input denial, Router-only ambiguous merge assistance and deterministic AI-failure fallback. The complete repository gate passed in SG 2.1 CI #7092 on commit `02b2d8c0cce035e6a954354814f7d5002fb4d5b4` before final documentation synchronization.
 
+### Implemented PDK4.7 historical reconstruction discipline
+- reconstruction accepts only complete, project-consistent PDK4.5 extraction output plus non-authoritative PDK4.6 clustering output;
+- every atomic event must appear in exactly one milestone cluster, so timeline reconstruction cannot silently omit or duplicate development evidence;
+- all derived views remain rebuildable and non-authoritative: no new persistence layer and no direct Project Memory mutation;
+- `ProjectGenesis` is derived from evidence-backed events and milestones, including earliest verified evidence, first relevant commit, initial architecture evidence, first working milestone, foundational decisions and major evolution milestones;
+- `originalIdea` and `originalGoal` are populated only when explicit origin/requirement evidence exists; missing history remains unknown rather than inferred;
+- earliest verified evidence is explicitly qualified as earliest-known evidence, never as an exact creation date;
+- `ProductTimeline` is chronological and milestone-based while retaining source ids and atomic-event links;
+- `ComponentHistory` preserves atomic events and milestone summaries for each component;
+- superseded/historical decisions remain present with lifecycle and supersession metadata rather than being deleted;
+- bounded development phases are reconstructed from event semantics and evidence-compatible lifecycle states;
+- deterministic reconstruction fingerprints are independent of input ordering and support replay consistency;
+- PDK4.7 does not call AI and cannot create trust, confirmation, roles, permissions, ownership or authority.
+
+PDK4.7 verification is covered by `tests/projectDevelopmentKnowledge4HistoricalReconstruction.test.js`, including earliest-evidence qualification, genesis/timeline/component-history reconstruction, input-order fingerprint stability, superseded-history retention, unknown-origin handling, incomplete-clustering denial, cross-project denial and mutated-authoritative input denial. The complete repository gate passed in SG 2.1 CI #7100 on commit `14445ad7cfc413c241cccc759359bfb018cb2022` before final documentation synchronization.
+
 ## Continuous ingestion workflow
 
 ```text
@@ -183,6 +200,8 @@ After the model call:
 - deterministic validation runs;
 - source provenance remains attached;
 - PM3 trust/confirmation decides whether anything becomes active knowledge.
+
+PDK4.7 historical reconstruction itself is deterministic and performs no model call; it rebuilds views only from already bounded PDK4.5/PDK4.6 outputs.
 
 ## Required tests by stage
 Each stage must include the applicable subset of:

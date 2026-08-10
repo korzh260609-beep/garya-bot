@@ -1,7 +1,7 @@
 # SG 2.1 — PROJECT DEVELOPMENT KNOWLEDGE 4.0 WORKFLOW
 
 ## Status
-In progress. **PDK4.1–PDK4.3 CLOSED and CI-verified.** PDK4.4–PDK4.12 remain planned.
+In progress. **PDK4.1–PDK4.4 CLOSED and CI-verified.** PDK4.5–PDK4.12 remain planned.
 
 ## Purpose
 Defines the implementation and verification procedure for PDK4. It does not redefine the architecture or create a parallel memory system.
@@ -49,7 +49,8 @@ resolve authorized repository/project
 → fetch bounded source batch
 → verify/normalize source identities
 → deterministic significance prefilter
-→ bounded AI-assisted extraction only when needed
+→ bounded AI-assisted significance classification only when ambiguous
+→ development-event extraction
 → cluster/correlate events
 → emit PM3 candidates
 → PM3 dedup/conflict/confirmation/temporal pipeline
@@ -90,6 +91,21 @@ PDK4.2 verification is covered by `tests/projectDevelopmentKnowledge4HistoricalS
 - scanner bookkeeping is never treated as equivalent to source verification.
 
 PDK4.3 verification is covered by `tests/projectDevelopmentKnowledge4SourceNormalization.test.js`, including production-style GitHub REST request-contract tests, source mismatch/allowlist/network failure tests, secret redaction, bounded diffs, evidence-dimension separation and scanner→normalizer integration. The complete repository code gate passed in SG 2.1 CI #7067 before final documentation synchronization.
+
+### Implemented PDK4.4 significance discipline
+- classification accepts only PDK4.3 `verified-source` + `untrusted-data-only` envelopes and fails closed otherwise;
+- deterministic metadata/path/diff classification runs before any model assistance;
+- architecture, behavior, feature, memory, identity, security, integration, persistence, infrastructure, roadmap, incident/fix and other meaningful categories are bounded by the executable contract;
+- generated-only, whitespace-only and explicit formatting/lint/typo churn is suppressed before AI Router;
+- workflow sources remain supporting CI/source evidence and are not standalone product-change events;
+- canonical architecture/roadmap/workflow documents may be significant while retaining their original source-only evidence semantics;
+- AI Router is used only for bounded ambiguous classifications and receives repository material as untrusted data only;
+- model output cannot assign trust, confirmation, deployment/runtime state, identity, role, permission, ownership or authority;
+- malformed or unavailable model assistance falls back to the deterministic ambiguous result instead of dropping source evidence;
+- classification results have deterministic fingerprints and remain `classification-only`;
+- PDK4.4 has no direct Project Memory write/confirmation path.
+
+PDK4.4 verification is covered by `tests/projectDevelopmentKnowledge4SignificanceClassifier.test.js`, including significant-change retention, generated/trivial suppression, workflow evidence separation, canonical-document evidence preservation, bounded Router-only ambiguity handling, deterministic fallback and fail-closed envelope tests. The complete repository code gate passed in SG 2.1 CI #7075 on commit `41276bc952c6eb51e107c532b65a885be00238d6` before final documentation synchronization.
 
 ## Continuous ingestion workflow
 

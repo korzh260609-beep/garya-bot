@@ -1,7 +1,10 @@
 # SG 2.1 — PROJECT MEMORY 3.0 PROGRAM
 
 ## Status
-Planned cross-cutting program.
+Implementation in progress.
+
+Closed stages: **PM3.1, PM3.2, PM3.3, PM3.4**.
+Next stage: **PM3.5 — Deduplication & Conflict Resolver**.
 
 Project Memory 3.0 specializes the completed Memory 2.0 `Project Memory` domain. It does not renumber Blocks 0–19 and must not replace System Self Knowledge, Conversation Context, Identity/Scope, Action Gate, Resource Authority, PostgreSQL persistence or Universal Diagnostics.
 
@@ -41,6 +44,8 @@ Deliver a production Project Memory that automatically captures only policy-appr
 - explicit Monarch confirmation/correction/invalidation operations through Owner Security;
 - no direct model confirmation;
 - preserve audit/history.
+
+**Status:** CLOSED. Verified candidates remain `temporary/proposed` until an Owner Security-authorized Monarch operation activates them. Confirmation, rejection, correction and invalidation are policy-gated; model/LLM direct control fails closed; audit metadata and durable history are preserved.
 
 **Gate:** candidate cannot become active without valid confirmation policy/authority.
 

@@ -173,7 +173,7 @@ export function createProjectMemoryIngestionBoundary({ githubVerifier } = {}) {
         trust: 'verified',
         confirmed: false,
         confirmationState: 'proposed',
-        lifecycleState: 'active',
+        lifecycleState: 'temporary',
         validFrom: event.occurredAt,
         relationKeys,
         tags,

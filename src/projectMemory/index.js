@@ -65,3 +65,8 @@ export {
   PROJECT_MEMORY3_DIAGNOSTIC_CHECKS,
   createProjectMemoryDiagnostics
 } from './diagnosticsBoundary.js';
+export {
+  PROJECT_MEMORY3_PRODUCTION_ACCEPTANCE_CONTRACT_VERSION,
+  PROJECT_MEMORY3_PRODUCTION_ACCEPTANCE_CRITERIA,
+  createProjectMemoryProductionAcceptanceReport
+} from './productionAcceptance.js';

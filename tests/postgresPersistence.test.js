@@ -12,7 +12,8 @@ integration('Block 12 upgrades an SG 2.0 database in place without deleting lega
   const { database, repositories } = persistence;
 
   await database.query(`
-    DROP TABLE IF EXISTS pdk4_processed_sources, pdk4_history_cursors,
+    DROP TABLE IF EXISTS pdk4_continuous_processed_sources, pdk4_continuous_triggers, pdk4_continuous_ingestion_state,
+      pdk4_processed_sources, pdk4_history_cursors,
       project_memory_history, project_memory_conflicts, project_memory_relations, project_memory_provenance, project_memory_entries,
       discord_events, diagnostic_access_audit, diagnostic_findings, diagnostic_evidence, diagnostic_runs, diagnostic_regressions,
       system_self_knowledge_facts, system_self_knowledge_snapshots, feature_flags, contract_quarantine, internal_event_deliveries, internal_event_subscriptions, internal_events, delivery_records, user_settings, conversation_sessions, conversation_topics, resource_authorities, managed_resources, external_connections, telegram_updates, dead_letter_tasks, schedule_occurrences, domain_records, observability_events,
@@ -69,8 +70,8 @@ integration('Block 12 upgrades an SG 2.0 database in place without deleting lega
   `);
 
   const migrated = await runMigrations(database);
-  assert.equal(migrated.applied.length, 26);
-  assert.equal(migrated.total, 26);
+  assert.equal(migrated.applied.length, 27);
+  assert.equal(migrated.total, 27);
   assert.ok(migrated.applied.includes('000_legacy_scope_preflight.sql'));
   assert.ok(migrated.applied.includes('020_universal_diagnostics.sql'));
   assert.ok(migrated.applied.includes('165_temporal_context.sql'));
@@ -92,6 +93,7 @@ integration('Block 12 upgrades an SG 2.0 database in place without deleting lega
   assert.ok(migrated.applied.includes('182_project_memory_3_0_store.sql'));
   assert.ok(migrated.applied.includes('183_project_memory_3_5_dedup_conflicts.sql'));
   assert.ok(migrated.applied.includes('901_pdk4_historical_cursor.sql'));
+  assert.ok(migrated.applied.includes('902_pdk4_continuous_ingestion.sql'));
 
   const legacyUser = await database.query("SELECT chat_id,global_user_id FROM users WHERE global_user_id='tg:42'");
   assert.equal(legacyUser.rows[0].chat_id, '42');
@@ -126,11 +128,11 @@ integration('Block 12 PostgreSQL persistence is durable, isolated and atomic', a
   const persistence = createPostgresPersistence({ connectionString, ssl: false, applicationName: 'sg-block12-test' });
   await persistence.start();
   const { database, repositories } = persistence;
-  await database.query(`TRUNCATE pdk4_processed_sources, pdk4_history_cursors, discord_events, diagnostic_access_audit, diagnostic_findings, diagnostic_evidence, diagnostic_runs, diagnostic_regressions, system_self_knowledge_facts, system_self_knowledge_snapshots, feature_flags, contract_quarantine, internal_event_deliveries, internal_event_subscriptions, internal_events, delivery_records, user_settings, conversation_sessions, conversation_topics, resource_authorities, managed_resources, external_connections, schedule_occurrences, domain_records, observability_events, idempotency_records, execution_states, schedules, project_memory_history, project_memory_conflicts, project_memory_relations, project_memory_provenance, project_memory_entries, tasks, memory_records, messages, conversations, grants, roles, identity_links, users RESTART IDENTITY CASCADE`);
+  await database.query(`TRUNCATE pdk4_continuous_processed_sources, pdk4_continuous_triggers, pdk4_continuous_ingestion_state, pdk4_processed_sources, pdk4_history_cursors, discord_events, diagnostic_access_audit, diagnostic_findings, diagnostic_evidence, diagnostic_runs, diagnostic_regressions, system_self_knowledge_facts, system_self_knowledge_snapshots, feature_flags, contract_quarantine, internal_event_deliveries, internal_event_subscriptions, internal_events, delivery_records, user_settings, conversation_sessions, conversation_topics, resource_authorities, managed_resources, external_connections, schedule_occurrences, domain_records, observability_events, idempotency_records, execution_states, schedules, project_memory_history, project_memory_conflicts, project_memory_relations, project_memory_provenance, project_memory_entries, tasks, memory_records, messages, conversations, grants, roles, identity_links, users RESTART IDENTITY CASCADE`);
 
   const migrationRepeat = await runMigrations(database);
   assert.deepEqual(migrationRepeat.applied, []);
-  assert.equal(migrationRepeat.total, 26);
+  assert.equal(migrationRepeat.total, 27);
 
   const suffix = randomUUID();
   const scope = { globalUserId: `user:${suffix}`, projectScope: 'sg2.1', groupScope: 'group:1', threadScope: 'thread:1' };

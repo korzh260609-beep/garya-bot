@@ -2,167 +2,59 @@ import { createHash } from 'node:crypto';
 
 export const PDK4_CONTINUOUS_INGESTION_CONTRACT_VERSION = 1;
 export const PDK4_CONTINUOUS_INGESTION_LIMITS = Object.freeze({ minBatch: 1, defaultBatch: 25, maxBatch: 100, maxCommitsPerTrigger: 250 });
-export const PDK4_CONTINUOUS_TRIGGER_TYPES = Object.freeze(['poll', 'webhook', 'event']);
+export const PDK4_CONTINUOUS_TRIGGER_TYPES = Object.freeze(['poll','webhook','event']);
 
-function required(value, name) {
-  if (typeof value !== 'string' || value.trim() === '') throw new TypeError(`${name} is required`);
-  return value.trim();
-}
-function project(value) { return required(value, 'projectKey').toLowerCase(); }
-function repository(value) {
-  const repo = required(value, 'repository').toLowerCase();
-  if (!/^[a-z0-9_.-]+\/[a-z0-9_.-]+$/i.test(repo)) throw new TypeError('repository must be owner/name');
-  return repo;
-}
-function sha(value, name = 'sha') {
-  const text = required(value, name).toLowerCase();
-  if (!/^[a-f0-9]{40}$/.test(text)) throw new TypeError(`${name} must be a full immutable git SHA`);
-  return text;
-}
-function batch(value) {
-  const n = Number(value ?? PDK4_CONTINUOUS_INGESTION_LIMITS.defaultBatch);
-  if (!Number.isInteger(n) || n < PDK4_CONTINUOUS_INGESTION_LIMITS.minBatch || n > PDK4_CONTINUOUS_INGESTION_LIMITS.maxBatch) throw new TypeError('batchLimit out of bounds');
-  return n;
-}
-function stable(value) {
-  if (value === null || typeof value !== 'object') return JSON.stringify(value);
-  if (Array.isArray(value)) return `[${value.map(stable).join(',')}]`;
-  return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stable(value[key])}`).join(',')}}`;
-}
-function hash(value) { return createHash('sha256').update(stable(value)).digest('hex'); }
-function fail(code, message) { const error = new Error(message); error.code = code; throw error; }
-function freeze(value) {
-  if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;
-  for (const child of Object.values(value)) freeze(child);
-  return Object.freeze(value);
-}
-function assertBootstrap(cursor, projectKey, repo) {
-  if (!cursor || cursor.projectKey !== projectKey || cursor.sourceScope !== repo || cursor.sourceKind !== 'github-commit' || cursor.status !== 'complete') {
-    fail('pdk4-continuous-bootstrap-required', 'PDK4.9 requires a completed PDK4.2 historical bootstrap cursor');
+function required(value,name){if(typeof value!=='string'||value.trim()==='')throw new TypeError(`${name} is required`);return value.trim();}
+function project(value){return required(value,'projectKey').toLowerCase();}
+function repository(value){const repo=required(value,'repository').toLowerCase();if(!/^[a-z0-9_.-]+\/[a-z0-9_.-]+$/i.test(repo))throw new TypeError('repository must be owner/name');return repo;}
+function commitSha(value,name='sha'){const text=required(value,name).toLowerCase();if(!/^[a-f0-9]{40}$/.test(text))throw new TypeError(`${name} must be a full immutable git SHA`);return text;}
+function batch(value){const n=Number(value??PDK4_CONTINUOUS_INGESTION_LIMITS.defaultBatch);if(!Number.isInteger(n)||n<1||n>PDK4_CONTINUOUS_INGESTION_LIMITS.maxBatch)throw new TypeError('batchLimit out of bounds');return n;}
+function stable(value){if(value===null||typeof value!=='object')return JSON.stringify(value);if(Array.isArray(value))return`[${value.map(stable).join(',')}]`;return`{${Object.keys(value).sort().map(k=>`${JSON.stringify(k)}:${stable(value[k])}`).join(',')}}`;}
+function hash(value){return createHash('sha256').update(stable(value)).digest('hex');}
+function fail(code,message){const error=new Error(message);error.code=code;throw error;}
+function freeze(value){if(!value||typeof value!=='object'||Object.isFrozen(value))return value;for(const child of Object.values(value))freeze(child);return Object.freeze(value);}
+function assertBootstrap(cursor,p,repo){if(!cursor||cursor.projectKey!==p||cursor.sourceScope!==repo||cursor.sourceKind!=='github-commit'||cursor.status!=='complete')fail('pdk4-continuous-bootstrap-required','PDK4.9 requires a completed PDK4.2 historical bootstrap cursor');if(!cursor.lastSourceId)fail('pdk4-continuous-bootstrap-empty','completed bootstrap must expose lastSourceId');}
+function assertSourceResult(result,p,repo,sha){
+  if(!result||result.status!=='processed')fail('pdk4-continuous-pipeline-failed','incremental pipeline did not return processed status');
+  if(result.projectKey!==p||result.repository!==repo||result.commitSha!==sha)fail('pdk4-continuous-pipeline-mismatch','incremental pipeline result does not match trigger source');
+  if(result.disposition==='non-event'){
+    if(result.extraction!==null||result.projectMemoryCandidate!==null)fail('pdk4-continuous-non-event-promotion','suppressed/supporting source cannot create event or Project Memory fact');
+    return;
   }
-  if (!cursor.lastSourceId) fail('pdk4-continuous-bootstrap-empty', 'completed bootstrap must expose lastSourceId');
-}
-function assertSourceResult(result, projectKey, repo, commitSha) {
-  if (!result || result.status !== 'processed') fail('pdk4-continuous-pipeline-failed', 'incremental pipeline did not return processed status');
-  if (result.projectKey !== projectKey || result.repository !== repo || result.commitSha !== commitSha) fail('pdk4-continuous-pipeline-mismatch', 'incremental pipeline result does not match trigger source');
-  if (!result.extraction || result.extraction.trust !== 'extracted-candidate' || result.extraction.confirmed !== false || result.extraction.authorityAllowed !== false) {
-    fail('pdk4-continuous-extraction-denied', 'incremental pipeline must preserve non-authoritative PDK4.5 extraction semantics');
-  }
-  if (!result.projectMemoryCandidate || result.projectMemoryCandidate.trust === 'confirmed' || result.projectMemoryCandidate.confirmed !== false) {
-    fail('pdk4-continuous-pm3-promotion-denied', 'incremental Project Memory update must remain unconfirmed');
-  }
+  if(result.disposition!=='event'||!result.extraction||result.extraction.trust!=='extracted-candidate'||result.extraction.confirmed!==false||result.extraction.authorityAllowed!==false)fail('pdk4-continuous-extraction-denied','incremental pipeline must preserve non-authoritative PDK4.5 extraction semantics');
+  if(!result.projectMemoryCandidate||result.projectMemoryCandidate.confirmed!==false||result.projectMemoryCandidate.trust==='confirmed')fail('pdk4-continuous-pm3-promotion-denied','incremental Project Memory update must remain unconfirmed');
 }
 
-export function createContinuousGitHubIngestion({
-  historyCursorStore,
-  ingestionStateStore,
-  githubSource,
-  processCommit,
-  observability = null,
-  authorization = null,
-  clock = () => new Date()
-} = {}) {
-  if (!historyCursorStore?.getCursor) throw new TypeError('historyCursorStore.getCursor is required');
-  if (!ingestionStateStore?.getState || !ingestionStateStore?.ensureState || !ingestionStateStore?.isProcessed || !ingestionStateStore?.commitProcessed || !ingestionStateStore?.recordTrigger) throw new TypeError('durable ingestionStateStore is required');
-  if (typeof githubSource?.listCommitsAfter !== 'function') throw new TypeError('githubSource.listCommitsAfter is required');
-  if (typeof processCommit !== 'function') throw new TypeError('processCommit is required');
+export function createContinuousGitHubIngestion({historyCursorStore,ingestionStateStore,githubSource,processCommit,observability=null,authorization=null,clock=()=>new Date()}={}){
+  if(!historyCursorStore?.getCursor)throw new TypeError('historyCursorStore.getCursor is required');
+  if(!ingestionStateStore?.getState||!ingestionStateStore?.ensureState||!ingestionStateStore?.isProcessed||!ingestionStateStore?.commitProcessed||!ingestionStateStore?.recordTrigger)throw new TypeError('durable ingestionStateStore is required');
+  if(typeof githubSource?.listCommitsAfter!=='function')throw new TypeError('githubSource.listCommitsAfter is required');
+  if(typeof processCommit!=='function')throw new TypeError('processCommit is required');
 
-  async function authorize(input) {
-    if (!authorization) return;
-    if (typeof authorization.assertAllowed !== 'function') throw new TypeError('authorization.assertAllowed is required when authorization is configured');
-    const result = await authorization.assertAllowed(input);
-    if (result === false || result?.allowed === false) fail('pdk4-continuous-authority-denied', 'continuous GitHub ingestion authorization denied');
+  async function authorize(input){if(!authorization)return;if(typeof authorization.assertAllowed!=='function')throw new TypeError('authorization.assertAllowed is required when authorization is configured');const result=await authorization.assertAllowed(input);if(result===false||result?.allowed===false)fail('pdk4-continuous-authority-denied','continuous GitHub ingestion authorization denied');}
+  async function observe(type,payload){if(typeof observability?.record==='function')await observability.record(type,payload);}
+  async function prepare(p,repo){const bootstrap=await historyCursorStore.getCursor({projectKey:p,sourceKind:'github-commit',sourceScope:repo});assertBootstrap(bootstrap,p,repo);const state=await ingestionStateStore.ensureState({projectKey:p,repository:repo,bootstrapLastSourceId:bootstrap.lastSourceId});if(state.bootstrapLastSourceId!==bootstrap.lastSourceId)fail('pdk4-continuous-bootstrap-drift','continuous state bootstrap anchor differs from historical cursor');return state;}
+  async function ingestOne({p,repo,commit,triggerId,triggerType}){
+    const sha=commitSha(commit.sha,'commit.sha');const sourceId=`github:${repo}:commit:${sha}`;
+    if(await ingestionStateStore.isProcessed({projectKey:p,repository:repo,sourceId}))return freeze({status:'skipped',reason:'already-processed',sourceId,commitSha:sha});
+    const processed=await processCommit({projectKey:p,repository:repo,commitSha:sha,triggerId,triggerType});assertSourceResult(processed,p,repo,sha);
+    const sourceFingerprint=required(processed.sourceFingerprint,'processed.sourceFingerprint');const occurredAt=new Date(processed.occurredAt??commit.committedAt??clock()).toISOString();
+    await ingestionStateStore.commitProcessed({projectKey:p,repository:repo,sourceId,sourceFingerprint,commitSha:sha,occurredAt,triggerId,metadata:{disposition:processed.disposition,extractionFingerprint:processed.extraction?.extractionFingerprint??null,reconciliationFingerprint:processed.reconciliation?.reconciliationFingerprint??null,projectMemoryId:processed.projectMemoryCandidate?.memoryId??null}});
+    await observe('pdk4.continuous.source_processed',{projectKey:p,repository:repo,sourceId,triggerType,triggerId,disposition:processed.disposition});
+    return freeze({status:'processed',sourceId,commitSha:sha,sourceFingerprint,result:processed});
   }
-  async function observe(type, payload) {
-    if (typeof observability?.record === 'function') await observability.record(type, payload);
+  async function runTrigger({projectKey,repository:repoInput,triggerType='poll',triggerId=null,batchLimit,hintedAfterSha=null}={}){
+    const p=project(projectKey),repo=repository(repoInput),type=required(triggerType,'triggerType').toLowerCase(),limit=batch(batchLimit);if(!PDK4_CONTINUOUS_TRIGGER_TYPES.includes(type))throw new TypeError('unsupported triggerType');
+    await authorize({projectKey:p,repository:repo,operation:'pdk4.continuous-ingest',triggerType:type});const state=await prepare(p,repo);
+    const id=triggerId?required(triggerId,'triggerId'):`pdk4-trigger:${hash({p,repo,type,at:clock().toISOString()}).slice(0,32)}`;
+    const receipt=await ingestionStateStore.recordTrigger({projectKey:p,repository:repo,triggerId:id,triggerType:type,metadata:{hintedAfterSha}});if(receipt?.duplicate===true)return freeze({status:'duplicate-trigger',projectKey:p,repository:repo,triggerId:id,processed:0,skipped:0});
+    const afterSha=state.lastCommitSha??hintedAfterSha??null;const page=await githubSource.listCommitsAfter({repository:repo,afterSha,limit,order:'asc'});if(!page||!Array.isArray(page.commits))throw new TypeError('githubSource.listCommitsAfter must return { commits, hasMore }');if(page.commits.length>limit)fail('pdk4-continuous-source-limit','GitHub source exceeded requested batch limit');
+    let processed=0,skipped=0;const results=[];for(const commit of page.commits){const result=await ingestOne({p,repo,commit,triggerId:id,triggerType:type});results.push(result);result.status==='processed'?processed++:skipped++;}
+    const finalState=await ingestionStateStore.getState({projectKey:p,repository:repo});await observe('pdk4.continuous.trigger_complete',{projectKey:p,repository:repo,triggerType:type,triggerId:id,fetched:page.commits.length,processed,skipped,hasMore:page.hasMore===true});
+    return freeze({status:page.hasMore===true?'partial':'current',projectKey:p,repository:repo,triggerId:id,fetched:page.commits.length,processed,skipped,hasMore:page.hasMore===true,state:finalState,results:Object.freeze(results)});
   }
-  async function prepare(projectKey, repo) {
-    const bootstrap = await historyCursorStore.getCursor({ projectKey, sourceKind: 'github-commit', sourceScope: repo });
-    assertBootstrap(bootstrap, projectKey, repo);
-    let state = await ingestionStateStore.ensureState({ projectKey, repository: repo, bootstrapLastSourceId: bootstrap.lastSourceId });
-    if (state.bootstrapLastSourceId !== bootstrap.lastSourceId) fail('pdk4-continuous-bootstrap-drift', 'continuous state bootstrap anchor differs from historical cursor');
-    return { bootstrap, state };
-  }
-  async function ingestOne({ projectKey, repo, commit, triggerId, triggerType }) {
-    const commitSha = sha(commit.sha, 'commit.sha');
-    const sourceId = `github:${repo}:commit:${commitSha}`;
-    if (await ingestionStateStore.isProcessed({ projectKey, repository: repo, sourceId })) return freeze({ status: 'skipped', reason: 'already-processed', sourceId, commitSha });
-
-    const processed = await processCommit({ projectKey, repository: repo, commitSha, triggerId, triggerType });
-    assertSourceResult(processed, projectKey, repo, commitSha);
-    const sourceFingerprint = required(processed.sourceFingerprint, 'processed.sourceFingerprint');
-    const occurredAt = new Date(processed.occurredAt ?? commit.committedAt ?? clock()).toISOString();
-    await ingestionStateStore.commitProcessed({
-      projectKey,
-      repository: repo,
-      sourceId,
-      sourceFingerprint,
-      commitSha,
-      occurredAt,
-      triggerId,
-      metadata: {
-        extractionFingerprint: processed.extraction.extractionFingerprint,
-        reconciliationFingerprint: processed.reconciliation?.reconciliationFingerprint ?? null,
-        projectMemoryId: processed.projectMemoryCandidate.memoryId ?? null
-      }
-    });
-    await observe('pdk4.continuous.source_processed', { projectKey, repository: repo, sourceId, triggerType, triggerId });
-    return freeze({ status: 'processed', sourceId, commitSha, sourceFingerprint, result: processed });
-  }
-
-  async function runTrigger({ projectKey, repository: repositoryInput, triggerType = 'poll', triggerId = null, batchLimit, hintedAfterSha = null } = {}) {
-    const p = project(projectKey);
-    const repo = repository(repositoryInput);
-    const type = required(triggerType, 'triggerType').toLowerCase();
-    if (!PDK4_CONTINUOUS_TRIGGER_TYPES.includes(type)) throw new TypeError('unsupported triggerType');
-    const limit = batch(batchLimit);
-    await authorize({ projectKey: p, repository: repo, operation: 'pdk4.continuous-ingest', triggerType: type });
-    const { state } = await prepare(p, repo);
-    const id = triggerId ? required(triggerId, 'triggerId') : `pdk4-trigger:${hash({ p, repo, type, at: clock().toISOString() }).slice(0, 32)}`;
-    const firstSeen = await ingestionStateStore.recordTrigger({ projectKey: p, repository: repo, triggerId: id, triggerType: type, metadata: { hintedAfterSha } });
-    if (firstSeen?.duplicate === true) return freeze({ status: 'duplicate-trigger', projectKey: p, repository: repo, triggerId: id, processed: 0, skipped: 0 });
-
-    const afterSha = state.lastCommitSha ?? hintedAfterSha ?? null;
-    const page = await githubSource.listCommitsAfter({ repository: repo, afterSha, limit, order: 'asc' });
-    if (!page || !Array.isArray(page.commits)) throw new TypeError('githubSource.listCommitsAfter must return { commits, hasMore }');
-    if (page.commits.length > limit) fail('pdk4-continuous-source-limit', 'GitHub source exceeded requested batch limit');
-
-    let processed = 0;
-    let skipped = 0;
-    const results = [];
-    for (const commit of page.commits) {
-      const result = await ingestOne({ projectKey: p, repo, commit, triggerId: id, triggerType: type });
-      results.push(result);
-      if (result.status === 'processed') processed += 1; else skipped += 1;
-    }
-    const finalState = await ingestionStateStore.getState({ projectKey: p, repository: repo });
-    await observe('pdk4.continuous.trigger_complete', { projectKey: p, repository: repo, triggerType: type, triggerId: id, fetched: page.commits.length, processed, skipped, hasMore: page.hasMore === true });
-    return freeze({ status: page.hasMore === true ? 'partial' : 'current', projectKey: p, repository: repo, triggerId: id, fetched: page.commits.length, processed, skipped, hasMore: page.hasMore === true, state: finalState, results: Object.freeze(results) });
-  }
-
-  async function poll(input = {}) { return runTrigger({ ...input, triggerType: 'poll' }); }
-  async function handleWebhook({ projectKey, repository: repositoryInput, deliveryId, eventName, payload = {}, batchLimit } = {}) {
-    const repo = repository(repositoryInput);
-    if (required(eventName, 'eventName').toLowerCase() !== 'push') return freeze({ status: 'ignored', reason: 'unsupported-event' });
-    if (String(payload?.repository?.full_name ?? '').toLowerCase() !== repo) fail('pdk4-continuous-webhook-repository-mismatch', 'webhook repository does not match configured repository');
-    const hintedAfterSha = payload?.before && /^[a-f0-9]{40}$/i.test(String(payload.before)) ? String(payload.before).toLowerCase() : null;
-    return runTrigger({ projectKey, repository: repo, triggerType: 'webhook', triggerId: `github-delivery:${required(deliveryId, 'deliveryId')}`, hintedAfterSha, batchLimit });
-  }
-  async function runToCurrent({ maxBatches = 20, ...input } = {}) {
-    const max = Number(maxBatches);
-    if (!Number.isInteger(max) || max < 1 || max > 100) throw new TypeError('maxBatches must be between 1 and 100');
-    let totalProcessed = 0;
-    let totalSkipped = 0;
-    let last = null;
-    for (let i = 0; i < max; i += 1) {
-      last = await poll({ ...input, triggerId: input.triggerId ? `${input.triggerId}:${i + 1}` : undefined });
-      totalProcessed += last.processed ?? 0;
-      totalSkipped += last.skipped ?? 0;
-      if (last.status === 'current') return freeze({ status: 'current', batches: i + 1, processed: totalProcessed, skipped: totalSkipped, state: last.state });
-      if (totalProcessed + totalSkipped > PDK4_CONTINUOUS_INGESTION_LIMITS.maxCommitsPerTrigger) fail('pdk4-continuous-total-limit', 'continuous catch-up exceeded bounded commit limit');
-    }
-    return freeze({ status: 'partial', batches: max, processed: totalProcessed, skipped: totalSkipped, state: last?.state ?? null });
-  }
-
-  return Object.freeze({ runTrigger, poll, handleWebhook, runToCurrent });
+  async function poll(input={}){return runTrigger({...input,triggerType:'poll'});}
+  async function handleWebhook({projectKey,repository:repoInput,deliveryId,eventName,payload={},batchLimit}={}){const repo=repository(repoInput);if(required(eventName,'eventName').toLowerCase()!=='push')return freeze({status:'ignored',reason:'unsupported-event'});if(String(payload?.repository?.full_name??'').toLowerCase()!==repo)fail('pdk4-continuous-webhook-repository-mismatch','webhook repository does not match configured repository');const hintedAfterSha=payload?.before&&/^[a-f0-9]{40}$/i.test(String(payload.before))?String(payload.before).toLowerCase():null;return runTrigger({projectKey,repository:repo,triggerType:'webhook',triggerId:`github-delivery:${required(deliveryId,'deliveryId')}`,hintedAfterSha,batchLimit});}
+  async function runToCurrent({maxBatches=20,...input}={}){const max=Number(maxBatches);if(!Number.isInteger(max)||max<1||max>100)throw new TypeError('maxBatches must be between 1 and 100');let totalProcessed=0,totalSkipped=0,last=null;for(let i=0;i<max;i++){last=await poll({...input,triggerId:input.triggerId?`${input.triggerId}:${i+1}`:undefined});totalProcessed+=last.processed??0;totalSkipped+=last.skipped??0;if(last.status==='current')return freeze({status:'current',batches:i+1,processed:totalProcessed,skipped:totalSkipped,state:last.state});if(totalProcessed+totalSkipped>PDK4_CONTINUOUS_INGESTION_LIMITS.maxCommitsPerTrigger)fail('pdk4-continuous-total-limit','continuous catch-up exceeded bounded commit limit');}return freeze({status:'partial',batches:max,processed:totalProcessed,skipped:totalSkipped,state:last?.state??null});}
+  return Object.freeze({runTrigger,poll,handleWebhook,runToCurrent});
 }

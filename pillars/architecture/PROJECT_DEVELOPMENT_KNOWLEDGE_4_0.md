@@ -1,12 +1,12 @@
 # SG 2.1 — PROJECT DEVELOPMENT KNOWLEDGE 4.0 CANONICAL ARCHITECTURE
 
 ## Status
-In progress. **PDK4.1–PDK4.3 CLOSED and CI-verified.** PDK4.4–PDK4.12 remain planned.
+In progress. **PDK4.1–PDK4.4 CLOSED and CI-verified.** PDK4.5–PDK4.12 remain planned.
 
 Project Development Knowledge 4.0 (PDK4) is a specialized development-history and project-evolution layer built on top of the completed Project Memory 3.0 program. It is not a parallel memory system and does not replace Memory 2.0, Project Memory 3.0, System Self Knowledge, Universal Diagnostics, Identity/Scope, Owner Security, Action Gate, Resource Authority, PostgreSQL persistence or AI Router.
 
 ## Implemented foundation
-PDK4.1 provides the executable development-event/taxonomy and derived-view contracts. PDK4.2 provides bounded historical GitHub commit scanning with a project/repository/source-scoped PostgreSQL cursor and separate processed-source bookkeeping. Cursor advancement and processed-source recording are transactional; restart resumes from the last committed cursor and replay is idempotent. PDK4.3 provides bounded read-only normalization and immutable verification for GitHub commits/diffs, pull requests, workflow/CI runs and canonical repository files. Source text is secret-redacted and marked `untrusted-data-only`; commits/PRs provide code evidence, successful workflows provide CI evidence, canonical documents provide source evidence only, and deployment/runtime evidence remains unavailable without a real approved connector. None of PDK4.1–PDK4.3 creates accepted Project Memory facts directly: extraction and PM3 candidate creation remain later-stage responsibilities.
+PDK4.1 provides the executable development-event/taxonomy and derived-view contracts. PDK4.2 provides bounded historical GitHub commit scanning with a project/repository/source-scoped PostgreSQL cursor and separate processed-source bookkeeping. Cursor advancement and processed-source recording are transactional; restart resumes from the last committed cursor and replay is idempotent. PDK4.3 provides bounded read-only normalization and immutable verification for GitHub commits/diffs, pull requests, workflow/CI runs and canonical repository files. Source text is secret-redacted and marked `untrusted-data-only`; commits/PRs provide code evidence, successful workflows provide CI evidence, canonical documents provide source evidence only, and deployment/runtime evidence remains unavailable without a real approved connector. PDK4.4 provides deterministic significance filtering over those verified normalized envelopes, suppresses generated/formatting/trivial churn, retains material development evidence, treats workflow runs as supporting evidence rather than standalone product changes, and uses bounded AI Router assistance only for ambiguous classification. PDK4.4 cannot alter source trust/evidence state or write/confirm Project Memory. None of PDK4.1–PDK4.4 creates accepted Project Memory facts directly: extraction and PM3 candidate creation remain later-stage responsibilities.
 
 ## Purpose
 PDK4 gives SG durable, evidence-backed knowledge of its own development as a product and project:
@@ -266,6 +266,22 @@ The cursor key is `(project, source kind, source scope/repository)`. A batch is 
 ### PDK4.3 normalization/verification contract
 The historical scanner callback may pass discovered source identities into PDK4.3. PDK4.3 independently re-verifies the source through its approved read-only verifier before producing a normalized envelope. A scanner bookkeeping record cannot substitute for source verification. The normalized envelope remains non-authoritative until later PDK4 extraction produces PM3 candidates and existing PM3 trust/confirmation rules accept them.
 
+### PDK4.4 significance-classification contract
+PDK4.4 accepts only PDK4.3 envelopes that remain `verified-source` and `untrusted-data-only`. It performs deterministic metadata/path/diff classification before any model assistance and emits a non-authoritative classification result tied to the normalized source fingerprint.
+
+Canonical significance outcomes are:
+
+```text
+suppressed
+supporting-evidence
+significant
+ambiguous
+```
+
+Canonical material categories are bounded to architecture, behavior, feature, memory, identity, security, integration, persistence, infrastructure, roadmap, incident/fix and other meaningful changes. Generated-only, whitespace-only and explicit formatting/lint/typo churn may be suppressed before event extraction. Verified workflow runs remain supporting evidence for correlation and cannot independently become a product-change event. Canonical architecture/roadmap/workflow documents may be significant inputs while retaining their existing `source` evidence semantics.
+
+Only an ambiguous deterministic result may invoke AI Router. The Router receives bounded repository material marked data-only and may only assist the significance/category decision. Model output cannot create trust, confirmation, implementation/CI/deployment/runtime state, identity, roles, permissions, ownership or authority. Router failure or malformed output falls back deterministically without dropping the ambiguous source. Classification fingerprints are deterministic for audit/replay consistency. The classifier has no direct Project Memory write or confirmation path.
+
 ## Project Genesis
 PDK4 maintains a derived ProjectGenesis view containing bounded evidence-backed fields such as:
 
@@ -287,7 +303,7 @@ ProjectGenesis is a derived view over evidence-backed facts; it is not a privile
 ## Significance filtering
 Not every source event becomes a durable development fact.
 
-PDK4 should prefer changes that materially affect:
+PDK4.4 deterministically prefers changes that materially affect:
 - architecture;
 - behavior;
 - features/capabilities;
@@ -302,7 +318,7 @@ PDK4 should prefer changes that materially affect:
 - product interfaces;
 - accepted decisions and rationale.
 
-Formatting-only changes, trivial renames, generated noise and non-semantic churn may be recorded only as processed source evidence/checkpoint metadata and omitted from Project Memory.
+Formatting-only changes, trivial renames, generated noise and non-semantic churn may be recorded only as processed source evidence/checkpoint metadata and omitted from Project Memory. Ambiguous changes are retained for bounded classification rather than silently dropped. Significance classification does not itself create a durable Project Memory fact.
 
 ## Commit and event clustering
 One product change may span multiple commits, tests and documentation updates. PDK4 must support clustering related source events into one bounded milestone/change record while preserving all individual provenance references.

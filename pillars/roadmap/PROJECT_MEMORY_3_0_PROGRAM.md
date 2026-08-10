@@ -3,8 +3,8 @@
 ## Status
 Implementation in progress.
 
-Closed stages: **PM3.1, PM3.2, PM3.3, PM3.4, PM3.5, PM3.6, PM3.7, PM3.8**.
-Next stage: **PM3.9 — AI Router Integration**.
+Closed stages: **PM3.1, PM3.2, PM3.3, PM3.4, PM3.5, PM3.6, PM3.7, PM3.8, PM3.9**.
+Next stage: **PM3.10 — Decision & Incident Memory**.
 
 Project Memory 3.0 specializes the completed Memory 2.0 `Project Memory` domain. It does not renumber Blocks 0–19 and must not replace System Self Knowledge, Conversation Context, Identity/Scope, Action Gate, Resource Authority, PostgreSQL persistence or Universal Diagnostics.
 
@@ -93,6 +93,8 @@ Deliver a production Project Memory that automatically captures only policy-appr
 - forbid direct AI storage access/mutation;
 - inject bounded `ProjectMemoryContext` only when relevant to a normal request;
 - preserve deterministic fallback when model/provider is unavailable.
+
+**Status:** CLOSED. `createProjectMemoryAIRouterIntegration` is the only Project Memory model-assistance boundary. Normal response composition resolves Project Memory from the already-resolved runtime actor/project scope, performs Project Memory retrieval, filters to approved trusted source kinds, passes relevant results through PM3.8 Context Guard, removes legacy unguarded project-memory payloads from the model-facing response context, and injects only a bounded `ProjectMemoryContext` into `aiRouter.route()`. Project Memory model assistance for extraction, embedding and summarization is Router-only and receives no database/store mutation capability. Memory content is explicitly data-only and cannot grant identity, roles, permissions, ownership, resource authority, trust or confirmation. When AI is missing, fails, times out or returns an invalid final response, a deterministic provenance-bearing Project Memory answer is used when guarded evidence exists. Stored evidence is not represented as independently live-verified truth. Render remains denied as a trusted Project Memory source until a real verified Render Connector exists. PostgreSQL integration tests prove relevant normal-question injection, legacy/authority isolation, Router-only assistance, deterministic AI failure fallback and irrelevant-context exclusion. Full migration/security/check/runtime/worker/diagnostics gate verified by SG 2.1 CI #7005 SUCCESS before documentation synchronization.
 
 **Gate:** E2E proves normal SG question → retrieval → guarded context → AI Router → correct evidence-aware answer.
 

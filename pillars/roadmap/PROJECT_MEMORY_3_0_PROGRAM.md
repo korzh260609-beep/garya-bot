@@ -3,8 +3,8 @@
 ## Status
 Implementation in progress.
 
-Closed stages: **PM3.1, PM3.2, PM3.3, PM3.4, PM3.5**.
-Next stage: **PM3.6 — Temporal History & Supersession**.
+Closed stages: **PM3.1, PM3.2, PM3.3, PM3.4, PM3.5, PM3.6**.
+Next stage: **PM3.7 — Hybrid Retrieval & pgvector**.
 
 Project Memory 3.0 specializes the completed Memory 2.0 `Project Memory` domain. It does not renumber Blocks 0–19 and must not replace System Self Knowledge, Conversation Context, Identity/Scope, Action Gate, Resource Authority, PostgreSQL persistence or Universal Diagnostics.
 
@@ -63,6 +63,8 @@ Deliver a production Project Memory that automatically captures only policy-appr
 - implement `valid_from`, `valid_to`, `superseded_at` and successor chains;
 - support status evolution such as `planned → implementing → implemented → tested → closed`;
 - preserve old versions for audit/history queries.
+
+**Status:** CLOSED. Supersession is atomic and project/entity-scoped; predecessor validity is closed at the successor `validFrom`, predecessor lifecycle becomes archived, `supersededAt/successorMemoryId` are persisted, and immutable history events record both `superseded` and `became-current`. Historical `getAt` and current `getCurrent` queries return different correct temporal views. Recursive successor-chain retrieval is durable across PostgreSQL restart. Self-cycles, cross-entity links, unconfirmed versions, time mismatches and competing successors fail closed. Full code/runtime/worker/diagnostics gate verified by SG 2.1 CI #6979 SUCCESS.
 
 **Gate:** current and historical queries return different correct views without destructive history loss.
 

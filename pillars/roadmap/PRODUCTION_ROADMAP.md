@@ -39,9 +39,10 @@ Completed and acceptance-verified:
 - Block 16.14 — Internal Event Bus;
 - Block 16.15 — Schema & Contract Versioning;
 - Block 16.16 — Feature Flags & Controlled Rollout;
-- Block 18 — End-to-End Verification.
+- Block 18 — End-to-End Verification;
+- Block 19 — Security and Operations.
 
-Current executable SG therefore already has the approved Semantic Kernel, memory/context boundary, AI Router, Decision Engine, Action Gate, Capability System, global identity/scope, observability, transport abstractions, durable PostgreSQL/worker foundations, Telegram production path, production AI path, Temporal Context, multilingual Language & Locale Context, centralized Configuration & Policy, bounded Secrets & Credentials, a durable External Connections Registry, verified Resource Authority enforcement for concrete resources, durable scoped conversation/session/topic continuity, global user settings, authorized delivery routing, a production-wired Internal Event Bus, production contract-version enforcement/quarantine, controlled feature flags, and a CI-gated end-to-end verification suite spanning the production-like composition.
+Current executable SG therefore already has the approved Semantic Kernel, memory/context boundary, AI Router, Decision Engine, Action Gate, Capability System, global identity/scope, observability, transport abstractions, durable PostgreSQL/worker foundations, Telegram production path, production AI path, Temporal Context, multilingual Language & Locale Context, centralized Configuration & Policy, bounded Secrets & Credentials, a durable External Connections Registry, verified Resource Authority enforcement for concrete resources, durable scoped conversation/session/topic continuity, global user settings, authorized delivery routing, a production-wired Internal Event Bus, production contract-version enforcement/quarantine, controlled feature flags, a CI-gated end-to-end verification suite, and the Block 19 security/operations layer with mandatory CI security gates, hardened Telegram ingress, emergency controls and PostgreSQL recovery verification.
 
 Repository-wide audit hardening after Block 16.16 additionally closed cross-module observability contract mismatches, normalized feature-disabled capability results, bound Domain Runtime execution to the same canonical GateDecision actor/scope, and made Render startup rollback-safe. These are corrections within completed blocks, not a new roadmap block.
 
@@ -52,7 +53,8 @@ Repository-wide audit hardening after Block 16.16 additionally closed cross-modu
 - Block 16.18 — Monarch Control / Owner Security follows after Block 16.17.
 - Block 17 — Render Deployment follows only after Blocks 16.17 and 16.18 are implementation- and acceptance-verified.
 - Block 18 — End-to-End Verification is completed and acceptance-verified by `18_END_TO_END_VERIFICATION.md` and the branch CI.
-- Block 19 and Pilot Launch remain subsequent stages.
+- Block 19 — Security and Operations is completed and acceptance-verified by `19_SECURITY_AND_OPERATIONS.md` and GitHub Actions `SG 2.1 CI` #6909.
+- Pilot Launch remains the subsequent production stage.
 
 ---
 
@@ -745,36 +747,42 @@ Initial acceptance run: GitHub Actions `SG 2.1 CI` #6887 — SUCCESS.
 # Block 19 — Security and Operations
 
 ## Status
-Planned.
+Completed and acceptance-verified.
 
 ## Goal
 Prepare SG for controlled real-user use with operational safeguards after foundational mechanisms, Self Knowledge, owner-security controls and E2E behavior are verified.
 
 ## Deliverables
-- rate limiting by identity/transport;
-- webhook/endpoint hardening;
-- role/grant/resource-authority/owner-security audit;
-- Self Knowledge provenance/staleness/conflict operational checks;
-- credential/secret scanning and redaction verification;
-- data retention/export/deletion procedures;
-- backup/recovery testing;
-- AI cost alerts/limits;
-- error/availability alerts;
-- admin operations restricted appropriately;
-- emergency switches for AI, automation and protected capabilities;
-- feature-flag operational controls;
-- owner-security lockdown/recovery operational procedure;
-- incident-response runbook;
-- dependency/vulnerability update process.
+- [x] rate limiting by identity/transport;
+- [x] webhook/endpoint hardening;
+- [x] role/grant/resource-authority/owner-security audit integration;
+- [x] Self Knowledge provenance/staleness/conflict operational checks;
+- [x] credential/secret scanning and redaction verification;
+- [x] data retention/export/deletion procedures;
+- [x] backup/recovery testing, including PostgreSQL recovery verification in CI;
+- [x] AI cost limits and emergency-disable operational coverage;
+- [x] error/security-denial alert classes;
+- [x] admin operations remain restricted by existing Access, Resource Authority, Owner Security and Action Gate;
+- [x] emergency switches for AI, automation and Telegram ingress, with feature kill switches and `SECURITY_LOCKDOWN` for protected/owner-sensitive execution;
+- [x] feature-flag operational controls;
+- [x] owner-security lockdown/recovery operational procedure;
+- [x] incident-response runbook;
+- [x] dependency/vulnerability update process and mandatory CI audit.
 
 ## Acceptance criteria
-- guests cannot access monarch operations/resources;
-- non-owner actors cannot alter SG-wide security/authority state;
-- sensitive fields remain absent from ordinary telemetry/events;
-- emergency switches work without redeployment where designed;
-- backup restoration is tested;
-- alerts identify actionable failure classes;
-- security checks run in CI before pilot launch.
+- [x] guests cannot access monarch operations/resources;
+- [x] non-owner actors cannot alter SG-wide security/authority state;
+- [x] sensitive fields remain absent from ordinary telemetry/events and repository source secret-shape scan passes;
+- [x] emergency switches work without redeployment where designed;
+- [x] backup restoration is tested, including PostgreSQL backup→destructive change→restore→fingerprint equality verification;
+- [x] alerts identify actionable failure classes;
+- [x] security checks run in CI before pilot launch;
+- [x] final branch CI passes security gate, complete test suite, runtime startup, worker verification and diagnostics verification.
+
+Detailed implementation and acceptance evidence: `19_SECURITY_AND_OPERATIONS.md`.
+Primary executable suite: `../../tests/securityOperations.test.js`.
+PostgreSQL recovery verification: `../../scripts/postgresRecoveryVerification.js`.
+Final acceptance run: GitHub Actions `SG 2.1 CI` #6909 — SUCCESS.
 
 ---
 

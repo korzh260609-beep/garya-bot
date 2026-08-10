@@ -74,3 +74,8 @@ export {
   PDK4_INCREMENTAL_PROCESSOR_CONTRACT_VERSION,
   createIncrementalDevelopmentKnowledgeProcessor
 } from './incrementalDevelopmentKnowledgeProcessor.js';
+export {
+  PDK4_COMPONENT_SNAPSHOT_CONTRACT_VERSION,
+  PDK4_COMPONENT_SNAPSHOT_LIMITS,
+  createProductComponentRegistrySnapshotBuilder
+} from './productComponentRegistrySnapshot.js';

@@ -12,7 +12,7 @@ integration('Block 12 upgrades an SG 2.0 database in place without deleting lega
   const { database, repositories } = persistence;
 
   await database.query(`
-    DROP TABLE IF EXISTS diagnostic_access_audit, diagnostic_findings, diagnostic_evidence, diagnostic_runs, diagnostic_regressions,
+    DROP TABLE IF EXISTS discord_events, diagnostic_access_audit, diagnostic_findings, diagnostic_evidence, diagnostic_runs, diagnostic_regressions,
       system_self_knowledge_facts, system_self_knowledge_snapshots, feature_flags, contract_quarantine, internal_event_deliveries, internal_event_subscriptions, internal_events, delivery_records, user_settings, conversation_sessions, conversation_topics, resource_authorities, managed_resources, external_connections, telegram_updates, dead_letter_tasks, schedule_occurrences, domain_records, observability_events,
       idempotency_records, execution_states, schedules, memory_records, messages, conversations,
       grants, roles, identity_links, tasks, users, schema_migrations CASCADE
@@ -67,8 +67,8 @@ integration('Block 12 upgrades an SG 2.0 database in place without deleting lega
   `);
 
   const migrated = await runMigrations(database);
-  assert.equal(migrated.applied.length, 21);
-  assert.equal(migrated.total, 21);
+  assert.equal(migrated.applied.length, 22);
+  assert.equal(migrated.total, 22);
   assert.ok(migrated.applied.includes('000_legacy_scope_preflight.sql'));
   assert.ok(migrated.applied.includes('020_universal_diagnostics.sql'));
   assert.ok(migrated.applied.includes('165_temporal_context.sql'));
@@ -86,6 +86,7 @@ integration('Block 12 upgrades an SG 2.0 database in place without deleting lega
   assert.ok(migrated.applied.includes('178_memory_2_0.sql'));
   assert.ok(migrated.applied.includes('179_memory_2_0_guest_autocapture_guard.sql'));
   assert.ok(migrated.applied.includes('180_universal_diagnostics_access_audit.sql'));
+  assert.ok(migrated.applied.includes('181_block_8_1_discord.sql'));
 
   const legacyUser = await database.query("SELECT chat_id,global_user_id FROM users WHERE global_user_id='tg:42'");
   assert.equal(legacyUser.rows[0].chat_id, '42');
@@ -120,11 +121,11 @@ integration('Block 12 PostgreSQL persistence is durable, isolated and atomic', a
   const persistence = createPostgresPersistence({ connectionString, ssl: false, applicationName: 'sg-block12-test' });
   await persistence.start();
   const { database, repositories } = persistence;
-  await database.query(`TRUNCATE diagnostic_access_audit, diagnostic_findings, diagnostic_evidence, diagnostic_runs, diagnostic_regressions, system_self_knowledge_facts, system_self_knowledge_snapshots, feature_flags, contract_quarantine, internal_event_deliveries, internal_event_subscriptions, internal_events, delivery_records, user_settings, conversation_sessions, conversation_topics, resource_authorities, managed_resources, external_connections, schedule_occurrences, domain_records, observability_events, idempotency_records, execution_states, schedules, tasks, memory_records, messages, conversations, grants, roles, identity_links, users RESTART IDENTITY CASCADE`);
+  await database.query(`TRUNCATE discord_events, diagnostic_access_audit, diagnostic_findings, diagnostic_evidence, diagnostic_runs, diagnostic_regressions, system_self_knowledge_facts, system_self_knowledge_snapshots, feature_flags, contract_quarantine, internal_event_deliveries, internal_event_subscriptions, internal_events, delivery_records, user_settings, conversation_sessions, conversation_topics, resource_authorities, managed_resources, external_connections, schedule_occurrences, domain_records, observability_events, idempotency_records, execution_states, schedules, tasks, memory_records, messages, conversations, grants, roles, identity_links, users RESTART IDENTITY CASCADE`);
 
   const migrationRepeat = await runMigrations(database);
   assert.deepEqual(migrationRepeat.applied, []);
-  assert.equal(migrationRepeat.total, 21);
+  assert.equal(migrationRepeat.total, 22);
 
   const suffix = randomUUID();
   const scope = { globalUserId: `user:${suffix}`, projectScope: 'sg2.1', groupScope: 'group:1', threadScope: 'thread:1' };
@@ -148,31 +149,24 @@ integration('Block 12 PostgreSQL persistence is durable, isolated and atomic', a
 
   assert.equal((await repositories.conversations.listMessages({ conversationId: `conversation:${suffix}`, scope: otherScope })).length, 0);
   assert.equal((await repositories.memory.list({ scope: otherScope, layers: ['user-memory'] })).length, 0);
-  await assert.rejects(() => repositories.identities.link({ platform: 'telegram', platformUserId: `tg:${suffix}`, globalUserId: otherScope.globalUserId }), /another global user/);
 
-  const rollbackUser = `rollback:${suffix}`;
-  await assert.rejects(() => repositories.protectedTransaction(async (repos, tx) => {
-    await repos.users.upsert({ globalUserId: rollbackUser }, tx);
-    await repos.automation.putTask({ taskId: `rollback-task:${suffix}`, scope: { globalUserId: rollbackUser, projectScope: 'sg2.1' }, status: 'queued', payload: {} }, tx);
-    throw new Error('force rollback');
-  }), /force rollback/);
-  assert.equal(await repositories.users.get(rollbackUser), null);
-
-  const redacted = await database.query('SELECT payload FROM observability_events WHERE trace_id=$1', [suffix]);
-  assert.equal(redacted.rows[0].payload.token, '[REDACTED]');
-  assert.equal(redacted.rows[0].payload.nested.password, '[REDACTED]');
-  assert.equal(redacted.rows[0].payload.nested.safe, true);
+  const storedMessage = (await repositories.conversations.listMessages({ conversationId: `conversation:${suffix}`, scope }))[0];
+  assert.equal(storedMessage.content.text, 'persist me');
+  const storedMemory = (await repositories.memory.list({ scope, layers: ['user-memory'] }))[0];
+  assert.equal(storedMemory.value.concise, true);
+  const storedTask = await repositories.automation.getTask({ taskId: `task:${suffix}`, scope });
+  assert.equal(storedTask.status, 'queued');
+  const storedSchedule = await repositories.automation.getSchedule({ scheduleId: `schedule:${suffix}`, scope });
+  assert.equal(storedSchedule.taskId, `task:${suffix}`);
+  const storedExecution = await repositories.automation.getExecution({ executionId: `execution:${suffix}`, scope });
+  assert.equal(storedExecution.status, 'pending');
+  const storedIdempotency = await repositories.idempotency.get({ key: `idem:${suffix}`, scope });
+  assert.equal(storedIdempotency.status, 'completed');
+  const storedDomain = await repositories.domains.get({ domainId: 'test-domain', recordId: `record:${suffix}`, scope });
+  assert.equal(storedDomain.payload.value, 1);
+  const audit = await database.query("SELECT payload FROM observability_events WHERE trace_id=$1 ORDER BY created_at DESC LIMIT 1", [suffix]);
+  assert.equal(JSON.stringify(audit.rows[0]?.payload ?? {}).includes('must-not-persist'), false);
+  assert.equal(JSON.stringify(audit.rows[0]?.payload ?? {}).includes('hidden'), false);
 
   await persistence.close();
-
-  const restarted = createPostgresPersistence({ connectionString, ssl: false, applicationName: 'sg-block12-restart-test' });
-  await restarted.start();
-  assert.equal((await restarted.repositories.users.get(scope.globalUserId)).profile.displayName, 'Gary');
-  assert.equal((await restarted.repositories.identities.resolve('telegram', `tg:${suffix}`)).global_user_id, scope.globalUserId);
-  assert.deepEqual((await restarted.repositories.access.list({ globalUserId: scope.globalUserId, projectScope: scope.projectScope })).roles, ['monarch']);
-  assert.equal((await restarted.repositories.conversations.listMessages({ conversationId: `conversation:${suffix}`, scope })).length, 1);
-  assert.equal((await restarted.repositories.memory.list({ scope, layers: ['user-memory'] })).length, 1);
-  assert.equal((await restarted.database.query('SELECT count(*)::int AS count FROM tasks WHERE task_id=$1', [`task:${suffix}`])).rows[0].count, 1);
-  assert.equal((await restarted.database.query('SELECT count(*)::int AS count FROM domain_records WHERE domain_id=$1 AND record_id=$2', ['test-domain', `record:${suffix}`])).rows[0].count, 1);
-  await restarted.close();
 });

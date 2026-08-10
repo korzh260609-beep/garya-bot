@@ -6,10 +6,9 @@ const DEFAULT_MAX_TOKENS = 1200;
 const MAX_TOKENS = 4000;
 const DEFAULT_TRUST = Object.freeze(['verified', 'confirmed']);
 const DEFAULT_LIFECYCLE = Object.freeze(['active']);
+const DEFAULT_TEMPORAL_STATES = Object.freeze(['current']);
 const BLOCKED_SENSITIVITY = new Set(['sensitive', 'confidential', 'secret', 'restricted', 'credential']);
-const SENSITIVE_KEYS = new Set([
-  'apikey','authorization','password','passwd','secret','credential','credentials','accesstoken','refreshtoken','privatekey','token','bottoken'
-]);
+const SENSITIVE_KEYS = new Set(['apikey','authorization','password','passwd','secret','credential','credentials','accesstoken','refreshtoken','privatekey','token','bottoken']);
 const SECRET_VALUE_PATTERNS = Object.freeze([
   /\b(?:bearer|basic)\s+[a-z0-9._~+/=-]{12,}\b/i,
   /\b(?:sk|rk|pk)-[a-z0-9_-]{16,}\b/i,
@@ -85,7 +84,7 @@ function exclusionReason(record, policy, nowMs) {
   if (!policy.allowedTrust.includes(record.trust)) return 'trust';
   if (!policy.allowedLifecycleStates.includes(record.lifecycleState)) return 'lifecycle';
   const temporal = temporalState(record, nowMs);
-  if (temporal !== 'current') return temporal;
+  if (!policy.allowedTemporalStates.includes(temporal)) return temporal;
   if (BLOCKED_SENSITIVITY.has(sensitivity(record))) return 'sensitive';
   if (hasSensitiveValue(record.fact) || hasSensitiveValue(record.metadata) || hasSensitiveValue(record.tags)) return 'secret-bearing';
   if (!sufficientProvenance(record)) return 'insufficient-provenance';
@@ -141,6 +140,7 @@ export function createProjectMemoryContextGuard({ database, authorize, retrieval
       allowedNamespaces,
       allowedTrust: uniqueStrings(input.allowedTrust ?? DEFAULT_TRUST, 'allowedTrust'),
       allowedLifecycleStates: uniqueStrings(input.allowedLifecycleStates ?? DEFAULT_LIFECYCLE, 'allowedLifecycleStates'),
+      allowedTemporalStates: uniqueStrings(input.allowedTemporalStates ?? DEFAULT_TEMPORAL_STATES, 'allowedTemporalStates'),
       includeProposed: input.includeProposed === true
     };
     const maxFacts = boundedInteger(input.maxFacts, DEFAULT_MAX_FACTS, MAX_FACTS);
@@ -223,7 +223,7 @@ export function createProjectMemoryContextGuard({ database, authorize, retrieval
     if (!retrieval) throw new TypeError('retrieval service was not configured');
     const retrievalResult = await retrieval.search({
       ...input,
-      includeHistorical: false,
+      includeHistorical: input.includeHistorical === true,
       lifecycleStates: input.lifecycleStates ?? DEFAULT_LIFECYCLE
     });
     return build({ ...input, retrievalResult });

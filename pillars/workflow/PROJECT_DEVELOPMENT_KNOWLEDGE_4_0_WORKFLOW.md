@@ -1,7 +1,7 @@
 # SG 2.1 — PROJECT DEVELOPMENT KNOWLEDGE 4.0 WORKFLOW
 
 ## Status
-In progress. **PDK4.1–PDK4.4 CLOSED and CI-verified.** PDK4.5–PDK4.12 remain planned.
+In progress. **PDK4.1–PDK4.5 CLOSED and CI-verified.** PDK4.6–PDK4.12 remain planned.
 
 ## Purpose
 Defines the implementation and verification procedure for PDK4. It does not redefine the architecture or create a parallel memory system.
@@ -106,6 +106,21 @@ PDK4.3 verification is covered by `tests/projectDevelopmentKnowledge4SourceNorma
 - PDK4.4 has no direct Project Memory write/confirmation path.
 
 PDK4.4 verification is covered by `tests/projectDevelopmentKnowledge4SignificanceClassifier.test.js`, including significant-change retention, generated/trivial suppression, workflow evidence separation, canonical-document evidence preservation, bounded Router-only ambiguity handling, deterministic fallback and fail-closed envelope tests. The complete repository code gate passed in SG 2.1 CI #7075 on commit `41276bc952c6eb51e107c532b65a885be00238d6` before final documentation synchronization.
+
+### Implemented PDK4.5 extraction discipline
+- extraction accepts only a verified PDK4.3 source paired with the matching PDK4.4 classification fingerprint;
+- suppressed and supporting-evidence-only classifications cannot become standalone DevelopmentEvents;
+- deterministic extraction provides a bounded event type, Project Memory domain, component and evidence-compatible lifecycle transition before model assistance;
+- every event preserves immutable source provenance, `derivedFrom` source id and verification entries copied from verified evidence;
+- AI assistance is Router-only, receives bounded `untrusted-data-only` evidence and cannot confirm facts or assign authority;
+- model fields are bounded and secret-shaped output is redacted before DevelopmentEvent creation;
+- model output cannot promote code evidence to deployed/live state or source-only evidence to implemented state;
+- malformed or unavailable AI falls back deterministically;
+- resulting DevelopmentEvent is adapted only to a PM3 `project-event` candidate with `trust=unverified`, `confirmed=false`, `confirmationState=proposed`;
+- PDK4.5 has no Project Memory store write or self-confirmation path;
+- deterministic semantic/extraction fingerprints support replay consistency.
+
+PDK4.5 verification is covered by `tests/projectDevelopmentKnowledge4EventExtraction.test.js`, including provenance/state extraction, replay determinism, non-event-eligible denial, classification/source mismatch denial, bounded Router enrichment, anti-promotion checks, source-only roadmap behavior, provider-failure fallback and secret-output redaction. The complete repository code gate passed in SG 2.1 CI #7084 on commit `d8eb324b6ecc19697f75b6d884e8b79638d15868` before final documentation synchronization.
 
 ## Continuous ingestion workflow
 

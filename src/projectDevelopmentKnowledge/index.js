@@ -35,3 +35,10 @@ export {
   PDK4_GITHUB_VERIFIER_CONTRACT_VERSION,
   createGitHubDevelopmentSourceVerifier
 } from './githubDevelopmentSourceVerifier.js';
+export {
+  PDK4_SIGNIFICANCE_CLASSIFIER_CONTRACT_VERSION,
+  PDK4_SIGNIFICANCE_LEVELS,
+  PDK4_SIGNIFICANCE_CATEGORIES,
+  PDK4_SIGNIFICANCE_LIMITS,
+  createDevelopmentSignificanceClassifier
+} from './developmentSignificanceClassifier.js';

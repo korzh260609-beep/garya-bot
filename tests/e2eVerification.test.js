@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { createActionRequest } from '../src/contracts/action.js';
+import { createPostgresPersistence } from '../src/persistence/index.js';
 import { createLocalProductionHarness } from '../src/runtime/localProductionHarness.js';
 import { createProductionTelegramIdentityResolver } from '../src/runtime/renderWebApplication.js';
 import { createOwnerSecurityConfig, createOwnerSecurityGateway } from '../src/security/ownerSecurity.js';
@@ -238,18 +239,27 @@ test('Block 18: runtime startup builds valid bounded Self Knowledge and live dia
 postgresIntegration('Block 18: PostgreSQL restart preserves memory and conversation continuity', async () => {
   const id = randomUUID();
   const globalUserId = `usr_e2e_${id.replaceAll('-', '').slice(0, 16)}`;
+  const projectScope = `block18:${id}`;
   const transportSessionId = `e2e-session-${id}`;
   const env = {
-    SG_PERSISTENCE_MODE: 'postgres', DATABASE_URL: connectionString, DATABASE_SSL: 'false', SG_REVISION: `block-18-${id}`
+    SG_PERSISTENCE_MODE: 'postgres', DATABASE_URL: connectionString, DATABASE_SSL: 'false', SG_REVISION: `block-18-${id}`, SG_PROJECT_SCOPE: projectScope
   };
+
+  const identityPersistence = createPostgresPersistence({ connectionString, ssl: false, applicationName: 'sg-block18-identity-setup' });
+  await identityPersistence.start();
+  try {
+    await identityPersistence.repositories.users.upsert({ globalUserId });
+  } finally {
+    await identityPersistence.close();
+  }
 
   const first = createLocalProductionHarness({ env });
   await first.runtime.start();
   let conversation;
   try {
-    await first.memory2Service.write({ key: `restart-${id}`, value: 'survives', scope: scope(globalUserId), actor: actor(globalUserId), confirmed: true });
+    await first.memory2Service.write({ key: `restart-${id}`, value: 'survives', scope: scope(globalUserId, projectScope), actor: actor(globalUserId), confirmed: true });
     conversation = await first.conversationContextService.resolveTurn({
-      globalUserId, projectScope: 'sg2.1', transport: 'web-api', transportSessionId, platformMessageId: `${id}-1`, text: 'before restart'
+      globalUserId, projectScope, transport: 'web-api', transportSessionId, platformMessageId: `${id}-1`, text: 'before restart'
     });
   } finally {
     await first.runtime.stop();
@@ -258,10 +268,10 @@ postgresIntegration('Block 18: PostgreSQL restart preserves memory and conversat
   const second = createLocalProductionHarness({ env });
   await second.runtime.start();
   try {
-    const recall = await second.memory2Service.recall({ scope: scope(globalUserId), actor: actor(globalUserId), query: `restart ${id}` });
+    const recall = await second.memory2Service.recall({ scope: scope(globalUserId, projectScope), actor: actor(globalUserId), query: `restart ${id}` });
     assert.equal(recall.records.some((record) => record.value === 'survives'), true);
     const continued = await second.conversationContextService.resolveTurn({
-      globalUserId, projectScope: 'sg2.1', transport: 'web-api', transportSessionId, platformMessageId: `${id}-2`, text: 'after restart'
+      globalUserId, projectScope, transport: 'web-api', transportSessionId, platformMessageId: `${id}-2`, text: 'after restart'
     });
     assert.equal(continued.conversationId, conversation.conversationId);
     assert.equal(continued.transition, 'continuation');

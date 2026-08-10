@@ -1,7 +1,7 @@
 # SG 2.1 — PROJECT DEVELOPMENT KNOWLEDGE 4.0 PROGRAM
 
 ## Status
-In progress. **PDK4.1–PDK4.2 CLOSED and CI-verified.** PDK4.3–PDK4.12 remain planned.
+In progress. **PDK4.1–PDK4.3 CLOSED and CI-verified.** PDK4.4–PDK4.12 remain planned.
 
 Project Development Knowledge 4.0 (PDK4) is a cross-cutting program built on the completed Project Memory 3.0 foundation. It does not renumber Blocks 0–19 and does not reopen PM3.1–PM3.12.
 
@@ -68,12 +68,39 @@ Evidence:
 **Gate:** PASSED — historical scan bookkeeping resumes after PostgreSQL restart without duplicate processed-source records or skipped cursor ranges. PDK4.2 does not directly create accepted PM3 facts; later normalization/extraction stages remain responsible for emitting candidates through the existing PM3 idempotency/trust pipeline. Full CI passed in SG 2.1 CI #7053 before final documentation synchronization.
 
 ### PDK4.3 — Source Normalization & Verification
-- normalize GitHub commits, diffs, PRs, CI/workflow evidence and canonical repository documents into bounded source events;
-- verify immutable GitHub identities/revisions;
-- distinguish code evidence, CI evidence, deployment evidence and runtime evidence;
-- keep unsupported connectors unavailable rather than simulated.
+**Status: CLOSED / CI-verified.**
 
-**Gate:** every normalized event has verifiable provenance and deterministic source identity; weak/unknown sources fail closed.
+Implemented:
+- production-capable read-only GitHub REST verifier for commits, pull requests, workflow runs/jobs and canonical repository files at immutable revisions;
+- explicit approved-repository allowlist and fail-closed connector/network/provider behavior;
+- deterministic normalized source envelopes with immutable source identity, source fingerprint and normalized fingerprint;
+- bounded commit messages, diffs, PR text/files, workflow metadata/jobs and canonical document content;
+- secret-shaped text redaction before normalized repository content can move downstream;
+- `contentMode: untrusted-data-only` so repository text and embedded instructions remain data, never executable instructions;
+- commit/PR evidence classified as `code` evidence;
+- successful workflow runs classified as `ci` evidence, while failed/non-success runs remain only source-verified and cannot claim CI verification;
+- canonical documents classified only as `source` evidence and explicitly prevented from proving implementation by themselves;
+- deployment/runtime source kinds remain unavailable until real approved connectors exist;
+- scanner→normalizer integration coverage proving historical sources can feed verified normalized source events without direct Project Memory mutation.
+
+Implementation:
+- `src/projectDevelopmentKnowledge/sourceNormalizationVerification.js`
+- `src/projectDevelopmentKnowledge/githubDevelopmentSourceVerifier.js`
+- `src/projectDevelopmentKnowledge/index.js`
+- `tests/projectDevelopmentKnowledge4SourceNormalization.test.js`
+- `package.json` (`test:project-development-knowledge`)
+
+Evidence:
+- deterministic commit normalization and replay fingerprint tests;
+- bounded patch/file-count tests;
+- immutable PR head SHA and workflow run/attempt identity tests;
+- canonical document revision binding and source-only evidence tests;
+- approved repository denial, weak/mismatched source denial and unavailable deployment/runtime connector tests;
+- real REST adapter request-contract tests for commit/PR/workflow/document paths;
+- secret-redaction and network fail-closed tests;
+- historical scanner integration test feeding only verified normalized events downstream.
+
+**Gate:** PASSED — every accepted normalized source event has deterministic immutable provenance, bounded secret-safe data and explicit evidence semantics. Weak/mismatched/unapproved/unavailable sources fail closed; canonical docs cannot promote code state; CI success cannot imply deployment/live state. Full code gate passed in SG 2.1 CI #7067 before final documentation synchronization.
 
 ### PDK4.4 — Development Significance Classifier
 - deterministic metadata/path/diff prefilter first;

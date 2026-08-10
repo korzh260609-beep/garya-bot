@@ -43,3 +43,7 @@ export {
   PROJECT_MEMORY3_RETRIEVAL_CONTRACT_VERSION,
   createProjectMemoryHybridRetrieval
 } from './hybridRetrieval.js';
+export {
+  PROJECT_MEMORY3_CONTEXT_GUARD_CONTRACT_VERSION,
+  createProjectMemoryContextGuard
+} from './contextGuard.js';

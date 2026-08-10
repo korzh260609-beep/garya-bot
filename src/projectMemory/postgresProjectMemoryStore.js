@@ -14,6 +14,12 @@ function iso(value) {
   return value == null ? null : new Date(value).toISOString();
 }
 
+function scopeError(message = 'project memory scope mismatch') {
+  const error = new Error(message);
+  error.code = 'project-memory-project-scope-denied';
+  return error;
+}
+
 function normalizeFact(input) {
   return createProjectFact({
     ...input,
@@ -96,7 +102,7 @@ export function createPostgresProjectMemoryStore(database) {
       traceId: fact.traceId,
       sourceEventId: fact.sourceEventId
     };
-    await db.query(`INSERT INTO memory_records(
+    const memoryResult = await db.query(`INSERT INTO memory_records(
       memory_id,global_user_id,project_scope,group_scope,thread_scope,memory_layer,memory_key,value,provenance,trust,confirmed,tags,confidence,expires_at,
       owner_global_user_id,scope_kind,privacy_class,confirmation_state,lifecycle_state,superseded_at,superseded_by,retention_class,record_version,semantic_fingerprint,metadata,created_at,updated_at)
       VALUES ($1,NULL,$2,NULL,NULL,'project-memory',$3,$4::jsonb,$5::jsonb,$6,$7,$8::jsonb,$9,$10,NULL,'project','project',$11,$12,$13,$14,'durable',$15,$16,$17::jsonb,$18,$19)
@@ -109,23 +115,25 @@ export function createPostgresProjectMemoryStore(database) {
       fact.memoryId, fact.projectKey, memoryKey, json(fact.fact), json(provenance), fact.trust, fact.confirmed, json(fact.tags), fact.confidence, fact.validTo,
       fact.confirmationState, fact.lifecycleState, fact.supersededAt, fact.successorMemoryId, fact.recordVersion, fact.semanticFingerprint, json(fact.metadata), fact.createdAt, fact.updatedAt
     ]);
+    if (memoryResult.rowCount !== 1) throw scopeError();
 
-    await db.query(`INSERT INTO project_memory_entries(memory_id,project_key,namespace,domain,fact_type,entity_key,fact,trace_id,source_event_id,valid_from,valid_to,successor_memory_id,record_version,created_at,updated_at)
+    const entryResult = await db.query(`INSERT INTO project_memory_entries(memory_id,project_key,namespace,domain,fact_type,entity_key,fact,trace_id,source_event_id,valid_from,valid_to,successor_memory_id,record_version,created_at,updated_at)
       VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9,$10,$11,$12,$13,$14,$15)
       ON CONFLICT(memory_id) DO UPDATE SET namespace=EXCLUDED.namespace,domain=EXCLUDED.domain,fact_type=EXCLUDED.fact_type,entity_key=EXCLUDED.entity_key,
         fact=EXCLUDED.fact,trace_id=EXCLUDED.trace_id,source_event_id=EXCLUDED.source_event_id,valid_from=EXCLUDED.valid_from,valid_to=EXCLUDED.valid_to,
         successor_memory_id=EXCLUDED.successor_memory_id,record_version=EXCLUDED.record_version,updated_at=EXCLUDED.updated_at
-      WHERE project_memory_entries.project_key=EXCLUDED.project_key`, [
+      WHERE project_memory_entries.project_key=EXCLUDED.project_key RETURNING memory_id`, [
       fact.memoryId, fact.projectKey, fact.namespace, fact.domain, fact.factType, fact.entityKey, json(fact.fact), fact.traceId, fact.sourceEventId,
       fact.validFrom, fact.validTo, fact.successorMemoryId, fact.recordVersion, fact.createdAt, fact.updatedAt
     ]);
+    if (entryResult.rowCount !== 1) throw scopeError();
 
-    await db.query('DELETE FROM project_memory_provenance WHERE memory_id=$1', [fact.memoryId]);
+    await db.query('DELETE FROM project_memory_provenance WHERE memory_id=$1 AND project_key=$2', [fact.memoryId, fact.projectKey]);
     await db.query(`INSERT INTO project_memory_provenance(provenance_id,memory_id,project_key,source_kind,source_ref,actor_id,source_timestamp,trace_id,source_event_id,metadata,created_at)
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11)`, [randomUUID(), fact.memoryId, fact.projectKey, fact.source.kind, fact.source.ref, fact.source.actorId,
       fact.source.timestamp, fact.traceId, fact.sourceEventId, json({}), fact.createdAt]);
 
-    await db.query('DELETE FROM project_memory_relations WHERE source_memory_id=$1', [fact.memoryId]);
+    await db.query('DELETE FROM project_memory_relations WHERE source_memory_id=$1 AND project_key=$2', [fact.memoryId, fact.projectKey]);
     for (const relationKey of fact.relationKeys) {
       await db.query(`INSERT INTO project_memory_relations(relation_id,project_key,source_memory_id,relation_key,relation_type,metadata,created_at)
         VALUES ($1,$2,$3,$4,'related','{}'::jsonb,$5)`, [randomUUID(), fact.projectKey, fact.memoryId, relationKey, fact.createdAt]);
@@ -154,8 +162,15 @@ export function createPostgresProjectMemoryStore(database) {
   }
 
   async function recordConflict({ conflictId = randomUUID(), projectKey, memoryId, conflictingMemoryId, reason, metadata = {} }, db = database) {
+    const project = required(projectKey, 'projectKey').toLowerCase();
+    const first = required(memoryId, 'memoryId');
+    const second = required(conflictingMemoryId, 'conflictingMemoryId');
     const result = await db.query(`INSERT INTO project_memory_conflicts(conflict_id,project_key,memory_id,conflicting_memory_id,reason,metadata)
-      VALUES ($1,$2,$3,$4,$5,$6::jsonb) RETURNING *`, [conflictId, required(projectKey, 'projectKey').toLowerCase(), required(memoryId, 'memoryId'), required(conflictingMemoryId, 'conflictingMemoryId'), required(reason, 'reason'), json(metadata)]);
+      SELECT $1,$2,$3,$4,$5,$6::jsonb
+      WHERE EXISTS (SELECT 1 FROM project_memory_entries WHERE memory_id=$3 AND project_key=$2)
+        AND EXISTS (SELECT 1 FROM project_memory_entries WHERE memory_id=$4 AND project_key=$2)
+      RETURNING *`, [conflictId, project, first, second, required(reason, 'reason'), json(metadata)]);
+    if (result.rowCount !== 1) throw scopeError('project memory conflict scope mismatch');
     return result.rows[0];
   }
 

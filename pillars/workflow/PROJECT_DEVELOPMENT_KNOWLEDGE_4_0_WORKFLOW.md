@@ -1,7 +1,7 @@
 # SG 2.1 — PROJECT DEVELOPMENT KNOWLEDGE 4.0 WORKFLOW
 
 ## Status
-In progress. **PDK4.1–PDK4.7 CLOSED and CI-verified.** PDK4.8–PDK4.12 remain planned.
+In progress. **PDK4.1–PDK4.8 CLOSED and CI-verified.** PDK4.9–PDK4.12 remain planned.
 
 ## Purpose
 Defines the implementation and verification procedure for PDK4. It does not redefine the architecture or create a parallel memory system.
@@ -157,6 +157,27 @@ PDK4.6 verification is covered by `tests/projectDevelopmentKnowledge4Clustering.
 
 PDK4.7 verification is covered by `tests/projectDevelopmentKnowledge4HistoricalReconstruction.test.js`, including earliest-evidence qualification, genesis/timeline/component-history reconstruction, input-order fingerprint stability, superseded-history retention, unknown-origin handling, incomplete-clustering denial, cross-project denial and mutated-authoritative input denial. The complete repository gate passed in SG 2.1 CI #7100 on commit `14445ad7cfc413c241cccc759359bfb018cb2022` before final documentation synchronization.
 
+### Implemented PDK4.8 temporal/causal reconciliation discipline
+- reconciliation accepts only matching non-authoritative PDK4.5 extraction, complete PDK4.6 clustering and PDK4.7 historical reconstruction outputs;
+- duplicate/cross-project events, incomplete cluster coverage, authoritative/mutated candidates and mismatched reconstruction counts fail closed;
+- temporal order is deterministic and project/domain/component scoped before derived links are created;
+- explicit event relations remain authoritative only as source-backed relation data; unknown relation targets become `missing-causal-link` gaps;
+- PDK4.6 `belongs-to-milestone` relations are retained rather than recomputed from text similarity;
+- bounded causal linking may derive `motivated-by`, `implements` and `fixes` only from prior compatible events in the same project/domain/component scope;
+- code/implemented evidence may link only to later CI evidence using `verified-by-ci`; CI may link only to later deployment evidence using `deployed-as`; deployment may link only to later runtime evidence using `verified-in-runtime`;
+- explicit `supersedes` / `supersededBy` references produce paired `supersedes` / `superseded-by` links; absent targets remain explicit gaps;
+- explicit `depends-on` and other canonical PDK4 relation types are preserved when their referenced events exist and are never invented from weak similarity;
+- component reconciliation records source/roadmap-plan, code, test, CI, deployment and runtime evidence separately;
+- missing CI after code, missing deployment after CI and missing runtime after deployment create bounded evidence gaps instead of lifecycle promotion;
+- active plans that predate later delivery evidence without close/supersession are reported as `stale-plan`;
+- successive active decision/plan records without an explicit supersession relationship create `missing-supersession` gaps;
+- contradictory evidence chronology remains visible as `temporal-evidence-order` rather than being silently reordered;
+- gap records and gap candidates remain derived/unverified/unconfirmed/proposed and cannot grant authority or directly mutate Project Memory;
+- reconciliation and gap identities are deterministic and replay-stable;
+- PDK4.8 performs no AI call.
+
+PDK4.8 verification is covered by `tests/projectDevelopmentKnowledge4TemporalCausalReconciliation.test.js`, including full code→CI→deployment→runtime separation/linking, missing evidence gaps, stale-plan handling, incident→fix correlation, explicit/missing supersession, contradictory chronology, input-order determinism and fail-closed cross-project/authoritative/mismatched-history cases. The complete repository code gate passed in SG 2.1 CI #7108 on commit `4873fa255fc916cb5a6ea120e26b69870d941ee6` before final documentation synchronization.
+
 ## Continuous ingestion workflow
 
 ```text
@@ -201,7 +222,7 @@ After the model call:
 - source provenance remains attached;
 - PM3 trust/confirmation decides whether anything becomes active knowledge.
 
-PDK4.7 historical reconstruction itself is deterministic and performs no model call; it rebuilds views only from already bounded PDK4.5/PDK4.6 outputs.
+PDK4.7 historical reconstruction and PDK4.8 temporal/causal reconciliation are deterministic and perform no model call; they rebuild/relate already bounded PDK4 outputs without manufacturing evidence.
 
 ## Required tests by stage
 Each stage must include the applicable subset of:

@@ -1,7 +1,7 @@
 # SG 2.1 — PROJECT DEVELOPMENT KNOWLEDGE 4.0 WORKFLOW
 
 ## Status
-In progress. **PDK4.1–PDK4.8 CLOSED and CI-verified.** PDK4.9–PDK4.12 remain planned.
+In progress. **PDK4.1–PDK4.9 CLOSED and CI-verified.** PDK4.10–PDK4.12 remain planned.
 
 ## Purpose
 Defines the implementation and verification procedure for PDK4. It does not redefine the architecture or create a parallel memory system.
@@ -178,21 +178,41 @@ PDK4.7 verification is covered by `tests/projectDevelopmentKnowledge4HistoricalR
 
 PDK4.8 verification is covered by `tests/projectDevelopmentKnowledge4TemporalCausalReconciliation.test.js`, including full code→CI→deployment→runtime separation/linking, missing evidence gaps, stale-plan handling, incident→fix correlation, explicit/missing supersession, contradictory chronology, input-order determinism and fail-closed cross-project/authoritative/mismatched-history cases. The complete repository code gate passed in SG 2.1 CI #7108 on commit `4873fa255fc916cb5a6ea120e26b69870d941ee6` before final documentation synchronization.
 
+### Implemented PDK4.9 continuous ingestion discipline
+- continuous ingestion is allowed only after the matching PDK4.2 GitHub historical cursor is complete;
+- the bootstrap `lastSourceId` must be a canonical GitHub commit identity and its full immutable SHA initializes the incremental cursor;
+- polling always starts from the durable incremental SHA, never from `null`, so PDK4.9 cannot silently restart full historical scanning;
+- trigger types are bounded to `poll`, `webhook` and internal `event`; webhook payload is a trigger only and does not become verified source evidence;
+- repository mismatch is rejected before processing; each unseen commit is independently normalized/re-verified through PDK4.3 by immutable SHA;
+- trigger receipts are durable with `processing`, `completed`, `failed` lifecycle; completed/in-flight duplicate delivery is suppressed while failed delivery is retryable;
+- each processed commit has durable source identity/fingerprint and restart-safe idempotency;
+- PDK4.4-suppressed/non-event commits still advance bookkeeping so they cannot loop forever, but they never enter PDK4.5 or Project Memory;
+- event-eligible commits reuse the existing source normalization/classification/extraction pipeline and may write only unverified/unconfirmed PM3 candidates;
+- incremental reconciliation remains derived/unconfirmed/non-authoritative;
+- authorization is checked before GitHub fetch and observability emits bounded trigger/source status only;
+- cross-project/source mismatch, bootstrap drift, invalid bootstrap anchor and attempted trust/authority promotion fail closed.
+
+PDK4.9 verification is covered by `tests/projectDevelopmentKnowledge4ContinuousIngestion.test.js` plus `tests/postgresPersistence.test.js`. Coverage includes strict post-bootstrap SHA start, trigger/source replay idempotency, failed-trigger retry, webhook repository denial, suppressed-source no-PM3 behavior, authorization/bootstrap denial, immutable re-verification, PostgreSQL restart continuity and migration compatibility. Full repository code gate passed in SG 2.1 CI #7129 on commit `963ca2c1dec84fdff6e582e49df7b72cbb3d6500` before final documentation synchronization.
+
 ## Continuous ingestion workflow
 
 ```text
-verified new source trigger
-→ read durable cursor
-→ fetch/process only unseen source events
-→ normalize/classify/extract/correlate
-→ PM3 candidate pipeline
-→ reconcile affected components/timeline
-→ update rebuildable snapshot
-→ advance cursor transactionally
+completed historical bootstrap
+→ resolve immutable bootstrap commit SHA
+→ authorize trigger/project/repository
+→ read durable incremental cursor
+→ fetch bounded unseen commits only
+→ re-verify immutable commit source
+→ classify significance
+→ suppress/bookkeep non-events OR extract event
+→ unconfirmed PM3 candidate pipeline
+→ reconcile affected development knowledge without promotion
+→ commit processed-source/cursor state
+→ complete trigger receipt
 → emit bounded observability
 ```
 
-Retries/replays must not duplicate accepted facts.
+Webhook/event delivery is a wake-up signal only. It cannot substitute for GitHub source verification. Failed trigger execution is marked retryable; replay of completed trigger/source identities must not duplicate accepted facts or cursor progress.
 
 ## Evidence hierarchy
 PDK4 records evidence dimensions rather than collapsing them:
@@ -222,7 +242,7 @@ After the model call:
 - source provenance remains attached;
 - PM3 trust/confirmation decides whether anything becomes active knowledge.
 
-PDK4.7 historical reconstruction and PDK4.8 temporal/causal reconciliation are deterministic and perform no model call; they rebuild/relate already bounded PDK4 outputs without manufacturing evidence.
+PDK4.7 historical reconstruction and PDK4.8 temporal/causal reconciliation are deterministic and perform no model call; they rebuild/relate already bounded PDK4 outputs without manufacturing evidence. PDK4.9 does not add a new AI path: any classification/extraction assistance remains exclusively inside the existing PDK4.4/PDK4.5 AI Router boundaries.
 
 ## Required tests by stage
 Each stage must include the applicable subset of:

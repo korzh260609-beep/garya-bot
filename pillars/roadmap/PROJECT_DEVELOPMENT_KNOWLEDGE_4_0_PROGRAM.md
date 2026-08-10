@@ -1,7 +1,7 @@
 # SG 2.1 — PROJECT DEVELOPMENT KNOWLEDGE 4.0 PROGRAM
 
 ## Status
-In progress. **PDK4.1–PDK4.9 CLOSED and CI-verified.** PDK4.10–PDK4.12 remain planned.
+In progress. **PDK4.1–PDK4.10 CLOSED and CI-verified.** PDK4.11–PDK4.12 remain planned.
 
 Project Development Knowledge 4.0 (PDK4) is a cross-cutting program built on the completed Project Memory 3.0 foundation. It does not renumber Blocks 0–19 and does not reopen PM3.1–PM3.12.
 
@@ -318,12 +318,37 @@ Evidence:
 **Gate:** PASSED — new verified GitHub development commits can be processed incrementally after historical bootstrap without full-history rescan, duplicate PM3 promotion or webhook-as-truth behavior. Full repository code gate passed in SG 2.1 CI #7129 on commit `963ca2c1dec84fdff6e582e49df7b72cbb3d6500` before final documentation synchronization.
 
 ### PDK4.10 — Product Component Registry & Current Project Snapshot
-- build/rebuild bounded component registry from canonical facts;
-- compute current implementation, CI, deployment and live-verification dimensions;
-- expose active decisions, known issues/incidents, current work, risks, next milestones, stale evidence and unresolved gaps;
-- keep snapshots rebuildable from canonical facts.
+**Status: CLOSED / CI-verified.**
 
-**Gate:** SG can answer “where is the project now?” without flattening unknown/deployed/live states into one `done` flag.
+Implemented:
+- deterministic bounded Product Component Registry built only from project-scoped confirmed PM3 `project-event` facts carrying PDK4 semantics;
+- unconfirmed/proposed candidates are counted for diagnostics but excluded from current-state promotion;
+- superseded/archived historical evidence remains represented in component event counts but cannot populate current evidence dimensions;
+- current source/code/test/CI/deployment/runtime dimensions remain separate and are never collapsed into one `done` flag;
+- component entries expose current state qualification, domains, active decisions, known issues, open incidents, implementation work, next plans, dependencies, latest verified evidence, stale evidence and unresolved reconciliation gaps;
+- ProjectSnapshot exposes implemented, CI-verified, deployed and live-verified component lists independently plus active decisions, issues/incidents, current work, next milestones, risks, stale evidence and unresolved gaps;
+- PDK4.8 reconciliation may contribute only non-authoritative dependency/gap/contradiction visibility and cannot promote current PM3 state;
+- deterministic registry and snapshot fingerprints are stable across fact/gap ordering and exclude generation time from semantic identity;
+- cross-project facts, duplicate confirmed event ids, authoritative reconciliation and malformed reconciliation fail closed;
+- output remains `trust=snapshot-derived`, `confirmed=false`, `authorityAllowed=false` and creates no new persistence layer.
+
+Implementation:
+- `src/projectDevelopmentKnowledge/productComponentRegistrySnapshot.js`
+- `src/projectDevelopmentKnowledge/index.js`
+- `tests/projectDevelopmentKnowledge4ComponentSnapshot.test.js`
+- `package.json` (`test:project-development-knowledge`)
+
+Evidence:
+- code and CI can be present while deployment/runtime remain explicitly absent;
+- proposed deployment/runtime candidates cannot promote snapshot state;
+- superseded historical runtime evidence cannot make the replacement component live-verified;
+- decisions/incidents/current work/next plans/gaps/contradictions are exposed in separate bounded collections;
+- dependency relations remain informational and non-authoritative;
+- reversed fact/gap ordering preserves deterministic fingerprints;
+- cross-project and authority-bearing inputs fail closed;
+- empty confirmed knowledge yields an explicit unknown/empty snapshot rather than invented state.
+
+**Gate:** PASSED — SG now has a rebuildable current project view that answers “where is the project now?” while keeping implementation, CI, deployment and runtime truth separate. Full repository code gate passed in SG 2.1 CI #7140 on commit `c70438935a8c7e764ce5c21351fac2025aac4a65` before final documentation synchronization.
 
 ### PDK4.11 — Development Query & Normal SG Answer Integration
 - support current, historical, evolution, rationale, evidence, comparison, planning, incident-history and genesis query modes;

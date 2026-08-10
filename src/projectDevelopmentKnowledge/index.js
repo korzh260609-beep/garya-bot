@@ -24,3 +24,10 @@ export {
   createGitHubHistoricalScanner
 } from './githubHistoricalScanner.js';
 export { createPostgresHistoricalCursorStore } from './postgresHistoricalCursorStore.js';
+export {
+  PDK4_SOURCE_NORMALIZATION_CONTRACT_VERSION,
+  PDK4_NORMALIZED_SOURCE_KINDS,
+  PDK4_EVIDENCE_DIMENSIONS,
+  PDK4_SOURCE_LIMITS,
+  createDevelopmentSourceNormalizer
+} from './sourceNormalizationVerification.js';

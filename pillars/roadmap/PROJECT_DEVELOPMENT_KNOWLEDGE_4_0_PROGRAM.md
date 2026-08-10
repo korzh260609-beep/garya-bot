@@ -1,7 +1,7 @@
 # SG 2.1 — PROJECT DEVELOPMENT KNOWLEDGE 4.0 PROGRAM
 
 ## Status
-In progress. **PDK4.1–PDK4.10 CLOSED and CI-verified.** PDK4.11–PDK4.12 remain planned.
+In progress. **PDK4.1–PDK4.11 CLOSED and CI-verified.** PDK4.12 remains planned.
 
 Project Development Knowledge 4.0 (PDK4) is a cross-cutting program built on the completed Project Memory 3.0 foundation. It does not renumber Blocks 0–19 and does not reopen PM3.1–PM3.12.
 
@@ -351,13 +351,46 @@ Evidence:
 **Gate:** PASSED — SG now has a rebuildable current project view that answers “where is the project now?” while keeping implementation, CI, deployment and runtime truth separate. Full repository code gate passed in SG 2.1 CI #7140 on commit `c70438935a8c7e764ce5c21351fac2025aac4a65` before final documentation synchronization.
 
 ### PDK4.11 — Development Query & Normal SG Answer Integration
-- support current, historical, evolution, rationale, evidence, comparison, planning, incident-history and genesis query modes;
-- reuse PM3 hybrid retrieval and Context Guard;
-- inject only bounded authorized development knowledge into AI Router;
-- preserve provenance/currentness and historical qualification;
-- keep incident similarity advisory-only for live diagnosis.
+**Status: CLOSED / CI-verified.**
 
-**Gate:** ordinary SG questions about history/current state/next plan produce correct evidence-aware answers without raw repository prompt injection.
+Implemented:
+- deterministic support for `current`, `historical`, `evolution`, `rationale`, `evidence`, `comparison`, `planning`, `incident-history` and `genesis` development query modes;
+- current/evidence/planning requests reuse the standard PM3 guarded request path;
+- historical/evolution/rationale/comparison/incident-history/genesis requests reuse PM3 Hybrid Retrieval and Context Guard with explicit bounded historical lifecycle/temporal qualification;
+- default PM3 Context Guard remains current-only unless an authorized historical PDK4 query explicitly admits superseded/expired facts;
+- only GitHub-trusted relevant development facts pass into historical answer context;
+- resolved request project scope is re-authorized before historical retrieval and cross-project mismatch fails closed;
+- bounded `DevelopmentQueryContext` carries only guarded Project Memory facts plus query-mode/data-policy/qualification metadata;
+- normal `languageAwareConversationResponder` integrates PDK4.11 into ordinary SG `compose-answer` handling through AI Router only;
+- historical/superseded facts must remain historical and cannot be promoted to current state without current evidence;
+- provenance/currentness and open PM3 evidence conflicts remain visible to answer composition;
+- incident-history similarity is advisory-only and cannot prove a current live root cause or override Universal Diagnostics;
+- Project Memory/PDK4 content remains data-only and cannot grant identity, roles, permissions, ownership, authority, trust or confirmation;
+- AI Router failure/invalid response uses a qualified deterministic Project Memory answer instead of inventing project state;
+- production-like runtime exposes whether development-query integration is enabled without treating that flag as project truth.
+
+Implementation:
+- `src/projectDevelopmentKnowledge/developmentQueryIntegration.js`
+- `src/projectDevelopmentKnowledge/index.js`
+- `src/projectMemory/contextGuard.js`
+- `src/projectMemory/aiRouterIntegration.js`
+- `src/language/languageAwareConversationResponder.js`
+- `src/runtime/localProductionHarness.js`
+- `tests/projectDevelopmentKnowledge4DevelopmentQueryIntegration.test.js`
+- `package.json` (`test:project-development-knowledge`)
+
+Evidence:
+- all nine canonical modes have deterministic test coverage;
+- current queries reuse PM3 guarded integration;
+- historical queries prove Hybrid Retrieval + Context Guard reuse with explicit current/superseded/expired qualification;
+- cross-project historical retrieval fails closed before source lookup;
+- bounded model context contains data-only PDK4 metadata and guarded PM3 facts;
+- normal SG response composition carries PDK4 mode/qualification metadata through AI Router;
+- AI failure falls back to qualified deterministic Project Memory output;
+- incident-history output explicitly states advisory-only live-diagnosis semantics;
+- full `npm run check`, runtime, worker and diagnostics gates passed.
+
+**Gate:** PASSED — ordinary SG questions about project history/current state/evolution/rationale/evidence/comparison/planning/incidents/genesis now produce evidence-aware answers from bounded authorized PM3 context without raw repository prompt injection or authority/trust promotion. Full repository code gate passed in SG 2.1 CI #7153 on commit `a502d5b0252807747f7d4e660d1967752fcf90e5` before final documentation synchronization.
 
 ### PDK4.12 — Diagnostics, Production Bootstrap & Live Acceptance
 - add bounded diagnostics for bootstrap, cursors, ingestion, timeline integrity, component registry, snapshots, conflicts and reconciliation gaps;

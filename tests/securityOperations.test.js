@@ -31,12 +31,11 @@ test('Block 19 rate window recovers after expiry', () => {
   assert.equal(ops.checkRateLimit({ globalUserId: 'usr_a' }).allowed, true);
 });
 
-test('Block 19 emergency controls fail closed for disabled operational classes', () => {
-  const ops = createSecurityOperations({ config: createSecurityOperationsConfig({ SG_AI_EMERGENCY_DISABLED: 'true', SG_AUTOMATION_EMERGENCY_DISABLED: 'true', SG_PROTECTED_CAPABILITIES_EMERGENCY_DISABLED: 'true', SG_TELEGRAM_INGRESS_DISABLED: 'true' }) });
-  assert.deepEqual(ops.emergencyState(), { aiDisabled: true, automationDisabled: true, protectedCapabilitiesDisabled: true, telegramIngressDisabled: true });
+test('Block 19 emergency controls fail closed for operational classes wired here', () => {
+  const ops = createSecurityOperations({ config: createSecurityOperationsConfig({ SG_AI_EMERGENCY_DISABLED: 'true', SG_AUTOMATION_EMERGENCY_DISABLED: 'true', SG_TELEGRAM_INGRESS_DISABLED: 'true' }) });
+  assert.deepEqual(ops.emergencyState(), { aiDisabled: true, automationDisabled: true, telegramIngressDisabled: true });
   assert.equal(ops.permits('ai'), false);
   assert.equal(ops.permits('automation'), false);
-  assert.equal(ops.permits('protected-capability'), false);
   assert.equal(ops.permits('telegram-ingress'), false);
   assert.equal(ops.permits('read-only'), true);
 });

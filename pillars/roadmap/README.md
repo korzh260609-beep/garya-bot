@@ -92,7 +92,7 @@ Workflow: `../workflow/MEMORY_2_0_WORKFLOW.md`.
 
 ## Project Memory 3.0
 
-**Status: Implementation in progress; PM3.1–PM3.8 completed and CI-verified. Next stage: PM3.9.**
+**Status: Implementation in progress; PM3.1–PM3.9 completed and CI-verified. Next stage: PM3.10.**
 
 Canonical implementation order:
 

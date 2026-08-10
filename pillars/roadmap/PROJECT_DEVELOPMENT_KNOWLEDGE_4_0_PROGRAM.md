@@ -1,7 +1,7 @@
 # SG 2.1 — PROJECT DEVELOPMENT KNOWLEDGE 4.0 PROGRAM
 
 ## Status
-In progress. **PDK4.1 CLOSED and CI-verified.** PDK4.2–PDK4.12 remain planned.
+In progress. **PDK4.1–PDK4.2 CLOSED and CI-verified.** PDK4.3–PDK4.12 remain planned.
 
 Project Development Knowledge 4.0 (PDK4) is a cross-cutting program built on the completed Project Memory 3.0 foundation. It does not renumber Blocks 0–19 and does not reopen PM3.1–PM3.12.
 
@@ -35,14 +35,37 @@ Implementation:
 **Gate:** PASSED — contracts reject secret/authority/private-user payloads, cross-project mismatch, unsupported taxonomy and invalid/evidence-free lifecycle/state promotion. Full `npm run check` passed in SG 2.1 CI #7045.
 
 ### PDK4.2 — GitHub Historical Scanner & Durable Cursor
-- scan the full relevant repository history from earliest verifiable evidence;
-- process bounded commit/history batches;
-- persist repository/source cursor and checkpoints in PostgreSQL;
-- resume after restart;
-- guarantee replay idempotency;
-- separate processed-source bookkeeping from accepted project facts.
+**Status: CLOSED / CI-verified.**
 
-**Gate:** historical scan resumes after restart without duplicate accepted events or skipped source ranges.
+Implemented:
+- bounded oldest-first GitHub commit history scanner contract;
+- configurable batch bounds (`1..200`, default `50`) and bounded bootstrap loop;
+- repository/project/source-scoped durable cursor and checkpoint state in PostgreSQL;
+- separate `pdk4_processed_sources` bookkeeping, explicitly outside Project Memory facts;
+- deterministic commit source identity/fingerprint and replay detection;
+- transactional batch commit: processed-source bookkeeping and cursor advancement commit together;
+- optimistic cursor conflict detection with fail-closed behavior;
+- restart/resume from the last committed cursor;
+- completed-cursor replay idempotency with no history refetch;
+- failed source processing leaves cursor unadvanced;
+- stalled history source detection instead of invented progress;
+- PostgreSQL migration and migration compatibility coverage.
+
+Implementation:
+- `src/projectDevelopmentKnowledge/githubHistoricalScanner.js`
+- `src/projectDevelopmentKnowledge/postgresHistoricalCursorStore.js`
+- `src/persistence/migrations/901_pdk4_historical_cursor.sql`
+- `tests/projectDevelopmentKnowledge4HistoricalScanner.test.js`
+- `tests/postgresPersistence.test.js`
+- `npm run test:project-development-knowledge`
+
+Evidence:
+- PDK4.2 scanner tests prove bounded chronological batches, replay idempotency, fail-closed source failure and stalled-source handling;
+- PostgreSQL integration proves cursor persistence across service restart and resumption without duplicate processed sources;
+- migration compatibility tests include the PDK4.2 migration and preserve SG 2.0 upgrade behavior;
+- full code gate passed after updating the canonical migration-count fixture from 25 to 26.
+
+**Gate:** PASSED — historical scan bookkeeping resumes after PostgreSQL restart without duplicate processed-source records or skipped cursor ranges. PDK4.2 does not directly create accepted PM3 facts; later normalization/extraction stages remain responsible for emitting candidates through the existing PM3 idempotency/trust pipeline. Full CI passed in SG 2.1 CI #7053 before final documentation synchronization.
 
 ### PDK4.3 — Source Normalization & Verification
 - normalize GitHub commits, diffs, PRs, CI/workflow evidence and canonical repository documents into bounded source events;

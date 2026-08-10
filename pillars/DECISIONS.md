@@ -188,3 +188,24 @@ The following boundaries are mandatory:
 - the Diagnostics application must be independently deployable/reversible, with least-privilege read-only credentials and no hard runtime dependency from SG.
 
 The canonical architecture is `pillars/architecture/UNIVERSAL_DIAGNOSTICS.md`; implementation program is `pillars/roadmap/UNIVERSAL_DIAGNOSTICS_PROGRAM.md`; implementation/verification procedure is `pillars/workflow/UNIVERSAL_DIAGNOSTICS_WORKFLOW.md`.
+
+## D-028 — SG maintains Project Development Knowledge as an evidence-backed project biography
+SG must maintain structured knowledge of how SG itself is conceived, designed, implemented, reworked, tested, deployed, verified and planned over time.
+
+Project Development Knowledge 4.0 is a cross-cutting development-history/project-evolution program built on the completed Project Memory 3.0 foundation. It is not a new memory database or independent source of identity, authority or truth. Project Memory 3.0 remains responsible for durable project facts, provenance, trust, confirmation, deduplication/conflicts, temporal supersession, retrieval and Context Guard.
+
+PDK4 must reconstruct relevant historical development from earliest verified evidence and then maintain it incrementally from new verified source events. It must preserve origin, requirements, proposals, accepted decisions and rationale, alternatives, implementation, refactors/rework, bugs/incidents/fixes, test/CI evidence, deployment/runtime evidence, supersession, current state and next plans.
+
+The following boundaries are mandatory:
+
+- `implemented`, `ci-verified`, `deployed` and `live-verified` are distinct evidence states and cannot be silently promoted into one another;
+- raw chat and model output cannot self-confirm as project truth;
+- AI may assist classification, extraction, clustering and summarization only through AI Router and cannot grant trust or mutate Project Memory directly;
+- historical/superseded facts remain queryable but cannot override current-state truth;
+- source replay is idempotent and historical scanning is bounded, resumable and checkpointed durably;
+- the system must prefer significant product/architecture changes over trivial repository churn;
+- missing or contradictory evidence becomes an explicit gap/conflict rather than an invented conclusion;
+- no raw secrets, private user data, roles, permissions, ownership or authority grants may be stored or inferred by PDK4;
+- live operational diagnosis remains the responsibility of current runtime/diagnostic evidence rather than historical similarity.
+
+The canonical architecture is `pillars/architecture/PROJECT_DEVELOPMENT_KNOWLEDGE_4_0.md`; implementation program is `pillars/roadmap/PROJECT_DEVELOPMENT_KNOWLEDGE_4_0_PROGRAM.md`; implementation/verification procedure is `pillars/workflow/PROJECT_DEVELOPMENT_KNOWLEDGE_4_0_WORKFLOW.md`.

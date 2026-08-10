@@ -57,3 +57,9 @@ export {
   PDK4_HISTORICAL_RECONSTRUCTION_LIMITS,
   createHistoricalReconstructor
 } from './historicalReconstruction.js';
+export {
+  PDK4_TEMPORAL_CAUSAL_RECONCILIATION_CONTRACT_VERSION,
+  PDK4_RECONCILIATION_LIMITS,
+  PDK4_KNOWLEDGE_GAP_TYPES,
+  createTemporalCausalReconciler
+} from './temporalCausalReconciliation.js';

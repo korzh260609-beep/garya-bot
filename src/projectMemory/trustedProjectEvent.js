@@ -3,6 +3,11 @@ import { createProjectFact, createProjectMemoryNamespace } from './projectFactCo
 
 const TRUSTED_SOURCE_KINDS = Object.freeze(['github']);
 const DENIED_SOURCE_KINDS = Object.freeze(['render', 'chat', 'model', 'llm', 'user-chat']);
+const MAX_EVIDENCE_BYTES = 8 * 1024;
+const MAX_FACT_BYTES = 16 * 1024;
+const MAX_METADATA_BYTES = 8 * 1024;
+const MAX_RELATION_KEYS = 32;
+const MAX_TAGS = 32;
 
 function required(value, name) {
   if (typeof value !== 'string' || value.trim() === '') throw new TypeError(`${name} is required`);
@@ -28,6 +33,20 @@ function clone(value, name) {
   } catch {
     throw new TypeError(`${name} must be JSON-compatible`);
   }
+}
+
+function boundedJson(value, name, maxBytes) {
+  const cloned = clone(value, name);
+  const bytes = Buffer.byteLength(JSON.stringify(cloned), 'utf8');
+  if (bytes > maxBytes) throw sourceError(`${name} exceeds ${maxBytes} byte limit`, 'project-memory-source-payload-too-large');
+  return cloned;
+}
+
+function boundedStringArray(value, name, maxItems) {
+  if (value == null) return [];
+  if (!Array.isArray(value)) throw new TypeError(`${name} must be an array`);
+  if (value.length > maxItems) throw sourceError(`${name} exceeds ${maxItems} item limit`, 'project-memory-source-payload-too-large');
+  return value.map((item) => required(item, name));
 }
 
 function stable(value) {
@@ -57,7 +76,7 @@ export function createTrustedProjectEvent(input = {}) {
   const sourceRef = required(input.sourceRef ?? input.source?.ref, 'sourceRef');
   const sourceEventId = required(input.sourceEventId, 'sourceEventId');
   const occurredAt = iso(input.occurredAt ?? input.source?.timestamp, 'occurredAt');
-  const evidence = clone(input.evidence ?? {}, 'evidence');
+  const evidence = boundedJson(input.evidence ?? {}, 'evidence', MAX_EVIDENCE_BYTES);
   const candidate = clone(input.candidate ?? {}, 'candidate');
   const traceId = optional(input.traceId);
 
@@ -78,6 +97,9 @@ export function createTrustedProjectEvent(input = {}) {
 
 export function createGitHubCommitVerifier({ fetchImpl = globalThis.fetch, allowedRepositories = [] } = {}) {
   if (typeof fetchImpl !== 'function') throw new TypeError('fetchImpl is required');
+  if (!Array.isArray(allowedRepositories) || allowedRepositories.length === 0) {
+    throw sourceError('at least one approved GitHub repository is required', 'project-memory-source-policy-missing');
+  }
   const allowed = new Set(allowedRepositories.map((item) => required(item, 'allowedRepositories').toLowerCase()));
 
   return Object.freeze({
@@ -86,7 +108,7 @@ export function createGitHubCommitVerifier({ fetchImpl = globalThis.fetch, allow
       const repository = required(event.evidence?.repository, 'evidence.repository').toLowerCase();
       const commitSha = required(event.evidence?.commitSha, 'evidence.commitSha').toLowerCase();
       if (!/^[a-f0-9]{40}$/.test(commitSha)) throw sourceError('evidence.commitSha must be a full immutable Git SHA', 'project-memory-source-verification-failed');
-      if (allowed.size > 0 && !allowed.has(repository)) throw sourceError(`GitHub repository is not approved: ${repository}`);
+      if (!allowed.has(repository)) throw sourceError(`GitHub repository is not approved: ${repository}`);
 
       const canonicalRef = `github:${repository}@${commitSha}`;
       if (event.sourceRef !== canonicalRef) throw sourceError('GitHub sourceRef does not match repository and immutable commit SHA', 'project-memory-source-verification-failed');
@@ -101,11 +123,13 @@ export function createGitHubCommitVerifier({ fetchImpl = globalThis.fetch, allow
 
       const htmlUrl = optional(payload?.html_url);
       const committedAt = optional(payload?.commit?.committer?.date ?? payload?.commit?.author?.date);
+      const actorId = optional(payload?.author?.login ?? payload?.committer?.login);
       return Object.freeze({
         verified: true,
         sourceKind: 'github',
         repository,
         commitSha,
+        actorId,
         sourceRef: canonicalRef,
         sourceEventId: event.sourceEventId,
         verifiedAt: new Date().toISOString(),
@@ -127,10 +151,10 @@ export function createProjectMemoryIngestionBoundary({ githubVerifier } = {}) {
       const domain = required(event.candidate?.domain, 'candidate.domain').toLowerCase();
       const factType = required(event.candidate?.factType, 'candidate.factType').toLowerCase();
       const entityKey = required(event.candidate?.entityKey, 'candidate.entityKey');
-      const fact = clone(event.candidate?.fact, 'candidate.fact');
-      const relationKeys = Array.isArray(event.candidate?.relationKeys) ? event.candidate.relationKeys : [];
-      const tags = Array.isArray(event.candidate?.tags) ? event.candidate.tags : [];
-      const metadata = clone(event.candidate?.metadata ?? {}, 'candidate.metadata');
+      const fact = boundedJson(event.candidate?.fact, 'candidate.fact', MAX_FACT_BYTES);
+      const relationKeys = boundedStringArray(event.candidate?.relationKeys, 'candidate.relationKeys', MAX_RELATION_KEYS);
+      const tags = boundedStringArray(event.candidate?.tags, 'candidate.tags', MAX_TAGS);
+      const metadata = boundedJson(event.candidate?.metadata ?? {}, 'candidate.metadata', MAX_METADATA_BYTES);
 
       const projectFact = createProjectFact({
         projectKey: event.projectKey,
@@ -141,7 +165,7 @@ export function createProjectMemoryIngestionBoundary({ githubVerifier } = {}) {
         source: {
           kind: verification.sourceKind,
           ref: verification.sourceRef,
-          actorId: null,
+          actorId: verification.actorId,
           timestamp: verification.evidence?.committedAt ?? event.occurredAt
         },
         traceId: event.traceId,
@@ -176,3 +200,10 @@ export function createProjectMemoryIngestionBoundary({ githubVerifier } = {}) {
 }
 
 export const PROJECT_MEMORY3_TRUSTED_SOURCE_KINDS = TRUSTED_SOURCE_KINDS;
+export const PROJECT_MEMORY3_SOURCE_LIMITS = Object.freeze({
+  evidenceBytes: MAX_EVIDENCE_BYTES,
+  factBytes: MAX_FACT_BYTES,
+  metadataBytes: MAX_METADATA_BYTES,
+  relationKeys: MAX_RELATION_KEYS,
+  tags: MAX_TAGS
+});

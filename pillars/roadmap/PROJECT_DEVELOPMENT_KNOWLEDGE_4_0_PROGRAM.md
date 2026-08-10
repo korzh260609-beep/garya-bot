@@ -1,9 +1,9 @@
 # SG 2.1 — PROJECT DEVELOPMENT KNOWLEDGE 4.0 PROGRAM
 
 ## Status
-Planned.
+In progress. **PDK4.1 CLOSED and CI-verified.** PDK4.2–PDK4.12 remain planned.
 
-Project Development Knowledge 4.0 (PDK4) is a new cross-cutting program built on the completed Project Memory 3.0 foundation. It does not renumber Blocks 0–19 and does not reopen PM3.1–PM3.12.
+Project Development Knowledge 4.0 (PDK4) is a cross-cutting program built on the completed Project Memory 3.0 foundation. It does not renumber Blocks 0–19 and does not reopen PM3.1–PM3.12.
 
 ## Goal
 Make SG continuously maintain an evidence-backed project biography of its own development: how ideas originated, why decisions were made, how implementation evolved, what was reworked, what failed, how it was fixed, what evidence verifies each state, what is current now and what is planned next.
@@ -13,13 +13,26 @@ PDK4 stores durable knowledge only through Project Memory 3.0 and preserves all 
 ## Canonical implementation order
 
 ### PDK4.1 — Development Knowledge Contract & Taxonomy
-- define `DevelopmentEvent` contract;
-- define canonical event types, development states and relation types;
-- define ProjectGenesis, ProductTimeline, ComponentHistory and ProjectSnapshot derived-view contracts;
-- define source identity/fingerprint rules;
-- preserve PM3 authority and trust boundaries.
+**Status: CLOSED / CI-verified.**
 
-**Gate:** contracts reject secret/authority-bearing payloads, cross-project mismatch and invalid lifecycle/state promotion.
+Implemented:
+- executable `DevelopmentEvent` contract;
+- canonical event types, development states and relation types;
+- deterministic development-source identities/fingerprints;
+- ProjectGenesis, ProductTimeline, ComponentHistory and ProjectSnapshot derived-view contracts;
+- recursive rejection of secrets, authority-bearing fields and private-user fields;
+- project-scope checks for provenance, verification and relations;
+- explicit evidence requirements preventing silent CI→deployment and deployment→live promotion;
+- explicit supersession lifecycle requirements;
+- adapter from DevelopmentEvent to an unconfirmed PM3 `project-event` candidate, preserving Project Memory 3.0 as the only durable project-memory layer.
+
+Implementation:
+- `src/projectDevelopmentKnowledge/developmentKnowledgeContract.js`
+- `src/projectDevelopmentKnowledge/index.js`
+- `tests/projectDevelopmentKnowledge4Contract.test.js`
+- `npm run test:project-development-knowledge`
+
+**Gate:** PASSED — contracts reject secret/authority/private-user payloads, cross-project mismatch, unsupported taxonomy and invalid/evidence-free lifecycle/state promotion. Full `npm run check` passed in SG 2.1 CI #7045.
 
 ### PDK4.2 — GitHub Historical Scanner & Durable Cursor
 - scan the full relevant repository history from earliest verifiable evidence;

@@ -72,7 +72,8 @@ export function createTrustedProjectEvent(input = {}) {
     evidence,
     candidate
   };
-  return Object.freeze({ ...event, idempotencyKey: `pm3-source:${hash(event)}` });
+  const sourceIdentity = { projectKey, sourceKind, sourceRef, sourceEventId, occurredAt, evidence };
+  return Object.freeze({ ...event, idempotencyKey: `pm3-source:${hash(sourceIdentity)}` });
 }
 
 export function createGitHubCommitVerifier({ fetchImpl = globalThis.fetch, allowedRepositories = [] } = {}) {
@@ -86,6 +87,9 @@ export function createGitHubCommitVerifier({ fetchImpl = globalThis.fetch, allow
       const commitSha = required(event.evidence?.commitSha, 'evidence.commitSha').toLowerCase();
       if (!/^[a-f0-9]{40}$/.test(commitSha)) throw sourceError('evidence.commitSha must be a full immutable Git SHA', 'project-memory-source-verification-failed');
       if (allowed.size > 0 && !allowed.has(repository)) throw sourceError(`GitHub repository is not approved: ${repository}`);
+
+      const canonicalRef = `github:${repository}@${commitSha}`;
+      if (event.sourceRef !== canonicalRef) throw sourceError('GitHub sourceRef does not match repository and immutable commit SHA', 'project-memory-source-verification-failed');
 
       const response = await fetchImpl(`https://api.github.com/repos/${repository}/commits/${commitSha}`, {
         headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'sg-2.1-project-memory' }
@@ -102,7 +106,7 @@ export function createGitHubCommitVerifier({ fetchImpl = globalThis.fetch, allow
         sourceKind: 'github',
         repository,
         commitSha,
-        sourceRef: `github:${repository}@${commitSha}`,
+        sourceRef: canonicalRef,
         sourceEventId: event.sourceEventId,
         verifiedAt: new Date().toISOString(),
         evidence: Object.freeze({ repository, commitSha, htmlUrl, committedAt })

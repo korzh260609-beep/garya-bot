@@ -3,8 +3,8 @@
 ## Status
 Implementation in progress.
 
-Closed stages: **PM3.1, PM3.2, PM3.3, PM3.4, PM3.5, PM3.6, PM3.7, PM3.8, PM3.9**.
-Next stage: **PM3.10 — Decision & Incident Memory**.
+Closed stages: **PM3.1, PM3.2, PM3.3, PM3.4, PM3.5, PM3.6, PM3.7, PM3.8, PM3.9, PM3.10**.
+Next stage: **PM3.11 — Diagnostics & Observability**.
 
 Project Memory 3.0 specializes the completed Memory 2.0 `Project Memory` domain. It does not renumber Blocks 0–19 and must not replace System Self Knowledge, Conversation Context, Identity/Scope, Action Gate, Resource Authority, PostgreSQL persistence or Universal Diagnostics.
 
@@ -102,6 +102,8 @@ Deliver a production Project Memory that automatically captures only policy-appr
 - structured architectural/project decisions with rationale and supersession;
 - structured incidents with symptom, evidence-confirmed root cause, fix and status;
 - historical incident similarity may guide but never prove a live diagnosis.
+
+**Status:** CLOSED. `createProjectDecision` stores bounded structured `architecture-decision` facts in the canonical decisions namespace with explicit decision, rationale, alternatives, consequences, provenance, confirmation and temporal validity. `createProjectIncident` stores structured incident facts with status, symptom, affected components, prevention and optional root cause/fix; a root cause is rejected unless evidence confirmation is explicit, and resolved/closed incidents require a fix. `createProjectDecisionIncidentMemory` provides authorized current-decision lookup, historical point-in-time lookup, rationale explanation and supersession-chain history using the existing PM3.6 temporal layer. Historical incident retrieval reuses PM3.7 hybrid retrieval but is intentionally returned as a separate bounded `HistoricalIncidentGuidance` view marked `advisoryOnly=true`, `provesLiveRootCause=false`, `requiresLiveVerification=true` and `modelContextEligible=false`; historical similarity can guide investigation but never becomes current diagnosis or bypasses PM3.8 current-context rules. Project/actor authorization is rechecked for each operation, authority-bearing/secret fields remain rejected by PM3.1, and no new parallel storage was introduced. PostgreSQL integration tests verify current versus historical decisions, rationale preservation, supersession history, unauthorized denial, evidence-confirmed root-cause requirements, required fixes for closed incidents and advisory-only historical incident similarity. Full migration/security/check/runtime/worker/diagnostics gate verified by SG 2.1 CI #7012 SUCCESS.
 
 **Gate:** SG can answer both “what is the current decision?” and “why was it made?” while preserving old decisions/incidents as history.
 

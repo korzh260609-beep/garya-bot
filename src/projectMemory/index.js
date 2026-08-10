@@ -47,3 +47,8 @@ export {
   PROJECT_MEMORY3_CONTEXT_GUARD_CONTRACT_VERSION,
   createProjectMemoryContextGuard
 } from './contextGuard.js';
+export {
+  PROJECT_MEMORY3_AI_ROUTER_INTEGRATION_CONTRACT_VERSION,
+  PROJECT_MEMORY3_AI_ASSISTANCE_OPERATIONS,
+  createProjectMemoryAIRouterIntegration
+} from './aiRouterIntegration.js';

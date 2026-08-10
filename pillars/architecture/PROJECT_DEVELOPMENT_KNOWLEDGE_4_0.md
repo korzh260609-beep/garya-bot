@@ -1,12 +1,12 @@
 # SG 2.1 — PROJECT DEVELOPMENT KNOWLEDGE 4.0 CANONICAL ARCHITECTURE
 
 ## Status
-In progress. **PDK4.1–PDK4.8 CLOSED and CI-verified.** PDK4.9–PDK4.12 remain planned.
+In progress. **PDK4.1–PDK4.9 CLOSED and CI-verified.** PDK4.10–PDK4.12 remain planned.
 
 Project Development Knowledge 4.0 (PDK4) is a specialized development-history and project-evolution layer built on top of the completed Project Memory 3.0 program. It is not a parallel memory system and does not replace Memory 2.0, Project Memory 3.0, System Self Knowledge, Universal Diagnostics, Identity/Scope, Owner Security, Action Gate, Resource Authority, PostgreSQL persistence or AI Router.
 
 ## Implemented foundation
-PDK4.1 provides the executable development-event/taxonomy and derived-view contracts. PDK4.2 provides bounded historical GitHub commit scanning with a project/repository/source-scoped PostgreSQL cursor and separate processed-source bookkeeping. Cursor advancement and processed-source recording are transactional; restart resumes from the last committed cursor and replay is idempotent. PDK4.3 provides bounded read-only normalization and immutable verification for GitHub commits/diffs, pull requests, workflow/CI runs and canonical repository files. Source text is secret-redacted and marked `untrusted-data-only`; commits/PRs provide code evidence, successful workflows provide CI evidence, canonical documents provide source evidence only, and deployment/runtime evidence remains unavailable without a real approved connector. PDK4.4 provides deterministic significance filtering over those verified normalized envelopes, suppresses generated/formatting/trivial churn, retains material development evidence, treats workflow runs as supporting evidence rather than standalone product changes, and uses bounded AI Router assistance only for ambiguous classification. PDK4.5 converts only event-eligible verified evidence into bounded provenance-backed DevelopmentEvents and unverified/proposed PM3 candidates; model assistance is Router-only and cannot promote evidence state, confirm facts, write Project Memory or grant authority. PDK4.6 deterministically clusters compatible extracted events into bounded milestone candidates while preserving every atomic event and provenance source, keeps hard project/domain/component/time separation, attaches explicit supporting evidence only through known atomic-event links, and permits Router assistance only for ambiguous merge/split decisions. PDK4.7 deterministically rebuilds ProjectGenesis, ProductTimeline, ComponentHistory views and development phases from complete PDK4.5/PDK4.6 evidence, preserves superseded historical truth, and explicitly distinguishes earliest verified evidence from an exact project creation date. PDK4.8 deterministically links bounded temporal/causal relations and reconciles source/roadmap-plan, code, test/CI, deployment and runtime evidence while preserving state separation and emitting explicit non-authoritative knowledge gaps for missing or contradictory evidence. None of PDK4.1–PDK4.8 creates accepted Project Memory facts directly.
+PDK4.1 provides the executable development-event/taxonomy and derived-view contracts. PDK4.2 provides bounded historical GitHub commit scanning with a project/repository/source-scoped PostgreSQL cursor and separate processed-source bookkeeping. Cursor advancement and processed-source recording are transactional; restart resumes from the last committed cursor and replay is idempotent. PDK4.3 provides bounded read-only normalization and immutable verification for GitHub commits/diffs, pull requests, workflow/CI runs and canonical repository files. Source text is secret-redacted and marked `untrusted-data-only`; commits/PRs provide code evidence, successful workflows provide CI evidence, canonical documents provide source evidence only, and deployment/runtime evidence remains unavailable without a real approved connector. PDK4.4 provides deterministic significance filtering over those verified normalized envelopes, suppresses generated/formatting/trivial churn, retains material development evidence, treats workflow runs as supporting evidence rather than standalone product changes, and uses bounded AI Router assistance only for ambiguous classification. PDK4.5 converts only event-eligible verified evidence into bounded provenance-backed DevelopmentEvents and unverified/proposed PM3 candidates; model assistance is Router-only and cannot promote evidence state, confirm facts, write Project Memory or grant authority. PDK4.6 deterministically clusters compatible extracted events into bounded milestone candidates while preserving every atomic event and provenance source, keeps hard project/domain/component/time separation, attaches explicit supporting evidence only through known atomic-event links, and permits Router assistance only for ambiguous merge/split decisions. PDK4.7 deterministically rebuilds ProjectGenesis, ProductTimeline, ComponentHistory views and development phases from complete PDK4.5/PDK4.6 evidence, preserves superseded historical truth, and explicitly distinguishes earliest verified evidence from an exact project creation date. PDK4.8 deterministically links bounded temporal/causal relations and reconciles source/roadmap-plan, code, test/CI, deployment and runtime evidence while preserving state separation and emitting explicit non-authoritative knowledge gaps for missing or contradictory evidence. PDK4.9 adds durable incremental GitHub ingestion after completed historical bootstrap, anchors the incremental cursor to the last immutable historical commit SHA, treats webhook/event delivery as trigger-only, re-verifies unseen commits through the existing source boundary, keeps retry/replay idempotent across PostgreSQL restart and prevents suppressed changes or model output from becoming confirmed Project Memory truth. None of PDK4.1–PDK4.9 creates accepted Project Memory facts directly.
 
 ## Purpose
 PDK4 gives SG durable, evidence-backed knowledge of its own development as a product and project:
@@ -316,6 +316,23 @@ Evidence reconciliation preserves independent source/roadmap-plan, code, test, C
 
 Every DevelopmentKnowledgeGap has a deterministic identity, remains open/derived-only, and is exposed only as an unverified, unconfirmed, proposed gap candidate. Reconciliation cannot grant trust, confirmation, identity, ownership, permissions or authority and has no direct Project Memory mutation path. A deterministic reconciliation fingerprint covers the ordered source event fingerprints, PDK4.6 clustering fingerprint, PDK4.7 reconstruction fingerprint, relation ids and gap ids so replay/input order cannot silently change reconciled history.
 
+### PDK4.9 continuous GitHub ingestion contract
+PDK4.9 operates only after the project/repository-specific PDK4.2 GitHub historical cursor is complete. Its bootstrap anchor must be the canonical `github:<repository>:commit:<full SHA>` source identity; the immutable SHA from that identity initializes the incremental cursor so the first continuous poll starts strictly after historical bootstrap rather than from an empty cursor.
+
+The trigger surface is bounded to polling, approved webhook delivery and internal event scheduling. A webhook is only a wake-up/metadata signal: repository identity is checked, but webhook text or commit payload does not become trusted evidence. Every unseen commit is independently passed through PDK4.3 immutable verification and then the existing PDK4.4/P DK4.5 significance/extraction boundaries. Suppressed or supporting-only changes are recorded as processed source bookkeeping and advance the incremental cursor, but they cannot create DevelopmentEvents or Project Memory facts.
+
+Continuous bookkeeping is durable and separate from Project Memory facts:
+
+```text
+pdk4_continuous_ingestion_state
+pdk4_continuous_processed_sources
+pdk4_continuous_triggers
+```
+
+State is project/repository scoped. Trigger receipts use `processing`, `completed` and `failed`; completed/in-flight duplicate deliveries are ignored, while a failed trigger may retry. Processed source identities/fingerprints prevent duplicate commit processing across trigger replay and PostgreSQL restart. A source is recorded only after its bounded processing result succeeds; failures remain visible and do not fabricate cursor progress.
+
+Event-eligible output can enter Project Memory only as the existing unverified/unconfirmed PM3 candidate. Any incremental reconciliation output must remain `confirmed=false` and `authorityAllowed=false`. Authorization is checked before GitHub fetch, observability records bounded source/trigger outcomes, and invalid bootstrap anchors, bootstrap drift, cross-project/repository mismatch, source-result mismatch or attempted trust/authority promotion fail closed. PDK4.9 adds no direct provider/AI path: any model assistance remains inside PDK4.4/PDK4.5 AI Router contracts.
+
 ## Project Genesis
 PDK4 maintains a derived ProjectGenesis view containing bounded evidence-backed fields such as:
 
@@ -372,24 +389,26 @@ PDK4.7 reconstructs complementary rebuildable views:
 Historical facts remain queryable after supersession and are not deleted. PDK4.7 does not infer an exact creation date from an earliest commit/evidence point, and it does not independently decide current truth; later PM3 retrieval/Context Guard and PDK4 reconciliation/current-snapshot stages remain responsible for current-state semantics.
 
 ## Continuous Development Ingestion
-After Historical Bootstrap reaches the current verified cursor, PDK4 switches to incremental processing.
+PDK4.9 implements the transition from one-time historical reconstruction to restart-safe incremental processing.
 
 ```text
-new source event
-→ verify
-→ classify significance
-→ normalize/extract
-→ correlate with existing project knowledge
-→ deduplicate
-→ detect conflict/supersession
-→ PM3 candidate/confirmation pipeline
-→ update timeline/component history/snapshot
-→ advance durable cursor
+completed PDK4.2 cursor
+→ immutable bootstrap SHA
+→ authorized bounded trigger
+→ durable incremental cursor
+→ unseen GitHub commit identities only
+→ PDK4.3 immutable verification
+→ PDK4.4 significance classification
+→ non-event bookkeeping OR PDK4.5 extraction
+→ unconfirmed PM3 candidate
+→ bounded reconciliation update
+→ durable source/cursor commit
+→ completed trigger receipt
 ```
 
-The cursor must be durable and repository/source scoped. Replay is idempotent.
+The incremental cursor is durable and repository/source scoped. Replay is idempotent. A failed trigger can retry; a completed trigger/source cannot duplicate processing. Suppressed/non-event commits are still remembered as processed bookkeeping so polling cannot loop on them, but they never become durable project facts.
 
-Continuous ingestion may be triggered by approved GitHub webhook/event delivery or bounded polling/worker scheduling. The trigger mechanism must not bypass External Connections Registry, Resource Authority, secrets policy, Owner Security or observability.
+Continuous ingestion may be triggered by approved GitHub webhook/event delivery or bounded polling/worker scheduling. The trigger mechanism does not bypass External Connections Registry, Resource Authority, secrets policy, Owner Security or observability, and webhook payloads never replace immutable GitHub verification.
 
 ## Reconciliation Engine
 PDK4.8 implements deterministic reconciliation of independent evidence surfaces without silently promoting state.
@@ -513,7 +532,7 @@ AI cannot:
 - bypass PM3 storage/contracts;
 - call providers directly.
 
-PDK4.7 historical reconstruction and PDK4.8 temporal/causal reconciliation themselves do not call AI; this prevents model summarization from manufacturing genesis/history/causal facts or evidence states.
+PDK4.7 historical reconstruction and PDK4.8 temporal/causal reconciliation themselves do not call AI; this prevents model summarization from manufacturing genesis/history/causal facts or evidence states. PDK4.9 adds no direct model call and only reuses the existing PDK4.4/PDK4.5 Router-controlled assistance paths.
 
 ## Cost controls
 Historical Bootstrap must not send every commit blindly to a reasoning model.
@@ -540,7 +559,7 @@ workflow = repository + workflow run id + attempt
 canonical document = repository + path + revision SHA
 ```
 
-Replay must not duplicate Project Memory facts or advance trust. PDK4.6 additionally derives deterministic cluster and aggregate fingerprints from ordered atomic semantic fingerprints plus attached supporting-source fingerprints; replay cannot use clustering to confirm facts or change trust. PDK4.7 derives a deterministic reconstruction fingerprint from ordered atomic semantic fingerprints, cluster fingerprints and timeline milestone ids; input ordering cannot alter the resulting historical identity. PDK4.8 derives deterministic relation/gap identities and a reconciliation fingerprint from the validated PDK4.5/PDK4.6/PDK4.7 evidence identity plus ordered relation/gap ids; replay or input ordering cannot silently promote or rewrite reconciliation state.
+Replay must not duplicate Project Memory facts or advance trust. PDK4.6 additionally derives deterministic cluster and aggregate fingerprints from ordered atomic semantic fingerprints plus attached supporting-source fingerprints; replay cannot use clustering to confirm facts or change trust. PDK4.7 derives a deterministic reconstruction fingerprint from ordered atomic semantic fingerprints, cluster fingerprints and timeline milestone ids; input ordering cannot alter the resulting historical identity. PDK4.8 derives deterministic relation/gap identities and a reconciliation fingerprint from the validated PDK4.5/PDK4.6/PDK4.7 evidence identity plus ordered relation/gap ids; replay or input ordering cannot silently promote or rewrite reconciliation state. PDK4.9 additionally binds incremental processing to the full immutable commit SHA, persistent processed-source fingerprint and trigger id; restart/retry cannot reprocess a completed source or advance trust, while a failed trigger remains retryable without inventing cursor progress.
 
 ## Observability and diagnostics
 PDK4 must expose bounded secret-safe diagnostics including at least:
@@ -588,6 +607,8 @@ Diagnostics expose counts, cursors, states and bounded evidence identifiers, not
 - Temporal/causal reconciliation cannot infer stronger evidence state from weaker evidence or invent missing relation targets.
 - DevelopmentKnowledgeGap output cannot self-confirm, grant authority or substitute for PM3 trust/confirmation.
 - Contradictory evidence chronology must remain visible instead of being silently reordered into consistency.
+- Continuous ingestion cannot use webhook payloads as verified truth, cannot start from an unanchored null cursor after bootstrap, and cannot let failed/duplicate triggers fabricate source progress.
+- Suppressed incremental commits may advance bookkeeping only; they cannot create DevelopmentEvents or PM3 facts.
 
 ## Acceptance definition
 PDK4 is DONE only when code, tests, CI and production evidence prove that SG can:

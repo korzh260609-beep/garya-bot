@@ -20,6 +20,7 @@
     "test:workers": "node --test tests/durableWorkers.test.js",
     "test:render": "node --test tests/renderDeployment.test.js",
     "test:diagnostics": "node --test tests/universalDiagnostics.test.js",
+    "test:e2e": "node --test --test-concurrency=1 tests/e2eVerification.test.js",
     "check:syntax": "find src tests -name '*.js' -print0 | xargs -0 -n1 node --check",
     "check": "npm run check:syntax && npm test"
   },

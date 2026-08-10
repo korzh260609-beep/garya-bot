@@ -16,6 +16,7 @@ export {
 export { createPostgresProjectMemoryStore } from './postgresProjectMemoryStore.js';
 export {
   PROJECT_MEMORY3_TRUSTED_SOURCE_KINDS,
+  PROJECT_MEMORY3_SOURCE_LIMITS,
   createTrustedProjectEvent,
   createGitHubCommitVerifier,
   createProjectMemoryIngestionBoundary

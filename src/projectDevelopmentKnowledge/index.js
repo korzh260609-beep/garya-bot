@@ -63,3 +63,14 @@ export {
   PDK4_KNOWLEDGE_GAP_TYPES,
   createTemporalCausalReconciler
 } from './temporalCausalReconciliation.js';
+export {
+  PDK4_CONTINUOUS_INGESTION_CONTRACT_VERSION,
+  PDK4_CONTINUOUS_INGESTION_LIMITS,
+  PDK4_CONTINUOUS_TRIGGER_TYPES,
+  createContinuousGitHubIngestion
+} from './continuousGitHubIngestion.js';
+export { createPostgresContinuousIngestionStore } from './postgresContinuousIngestionStore.js';
+export {
+  PDK4_INCREMENTAL_PROCESSOR_CONTRACT_VERSION,
+  createIncrementalDevelopmentKnowledgeProcessor
+} from './incrementalDevelopmentKnowledgeProcessor.js';

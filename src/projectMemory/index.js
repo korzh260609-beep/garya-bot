@@ -39,3 +39,7 @@ export {
   PROJECT_MEMORY3_TEMPORAL_CONTRACT_VERSION,
   createProjectMemoryTemporalHistory
 } from './temporalHistory.js';
+export {
+  PROJECT_MEMORY3_RETRIEVAL_CONTRACT_VERSION,
+  createProjectMemoryHybridRetrieval
+} from './hybridRetrieval.js';

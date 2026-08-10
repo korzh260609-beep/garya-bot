@@ -35,3 +35,7 @@ export {
   evaluateProjectMemoryConflictResolution,
   createProjectMemoryDedupConflictResolver
 } from './deduplicationConflictResolver.js';
+export {
+  PROJECT_MEMORY3_TEMPORAL_CONTRACT_VERSION,
+  createProjectMemoryTemporalHistory
+} from './temporalHistory.js';

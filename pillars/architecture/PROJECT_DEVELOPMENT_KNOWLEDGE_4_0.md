@@ -1,9 +1,12 @@
 # SG 2.1 — PROJECT DEVELOPMENT KNOWLEDGE 4.0 CANONICAL ARCHITECTURE
 
 ## Status
-Planned.
+In progress. **PDK4.1–PDK4.2 CLOSED and CI-verified.** PDK4.3–PDK4.12 remain planned.
 
 Project Development Knowledge 4.0 (PDK4) is a specialized development-history and project-evolution layer built on top of the completed Project Memory 3.0 program. It is not a parallel memory system and does not replace Memory 2.0, Project Memory 3.0, System Self Knowledge, Universal Diagnostics, Identity/Scope, Owner Security, Action Gate, Resource Authority, PostgreSQL persistence or AI Router.
+
+## Implemented foundation
+PDK4.1 provides the executable development-event/taxonomy and derived-view contracts. PDK4.2 provides bounded historical GitHub commit scanning with a project/repository/source-scoped PostgreSQL cursor and separate processed-source bookkeeping. Cursor advancement and processed-source recording are transactional; restart resumes from the last committed cursor and replay is idempotent. PDK4.2 does not create accepted Project Memory facts directly: normalization, verification, extraction and PM3 candidate creation remain later-stage responsibilities.
 
 ## Purpose
 PDK4 gives SG durable, evidence-backed knowledge of its own development as a product and project:
@@ -223,6 +226,16 @@ repository history
 The scanner must process history in bounded batches with durable checkpoints. Restart resumes from the last committed checkpoint rather than rescanning or duplicating accepted events.
 
 Historical Bootstrap should search the full relevant repository history, not only recent commits. If exact project creation date is not verifiable, PDK4 records the earliest verified evidence rather than inventing an exact genesis date.
+
+### PDK4.2 cursor/bookkeeping contract
+The implemented scanner persists source-processing state separately from project knowledge:
+
+```text
+pdk4_history_cursors
+pdk4_processed_sources
+```
+
+The cursor key is `(project, source kind, source scope/repository)`. A batch is committed only after every source selected for that batch has completed the stage callback. Processed-source rows and cursor advancement are written in one PostgreSQL transaction. A failure before that transaction leaves the previous cursor authoritative. Replaying a completed source identity does not duplicate bookkeeping. This bookkeeping proves scan continuity only; it does not itself assert that any development fact is verified or accepted.
 
 ## Project Genesis
 PDK4 maintains a derived ProjectGenesis view containing bounded evidence-backed fields such as:

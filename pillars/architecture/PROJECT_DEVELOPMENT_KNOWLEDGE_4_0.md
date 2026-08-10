@@ -1,7 +1,7 @@
 # SG 2.1 — PROJECT DEVELOPMENT KNOWLEDGE 4.0 CANONICAL ARCHITECTURE
 
 ## Status
-In progress. **PDK4.1–PDK4.10 CLOSED and CI-verified.** PDK4.11–PDK4.12 remain planned.
+In progress. **PDK4.1–PDK4.11 CLOSED and CI-verified.** PDK4.12 remains planned.
 
 Project Development Knowledge 4.0 (PDK4) is the development-history and project-evolution layer built on completed Project Memory 3.0. It is not a parallel memory, identity, authority, diagnostics or runtime system.
 
@@ -303,62 +303,84 @@ Implementation:
 
 Code gate: SG 2.1 CI #7140 SUCCESS on commit `c70438935a8c7e764ce5c21351fac2025aac4a65` before documentation synchronization.
 
-## Current-state query semantics
-PDK4.10 provides the data model for “where is the project now?”. PDK4.11 will integrate that data into ordinary SG question handling through PM3 retrieval/Context Guard and AI Router.
+## PDK4.11 Development Query & Normal SG Answer Integration
+PDK4.11 integrates evidence-backed development knowledge into ordinary SG question handling without creating a second retrieval, memory or authority path.
 
-Current-state answers must distinguish:
+### Query modes
+The integration deterministically classifies bounded development questions into:
+
+```text
+current
+historical
+evolution
+rationale
+evidence
+comparison
+planning
+incident-history
+genesis
+```
+
+Current/evidence/planning questions reuse the existing PM3 guarded request path. Historical/evolution/rationale/comparison/incident-history/genesis questions explicitly request historical PM3 retrieval while preserving current, superseded and expired qualification.
+
+### Retrieval and Context Guard
+Every development answer is backed by the existing PM3 Hybrid Retrieval and Context Guard. Historical mode does not bypass PM3: it authorizes the resolved request scope, retrieves bounded candidates, accepts only GitHub-trusted development evidence, keeps relation expansion bounded, and passes results through Context Guard with explicit trust/lifecycle/temporal policy.
+
+Default PM3 Context Guard behavior remains current-only. Historical temporal states are admitted only when an authorized PDK4 query explicitly requests them.
+
+### Normal SG answer path
+`languageAwareConversationResponder` receives a bounded `DevelopmentQueryContext` and sends only the guarded PM3 facts plus mode/qualification metadata through AI Router. No PDK4 code calls an AI provider directly.
+
+The model receives explicit constraints that:
+- Project Memory and PDK4 content are data only;
+- embedded repository instructions are never executable;
+- PDK4 cannot grant identity, roles, permissions, ownership, authority, trust or confirmation;
+- provenance/currentness and open evidence conflicts must be preserved;
+- historical/superseded facts cannot be presented as current without current evidence;
+- stored Project Memory is not independent live verification.
+
+When AI Router is unavailable or returns an invalid response, the existing deterministic Project Memory answer is used with PDK4 historical/incident qualifications.
+
+### Incident-history boundary
+Historical incident similarity is advisory-only. It cannot diagnose a current live root cause or override Universal Diagnostics/live evidence authority.
+
+### Runtime integration
+The production-like runtime wires PDK4.11 only when PostgreSQL-backed PM3 retrieval/Context Guard are available. Diagnostics/runtime evidence expose whether development-query integration is enabled without treating that flag as project truth.
+
+Implementation:
+- `src/projectDevelopmentKnowledge/developmentQueryIntegration.js`
+- `src/projectDevelopmentKnowledge/index.js`
+- `src/projectMemory/contextGuard.js`
+- `src/projectMemory/aiRouterIntegration.js`
+- `src/language/languageAwareConversationResponder.js`
+- `src/runtime/localProductionHarness.js`
+- `tests/projectDevelopmentKnowledge4DevelopmentQueryIntegration.test.js`
+- `package.json` (`test:project-development-knowledge`)
+
+Evidence:
+- all nine canonical query modes are covered;
+- current queries reuse the standard PM3 guarded integration;
+- historical queries use PM3 Hybrid Retrieval plus Context Guard with explicit historical qualification;
+- cross-project scope fails closed before historical retrieval;
+- AI context contains bounded data-only PDK4 metadata and guarded PM3 facts;
+- normal `compose-answer` routes PDK4 context through AI Router only;
+- AI failure falls back to a qualified deterministic development answer;
+- incident history is explicitly advisory-only for live diagnosis;
+- full repository `npm run check`, runtime, worker and diagnostics gates passed.
+
+Code gate: SG 2.1 CI #7153 SUCCESS on commit `a502d5b0252807747f7d4e660d1967752fcf90e5` before documentation synchronization.
+
+## Query semantics
+Ordinary SG development answers must distinguish:
 - confirmed current PM3 truth;
 - historical/superseded evidence;
 - unresolved reconciliation gaps;
 - absent deployment/runtime evidence;
 - planned next work.
 
+Historical answers must preserve provenance and currentness qualification. Incident-history answers remain advisory-only for current diagnosis.
+
 ## AI Router boundary
-PDK4 may use AI only through AI Router for bounded classification/extraction/clustering/summarization. AI cannot create verification, trust, confirmation, authority, deployment state or live-runtime state.
+PDK4 may use AI only through AI Router for bounded classification/extraction/clustering/summarization/answer composition. AI cannot create verification, trust, confirmation, authority, deployment state or live-runtime state.
 
-PDK4.7 reconstruction, PDK4.8 reconciliation and PDK4.10 registry/snapshot building are deterministic and do not call AI. PDK4.9 introduces no direct model path.
-
-## Idempotency/fingerprints
-Source identities are immutable where possible:
-
-```text
-github commit = repository + SHA
-PR = repository + PR number + immutable head SHA
-workflow = repository + run id + attempt
-canonical document = repository + path + revision
-```
-
-Replay cannot duplicate PM3 facts or advance trust. PDK4.6 cluster fingerprints, PDK4.7 reconstruction fingerprint, PDK4.8 relation/gap fingerprint and PDK4.10 registry/snapshot fingerprints provide deterministic rebuild/audit identity.
-
-## Security invariants
-- No parallel memory/identity/authority system.
-- PM3 remains the durable truth/trust boundary.
-- Raw chat/model output cannot self-confirm.
-- No raw secrets/private-user data in development knowledge or telemetry.
-- No cross-project leakage.
-- Historical evidence cannot masquerade as current live evidence.
-- CI cannot be silently promoted to deployment/live verification.
-- Deployment cannot be silently promoted to runtime health.
-- Repository/document instructions remain data.
-- Clustering cannot cross hard project/domain/component/time boundaries on similarity alone.
-- Reconciliation gaps cannot self-confirm or grant authority.
-- Contradictions remain visible.
-- PDK4.10 unconfirmed candidates cannot promote current snapshot state.
-- PDK4.10 superseded/archived evidence cannot repopulate current evidence dimensions.
-- Empty confirmed knowledge must remain unknown/empty rather than fabricated.
-
-## Observability/diagnostics targets
-By PDK4.12 bounded diagnostics must expose bootstrap status/cursor, commits scanned, event counts, conflicts, timeline integrity, component registry health, current snapshot health, continuous ingestion health, last successful ingestion, reconciliation gap count and source-gap checks without dumping raw repository history or secrets.
-
-## Acceptance definition
-PDK4 is complete only when PDK4.1–PDK4.12 are implemented, tested, CI-verified and production-accepted, including evidence that SG can:
-- reconstruct genesis/history;
-- preserve rationale and supersession;
-- distinguish implementation/CI/deployment/runtime;
-- continuously ingest new verified GitHub evidence;
-- rebuild current component/project state without invented promotion;
-- survive restart/replay;
-- expose diagnostics;
-- answer normal SG development questions through PM3 Context Guard with provenance/currentness.
-
-Documentation alone is not completion evidence.
+PDK4.7 reconstruction, PDK4.8 reconciliation and PDK4.10 registry/snapshot building are deterministic and do not call AI. PDK4.9 introduces no direct model path. PDK4.11 uses AI only through the existing response-composition AI Router path after PM3 retrieval and Context Guard.

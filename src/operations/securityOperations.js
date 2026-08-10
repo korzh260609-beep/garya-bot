@@ -1,5 +1,5 @@
 const SECRET_KEY = /(?:token|secret|password|api[_-]?key|private[_-]?key|credential)/i;
-const SECRET_VALUE = /(?:sk-[A-Za-z0-9_-]{20,}|\b\d{6,12}:[A-Za-z0-9_-]{20,}|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|postgres(?:ql)?:\/\/[^\s:@]+:[^\s@]+@)/i;
+const SECRET_VALUE = /(?:\bsk-[A-Za-z0-9_-]{20,}|\b\d{6,12}:[A-Za-z0-9_-]{20,}|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|postgres(?:ql)?:\/\/[^\s:@]+:[^\s@]+@)/i;
 
 function integer(value, fallback, name, min = 1) {
   const parsed = Number(value ?? fallback);

@@ -60,3 +60,8 @@ export {
   createProjectIncident,
   createProjectDecisionIncidentMemory
 } from './decisionIncidentMemory.js';
+export {
+  PROJECT_MEMORY3_DIAGNOSTICS_CONTRACT_VERSION,
+  PROJECT_MEMORY3_DIAGNOSTIC_CHECKS,
+  createProjectMemoryDiagnostics
+} from './diagnosticsObservability.js';

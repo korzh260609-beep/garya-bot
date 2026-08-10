@@ -4,6 +4,8 @@ Roadmap defines what is built, dependency order, gates and acceptance boundaries
 
 Memory 2.0 is a completed cross-cutting memory program documented separately in `MEMORY_2_0_ROADMAP.md`. It extends the existing Context/Memory foundation without changing the numbered production order.
 
+Project Memory 3.0 is a planned specialized cross-cutting program documented in `PROJECT_MEMORY_3_0_PROGRAM.md`. It strengthens only the Memory 2.0 `Project Memory` domain and does not renumber Blocks 0–19.
+
 Universal Diagnostics is a separate planned cross-cutting diagnostic program documented in `UNIVERSAL_DIAGNOSTICS_PROGRAM.md`. It is implemented as an independent observer application around SG, not as a new core layer and not as a renumbering of Blocks 0–19.
 
 Block 8.1 is a production extension of completed Block 8 Interfaces. It adds the real Discord production transport on top of the existing Discord adapter contract and does not renumber Blocks 9–19.
@@ -47,7 +49,8 @@ Block 8.1 is a production extension of completed Block 8 Interfaces. It adds the
 35. `18_END_TO_END_VERIFICATION.md` — completed Block 18 implementation and acceptance evidence
 36. `19_SECURITY_AND_OPERATIONS.md` — completed Block 19 implementation and acceptance evidence
 37. `MEMORY_2_0_ROADMAP.md` — completed cross-cutting Memory 2.0 M1–M9 program
-38. `UNIVERSAL_DIAGNOSTICS_PROGRAM.md` — planned cross-cutting Universal Diagnostics D1–D12 program
+38. `PROJECT_MEMORY_3_0_PROGRAM.md` — planned specialized Project Memory 3.0 PM3.1–PM3.12 program
+39. `UNIVERSAL_DIAGNOSTICS_PROGRAM.md` — planned cross-cutting Universal Diagnostics D1–D12 program
 
 ## Block 8.1 — Discord Transport Integration
 
@@ -87,6 +90,20 @@ Detailed completion evidence: `MEMORY_2_0_ROADMAP.md`.
 Architecture: `../architecture/MEMORY_2_0.md`.
 Workflow: `../workflow/MEMORY_2_0_WORKFLOW.md`.
 
+## Project Memory 3.0
+
+**Status: Planned and canonically specified.**
+
+Canonical implementation order:
+
+`PM3.1 Project Fact Contract & Namespaces → PM3.2 Durable PostgreSQL Store → PM3.3 Trusted Source Ingestion → PM3.4 Candidate/Confirmation/Monarch Control → PM3.5 Deduplication & Conflict Resolver → PM3.6 Temporal History & Supersession → PM3.7 Hybrid Retrieval & pgvector → PM3.8 Project Memory Context Guard → PM3.9 AI Router Integration → PM3.10 Decision & Incident Memory → PM3.11 Diagnostics & Observability → PM3.12 Production E2E & Live Acceptance`.
+
+Project Memory 3.0 remains inside the Memory 2.0 Project Memory domain. It must not create a parallel memory/authority system, cannot auto-confirm raw chat/model output, and cannot claim Render as a live trusted source until a real Render Connector exists and is verified.
+
+Detailed specification: `PROJECT_MEMORY_3_0_PROGRAM.md`.
+Architecture: `../architecture/PROJECT_MEMORY_3_0.md`.
+Workflow: `../workflow/PROJECT_MEMORY_3_0_WORKFLOW.md`.
+
 ## Universal Diagnostics
 
 **Status: Planned and architecturally specified.**
@@ -103,7 +120,7 @@ Workflow: `../workflow/UNIVERSAL_DIAGNOSTICS_WORKFLOW.md`.
 
 ## Production continuation
 
-`PRODUCTION_ROADMAP.md` remains the canonical numbered continuation after Block 10. Memory 2.0 and Universal Diagnostics are separate cross-cutting programs and do not renumber Blocks 11–19. Block 8.1 remains an extension of Block 8 rather than a renumbering of that continuation.
+`PRODUCTION_ROADMAP.md` remains the canonical numbered continuation after Block 10. Memory 2.0, Project Memory 3.0 and Universal Diagnostics are separate cross-cutting programs and do not renumber Blocks 11–19. Block 8.1 remains an extension of Block 8 rather than a renumbering of that continuation.
 
 Each production block/program stage must still be independently verifiable, reversible and completed through code, tests, documentation, CI and runtime evidence.
 

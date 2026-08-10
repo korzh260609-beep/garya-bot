@@ -3,8 +3,8 @@
 ## Status
 Implementation in progress.
 
-Closed stages: **PM3.1, PM3.2, PM3.3, PM3.4, PM3.5, PM3.6**.
-Next stage: **PM3.7 — Hybrid Retrieval & pgvector**.
+Closed stages: **PM3.1, PM3.2, PM3.3, PM3.4, PM3.5, PM3.6, PM3.7**.
+Next stage: **PM3.8 — Project Memory Context Guard**.
 
 Project Memory 3.0 specializes the completed Memory 2.0 `Project Memory` domain. It does not renumber Blocks 0–19 and must not replace System Self Knowledge, Conversation Context, Identity/Scope, Action Gate, Resource Authority, PostgreSQL persistence or Universal Diagnostics.
 
@@ -74,6 +74,8 @@ Deliver a production Project Memory that automatically captures only policy-appr
 - bounded relation expansion;
 - rank by relevance + exact match + trust + confirmation + freshness + scope specificity;
 - do not introduce a second vector database without later architecture approval.
+
+**Status:** CLOSED. Project/authorization checks run before candidate retrieval and embedding mutation. Metadata prefiltering covers project, namespace, entity, fact type, lifecycle, status and temporal view. Exact/lexical and semantic scores are combined with trust, confirmation, freshness and scope specificity under bounded candidate/result limits. Embeddings are stored durably in PostgreSQL; when the `vector` extension is already enabled the pgvector cosine-distance path is used, otherwise retrieval falls back deterministically to PostgreSQL array storage plus bounded cosine scoring without introducing a second vector database. Relation expansion is project-scoped, filter-preserving and bounded. Embedding generation itself remains outside this stage and must later enter through AI Router in PM3.9. PostgreSQL integration tests verify exact retrieval, semantic ranking, temporal retrieval, relation expansion, authorization denial and cross-project isolation. Full migration/security/check/runtime/worker/diagnostics gate verified by SG 2.1 CI #6990 SUCCESS.
 
 **Gate:** semantic and exact retrieval both work and never bypass authorization.
 

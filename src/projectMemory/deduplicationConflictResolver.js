@@ -113,7 +113,12 @@ export function createProjectMemoryDedupConflictResolver({ store, database, owne
   async function ingest(input) {
     const candidate = normalizeCandidate(input);
     const keys = createProjectMemoryDedupKeys(candidate);
-    const lockIdentity = `${candidate.projectKey}\u0000${candidate.namespace}\u0000${candidate.factType}\u0000${candidate.entityKey}`;
+    const lockIdentity = `pm3.5:${hash({
+      projectKey: candidate.projectKey,
+      namespace: candidate.namespace,
+      factType: candidate.factType,
+      entityKey: candidate.entityKey
+    })}`;
 
     return database.transaction(async (tx) => {
       await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))', [lockIdentity]);

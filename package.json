@@ -21,7 +21,7 @@
     "test:render": "node --test tests/renderDeployment.test.js",
     "test:diagnostics": "node --test tests/universalDiagnostics.test.js",
     "test:e2e": "node --test --test-concurrency=1 tests/e2eVerification.test.js",
-    "test:project-memory": "node --test --test-concurrency=1 tests/projectMemory3Contract.test.js tests/projectMemory3Postgres.test.js tests/projectMemory3TrustedSource.test.js tests/projectMemory3ConfirmationControl.test.js tests/projectMemory3DedupConflict.test.js",
+    "test:project-memory": "node --test --test-concurrency=1 tests/projectMemory3Contract.test.js tests/projectMemory3Postgres.test.js tests/projectMemory3TrustedSource.test.js tests/projectMemory3ConfirmationControl.test.js tests/projectMemory3DedupConflict.test.js tests/projectMemory3TemporalHistory.test.js",
     "test:security-ops": "node --test --test-concurrency=1 tests/securityOperations.test.js tests/securityOperationsPostgres.test.js tests/telegramWebhookSecurity.test.js",
     "security:scan": "node scripts/securityCheck.js",
     "security:audit": "npm audit --omit=dev --audit-level=high",

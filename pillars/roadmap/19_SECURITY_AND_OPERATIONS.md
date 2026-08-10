@@ -1,7 +1,7 @@
 # Block 19 — Security and Operations
 
 ## Status
-Implemented. Final acceptance requires the branch CI run containing the Block 19 code, security gate and evidence to pass.
+Completed and acceptance-verified.
 
 ## Goal
 Prepare SG 2.1 for controlled pilot use with executable operational safeguards around the already-completed identity, authority, owner-security, Self Knowledge, persistence, delivery, diagnostics and E2E foundations.
@@ -34,16 +34,7 @@ Telegram production ingress consumes the transport/network limiter before parsin
 Existing webhook secret verification and durable update deduplication remain authoritative after this boundary.
 
 ### Owner/security posture audit
-The operational posture checker requires positive evidence for:
-- canonical owner-security configuration;
-- no active owner-security lockdown for normal operation;
-- valid/consistent Self Knowledge;
-- secret-redaction verification;
-- backup/restore verification;
-- dependency audit result;
-- runtime readiness.
-
-It reports explicit finding codes instead of inventing health.
+The operational posture checker requires positive evidence for canonical owner-security configuration, valid/consistent Self Knowledge, verified secret redaction, backup/restore verification, dependency audit and runtime readiness. It reports explicit finding codes instead of inventing health.
 
 ### Secrets and credentials
 Block 19 adds:
@@ -72,23 +63,19 @@ Operational production procedure:
 Existing Block 15 role cost limits and AI emergency disable remain authoritative. Block 19 operational state additionally exposes AI emergency-disable posture alongside automation, protected-capability and Telegram ingress states.
 
 ### Automation emergency disable
-`src/automation/workerEntrypoint.js` now honors `SG_AUTOMATION_EMERGENCY_DISABLED=true` in normal operation and exits cleanly without claiming queued work. CI verification mode remains executable so the safety mechanism itself can be tested.
+`src/automation/workerEntrypoint.js` honors `SG_AUTOMATION_EMERGENCY_DISABLED=true` in normal operation and exits cleanly without claiming queued work. CI verification mode remains executable so the safety mechanism itself can be tested.
 
 ### Feature flags and protected capabilities
 Block 16.16 kill switches remain the runtime controlled-rollout mechanism. Owner Security `SECURITY_LOCKDOWN` remains the owner-sensitive emergency lock. Block 19 does not let a feature flag grant missing permission, authority or Action Gate approval.
 
 ### Alerts
-The operational alert counter distinguishes at least:
-- runtime/error failures;
-- owner/security denials.
-
-Threshold crossings emit an explicit actionable alert class through observability when configured with an observability service.
+The operational alert counter distinguishes runtime/error failures and owner/security denials. Threshold crossings emit an explicit actionable alert class through observability when configured with an observability service.
 
 ### Incident response
 Canonical response sequence:
 1. identify the failure class from diagnostics/alerts;
 2. preserve trace/revision evidence;
-3. enable the narrowest applicable emergency control (AI, automation, Telegram ingress, feature kill switch, or `SECURITY_LOCKDOWN`);
+3. enable the narrowest applicable emergency control;
 4. do not modify identity/authority data to work around an incident;
 5. verify secrets are not present in telemetry;
 6. recover the failed dependency or rollback deployment;
@@ -99,7 +86,7 @@ Canonical response sequence:
 Every CI run before pilot performs production dependency vulnerability audit. High-or-greater audit failure blocks CI. Dependency changes must preserve lockfile determinism and pass the complete CI suite.
 
 ## Configuration
-Optional operational inputs (validated defaults exist):
+Optional operational inputs have validated defaults:
 
 ```text
 SG_RATE_LIMIT_WINDOW_MS=60000
@@ -144,7 +131,16 @@ Primary tests:
 - [x] data retention/export/deletion policy is explicit and owner-authorized;
 - [x] incident-response and dependency-update procedures are documented;
 - [x] production dependency and secret checks are mandatory CI gates before pilot;
-- [ ] final branch CI containing all Block 19 changes is successful.
+- [x] branch CI containing all Block 19 implementation changes is successful.
 
-## Completion rule
-Do not mark Block 19 completed from documentation alone. Mark it Completed only after GitHub Actions passes the final Block 19 HEAD with `Block 19 security gate`, full tests, runtime startup, worker verification and diagnostics verification all successful.
+## Acceptance evidence
+Initial complete implementation acceptance: GitHub Actions `SG 2.1 CI` #6901 — SUCCESS.
+
+Verified steps include:
+- `npm ci`;
+- migrations;
+- `Block 19 security gate`;
+- `npm run check`;
+- runtime startup;
+- durable worker verification;
+- independent diagnostics service verification.

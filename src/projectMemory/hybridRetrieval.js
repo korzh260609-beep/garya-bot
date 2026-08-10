@@ -39,7 +39,7 @@ function cosineSimilarity(a, b) {
     dot += a[index] * b[index]; aa += a[index] * a[index]; bb += b[index] * b[index];
   }
   if (aa === 0 || bb === 0) return 0;
-  return clamp01((dot / (Math.sqrt(aa) * Math.sqrt(bb)) + 1) / 2);
+  return clamp01(dot / (Math.sqrt(aa) * Math.sqrt(bb)));
 }
 function lexicalScore(record, query) {
   const tokens = tokenize(query);
@@ -183,7 +183,7 @@ export function createProjectMemoryHybridRetrieval({ database, store, authorize,
       const record = await store.get(row.memory_id, { projectKey: filters.projectKey });
       if (!allowedByFilters(record, filters)) continue;
       const sourceId = sourceByKey.get(record.memoryId) ?? sourceByKey.get(record.entityKey);
-      expanded.push({ record, score: clamp01((parentScore.get(sourceId) ?? 0.25) * 0.55), relationExpanded: true });
+      expanded.push({ record, score: clamp01((parentScore.get(sourceId) ?? 0.25) * 0.55), semanticScore: 0, lexicalScore: 0, exactScore: 0, relationExpanded: true });
     }
     return expanded;
   }
@@ -219,9 +219,21 @@ export function createProjectMemoryHybridRetrieval({ database, store, authorize,
       const score = clamp01(semanticScore * 0.4 + lexical * 0.22 + exact * 0.16 + trust * 0.08 + confirmation * 0.06 + freshness * 0.04 + specificity * 0.04);
       return { record, score, semanticScore, lexicalScore: lexical, exactScore: exact, relationExpanded: false };
     }).sort((a, b) => b.score - a.score || a.record.memoryId.localeCompare(b.record.memoryId));
-    const primary = ranked.slice(0, limit);
-    const expanded = await relationExpansion(primary, filters, relationLimit);
-    const merged = [...primary, ...expanded].sort((a, b) => b.score - a.score || a.record.memoryId.localeCompare(b.record.memoryId)).slice(0, limit);
+
+    const reservedRelationSlots = relationLimit > 0 && limit > 1 ? Math.min(relationLimit, limit - 1) : 0;
+    const seedCount = Math.max(1, limit - reservedRelationSlots);
+    const seeds = ranked.slice(0, seedCount);
+    const expanded = await relationExpansion(seeds, filters, relationLimit);
+    const mergedById = new Map();
+    for (const item of [...seeds, ...expanded]) {
+      const current = mergedById.get(item.record.memoryId);
+      if (!current || item.score > current.score || item.relationExpanded) mergedById.set(item.record.memoryId, item);
+    }
+    for (const item of ranked) {
+      if (mergedById.size >= limit) break;
+      if (!mergedById.has(item.record.memoryId)) mergedById.set(item.record.memoryId, item);
+    }
+    const merged = [...mergedById.values()].sort((a, b) => b.score - a.score || a.record.memoryId.localeCompare(b.record.memoryId)).slice(0, limit);
     return Object.freeze({
       projectKey,
       semanticMode: semantic.mode,

@@ -1,7 +1,7 @@
 # SG 2.1 — PROJECT DEVELOPMENT KNOWLEDGE 4.0 PROGRAM
 
 ## Status
-In progress. **PDK4.1–PDK4.6 CLOSED and CI-verified.** PDK4.7–PDK4.12 remain planned.
+In progress. **PDK4.1–PDK4.7 CLOSED and CI-verified.** PDK4.8–PDK4.12 remain planned.
 
 Project Development Knowledge 4.0 (PDK4) is a cross-cutting program built on the completed Project Memory 3.0 foundation. It does not renumber Blocks 0–19 and does not reopen PM3.1–PM3.12.
 
@@ -207,14 +207,38 @@ Evidence:
 **Gate:** PASSED — one multi-commit implementation is represented as one coherent milestone while atomic evidence remains independently auditable and distinct changes are not collapsed by similarity alone. Full repository gate passed in SG 2.1 CI #7092 on commit `02b2d8c0cce035e6a954354814f7d5002fb4d5b4` before final documentation synchronization.
 
 ### PDK4.7 — Historical Reconstruction & Project Genesis
-- reconstruct earliest verified project evidence;
-- build ProjectGenesis;
-- build major Product Timeline;
-- reconstruct component histories and development phases;
-- preserve old/superseded decisions as historical truth rather than deleting them;
-- do not invent an exact creation date when evidence only proves an earliest-known point.
+**Status: CLOSED / CI-verified.**
 
-**Gate:** SG can answer how the project originated and evolved with provenance and temporal qualification.
+Implemented:
+- deterministic rebuildable historical reconstruction over PDK4.5 atomic events plus complete PDK4.6 milestone clustering;
+- `ProjectGenesis` derived view with original idea/goal where explicit origin/requirement evidence exists, earliest verified evidence, first relevant commit, initial architecture evidence, first working milestone, foundational decisions and evolution milestones;
+- explicit earliest-known qualification: earliest verified evidence is not treated as the exact project creation date;
+- chronological `ProductTimeline` derived from auditable PDK4.6 milestones;
+- component-specific histories containing both atomic events and milestones;
+- historical superseded atomic decisions remain present with lifecycle/supersession metadata rather than being deleted;
+- bounded development phases reconstructed chronologically from event semantics and evidence-compatible lifecycle states;
+- deterministic reconstruction fingerprint independent of input ordering;
+- fail-closed checks for cross-project inputs, authoritative/mutated extraction results, unknown/duplicate cluster links and incomplete clustering;
+- output remains derived-only (`trust=historical-derived`, `confirmed=false`, `authorityAllowed=false`) and does not create accepted PM3 facts.
+
+Implementation:
+- `src/projectDevelopmentKnowledge/historicalReconstruction.js`
+- `src/projectDevelopmentKnowledge/index.js`
+- `tests/projectDevelopmentKnowledge4HistoricalReconstruction.test.js`
+- `package.json` (`test:project-development-knowledge`)
+
+Evidence:
+- ProjectGenesis reconstructs earliest verified evidence without inventing a project creation date;
+- original idea/goal are populated only from explicit origin/requirement event evidence;
+- Product Timeline remains chronological and source-auditable;
+- component histories preserve superseded decisions as historical records;
+- first working milestone requires implementation-compatible state plus code/test/CI/deployment/runtime evidence;
+- development phases preserve historical order;
+- replay with reversed input order produces the same reconstruction fingerprint and derived views;
+- incomplete/cross-project/authoritative inputs fail closed;
+- derived reconstruction contains no accepted/confirmed Project Memory truth.
+
+**Gate:** PASSED — SG now has executable rebuildable ProjectGenesis/Product Timeline/Component History/development-phase reconstruction with provenance and explicit temporal qualification. Full repository gate passed in SG 2.1 CI #7100 on commit `14445ad7cfc413c241cccc759359bfb018cb2022` before final documentation synchronization.
 
 ### PDK4.8 — Temporal/Causal Linking & Reconciliation
 - link `motivated-by`, `implements`, `fixes`, `verified-by-ci`, `deployed-as`, `supersedes`, `depends-on` and other bounded development relations;

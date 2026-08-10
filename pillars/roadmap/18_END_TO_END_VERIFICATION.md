@@ -1,7 +1,9 @@
 # Block 18 — End-to-End Verification
 
 ## Status
-Implemented. Final acceptance requires the branch CI run containing this file and `tests/e2eVerification.test.js` to pass.
+Completed and acceptance-verified.
+
+Initial full acceptance CI: GitHub Actions `SG 2.1 CI` run **#6887**, commit `8f0102d62e7c41e2d07035367e2107040921c85f`, conclusion **SUCCESS**. The final documentation-sync HEAD must also remain green before Block 18 is treated as the active repository baseline.
 
 ## Goal
 Prove SG 2.1 as one composed product through reproducible cross-module flows, not only isolated unit or contract tests.
@@ -105,8 +107,6 @@ Block 18 treats the following as hard failures:
 
 ## Acceptance criteria
 
-Block 18 is complete only when all of the following are true:
-
 - [x] a dedicated E2E verification suite exists;
 - [x] the suite runs through the production-like composition root rather than an alternative SG implementation;
 - [x] identity/scope/language/conversation/memory isolation is asserted;
@@ -118,8 +118,8 @@ Block 18 is complete only when all of the following are true:
 - [x] PostgreSQL restart survival for memory and conversation is asserted;
 - [x] existing retry/DLQ/idempotency, Telegram deduplication, delivery, outage and worker-recovery suites remain part of `npm run check`;
 - [x] `npm run test:e2e` is a first-class package script;
-- [ ] branch CI containing the Block 18 changes is successful.
+- [x] branch CI containing the executable Block 18 changes is successful (`#6887`).
 
-## Completion rule
+## Acceptance result
 
-Do not mark Block 18 completed from documentation alone. The acceptance checkbox for CI and the canonical roadmap status may change to Completed only after the actual GitHub Actions run for the final Block 18 HEAD succeeds.
+Block 18 is complete. Its verification path is executable, CI-gated, PostgreSQL-backed where durability matters, and tied to the existing production composition rather than a parallel test implementation.

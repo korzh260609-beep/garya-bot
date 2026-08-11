@@ -30,6 +30,15 @@ function sourceKind(record) { return String(record?.source?.kind ?? '').trim().t
 function isRelevant(item) {
   return Number(item?.exactScore ?? 0) > 0 || Number(item?.lexicalScore ?? 0) > 0 || Number(item?.semanticScore ?? 0) >= 0.55;
 }
+function isAutonomousVerified(item) {
+  const record = item?.record;
+  return sourceKind(record) === 'github'
+    && record?.trust === 'verified'
+    && record?.confirmed === false
+    && record?.confirmationState === 'proposed'
+    && record?.metadata?.pdk4AutonomousIngestion === true
+    && record?.metadata?.pdk4SourceVerified === true;
+}
 function authorizationActor(request, projectKey) {
   const globalUserId = required(request?.actor?.globalUserId, 'request.actor.globalUserId');
   if (required(request?.scope?.projectScope, 'request.scope.projectScope').toLowerCase() !== projectKey) {
@@ -76,6 +85,36 @@ export function createDevelopmentQueryIntegration({ projectMemoryIntegration, re
   if (!retrieval?.search) throw new TypeError('Project Memory retrieval.search is required');
   if (!contextGuard?.build) throw new TypeError('Project Memory contextGuard.build is required');
 
+  async function autonomousVerifiedContext({ request, query, projectKey, mode, includeHistorical }) {
+    const actor = authorizationActor(request, projectKey);
+    const retrievalResult = await retrieval.search({
+      actor,
+      projectKey,
+      query,
+      factTypes: MODE_FACT_TYPES[mode],
+      includeHistorical,
+      lifecycleStates: includeHistorical ? ['active','superseded'] : ['active'],
+      limit: 16,
+      maxCandidates: 144,
+      expandRelations: true,
+      relationLimit: 8
+    });
+    const autonomous = retrievalResult.results.filter((item) => isAutonomousVerified(item) && (isRelevant(item) || item.relationExpanded === true));
+    if (autonomous.length === 0) return null;
+    const guarded = await contextGuard.build({
+      actor,
+      projectKey,
+      retrievalResult: Object.freeze({ ...retrievalResult, results: Object.freeze(autonomous) }),
+      allowedTrust: ['verified'],
+      allowedLifecycleStates: includeHistorical ? ['active','superseded'] : ['active'],
+      allowedTemporalStates: includeHistorical ? ['current','superseded','expired'] : ['current'],
+      includeProposed: true,
+      maxFacts: 12,
+      maxTokens: 2400
+    });
+    return guarded.facts.length > 0 ? guarded : null;
+  }
+
   async function historicalContext({ request, query, projectKey, mode }) {
     const actor = authorizationActor(request, projectKey);
     const retrievalResult = await retrieval.search({
@@ -106,7 +145,8 @@ export function createDevelopmentQueryIntegration({ projectMemoryIntegration, re
       maxFacts: 12,
       maxTokens: 2400
     });
-    return guarded.facts.length > 0 ? guarded : null;
+    if (guarded.facts.length > 0) return guarded;
+    return autonomousVerifiedContext({ request, query, projectKey, mode, includeHistorical: true });
   }
 
   async function contextForRequest({ request, query, projectKey = request?.scope?.projectScope, semanticIntent = request?.input?.semanticIntent ?? null } = {}) {
@@ -114,10 +154,15 @@ export function createDevelopmentQueryIntegration({ projectMemoryIntegration, re
     const project = required(projectKey, 'projectKey').toLowerCase();
     const mode = classifyDevelopmentQueryMode({ query: canonicalQuery, semanticIntent });
     const includeHistorical = HISTORICAL_MODES.has(mode);
-    const projectMemoryContext = includeHistorical
-      ? await historicalContext({ request, query: canonicalQuery, projectKey: project, mode })
-      : await projectMemoryIntegration.contextForRequest({ request, query: canonicalQuery, projectKey: project });
+    let projectMemoryContext;
+    if (includeHistorical) {
+      projectMemoryContext = await historicalContext({ request, query: canonicalQuery, projectKey: project, mode });
+    } else {
+      projectMemoryContext = await projectMemoryIntegration.contextForRequest({ request, query: canonicalQuery, projectKey: project });
+      if (!projectMemoryContext) projectMemoryContext = await autonomousVerifiedContext({ request, query: canonicalQuery, projectKey: project, mode, includeHistorical: false });
+    }
     if (!projectMemoryContext) return null;
+    const includesAutonomousProposed = projectMemoryContext.facts.some((fact) => fact.confirmed === false && fact.trust === 'verified');
     return deepFreeze({
       contractVersion: PDK4_DEVELOPMENT_QUERY_INTEGRATION_CONTRACT_VERSION,
       kind: 'DevelopmentQueryContext',
@@ -131,6 +176,8 @@ export function createDevelopmentQueryIntegration({ projectMemoryIntegration, re
         currentnessRequired: true,
         historicalFactsMustRemainQualified: includeHistorical,
         incidentSimilarityAdvisoryOnly: mode === 'incident-history',
+        sourceVerifiedProposedFactsMayBeIncluded: includesAutonomousProposed,
+        monarchConfirmationImplied: false,
         liveDiagnosisAuthorityAllowed: false,
         authorityAllowed: false,
         trustPromotionAllowed: false,
@@ -169,9 +216,11 @@ export function createDevelopmentQueryIntegration({ projectMemoryIntegration, re
     const modeLabel = language === 'ru' ? `Режим PDK4: ${context.mode}.` : language === 'uk' ? `Режим PDK4: ${context.mode}.` : `PDK4 mode: ${context.mode}.`;
     const historical = context.qualification.historicalFactsMustRemainQualified
       ? (language === 'ru' ? ' Исторические факты не считаются текущим состоянием без актуального подтверждения.' : language === 'uk' ? ' Історичні факти не вважаються поточним станом без актуального підтвердження.' : ' Historical facts are not current state without current evidence.') : '';
+    const proposed = context.qualification.sourceVerifiedProposedFactsMayBeIncluded
+      ? (language === 'ru' ? ' Некоторые факты автоматически подтверждены неизменяемым источником GitHub, но не подтверждены Монархом.' : language === 'uk' ? ' Деякі факти автоматично підтверджені незмінним джерелом GitHub, але не підтверджені Монархом.' : ' Some facts are verified from immutable GitHub evidence but are not Monarch-confirmed.') : '';
     const incident = context.qualification.incidentSimilarityAdvisoryOnly
       ? (language === 'ru' ? ' Сходство с прошлыми инцидентами только справочное и не доказывает текущую причину.' : language === 'uk' ? ' Подібність до минулих інцидентів лише довідкова і не доводить поточну причину.' : ' Similarity to past incidents is advisory only and does not prove the current root cause.') : '';
-    return `${modeLabel}\n${base}${historical}${incident}`;
+    return `${modeLabel}\n${base}${historical}${proposed}${incident}`;
   }
 
   return Object.freeze({ classifyDevelopmentQueryMode, contextForRequest, prepareModelContext, deterministicAnswer });

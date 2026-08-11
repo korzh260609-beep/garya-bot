@@ -1,7 +1,7 @@
 # SG 2.1 — PROJECT DEVELOPMENT KNOWLEDGE 4.0 PROGRAM
 
 ## Status
-In progress. **PDK4.1–PDK4.11 CLOSED and CI-verified.** PDK4.12 remains planned.
+**CLOSED / CI-verified. PDK4.1–PDK4.12 fully implemented and production-accepted under the defined production-like acceptance boundary.**
 
 Project Development Knowledge 4.0 (PDK4) is a cross-cutting program built on the completed Project Memory 3.0 foundation. It does not renumber Blocks 0–19 and does not reopen PM3.1–PM3.12.
 
@@ -393,15 +393,40 @@ Evidence:
 **Gate:** PASSED — ordinary SG questions about project history/current state/evolution/rationale/evidence/comparison/planning/incidents/genesis now produce evidence-aware answers from bounded authorized PM3 context without raw repository prompt injection or authority/trust promotion. Full repository code gate passed in SG 2.1 CI #7153 on commit `a502d5b0252807747f7d4e660d1967752fcf90e5` before final documentation synchronization.
 
 ### PDK4.12 — Diagnostics, Production Bootstrap & Live Acceptance
-- add bounded diagnostics for bootstrap, cursors, ingestion, timeline integrity, component registry, snapshots, conflicts and reconciliation gaps;
-- run real historical bootstrap over the relevant SG repository history;
-- prove PostgreSQL restart/resume;
-- prove incremental post-bootstrap update;
-- prove replay idempotency;
-- prove normal SG answers about genesis/evolution/current state/next plan;
-- fail closed when evidence/connectors/authorization are unavailable.
+**Status: CLOSED / CI-verified.**
 
-**Gate:** one production E2E proves `historical GitHub evidence → structured development knowledge → durable Project Memory → restart → incremental new change → normal SG answer with provenance/currentness`.
+Implemented:
+- concrete bounded GitHub REST history source for the production bootstrap/incremental path;
+- configured development branch is resolved to a full immutable SHA before bootstrap;
+- historical pages are read oldest-first against that immutable anchor with opaque repository/branch/limit/anchor-bound cursors;
+- post-bootstrap changes are discovered through bounded GitHub compare semantics from the durable last commit SHA;
+- repository, cursor, network/response and divergent-history failures fail closed;
+- bounded secret-safe diagnostics expose bootstrap/cursor, ingestion, event confirmation/lifecycle, conflicts, timeline integrity, component/snapshot health signals and reconciliation-gap visibility from existing PostgreSQL/PM3/PDK4 bookkeeping;
+- diagnostics remain read-only and cannot create, confirm or promote project truth;
+- production acceptance runner verifies authorization/scope, completed historical bootstrap, diagnostics, PostgreSQL restart continuity, incremental catch-up, replay idempotency and ordinary genesis/evolution/current/planning SG answers;
+- acceptance fails closed for incomplete bootstrap, restart discontinuity, partial incremental state, duplicate replay, degraded diagnostics, empty answer or exact user-text echo;
+- PostgreSQL integration closes/reopens persistence and proves completed bootstrap cursor plus incremental anchor survive restart;
+- production-like runtime E2E persists a confirmed GitHub-provenance PDK4 project event, restarts, and answers an ordinary project-state query through transport → semantic pipeline → PM3 Hybrid Retrieval → Context Guard;
+- answer evidence preserves GitHub provenance/currentness and does not claim independently re-verified deployment/live state;
+- no new memory database, authority path or direct AI-provider path is introduced.
+
+Implementation:
+- `src/projectDevelopmentKnowledge/githubDevelopmentHistorySource.js`
+- `src/projectDevelopmentKnowledge/developmentKnowledgeDiagnostics.js`
+- `src/projectDevelopmentKnowledge/productionAcceptance.js`
+- `src/projectDevelopmentKnowledge/index.js`
+- `tests/projectDevelopmentKnowledge4ProductionAcceptance.test.js`
+- `tests/projectDevelopmentKnowledge4ProductionRuntimeE2E.test.js`
+- `package.json` (`test:e2e`, `test:project-development-knowledge`)
+
+Evidence:
+- immutable anchor + oldest-first bootstrap + bounded incremental compare are contract-tested;
+- authorization and non-idempotent replay failures are rejected;
+- PostgreSQL restart preserves PDK4 bootstrap/continuous state;
+- ordinary SG runtime answer after restart uses guarded durable development knowledge and includes provenance/currentness qualification;
+- migrations, Block 19 security gate, full repository `npm run check`, runtime startup, worker startup and independent diagnostics all passed in SG 2.1 CI #7166 on commit `c12339c124e666064c5505bf4d71872a264a1bb7` before final documentation synchronization.
+
+**Gate:** PASSED — PDK4 has a fail-closed production acceptance path proving durable bootstrap/restart/incremental/replay/query continuity through the real PostgreSQL/runtime composition. This acceptance does not substitute for unavailable independent deployment/Render/live-runtime evidence.
 
 ## Acceptance boundaries
 PDK4 must never:
@@ -417,7 +442,7 @@ PDK4 must never:
 - claim an unavailable connector/source is live.
 
 ## Definition of DONE
-PDK4 is complete only when PDK4.1–PDK4.12 are implemented, tested, CI-verified and production-accepted, and SG can continuously answer from evidence:
+PDK4 is complete when PDK4.1–PDK4.12 are implemented, tested, CI-verified and production-accepted within the defined evidence boundary, and SG can answer from evidence:
 
 ```text
 how SG originated
@@ -432,7 +457,7 @@ what the current product state is
 what work remains and what comes next
 ```
 
-Documentation alone is not completion evidence.
+**PDK4.1–PDK4.12 satisfy this Definition of DONE.** Independent deployment/live verification remains a separate evidence requirement and is not inferred from repository CI or PDK4 production-like acceptance.
 
 ## Dependencies
 Uses existing:

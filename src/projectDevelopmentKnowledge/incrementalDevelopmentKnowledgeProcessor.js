@@ -5,12 +5,13 @@ function sha(value) { const text = required(value,'commitSha').toLowerCase(); if
 function freeze(value) { if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value; for (const child of Object.values(value)) freeze(child); return Object.freeze(value); }
 function fail(code,message){const e=new Error(message);e.code=code;throw e;}
 
-export function createIncrementalDevelopmentKnowledgeProcessor({ sourceNormalizer, classifier, extractor, projectMemoryStore, reconciliationUpdater = null } = {}) {
+export function createIncrementalDevelopmentKnowledgeProcessor({ sourceNormalizer, classifier, extractor, projectMemoryStore, reconciliationUpdater = null, projectMemoryCandidateProjector = null } = {}) {
   if (typeof sourceNormalizer?.normalizeAndVerify !== 'function') throw new TypeError('sourceNormalizer.normalizeAndVerify is required');
   if (typeof classifier?.classify !== 'function') throw new TypeError('classifier.classify is required');
   if (typeof extractor?.extract !== 'function') throw new TypeError('extractor.extract is required');
   if (typeof projectMemoryStore?.put !== 'function') throw new TypeError('projectMemoryStore.put is required');
   if (reconciliationUpdater && typeof reconciliationUpdater.update !== 'function') throw new TypeError('reconciliationUpdater.update is required');
+  if (projectMemoryCandidateProjector && typeof projectMemoryCandidateProjector !== 'function') throw new TypeError('projectMemoryCandidateProjector must be a function');
 
   async function processCommit({ projectKey, repository, commitSha, triggerId = null, triggerType = 'poll', traceContext = null } = {}) {
     const project = required(projectKey,'projectKey').toLowerCase();
@@ -27,8 +28,12 @@ export function createIncrementalDevelopmentKnowledgeProcessor({ sourceNormalize
 
     const extraction = await extractor.extract(normalized,classification,{traceContext});
     if (extraction.trust !== 'extracted-candidate' || extraction.confirmed !== false || extraction.candidate?.confirmed !== false) fail('pdk4-incremental-extraction-promotion','extraction attempted to promote trust/confirmation');
-    const stored = await projectMemoryStore.put(extraction.candidate);
-    if (!stored || stored.projectKey !== project || stored.confirmed !== false || stored.trust === 'confirmed') fail('pdk4-incremental-pm3-promotion','incremental Project Memory candidate must remain unconfirmed');
+    const candidate = projectMemoryCandidateProjector
+      ? await projectMemoryCandidateProjector(extraction.candidate, { projectKey:project, repository:repo, commitSha:commit, normalizedSource:normalized, classification, extraction, triggerId, triggerType })
+      : extraction.candidate;
+    if (!candidate || candidate.projectKey !== project || candidate.confirmed !== false || candidate.confirmationState !== 'proposed' || candidate.trust === 'confirmed') fail('pdk4-incremental-candidate-projection-denied','project memory candidate projection must remain proposed and unconfirmed');
+    const stored = await projectMemoryStore.put(candidate);
+    if (!stored || stored.projectKey !== project || stored.confirmed !== false || stored.confirmationState !== 'proposed' || stored.trust === 'confirmed') fail('pdk4-incremental-pm3-promotion','incremental Project Memory candidate must remain unconfirmed');
     const reconciliation = reconciliationUpdater ? await reconciliationUpdater.update({ projectKey:project, repository:repo, extraction, storedCandidate:stored, triggerId, triggerType }) : null;
     if (reconciliation && (reconciliation.projectKey !== project || reconciliation.authorityAllowed !== false || reconciliation.confirmed !== false)) fail('pdk4-incremental-reconciliation-promotion','incremental reconciliation must remain non-authoritative');
     return freeze({ status:'processed', disposition:'event', projectKey:project, repository:repo, commitSha:commit, sourceFingerprint:normalized.sourceFingerprint, occurredAt:normalized.occurredAt, normalizedSource:normalized, classification, extraction, projectMemoryCandidate:stored, reconciliation, triggerId, triggerType });

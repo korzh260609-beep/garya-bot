@@ -12,6 +12,7 @@ import {
 
 const repository='korzh260609-beep/garya-bot';
 const branch='dev/sg2.1-semantic';
+const encodedBranch=encodeURIComponent(branch);
 const A='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 const B='bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
 const C='cccccccccccccccccccccccccccccccccccccccc';
@@ -20,7 +21,7 @@ function commit(sha,date){return{sha,commit:{committer:{date},author:{date,name:
 
 test('PDK4.12: production GitHub source scans oldest-first from immutable branch anchor and supports bounded compare ingestion',async()=>{
   const calls=[];
-  const fetchImpl=async(url)=>{calls.push(url);if(url.endsWith(`/commits/${branch}`))return response(commit(C,'2026-08-03T00:00:00Z'));
+  const fetchImpl=async(url)=>{calls.push(url);if(url.endsWith(`/commits/${encodedBranch}`))return response(commit(C,'2026-08-03T00:00:00Z'));
     if(url.includes(`commits?sha=${C}&per_page=2&page=1`)&&calls.filter(v=>v.includes('per_page=2&page=1')).length===1)return response([commit(C,'2026-08-03T00:00:00Z'),commit(B,'2026-08-02T00:00:00Z')],{link:'<https://api.github.com/x?page=2>; rel="last"'});
     if(url.includes(`commits?sha=${C}&per_page=2&page=2`))return response([commit(A,'2026-08-01T00:00:00Z')]);
     if(url.includes(`commits?sha=${C}&per_page=2&page=1`))return response([commit(C,'2026-08-03T00:00:00Z'),commit(B,'2026-08-02T00:00:00Z')]);

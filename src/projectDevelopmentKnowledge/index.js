@@ -98,3 +98,13 @@ export {
   PDK4_ACCEPTANCE_QUERY_SET,
   createDevelopmentKnowledgeProductionAcceptance
 } from './productionAcceptance.js';
+export {
+  PDK4_PRODUCTION_CONFIG_DEFAULTS,
+  loadProductionDevelopmentKnowledgeConfig
+} from './productionDevelopmentKnowledgeConfig.js';
+export { registerProductionDevelopmentKnowledgeCredential } from './productionDevelopmentKnowledgeCredential.js';
+export { createPostgresDevelopmentKnowledgeSingleFlight } from './postgresDevelopmentKnowledgeSingleFlight.js';
+export {
+  PDK4_PRODUCTION_RUNTIME_CONTRACT_VERSION,
+  createProductionDevelopmentKnowledgeRuntime
+} from './productionDevelopmentKnowledgeRuntime.js';

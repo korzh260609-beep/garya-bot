@@ -18,18 +18,19 @@ SG 2.1 is one global transport-independent project system whose reasoning layer 
 4. `MEMORY_2_0.md`
 5. `PROJECT_MEMORY_3_0.md`
 6. `PROJECT_DEVELOPMENT_KNOWLEDGE_4_0.md`
-7. `DECISION_AND_ACTION_GATE.md`
-8. `CAPABILITY_SYSTEM.md`
-9. `IDENTITY_AND_SCOPE.md`
-10. `OBSERVABILITY.md`
-11. `TRANSPORTS_AND_AI_ROUTING.md`
-12. `LANGUAGE_AND_LOCALE_CONTEXT.md`
-13. `FOUNDATIONAL_CONTROL_LAYERS.md`
-14. `SELF_KNOWLEDGE.md`
-15. `MONARCH_OWNER_SECURITY.md`
-16. `RUNTIME_COMPOSITION.md`
-17. `POSTGRESQL_PERSISTENCE.md`
-18. `UNIVERSAL_DIAGNOSTICS.md`
+7. `PROJECT_DEVELOPMENT_KNOWLEDGE_4_13_LIVE_PRODUCTION_WIRING.md`
+8. `DECISION_AND_ACTION_GATE.md`
+9. `CAPABILITY_SYSTEM.md`
+10. `IDENTITY_AND_SCOPE.md`
+11. `OBSERVABILITY.md`
+12. `TRANSPORTS_AND_AI_ROUTING.md`
+13. `LANGUAGE_AND_LOCALE_CONTEXT.md`
+14. `FOUNDATIONAL_CONTROL_LAYERS.md`
+15. `SELF_KNOWLEDGE.md`
+16. `MONARCH_OWNER_SECURITY.md`
+17. `RUNTIME_COMPOSITION.md`
+18. `POSTGRESQL_PERSISTENCE.md`
+19. `UNIVERSAL_DIAGNOSTICS.md`
 
 ## Core flow
 
@@ -58,6 +59,8 @@ Project Memory 3.0 is the specialized project-knowledge program inside the Memor
 
 Project Development Knowledge 4.0 is the development-history and project-evolution layer built on Project Memory 3.0. It reconstructs and continuously maintains SG's evidence-backed product biography: origin, requirements, proposals, decisions and rationale, implementation, rework, incidents/fixes, CI/deployment/runtime verification, supersession, current state and next plan. It reuses PM3 storage/trust/provenance/temporal/retrieval boundaries and must not become a parallel memory, authority, identity or diagnostics system.
 
+PDK4.13 Live Production Wiring & Autonomous Project History is the production-composition extension of the completed PDK4.1–PDK4.12 software baseline. It wires historical bootstrap/resume, incremental reconciliation, bounded polling, PostgreSQL single-flight protection, protected diagnostics and live acceptance into the real SG production runtime. It reuses the existing PDK4 engine and PM3 substrate rather than creating a new memory path.
+
 Self Knowledge is a shared system-context layer used for evidence-aware descriptions of SG itself. It does not sit as a mandatory reasoning hop in every request and does not replace live diagnostics.
 
 Universal Diagnostics is an independent observer application outside the mandatory SG request path. SG emits bounded diagnostic facts through Observability and approved read-only surfaces; the separate Diagnostics application reconstructs traces, compares expected vs actual paths, finds first divergence, performs deterministic root-cause analysis, runs isolated synthetic checks, and produces evidence-backed reports. SG must continue operating if Diagnostics is unavailable.
@@ -75,6 +78,9 @@ Universal Diagnostics is an independent observer application outside the mandato
 - PDK4 must distinguish `implemented`, `ci-verified`, `deployed` and `live-verified`; evidence from one state cannot silently promote another.
 - PDK4 historical/superseded facts remain available for history but cannot override current-state retrieval.
 - PDK4 raw chat/model output cannot self-confirm, and AI summaries/classifications are not primary evidence.
+- PDK4.13 production wiring must be resumable, bounded, idempotent and single-flight per project/repository; concurrent triggers cannot duplicate history processing.
+- PDK4.13 GitHub/provider degradation must degrade the project-history subsystem rather than take normal SG transports offline by default.
+- PDK4.13 credentials/secrets never enter PM3/PDK4 facts, AI context, ordinary diagnostics or observability payloads.
 - System Self Knowledge is separate from user/project memory and cannot grant authority.
 - Universal Diagnostics is not SG brain, Decision Engine, Action Gate, authorization or ordinary request routing.
 - Diagnostics is read-only by default; it must not silently edit code/config, deploy, mutate production state, grant authority or repair SG automatically.

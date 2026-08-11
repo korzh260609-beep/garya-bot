@@ -36,6 +36,10 @@ export {
   createGitHubDevelopmentSourceVerifier
 } from './githubDevelopmentSourceVerifier.js';
 export {
+  PDK4_GITHUB_HISTORY_SOURCE_CONTRACT_VERSION,
+  createGitHubDevelopmentHistorySource
+} from './githubDevelopmentHistorySource.js';
+export {
   PDK4_SIGNIFICANCE_CLASSIFIER_CONTRACT_VERSION,
   PDK4_SIGNIFICANCE_LEVELS,
   PDK4_SIGNIFICANCE_CATEGORIES,
@@ -85,3 +89,12 @@ export {
   classifyDevelopmentQueryMode,
   createDevelopmentQueryIntegration
 } from './developmentQueryIntegration.js';
+export {
+  PDK4_DIAGNOSTICS_CONTRACT_VERSION,
+  createDevelopmentKnowledgeDiagnostics
+} from './developmentKnowledgeDiagnostics.js';
+export {
+  PDK4_PRODUCTION_ACCEPTANCE_CONTRACT_VERSION,
+  PDK4_ACCEPTANCE_QUERY_SET,
+  createDevelopmentKnowledgeProductionAcceptance
+} from './productionAcceptance.js';

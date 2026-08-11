@@ -1,7 +1,7 @@
 # SG 2.1 — PROJECT DEVELOPMENT KNOWLEDGE 4.0 CANONICAL ARCHITECTURE
 
 ## Status
-In progress. **PDK4.1–PDK4.11 CLOSED and CI-verified.** PDK4.12 remains planned.
+**CLOSED / CI-verified. PDK4.1–PDK4.12 fully implemented.**
 
 Project Development Knowledge 4.0 (PDK4) is the development-history and project-evolution layer built on completed Project Memory 3.0. It is not a parallel memory, identity, authority, diagnostics or runtime system.
 
@@ -113,6 +113,8 @@ PDK4 consumes policy-approved evidence only.
 ### GitHub
 PDK4.3 verifies commits by immutable SHA, pull requests by PR number plus immutable head SHA, workflow runs by run id plus attempt and canonical documents by path plus revision SHA. Repository allowlisting and fail-closed network/provider behavior are mandatory.
 
+PDK4.12 adds the production history source used by historical bootstrap and continuous ingestion. It resolves the configured development branch to an immutable anchor SHA, pages full history oldest-first against that anchor, and uses bounded GitHub compare semantics for post-bootstrap commits.
+
 ### Canonical documents
 Architecture/roadmap/workflow documents provide `source` evidence only. Documentation status cannot by itself prove code implementation, CI, deployment or runtime state.
 
@@ -175,6 +177,8 @@ GitHub history
 ```
 
 The scanner is resumable and idempotent across PostgreSQL restart. Earliest verified evidence is not automatically an exact creation date.
+
+PDK4.12 provides a concrete bounded GitHub history adapter for this path. Bootstrap history is anchored to an immutable branch revision so new commits arriving during a long bootstrap cannot silently rewrite the scanned historical window.
 
 ## PDK4.7 historical reconstruction
 PDK4.7 deterministically rebuilds:
@@ -370,6 +374,75 @@ Evidence:
 
 Code gate: SG 2.1 CI #7153 SUCCESS on commit `a502d5b0252807747f7d4e660d1967752fcf90e5` before documentation synchronization.
 
+## PDK4.12 Diagnostics, Production Bootstrap & Live Acceptance
+PDK4.12 closes the PDK4 program by making the existing historical/incremental/query stack production-testable as one fail-closed acceptance flow.
+
+### Production GitHub history source
+`createGitHubDevelopmentHistorySource` provides the concrete source contract needed by PDK4.2 and PDK4.9:
+- explicit approved-repository allowlist;
+- configured branch resolved to a full immutable SHA;
+- oldest-first bounded historical pagination tied to that immutable anchor;
+- opaque scope-bound durable cursor tokens;
+- bounded compare-based post-bootstrap commit discovery;
+- fail-closed repository, cursor, network, response and divergence checks.
+
+### Bounded diagnostics
+`createDevelopmentKnowledgeDiagnostics` exposes secret-safe project/repository-scoped diagnostics for:
+- development history health;
+- historical bootstrap status/cursor;
+- commits scanned;
+- project events extracted/confirmed/rejected/superseded;
+- unresolved PM3 conflicts;
+- source/event gap visibility;
+- timeline integrity;
+- component registry/current snapshot health signals;
+- continuous-ingestion readiness and last processed revision/time;
+- reconciliation-gap candidate count.
+
+Diagnostics read existing PostgreSQL/PM3/PDK4 bookkeeping only. They do not create or promote project truth.
+
+### Production acceptance runner
+`createDevelopmentKnowledgeProductionAcceptance` verifies one bounded sequence:
+
+```text
+authorized project/repository
+→ historical bootstrap reaches complete
+→ diagnostics confirm completed bootstrap
+→ PostgreSQL restart/resume preserves last source cursor
+→ incremental ingestion reaches current
+→ immediate replay processes zero duplicate sources
+→ diagnostics remain healthy
+→ ordinary SG queries answer genesis/evolution/current/planning
+```
+
+The runner fails closed on scope mismatch, authorization denial, incomplete bootstrap, restart discontinuity, partial incremental state, non-idempotent replay, degraded diagnostics, empty answer or exact user-text echo.
+
+### Runtime/restart acceptance
+CI integration proves both storage and normal answer continuity:
+- PostgreSQL is started, migrations applied and a completed PDK4 bootstrap/continuous anchor is written;
+- the persistence process is closed and reopened;
+- the same bootstrap cursor and incremental anchor remain durable;
+- a confirmed GitHub-provenance PDK4 project event is persisted, the process is restarted, and `createLocalProductionHarness` answers an ordinary project-state question through PM3 Hybrid Retrieval + Context Guard;
+- the answer contains the verified fact and provenance while explicitly preserving the distinction from independently re-verified live state.
+
+PDK4.12 does not claim Render/deployment/runtime evidence that is unavailable. Universal Diagnostics remains the authority for actual current live fault/root-cause evidence.
+
+Implementation:
+- `src/projectDevelopmentKnowledge/githubDevelopmentHistorySource.js`
+- `src/projectDevelopmentKnowledge/developmentKnowledgeDiagnostics.js`
+- `src/projectDevelopmentKnowledge/productionAcceptance.js`
+- `src/projectDevelopmentKnowledge/index.js`
+- `tests/projectDevelopmentKnowledge4ProductionAcceptance.test.js`
+- `tests/projectDevelopmentKnowledge4ProductionRuntimeE2E.test.js`
+- `package.json` (`test:e2e`, `test:project-development-knowledge`)
+
+Evidence:
+- production history source contract covers immutable anchor, oldest-first bootstrap and bounded incremental compare;
+- authorization and replay failures fail closed;
+- PostgreSQL restart preserves completed bootstrap and continuous-ingestion anchor;
+- normal production-like SG runtime answer survives restart and uses guarded PDK4/PM3 knowledge with provenance/currentness;
+- full migrations, security gate, repository `npm run check`, runtime, worker and independent diagnostics passed in SG 2.1 CI #7166 on commit `c12339c124e666064c5505bf4d71872a264a1bb7` before final documentation synchronization.
+
 ## Query semantics
 Ordinary SG development answers must distinguish:
 - confirmed current PM3 truth;
@@ -383,4 +456,4 @@ Historical answers must preserve provenance and currentness qualification. Incid
 ## AI Router boundary
 PDK4 may use AI only through AI Router for bounded classification/extraction/clustering/summarization/answer composition. AI cannot create verification, trust, confirmation, authority, deployment state or live-runtime state.
 
-PDK4.7 reconstruction, PDK4.8 reconciliation and PDK4.10 registry/snapshot building are deterministic and do not call AI. PDK4.9 introduces no direct model path. PDK4.11 uses AI only through the existing response-composition AI Router path after PM3 retrieval and Context Guard.
+PDK4.7 reconstruction, PDK4.8 reconciliation and PDK4.10 registry/snapshot building are deterministic and do not call AI. PDK4.9 introduces no direct model path. PDK4.11 uses AI only through the existing response-composition AI Router path after PM3 retrieval and Context Guard. PDK4.12 adds no new AI path.

@@ -6,7 +6,7 @@ Memory 2.0 is a completed cross-cutting memory program documented separately in 
 
 Project Memory 3.0 is a completed specialized cross-cutting program documented in `PROJECT_MEMORY_3_0_PROGRAM.md`. It strengthens only the Memory 2.0 `Project Memory` domain and does not renumber Blocks 0–19.
 
-Project Development Knowledge 4.0 is an in-progress cross-cutting development-history/project-evolution program documented in `PROJECT_DEVELOPMENT_KNOWLEDGE_4_0_PROGRAM.md`. PDK4.1–PDK4.10 are CLOSED and CI-verified; PDK4.11–PDK4.12 remain planned. It is built on Project Memory 3.0 and does not create a parallel memory system or renumber Blocks 0–19.
+Project Development Knowledge 4.0 has a completed CI-verified PDK4.1–PDK4.12 baseline plus a newly planned PDK4.13 Live Production Wiring & Autonomous Project History extension. PDK4.13 wires the existing engine into real production bootstrap/resume, continuous ingestion, protected diagnostics and live acceptance. It remains built on Project Memory 3.0 and does not create a parallel memory system or renumber Blocks 0–19.
 
 Universal Diagnostics is a separate planned cross-cutting diagnostic program documented in `UNIVERSAL_DIAGNOSTICS_PROGRAM.md`. It is implemented as an independent observer application around SG, not as a new core layer and not as a renumbering of Blocks 0–19.
 
@@ -52,8 +52,9 @@ Block 8.1 is a production extension of completed Block 8 Interfaces. It adds the
 36. `19_SECURITY_AND_OPERATIONS.md` — completed Block 19 implementation and acceptance evidence
 37. `MEMORY_2_0_ROADMAP.md` — completed cross-cutting Memory 2.0 M1–M9 program
 38. `PROJECT_MEMORY_3_0_PROGRAM.md` — completed specialized Project Memory 3.0 PM3.1–PM3.12 program
-39. `PROJECT_DEVELOPMENT_KNOWLEDGE_4_0_PROGRAM.md` — in-progress PDK4 program; PDK4.1–PDK4.10 CLOSED, PDK4.11–PDK4.12 planned
-40. `UNIVERSAL_DIAGNOSTICS_PROGRAM.md` — planned cross-cutting Universal Diagnostics D1–D12 program
+39. `PROJECT_DEVELOPMENT_KNOWLEDGE_4_0_PROGRAM.md` — completed PDK4.1–PDK4.12 baseline program
+40. `PROJECT_DEVELOPMENT_KNOWLEDGE_4_13_LIVE_PRODUCTION_WIRING.md` — planned PDK4.13 live production wiring/autonomous history extension
+41. `UNIVERSAL_DIAGNOSTICS_PROGRAM.md` — planned cross-cutting Universal Diagnostics D1–D12 program
 
 ## Block 8.1 — Discord Transport Integration
 
@@ -109,19 +110,24 @@ Workflow: `../workflow/PROJECT_MEMORY_3_0_WORKFLOW.md`.
 
 ## Project Development Knowledge 4.0
 
-**Status: In progress; PDK4.1–PDK4.10 CLOSED and CI-verified.**
+**Status: PDK4.1–PDK4.12 CLOSED / CI-verified; PDK4.13 PLANNED.**
 
 Canonical implementation order:
 
-`PDK4.1 Development Knowledge Contract & Taxonomy → PDK4.2 GitHub Historical Scanner & Durable Cursor → PDK4.3 Source Normalization & Verification → PDK4.4 Development Significance Classifier → PDK4.5 Development Event Extraction → PDK4.6 Commit/Event Clustering & Milestones → PDK4.7 Historical Reconstruction & Project Genesis → PDK4.8 Temporal/Causal Linking & Reconciliation → PDK4.9 Continuous GitHub Ingestion → PDK4.10 Product Component Registry & Current Project Snapshot → PDK4.11 Development Query & Normal SG Answer Integration → PDK4.12 Diagnostics, Production Bootstrap & Live Acceptance`.
+`PDK4.1 Development Knowledge Contract & Taxonomy → PDK4.2 GitHub Historical Scanner & Durable Cursor → PDK4.3 Source Normalization & Verification → PDK4.4 Development Significance Classifier → PDK4.5 Development Event Extraction → PDK4.6 Commit/Event Clustering & Milestones → PDK4.7 Historical Reconstruction & Project Genesis → PDK4.8 Temporal/Causal Linking & Reconciliation → PDK4.9 Continuous GitHub Ingestion → PDK4.10 Product Component Registry & Current Project Snapshot → PDK4.11 Development Query & Normal SG Answer Integration → PDK4.12 Diagnostics, Production Bootstrap & Live Acceptance → PDK4.13 Live Production Wiring & Autonomous Project History`.
 
-PDK4 builds on the completed Project Memory 3.0 foundation. PDK4.1–PDK4.9 provide the evidence-backed historical and continuous development pipeline. PDK4.10 adds a deterministic rebuildable Product Component Registry and Current Project Snapshot over confirmed project-scoped PM3 development facts plus non-authoritative PDK4.8 reconciliation. It keeps source/code/test/CI/deployment/runtime dimensions distinct, excludes unconfirmed candidates and superseded historical evidence from current-state promotion, exposes active decisions, known issues/incidents, current implementation work, next plans, dependencies, stale evidence, unresolved gaps and contradiction risks, and produces deterministic registry/snapshot fingerprints without adding a parallel database or authority path. Canonical documents cannot by themselves prove implementation, CI cannot imply deployment/live state, supporting evidence cannot silently promote milestone state, and deployment/runtime connectors remain unavailable until real approved connectors exist. PDK4 continues to reuse PM3 PostgreSQL storage for durable project facts, provenance, trust, confirmation, dedup/conflict, temporal history, retrieval and Context Guard.
+PDK4 builds on the completed Project Memory 3.0 foundation. PDK4.1–PDK4.12 provide the complete CI-verified development-history engine, PostgreSQL persistence/restart semantics, GitHub production source contract, diagnostics and production-like acceptance. PDK4.13 is the next production extension: it must wire that engine into real SG startup/worker composition, automatically bootstrap/resume real repository history, continuously reconcile new commits, use a PostgreSQL single-flight guard, expose protected live diagnostics and prove real production restart/new-commit/replay/query acceptance.
 
-PDK4.10 code/tests passed SG 2.1 CI #7140 on commit `c70438935a8c7e764ce5c21351fac2025aac4a65` before canonical documentation synchronization.
+PDK4.13 does not redefine evidence semantics. Canonical documents cannot by themselves prove implementation, CI cannot imply deployment/live state, supporting evidence cannot silently promote milestone state, and deployment/runtime evidence still requires an approved source. PDK4 continues to reuse PM3 PostgreSQL storage for durable project facts, provenance, trust, confirmation, dedup/conflict, temporal history, retrieval and Context Guard.
 
-Detailed specification and stage evidence: `PROJECT_DEVELOPMENT_KNOWLEDGE_4_0_PROGRAM.md`.
-Architecture: `../architecture/PROJECT_DEVELOPMENT_KNOWLEDGE_4_0.md`.
-Workflow: `../workflow/PROJECT_DEVELOPMENT_KNOWLEDGE_4_0_WORKFLOW.md`.
+PDK4.1–PDK4.12 final baseline was synchronized at commit `9b9f14afad4a2398e37f7b3e57548dfd4e5253f8` with SG 2.1 CI #7169 SUCCESS. PDK4.13 remains planned until code, CI, deployment and live acceptance are completed.
+
+Baseline program: `PROJECT_DEVELOPMENT_KNOWLEDGE_4_0_PROGRAM.md`.
+PDK4.13 roadmap: `PROJECT_DEVELOPMENT_KNOWLEDGE_4_13_LIVE_PRODUCTION_WIRING.md`.
+Architecture baseline: `../architecture/PROJECT_DEVELOPMENT_KNOWLEDGE_4_0.md`.
+PDK4.13 architecture: `../architecture/PROJECT_DEVELOPMENT_KNOWLEDGE_4_13_LIVE_PRODUCTION_WIRING.md`.
+Baseline workflow: `../workflow/PROJECT_DEVELOPMENT_KNOWLEDGE_4_0_WORKFLOW.md`.
+PDK4.13 workflow: `../workflow/PROJECT_DEVELOPMENT_KNOWLEDGE_4_13_LIVE_PRODUCTION_WIRING_WORKFLOW.md`.
 
 ## Universal Diagnostics
 

@@ -1,7 +1,7 @@
 # SG 2.1 — PROJECT DEVELOPMENT KNOWLEDGE 4.0 WORKFLOW
 
 ## Status
-In progress. **PDK4.1–PDK4.11 CLOSED and CI-verified.** PDK4.12 remains planned.
+**CLOSED / CI-verified. PDK4.1–PDK4.12 fully implemented.**
 
 ## Purpose
 Defines the implementation and verification procedure for PDK4. It does not redefine the architecture or create a parallel memory system.
@@ -168,6 +168,19 @@ Verification: `tests/projectDevelopmentKnowledge4ComponentSnapshot.test.js`; ful
 
 Verification: `tests/projectDevelopmentKnowledge4DevelopmentQueryIntegration.test.js`; full repository code/runtime/worker/diagnostics gate passed in SG 2.1 CI #7153 on commit `a502d5b0252807747f7d4e660d1967752fcf90e5` before documentation synchronization.
 
+### PDK4.12 — diagnostics, production bootstrap and acceptance
+- concrete GitHub REST history source resolves the configured development branch to an immutable full SHA;
+- historical bootstrap pages oldest-first against that immutable anchor with bounded scope-bound cursors;
+- incremental discovery uses bounded compare semantics after the durable bootstrap anchor;
+- diagnostics read PostgreSQL/PM3/PDK4 bookkeeping only and expose bootstrap, ingestion, event, conflict, timeline, component/snapshot and gap health without mutating truth;
+- production acceptance runs only in an authorized project/repository scope;
+- acceptance requires completed bootstrap, durable PostgreSQL restart continuity, incremental catch-up to current, zero-source replay, healthy diagnostics and ordinary SG answers;
+- scope mismatch, authorization denial, incomplete bootstrap, restart discontinuity, partial incremental state, duplicate replay, degraded diagnostics and empty/echo answers fail closed;
+- a production-like runtime E2E persists a confirmed GitHub-provenance PDK4 fact, restarts PostgreSQL/runtime, and answers through ordinary transport → semantic pipeline → PM3 Hybrid Retrieval → Context Guard;
+- unavailable deployment/Render/live-runtime evidence remains unavailable and is not simulated.
+
+Verification: `tests/projectDevelopmentKnowledge4ProductionAcceptance.test.js` + `tests/projectDevelopmentKnowledge4ProductionRuntimeE2E.test.js`; full migrations/security/repository/runtime/worker/diagnostics gate passed in SG 2.1 CI #7166 on commit `c12339c124e666064c5505bf4d71872a264a1bb7` before documentation synchronization.
+
 ## Continuous ingestion → snapshot workflow
 
 ```text
@@ -200,6 +213,24 @@ ordinary SG development question
 
 Historical modes explicitly preserve superseded/expired qualification. Incident-history similarity is advisory-only and does not replace Universal Diagnostics/live evidence.
 
+## Production acceptance workflow
+
+```text
+authorized project/repository
+→ immutable GitHub branch anchor
+→ bounded oldest-first historical bootstrap
+→ completed durable cursor
+→ PostgreSQL close/reopen continuity
+→ bounded post-bootstrap incremental compare
+→ immediate idempotent replay
+→ PDK4 diagnostics health
+→ ordinary SG genesis/evolution/current/planning question
+→ PM3 Hybrid Retrieval + Context Guard
+→ evidence-aware answer with provenance/currentness
+```
+
+Production acceptance verifies the PDK4 software path and persistence/runtime continuity. It does not upgrade missing deployment/runtime evidence into `deployed` or `live-verified` state.
+
 ## Evidence hierarchy
 
 ```text
@@ -226,7 +257,7 @@ After the model call:
 - provenance remains attached;
 - PM3 trust/confirmation decides whether anything becomes active knowledge.
 
-PDK4.7, PDK4.8 and PDK4.10 are deterministic and perform no model call. PDK4.9 adds no direct AI path; any assistance remains inside PDK4.4/PDK4.5. PDK4.11 uses only the existing AI Router response-composition path after PM3 retrieval/Context Guard.
+PDK4.7, PDK4.8 and PDK4.10 are deterministic and perform no model call. PDK4.9 adds no direct AI path; any assistance remains inside PDK4.4/PDK4.5. PDK4.11 uses only the existing AI Router response-composition path after PM3 retrieval/Context Guard. PDK4.12 adds no AI path.
 
 ## Required tests by stage
 Applicable coverage includes:
@@ -242,10 +273,13 @@ Applicable coverage includes:
 - connector/resource authorization denial;
 - snapshot rebuild consistency;
 - timeline integrity;
-- normal SG answer integration through PM3 Context Guard.
+- normal SG answer integration through PM3 Context Guard;
+- immutable GitHub bootstrap anchor and bounded incremental compare;
+- PostgreSQL restart continuity and zero-source replay;
+- normal production-like runtime answer after restart.
 
-## Required diagnostics
-By PDK4.12 expose bounded secret-safe checks/metadata for:
+## Implemented diagnostics
+PDK4.12 exposes bounded secret-safe checks/metadata for:
 
 ```text
 development_history_health
@@ -267,25 +301,5 @@ reconciliation_gap_count
 source_gap_check
 ```
 
-## Production acceptance workflow
-PDK4.12 must prove:
-
-```text
-earliest verified repository evidence
-→ bounded historical bootstrap
-→ Development Events
-→ PM3 durable facts/relations/history
-→ ProjectGenesis + Product Timeline + Component Histories
-→ reconciliation
-→ Product Component Registry + ProjectSnapshot
-→ process restart
-→ incremental new real source change
-→ ordinary SG question
-→ PM3 retrieval + Context Guard
-→ evidence-aware answer with provenance/currentness
-```
-
-Acceptance must also prove replay idempotency, stale/superseded isolation, evidence-dimension separation, unavailable connector fail-closed behavior, no raw-chat/model self-confirmation and no authority changes from memory content.
-
 ## Completion rule
-A PDK4 stage is CLOSED only when code, tests, CI and required runtime/database evidence pass and affected canonical documents are synchronized. PDK4 overall is CLOSED only after PDK4.12 production acceptance.
+A PDK4 stage is CLOSED only when code, tests, CI and required runtime/database evidence pass and affected canonical documents are synchronized. PDK4.1–PDK4.12 satisfy that rule; the PDK4 program is CLOSED under the defined production-like acceptance boundary. Independent deployment/live-runtime verification still requires the corresponding approved evidence connector and is never inferred from PDK4 acceptance alone.

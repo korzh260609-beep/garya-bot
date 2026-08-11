@@ -6,6 +6,11 @@ import {
   createProjectMemoryContextGuard,
   createProjectMemoryDiagnostics
 } from '../projectMemory/index.js';
+import {
+  createPostgresHistoricalCursorStore,
+  createPostgresContinuousIngestionStore,
+  createDevelopmentKnowledgeDiagnostics
+} from '../projectDevelopmentKnowledge/index.js';
 import { createPostgresDiagnosticStore } from './postgresDiagnosticStore.js';
 import { createObservabilityEvidenceSource, createDeploymentEvidenceSource, createInfrastructureEvidenceSource } from './sourceAdapters.js';
 import { createDiagnosticService } from './diagnosticService.js';
@@ -28,6 +33,7 @@ await database.start();
 if (truthy(env.RUN_DIAGNOSTICS_MIGRATIONS_ON_BOOT)) await runMigrations(database);
 
 const projectScope = env.SG_PROJECT_SCOPE ?? 'sg2.1';
+const pdk4Repository = env.SG_PDK4_REPOSITORY ?? env.DIAGNOSTICS_GITHUB_REPOSITORY ?? 'korzh260609-beep/garya-bot';
 const monarchGlobalUserId = required(env.SG_MONARCH_GLOBAL_USER_ID ?? env.MONARCH_GLOBAL_USER_ID, 'SG_MONARCH_GLOBAL_USER_ID/MONARCH_GLOBAL_USER_ID');
 const diagnosticsAuthorize = ({ actor, projectKey }) => actor?.globalUserId === monarchGlobalUserId && projectKey === projectScope;
 
@@ -52,6 +58,11 @@ const projectMemoryDiagnostics = createProjectMemoryDiagnostics({
   contextGuard: projectMemoryContextGuard,
   authorize: diagnosticsAuthorize
 });
+const pdk4Diagnostics = createDevelopmentKnowledgeDiagnostics({
+  database,
+  historyCursorStore: createPostgresHistoricalCursorStore(database),
+  ingestionStateStore: createPostgresContinuousIngestionStore(database)
+});
 
 const probes = [];
 if (env.DIAGNOSTICS_SG_HEALTH_URL) probes.push(createHttpHealthProbe({ id: 'sg-web-health', url: env.DIAGNOSTICS_SG_HEALTH_URL }));
@@ -66,12 +77,14 @@ const baseService = createDiagnosticService({
 });
 const service = Object.freeze({
   ...baseService,
-  projectMemory(input = {}) {
-    return projectMemoryDiagnostics.runAll({
+  async projectMemory(input = {}) {
+    const projectMemory = await projectMemoryDiagnostics.runAll({
       actor: { globalUserId: monarchGlobalUserId, projects: [projectScope] },
       projectKey: input.projectKey ?? projectScope,
       query: input.query ?? 'project memory'
     });
+    const projectDevelopmentKnowledge = await pdk4Diagnostics.inspect({ projectKey: input.projectKey ?? projectScope, repository: pdk4Repository });
+    return Object.freeze({ ...projectMemory, projectDevelopmentKnowledge4: projectDevelopmentKnowledge });
   }
 });
 const httpServer = createDiagnosticsHttpServer({

@@ -1,6 +1,7 @@
 import { createPostgresDatabase } from '../persistence/database.js';
 import { runMigrations } from '../persistence/migrator.js';
 import { createRenderWebApplication } from './renderWebApplication.js';
+import { createProductionHarnessWithPDK4 } from './productionHarnessWithPDK4.js';
 
 function truthy(value) {
   return ['1', 'true', 'yes', 'on'].includes(String(value ?? '').trim().toLowerCase());
@@ -29,7 +30,7 @@ async function runLegacyCompatibleBootMigrations(env = process.env) {
 
 await runLegacyCompatibleBootMigrations();
 
-const application = await createRenderWebApplication();
+const application = await createRenderWebApplication({ harnessFactory: createProductionHarnessWithPDK4 });
 let stopping = false;
 
 async function shutdown(signal) {

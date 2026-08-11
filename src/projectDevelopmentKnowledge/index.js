@@ -108,3 +108,4 @@ export {
   PDK4_PRODUCTION_RUNTIME_CONTRACT_VERSION,
   createProductionDevelopmentKnowledgeRuntime
 } from './productionDevelopmentKnowledgeRuntime.js';
+export { createProductionDevelopmentKnowledgeDeployment } from './productionDevelopmentKnowledgeDeployment.js';

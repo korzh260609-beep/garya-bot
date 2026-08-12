@@ -1,7 +1,7 @@
 # SG 2.1 — TELEGRAM WORKSPACE MANAGER 1.0 PROGRAM
 
 ## Status
-**IN PROGRESS — TWM1.1–TWM1.7 CLOSED / TWM1.8 NEXT.**
+**IN PROGRESS — TWM1.1–TWM1.9 CLOSED / TWM1.10 NEXT.**
 
 TWM1 is the cross-cutting Telegram workspace management program that lets any authorized SG user configure SG for their own Telegram groups, supergroups and channels through native Telegram UI and natural language.
 
@@ -242,45 +242,59 @@ Tests:
 Evidence: `../../evidence/TWM1_7_DECISION_ACTION_GATE_INTEGRATION.md`.
 Verified code/runtime gate: HEAD `747a821de5a4fd19be766e0583e005b6ee8e38c0`, SG 2.1 CI #7307 — SUCCESS.
 
-TWM1.7 establishes the mandatory backend mutation boundary. It does not claim that future callback, command, natural-language or worker surfaces already exist; when implemented, they must converge on this same sole write owner and cannot bypass the canonical SG Action Gate.
+TWM1.7 establishes the mandatory backend mutation boundary. TWM1.8 and TWM1.9 now reuse that same sole Action-Gated write owner; TWM1.10 must make live Telegram runtime consume the resulting configuration without bypassing it.
 
 ### TWM1.8 — Telegram Native UI & Setup Wizard
-**Status: PLANNED / NEXT.**
+**Status: CLOSED / IMPLEMENTED / CI-VERIFIED.**
 
-Implement inline-keyboard management in private chat and/or scoped workspace context:
-- list/select workspaces;
-- connect instructions;
-- setup wizard;
-- response settings;
-- moderation;
-- publication/channel settings;
+Implemented Telegram-native inline-keyboard management as a thin presentation/controller layer over the existing TWM backend:
+- authority-filtered list/select workspaces;
+- connect instructions and progressive setup wizard;
+- response, moderation and publication settings;
 - memory/AI/automation/notifications;
 - members/roles;
-- diagnostics/history/rollback.
+- diagnostics/history/rollback;
+- preview→explicit confirmation→TWM1.6/TWM1.7 protected apply;
+- rollback as a separately confirmed protected mutation;
+- production routing before ordinary Semantic Runtime for TWM UI callbacks/commands while ordinary messages remain unchanged.
 
-UI must expose progressive complexity rather than a flat large settings list.
+UI callbacks never encode authority; identity, exact workspace scope and authorization are re-resolved server-side. No JSON, `.env`, database access or programming is required for the first setup flow.
 
-**Gate:** a non-technical user can complete first setup without code, JSON, `.env` or database access.
+**Gate: PASS.** Non-technical native Telegram setup, authority isolation, preview-without-write, request-bound confirmation, rollback, diagnostics and ordinary-runtime preservation are covered by automated tests; full SG 2.1 CI passed on the final stage HEAD.
+
+Evidence: `../../evidence/TWM1_8_TELEGRAM_NATIVE_UI_SETUP_WIZARD.md`.
+Verified final gate: HEAD `dda7f2ec3188bb1f9b25cc8951caca484ca8aab6`, SG 2.1 CI #7323 — SUCCESS.
 
 ### TWM1.9 — Natural-Language Configuration
-**Status: PLANNED.**
+**Status: CLOSED / IMPLEMENTED / CI-VERIFIED.**
 
-Support ordinary language such as:
+Implemented ordinary-language Telegram workspace configuration through the existing AI Router with bounded structured output. AI/model output remains non-authoritative data and cannot grant workspace authority or write configuration directly.
+
+Implemented path:
 
 ```text
-"SG, in Crypto answer only when mentioned"
-"enable anti-spam in this group"
-"who disabled links in Witch?"
+ordinary Telegram request
+→ existing invocation boundary + canonical identity
+→ authority-filtered workspace candidates / exact chat scope
+→ AI Router bounded structure (`configure` / `history-query` / `not-twm`)
+→ deterministic workspace resolution and bounded patch validation
+→ TWM1.6 proposal/current-config merge
+→ durable actor-bound TTL pending proposal
+→ explicit Telegram confirmation
+→ exact stored proposal + original request id
+→ TWM1.7 Action Gate
+→ atomic PostgreSQL config/history write
 ```
 
-Use Semantic Kernel and AI Router only where needed to create bounded structured proposals. AI output remains non-authoritative data.
+Private-chat ambiguity asks the user to select/name the workspace instead of guessing. Group/supergroup/channel context is authoritative and model cross-workspace redirection is rejected. Classification failure or `not-twm` falls through to ordinary SG runtime; protected TWM callbacks fail closed. History answers use deterministic stored config history rather than model-invented actor/version/time. Existing unrelated settings are preserved by deterministic deep merge.
 
-Resolve current workspace from explicit chat scope; private-chat references must resolve deterministically and ask selection only when genuinely ambiguous.
+**Gate: PASS.** Proposal-without-write, exact confirmation, replay/expiry/actor mismatch rejection, group scope, private ambiguity, history, classifier fallback, PostgreSQL restart and legacy Telegram/persistence compatibility all pass; ordinary Telegram webhook success remains backward-compatible.
 
-**Gate:** no keyword hacks; proposal→authority→validation→confirmation→Action Gate→service apply path is enforced.
+Evidence: `../../evidence/TWM1_9_NATURAL_LANGUAGE_CONFIGURATION.md`.
+Verified final closure: HEAD `c5da8de6aa87489e0423b512920cf3a0875037f9`, SG 2.1 CI #7347 — SUCCESS.
 
 ### TWM1.10 — Workspace Runtime Wiring
-**Status: PLANNED.**
+**Status: PLANNED / NEXT.**
 
 Wire persisted workspace settings into real Telegram behavior:
 - response modes;

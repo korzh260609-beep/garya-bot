@@ -52,3 +52,5 @@ export {
   createTelegramWorkspaceConfigurationService
 } from './workspaceConfigurationService.js';
 export { createTelegramWorkspaceNativeUi } from './telegramWorkspaceNativeUi.js';
+export { createTelegramWorkspaceNaturalLanguageService } from './telegramWorkspaceNaturalLanguageService.js';
+export { createPostgresTelegramWorkspaceNaturalLanguagePendingStore } from './postgresNaturalLanguagePendingStore.js';

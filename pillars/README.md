@@ -31,7 +31,7 @@ Active files:
 - `PROJECT_MEMORY_3_0.md` — specialized evidence-backed Project Memory architecture inside Memory 2.0
 - `PROJECT_DEVELOPMENT_KNOWLEDGE_4_0.md` — development-history/project-evolution architecture built on Project Memory 3.0
 - `PROJECT_DEVELOPMENT_KNOWLEDGE_4_13_LIVE_PRODUCTION_WIRING.md` — planned live production wiring for PDK4.13
-- `TELEGRAM_WORKSPACE_MANAGER_1_0.md` — active TWM1 architecture; TWM1.1–TWM1.2 CLOSED / CI-verified and TWM1.3 next, including later content/polls/quizzes/media/statistics and bounded AI analysis
+- `TELEGRAM_WORKSPACE_MANAGER_1_0.md` — active TWM1 architecture; TWM1.1–TWM1.3 CLOSED / CI-verified and TWM1.4 next, including later content/polls/quizzes/media/statistics and bounded AI analysis
 - `TELEGRAM_WORKSPACE_MANAGER_1_15_COMMUNITY_OPERATIONS.md` — planned TWM1.15 community operations, engagement and analytics architecture
 - `DECISION_AND_ACTION_GATE.md`
 - `CAPABILITY_SYSTEM.md`
@@ -88,7 +88,7 @@ Active files:
 - `PROJECT_MEMORY_3_0_PROGRAM.md` — completed specialized Project Memory PM3.1–PM3.12 program
 - `PROJECT_DEVELOPMENT_KNOWLEDGE_4_0_PROGRAM.md` — completed PDK4.1–PDK4.12 development-history/project-evolution baseline
 - `PROJECT_DEVELOPMENT_KNOWLEDGE_4_13_LIVE_PRODUCTION_WIRING.md` — planned PDK4.13 live production wiring extension
-- `TELEGRAM_WORKSPACE_MANAGER_1_0_PROGRAM.md` — active TWM1 program; TWM1.1–TWM1.2 CLOSED / CI-verified and TWM1.3 next, with later TWM1.14 Content, Polls, Quizzes & Media Management
+- `TELEGRAM_WORKSPACE_MANAGER_1_0_PROGRAM.md` — active TWM1 program; TWM1.1–TWM1.3 CLOSED / CI-verified and TWM1.4 next, with later TWM1.14 Content, Polls, Quizzes & Media Management
 - `TELEGRAM_WORKSPACE_MANAGER_1_15_COMMUNITY_OPERATIONS_PROGRAM.md` — planned TWM1.15 forms/events/FAQ/onboarding/feedback/cases/tasks/decisions/content planning/summaries/analytics/briefs/exports program
 - `UNIVERSAL_DIAGNOSTICS_PROGRAM.md` — canonical Universal Diagnostics D1–D12 cross-cutting program
 - `PRODUCTION_ROADMAP.md` — canonical continuation covering Blocks 11–19, intermediate Blocks 16.5–16.18 and Pilot Launch
@@ -106,7 +106,7 @@ Active files:
 - `PROJECT_MEMORY_3_0_WORKFLOW.md` — Project Memory 3.0 implementation/verification sequence
 - `PROJECT_DEVELOPMENT_KNOWLEDGE_4_0_WORKFLOW.md` — PDK4 baseline implementation/verification sequence
 - `PROJECT_DEVELOPMENT_KNOWLEDGE_4_13_LIVE_PRODUCTION_WIRING_WORKFLOW.md` — PDK4.13 production wiring workflow
-- `TELEGRAM_WORKSPACE_MANAGER_1_0_WORKFLOW.md` — active TWM1 implementation/verification sequence; TWM1.1–TWM1.2 CLOSED / CI-verified and TWM1.3 next
+- `TELEGRAM_WORKSPACE_MANAGER_1_0_WORKFLOW.md` — active TWM1 implementation/verification sequence; TWM1.1–TWM1.3 CLOSED / CI-verified and TWM1.4 next
 - `TELEGRAM_WORKSPACE_MANAGER_1_15_COMMUNITY_OPERATIONS_WORKFLOW.md` — TWM1.15 community operations/engagement/analytics implementation and live-acceptance sequence
 - `UNIVERSAL_DIAGNOSTICS_WORKFLOW.md` — Universal Diagnostics D1–D12 implementation/verification sequence
 
@@ -120,7 +120,7 @@ Project Memory 3.0 is not a replacement for Memory 2.0. It specializes the `Proj
 
 Project Development Knowledge 4.0 is not a new memory store. It builds on Project Memory 3.0 to reconstruct and continuously maintain SG development knowledge across origin, requirements, proposals, decisions/rationale, implementation/rework, incidents/fixes, CI/deployment/runtime evidence, historical supersession, current state and next plan. It must keep `implemented`, `ci-verified`, `deployed` and `live-verified` distinct, preserve provenance and history, and route all model assistance through AI Router.
 
-Telegram Workspace Manager 1.0 is not a second Telegram transport or a second identity/authorization stack. TWM1.1–TWM1.2 are implemented and CI-verified; TWM1.3 is the next canonical stage. TWM1 lets any authorized SG user configure and operate SG for their own Telegram groups, supergroups and channels through native Telegram UI and natural language while reusing canonical `global_user_id`, Identity/Scope, Resource Authority, Action Gate, PostgreSQL, Memory 2.0 isolation, AI Router and existing Telegram production integration. TWM1.14 extends that same scoped backend with content creation/publication, polls, quizzes/tests, user-supplied photo/video/document publication, deterministic result collection/statistics and optional AI Router interpretation. TWM1.15 extends it with five bounded packages — Content, Engagement, Community, Operations and Analytics — covering forms, events, FAQ/onboarding, feedback, cases, tasks/reminders/decisions, content planning, discussion summaries, deterministic analytics, owner briefs and authorized exports. Telegram administrator status is workspace-scoped evidence only and never SG-global owner/Monarch authority.
+Telegram Workspace Manager 1.0 is not a second Telegram transport or a second identity/authorization stack. TWM1.1–TWM1.3 are implemented and CI-verified; TWM1.4 is the next canonical stage. TWM1 lets any authorized SG user configure and operate SG for their own Telegram groups, supergroups and channels through native Telegram UI and natural language while reusing canonical `global_user_id`, Identity/Scope, Resource Authority, Action Gate, PostgreSQL, Memory 2.0 isolation, AI Router and existing Telegram production integration. TWM1.14 extends that same scoped backend with content creation/publication, polls, quizzes/tests, user-supplied photo/video/document publication, deterministic result collection/statistics and optional AI Router interpretation. TWM1.15 extends it with five bounded packages — Content, Engagement, Community, Operations and Analytics — covering forms, events, FAQ/onboarding, feedback, cases, tasks/reminders/decisions, content planning, discussion summaries, deterministic analytics, owner briefs and authorized exports. Telegram administrator status is workspace-scoped evidence only and never SG-global owner/Monarch authority.
 
 TWM1.15 MUST reuse existing Memory 2.0, Session/Conversation Context, task/capability, Durable Automation, Delivery Router, AI Router and Observability foundations. Operational data does not become shared confirmed memory automatically; private user data cannot leak into FAQ/analytics/exports; AI cannot mutate state or fabricate exact metrics; and poll/test outcomes require a separate authorized decision transition before they can become binding workspace decisions.
 

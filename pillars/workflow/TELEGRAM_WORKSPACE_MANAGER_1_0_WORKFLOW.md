@@ -1,7 +1,7 @@
 # SG 2.1 — TELEGRAM WORKSPACE MANAGER 1.0 WORKFLOW
 
 ## Status
-**IN PROGRESS — TWM1.1–TWM1.9 CLOSED / TWM1.10 NEXT.**
+**IN PROGRESS — TWM1.1–TWM1.10 CLOSED / TWM1.11 NEXT.**
 
 This workflow defines how TWM1 stages are implemented and verified without bypassing existing SG identity, authority, Action Gate, persistence, memory or transport boundaries.
 
@@ -252,7 +252,7 @@ Implementation/tests:
 Evidence: `../../evidence/TWM1_7_DECISION_ACTION_GATE_INTEGRATION.md`.
 Verified code/runtime gate: HEAD `747a821de5a4fd19be766e0583e005b6ee8e38c0`, SG 2.1 CI #7307 — SUCCESS.
 
-TWM1.8 and TWM1.9 are now CLOSED and both converge on this same protected backend path. TWM1.10 is next and must wire persisted effective configuration into real Telegram runtime behavior.
+TWM1.8–TWM1.10 are now CLOSED and converge on the same protected backend/runtime path. TWM1.11 is next.
 
 ## TWM1.8 — Telegram Native UI & Setup Wizard
 **Status: CLOSED / IMPLEMENTED / CI-VERIFIED.**
@@ -302,14 +302,49 @@ Evidence: `../../evidence/TWM1_9_NATURAL_LANGUAGE_CONFIGURATION.md`.
 Verified final closure: HEAD `c5da8de6aa87489e0423b512920cf3a0875037f9`, SG 2.1 CI #7347 — SUCCESS.
 
 ## TWM1.10 — Runtime Wiring
-**Status: NEXT / PLANNED.**
+**Status: CLOSED / IMPLEMENTED / CI-VERIFIED.**
 
-Make Telegram runtime consume effective workspace configuration through an approved read interface. Configuration reads must be bounded/cached safely and invalidate predictably after writes.
+The existing Telegram production path resolves persisted workspace configuration and propagates one immutable `workspaceRuntimePolicy` into the canonical SG runtime. No second Telegram transport, runtime, AI router, Memory 2.0 service or policy database is introduced.
 
-Acceptance: real runtime response/moderation/publication behavior changes after config mutation and persists across restart.
+Runtime acceptance sequence:
+
+```text
+Telegram update
+→ existing discovery / invocation boundary
+→ exact workspace_id resolution
+→ current persisted workspace config read
+→ bounded effective workspaceRuntimePolicy
+→ response-mode decision
+→ existing SG runtime
+→ AI / Memory / response context bounded by workspace policy
+```
+
+Verified behavior:
+- `responses.mode=off/all/mention_only` changes invocation behavior deterministically;
+- `ai.enabled=false` fails closed before ordinary SG runtime execution;
+- policy is re-read per request, avoiding stale in-process workspace config;
+- unmanaged Telegram chats preserve the pre-TWM SG runtime path;
+- `memory.enabled=false` removes shared group/thread memory from response-context recall;
+- explicit Memory 2.0 group/thread writes and promotion are denied while personal/user-group writes remain under ordinary Memory 2.0 rules;
+- shared-only explicit recall returns no shared records;
+- auto-capture is suppressed before Memory 2.0 persistence for a disabled Telegram workspace;
+- moderation/publication/automation/notifications/member policy remains propagated for existing/later capability consumers.
+
+Implementation/tests:
+- `src/telegramWorkspace/telegramWorkspaceRuntimeWiring.js`;
+- `src/runtime/renderWebApplication.js`;
+- `src/runtime/createProductionRuntime.js`;
+- `src/response/boundedResponseContext.js`;
+- `src/memory2/memory2Capabilities.js`;
+- `tests/telegramWorkspaceManager1RuntimeWiring.test.js`;
+- `tests/telegramWorkspaceManager1MemoryIsolation.test.js`.
+
+Acceptance passed on implementation HEAD `3004dfe4665327db0d830d5ecc52c36cdb948307`, SG 2.1 CI #7368 — SUCCESS. The documentation-synchronized closure HEAD must also pass the full SG 2.1 CI before external closure declaration.
+
+Evidence: `../../evidence/TWM1_10_WORKSPACE_RUNTIME_WIRING.md`.
 
 ## TWM1.11 — Audit, Rollback, Diagnostics
-**Status: PLANNED.**
+**Status: PLANNED / NEXT.**
 
 Expose history and rollback through authorized services. Rollback creates a new version and audit record; it does not delete history. Diagnostics are read-only and secret-safe.
 

@@ -1,7 +1,7 @@
 # SG 2.1 — TELEGRAM WORKSPACE MANAGER 1.0
 
 ## Status
-**IN PROGRESS — TWM1.1–TWM1.5 CLOSED / TWM1.6 NEXT.**
+**IN PROGRESS — TWM1.1–TWM1.6 CLOSED / TWM1.7 NEXT.**
 
 Telegram Workspace Manager 1.0 (TWM1) is a cross-cutting SG module that lets any authorized SG user connect, configure and operate SG inside Telegram groups, supergroups and channels without programming.
 
@@ -122,7 +122,19 @@ Capability snapshots are workspace-scoped and PostgreSQL restart-tested; one wor
 Evidence: `../../evidence/TWM1_5_BOT_PERMISSION_DISCOVERY_CAPABILITY_HEALTH.md`.
 Verified implementation gate: HEAD `d5d4ebdc68f066ac69877e00cad4db84484fb84b`, SG 2.1 CI #7281 — SUCCESS.
 
-This status makes no claim for TWM1.6+ configuration-service authorization, Action Gate integration, configuration runtime consumption or real Telegram production E2E/live acceptance.
+### TWM1.6 implementation status
+TWM1.6 is **CLOSED / IMPLEMENTED / CI-VERIFIED**. `WorkspaceConfigurationService` is implemented in `src/telegramWorkspace/workspaceConfigurationService.js`, exported through the TWM module boundary and composed in the Render production bootstrap over the same PostgreSQL workspace store and TWM1.4 authority resolver.
+
+The service owns authorized get/list, proposal generation, bounded schema/value/JSON validation, recursive secret-field rejection, fresh `workspace:configure` verification, deterministic risk/confirmation classification, expected-version atomic apply, history and rollback. Rollback is a new configuration version and never rewinds or deletes the audit chain. Metadata-only audit/Internal Event Bus records are emitted without copying raw configuration values into telemetry.
+
+The managed TWM1.6 namespaces are `general`, `responses`, `moderation`, `memory`, `ai`, `publication`, `automation`, `notifications` and `members`. Persistence-reserved `content`, `polls` and `media` remain outside the TWM1.6 mutation service for later stages.
+
+A boundary regression test enforces one application mutation owner: only `WorkspaceConfigurationService` calls `workspaceStore.setConfig(...)`, while direct SQL config mutation remains confined to `PostgresTelegramWorkspaceStore`. PostgreSQL restart, stale-proposal failure, rollback history and multi-workspace isolation are integration-tested.
+
+Evidence: `../../evidence/TWM1_6_WORKSPACE_CONFIGURATION_SERVICE.md`.
+Verified implementation gate: HEAD `7a36c708f916d1ae375d238b22416bd5cd86a5fa`, SG 2.1 CI #7293 — SUCCESS.
+
+This status makes no claim for TWM1.7+ Action Gate convergence, Telegram-native configuration UI, natural-language configuration, effective configuration runtime consumption or real Telegram production E2E/live acceptance.
 
 ## Identity and authority
 Canonical human identity remains `global_user_id`.
@@ -212,8 +224,10 @@ workspace.content.preview_before_publish = true
 
 Configuration is versioned. Every mutation records actor, scope, old value, new value, reason/source, trace id and timestamp.
 
+TWM1.6 actively manages nine configuration namespaces: `general`, `responses`, `moderation`, `memory`, `ai`, `publication`, `automation`, `notifications`, `members`. The persistence contract also reserves `content`, `polls` and `media` for later TWM stages; their presence in the persistence namespace model does not make them TWM1.6-managed settings.
+
 ## Persistence
-Implemented by TWM1.2 and consumed by TWM1.5:
+Implemented by TWM1.2 and consumed by TWM1.5/TWM1.6:
 - `telegram_workspaces`;
 - `telegram_workspace_members`;
 - `telegram_workspace_bot_permissions`;
@@ -232,20 +246,23 @@ Planned extension entities include:
 All rows are scoped by canonical workspace id. Cross-workspace reads/writes fail closed unless explicitly authorized.
 
 ## Workspace Configuration Service
-`WorkspaceConfigurationService` is the only TWM service permitted to mutate workspace configuration.
+`WorkspaceConfigurationService` is the only TWM application service permitted to mutate workspace configuration and is **implemented by TWM1.6**.
 
-Required responsibilities:
-- list/get workspace configuration;
-- produce configuration proposals;
-- validate schemas and values;
-- authorize the requested mutation;
-- determine confirmation requirements;
-- apply atomic versioned changes;
-- expose history;
-- rollback to an authorized prior version;
-- emit bounded audit/observability events.
+Implemented responsibilities:
+- list/get workspace configuration under `workspace:view`;
+- produce structured configuration proposals;
+- validate bounded JSON/schema/value shape and reject secret-shaped fields;
+- authorize mutations with fresh `workspace:configure` evidence;
+- determine low/medium/high risk and confirmation requirements;
+- apply atomic versioned changes through TWM1.2 PostgreSQL persistence;
+- reject stale proposals through `expectedVersion` conflict protection;
+- expose append-only history;
+- rollback to an authorized prior version by writing a new version;
+- emit bounded metadata-only audit/observability events.
 
-Telegram adapters, UI callbacks, AI Router and language responders must not write configuration storage directly.
+Telegram adapters, UI callbacks, AI Router and language responders must not write configuration storage directly. Boundary tests enforce that only the service calls `workspaceStore.setConfig(...)` in application code and that direct config SQL remains inside the PostgreSQL store.
+
+TWM1.6 service-level risk/confirmation classification is not a substitute for TWM1.7. Full protected-action classification and convergence through the existing Decision / Action Gate remains the next canonical stage.
 
 ## Telegram Workspace Registry
 `TelegramWorkspaceRegistry` owns resource discovery and metadata state:
@@ -412,7 +429,7 @@ TWM1 should expose bounded secret-safe health such as:
 - result-ingestion freshness/replay counters;
 - authorization denials.
 
-TWM1.5 emits bounded bot-capability health audit/telemetry from the production service without exposing bot credentials or cross-workspace private data.
+TWM1.5 emits bounded bot-capability health audit/telemetry from the production service without exposing bot credentials or cross-workspace private data. TWM1.6 emits bounded configuration mutation metadata without placing raw configuration values or secrets into ordinary telemetry events.
 
 ## Isolation
 Hard rule:

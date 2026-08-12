@@ -1,7 +1,7 @@
 # SG 2.1 — TELEGRAM WORKSPACE MANAGER 1.0 PROGRAM
 
 ## Status
-**IN PROGRESS — TWM1.1–TWM1.3 CLOSED / TWM1.4 NEXT.**
+**IN PROGRESS — TWM1.1–TWM1.4 CLOSED / TWM1.5 NEXT.**
 
 TWM1 is the cross-cutting Telegram workspace management program that lets any authorized SG user configure SG for their own Telegram groups, supergroups and channels through native Telegram UI and natural language.
 
@@ -90,21 +90,33 @@ Evidence: `../../evidence/TWM1_3_TELEGRAM_WORKSPACE_DISCOVERY_REGISTRY.md`.
 Verified implementation gate: HEAD `a007a159ab705d94eb31676115632d3ac71c5377`, SG 2.1 CI #7266 — SUCCESS.
 
 ### TWM1.4 — Workspace Authority Verification
-**Status: PLANNED.**
+**Status: CLOSED / IMPLEMENTED / CI-VERIFIED.**
 
-Implement `TelegramWorkspaceAuthorityResolver` using:
-- verified Telegram Identity Link → canonical `global_user_id`;
-- current Telegram resource evidence;
-- existing Resource Authority registry/policy;
-- bounded TWM workspace roles/grants;
-- requested action.
+Implemented `TelegramWorkspaceAuthorityResolver` over existing SG authority primitives:
+- canonical Telegram Identity Link resolves platform user id to `global_user_id`;
+- canonical `workspace_id` selects the exact Telegram resource locator;
+- current creator/administrator evidence is obtained through the existing Telegram Bot API client using `getChatMember`;
+- Telegram creator/admin evidence is intersected with bounded workspace roles and existing Resource Authority relations;
+- sensitive workspace actions always reverify live Telegram authority;
+- low-risk read evidence may be cached only within a bounded TTL and must still pass non-expired Resource Authority;
+- live authority loss revokes the workspace member and existing Resource Authority grants;
+- SG workspace role may be stricter than Telegram status but cannot broaden Telegram authority;
+- no workspace OWNER/ADMIN mapping writes SG-global roles or Monarch authority;
+- PostgreSQL restart preserves scoped member/Resource Authority state, followed by live revocation on the next sensitive check.
 
-Sensitive actions require fresh/policy-valid Telegram authority evidence.
+Implementation paths:
+- `src/telegramWorkspace/telegramWorkspaceAuthorityResolver.js`;
+- `src/telegramWorkspace/index.js`;
+- `tests/telegramWorkspaceManager1Authority.test.js`;
+- `tests/telegramWorkspaceManager1AuthorityPostgres.test.js`.
 
-**Gate:** member denied; administrator allowed only within verified workspace scope; authority loss revokes access; no SG-global escalation.
+**Gate: PASS.** Creator/admin allowed where policy permits; ordinary member denied; cross-workspace admin denied; stale/revoked evidence denied after policy re-verification; stricter SG role intersection enforced; no SG-global escalation; PostgreSQL restart continuity passes.
+
+Evidence: `../../evidence/TWM1_4_WORKSPACE_AUTHORITY_VERIFICATION.md`.
+Verified implementation gate: HEAD `acd4770cae660a811bb85d64d4ecce961b318c73`, SG 2.1 CI #7274 — SUCCESS.
 
 ### TWM1.5 — Bot Permission Discovery & Capability Health
-**Status: PLANNED.**
+**Status: PLANNED / NEXT.**
 
 Implement detection/caching/refresh of actual SG bot permissions in each workspace.
 

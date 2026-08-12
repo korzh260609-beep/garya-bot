@@ -1,7 +1,7 @@
 # SG 2.1 — TELEGRAM WORKSPACE MANAGER 1.0 WORKFLOW
 
 ## Status
-**IN PROGRESS — TWM1.1–TWM1.3 CLOSED / TWM1.4 NEXT.**
+**IN PROGRESS — TWM1.1–TWM1.4 CLOSED / TWM1.5 NEXT.**
 
 This workflow defines how TWM1 stages are implemented and verified without bypassing existing SG identity, authority, Action Gate, persistence, memory or transport boundaries.
 
@@ -65,16 +65,48 @@ Evidence: `../../evidence/TWM1_3_TELEGRAM_WORKSPACE_DISCOVERY_REGISTRY.md`.
 Verified implementation gate: HEAD `a007a159ab705d94eb31676115632d3ac71c5377`, SG 2.1 CI #7266 — SUCCESS.
 
 ## TWM1.4 — Authority Verification
-Reuse canonical Identity Links and Resource Authority. Query/re-verify Telegram resource authority according to sensitivity/freshness policy. Add bounded TWM roles only as workspace-scoped grants.
+**Status: CLOSED / IMPLEMENTED / CI-VERIFIED.**
 
-Acceptance tests must include:
+Implemented `TelegramWorkspaceAuthorityResolver` by reusing canonical Identity Links, the existing Telegram Bot API client, durable workspace member state and existing Resource Authority.
+
+Verification sequence:
+
+```text
+telegram platform_user_id
+→ canonical Identity Link
+→ global_user_id
+→ exact workspace_id / Telegram chat locator
+→ getChatMember current evidence when policy requires
+→ bounded TWM workspace role
+→ existing Resource Authority relation/TTL/state
+→ explicit allow/deny decision
+```
+
+Sensitive actions always reverify live Telegram authority. Low-risk read checks may reuse only policy-valid bounded evidence and still require an active non-expired Resource Authority grant. Creator maps to initial workspace `OWNER`; administrator maps to initial `ADMIN`; existing SG workspace role may remain stricter. Live loss of creator/admin status revokes the workspace member and active Resource Authority grant. No workspace role is written into SG-global roles or Monarch authority.
+
+Acceptance passed:
 - creator/admin allowed where policy permits;
-- member denied;
-- cross-workspace admin denied;
-- stale/revoked admin evidence denied;
-- no SG-global owner/Monarch escalation.
+- ordinary member denied;
+- cross-workspace admin denied because the target workspace is independently checked;
+- stale low-risk evidence expires and is reverified;
+- revoked admin evidence is denied and the persisted authority grant is revoked;
+- Telegram verification failure denies sensitive actions fail-closed;
+- existing stricter SG workspace role cannot be broadened by Telegram admin status;
+- canonical Identity Link mismatch is denied before Telegram authority query;
+- PostgreSQL restart preserves scoped member/Resource Authority state without SG-global escalation.
+
+Implementation/tests:
+- `src/telegramWorkspace/telegramWorkspaceAuthorityResolver.js`;
+- `src/telegramWorkspace/index.js`;
+- `tests/telegramWorkspaceManager1Authority.test.js`;
+- `tests/telegramWorkspaceManager1AuthorityPostgres.test.js`.
+
+Evidence: `../../evidence/TWM1_4_WORKSPACE_AUTHORITY_VERIFICATION.md`.
+Verified implementation gate: HEAD `acd4770cae660a811bb85d64d4ecce961b318c73`, SG 2.1 CI #7274 — SUCCESS.
 
 ## TWM1.5 — Bot Permission Discovery
+**Status: NEXT / PLANNED.**
+
 Capture actual Telegram bot membership/permissions and map them to bounded SG capability health. Missing permission is a first-class degraded result.
 
 Acceptance: configured action requiring unavailable permission cannot report success and provides actionable missing-permission diagnostics.

@@ -1,7 +1,7 @@
 # SG 2.1 — TELEGRAM WORKSPACE MANAGER 1.0
 
 ## Status
-**IN PROGRESS — TWM1.1–TWM1.3 CLOSED / TWM1.4 NEXT.**
+**IN PROGRESS — TWM1.1–TWM1.4 CLOSED / TWM1.5 NEXT.**
 
 Telegram Workspace Manager 1.0 (TWM1) is a cross-cutting SG module that lets any authorized SG user connect, configure and operate SG inside Telegram groups, supergroups and channels without programming.
 
@@ -102,7 +102,17 @@ The implemented registry accepts only group/supergroup/channel facts, refreshes 
 Evidence: `../../evidence/TWM1_3_TELEGRAM_WORKSPACE_DISCOVERY_REGISTRY.md`.
 Verified implementation gate: HEAD `a007a159ab705d94eb31676115632d3ac71c5377`, SG 2.1 CI #7266 — SUCCESS.
 
-This status makes no claim for TWM1.4+ authority verification, live bot-permission discovery, configuration-service authorization, runtime wiring or live Telegram acceptance.
+### TWM1.4 implementation status
+TWM1.4 is **CLOSED / IMPLEMENTED / CI-VERIFIED**. `TelegramWorkspaceAuthorityResolver` is implemented in `src/telegramWorkspace/telegramWorkspaceAuthorityResolver.js` and exported through the existing TWM module boundary.
+
+The resolver requires a canonical Telegram Identity Link, resolves the exact `workspace_id`, obtains current creator/administrator evidence through the existing Telegram Bot API client (`getChatMember` via the existing client call path), intersects that evidence with bounded workspace role and existing Resource Authority relations, and returns an explicit auditable allow/deny decision. Sensitive actions reverify live Telegram authority; low-risk reads may use only non-expired bounded evidence. Authority loss revokes both the workspace member state and corresponding Resource Authority grant. Workspace OWNER/ADMIN remains workspace-scoped and never creates an SG-global role or Monarch authority.
+
+PostgreSQL acceptance proves scoped member/Resource Authority persistence across restart, followed by fail-closed revocation when Telegram authority is lost. Cross-workspace authority is independently verified against the target Telegram chat rather than inherited from another workspace.
+
+Evidence: `../../evidence/TWM1_4_WORKSPACE_AUTHORITY_VERIFICATION.md`.
+Verified implementation gate: HEAD `acd4770cae660a811bb85d64d4ecce961b318c73`, SG 2.1 CI #7274 — SUCCESS.
+
+This status makes no claim for TWM1.5+ bot-permission discovery, configuration-service authorization, Action Gate integration, runtime wiring or live Telegram acceptance.
 
 ## Identity and authority
 Canonical human identity remains `global_user_id`.

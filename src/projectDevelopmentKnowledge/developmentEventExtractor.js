@@ -153,7 +153,9 @@ function defaultState(eventType, source) {
   if (eventType === 'proposal' || eventType === 'alternative' || eventType === 'rationale') return ['conceived', 'proposed'];
   if (eventType === 'rejected') return ['proposed', 'rejected'];
   if (eventType === 'abandoned') return ['planned', 'abandoned'];
-  if (eventType === 'superseded') return ['implemented', 'superseded'];
+  // A commit mentioning supersession is only evidence of a supersession-related event.
+  // It cannot authoritatively move lifecycle to superseded without a structured supersededBy target.
+  if (eventType === 'superseded') return ['implemented', 'implemented'];
   if (eventType === 'test') return ['implemented', 'testing'];
   if (eventType === 'ci-verification' && evidence.has('ci')) return ['testing', 'ci-verified'];
   if (source.evidenceDimension === 'code' && evidence.has('code')) return ['implementing', 'implemented'];
@@ -244,7 +246,7 @@ function sanitizeAi(ai, deterministic, source) {
   const verification = new Set(source.verificationKinds ?? []);
   if (newState === 'implemented' && !verification.has('code')) [previousState, newState] = [deterministic.previousState, deterministic.newState];
   if (newState === 'ci-verified' && !verification.has('ci')) [previousState, newState] = [deterministic.previousState, deterministic.newState];
-  if (['deployed', 'live-verified'].includes(newState)) [previousState, newState] = [deterministic.previousState, deterministic.newState];
+  if (['deployed', 'live-verified', 'superseded'].includes(newState)) [previousState, newState] = [deterministic.previousState, deterministic.newState];
   return {
     eventType,
     domain: deterministic.domain,

@@ -63,7 +63,7 @@ test('TWM1.10 resolves persisted workspace policy and propagates bounded namespa
   assert.equal(policy.version, 'twm1.10');
   assert.equal(policy.workspaceId, 'tgw_runtime10');
   assert.equal(policy.responseMode, 'all');
-  assert.equal(policy.memoryEnabled, false);
+  assert.equal(policy.workspaceMemoryEnabled, false);
   assert.equal(policy.aiEnabled, true);
   assert.equal(policy.moderation.enabled, false);
   assert.equal(policy.publication.preview_before_publish, true);
@@ -117,7 +117,7 @@ test('TWM1.10 enabled runtime receives immutable workspace policy metadata', asy
   assert.equal(fx.runtimeCalls.length, 1);
   const delivered = fx.runtimeCalls[0];
   assert.equal(delivered.metadata.workspaceRuntimePolicy.workspaceId, 'tgw_runtime10');
-  assert.equal(delivered.metadata.workspaceRuntimePolicy.memoryEnabled, false);
+  assert.equal(delivered.metadata.workspaceRuntimePolicy.workspaceMemoryEnabled, false);
   assert.equal(Object.isFrozen(delivered.metadata.workspaceRuntimePolicy), true);
 });
 

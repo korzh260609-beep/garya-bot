@@ -1,7 +1,7 @@
 # SG 2.1 — TELEGRAM WORKSPACE MANAGER 1.0
 
 ## Status
-**PLANNED / NOT IMPLEMENTED.**
+**IN PROGRESS — TWM1.1 CLOSED / TWM1.2 NEXT.**
 
 Telegram Workspace Manager 1.0 (TWM1) is a cross-cutting SG module that lets any authorized SG user connect, configure and operate SG inside Telegram groups, supergroups and channels without programming.
 
@@ -79,6 +79,14 @@ Canonical fields include:
 - created/updated timestamps.
 
 Telegram group→supergroup migration must preserve the canonical SG workspace identity and configuration through an explicit migration relation rather than creating silent duplicate workspaces.
+
+### TWM1.1 implementation status
+TWM1.1 is **CLOSED / IMPLEMENTED / CI-VERIFIED**. The canonical workspace contract is implemented in `src/telegramWorkspace/`, and canonical request scope now carries optional `ScopeContext.workspaceScope` in `src/contracts/context.js`. The contract preserves an SG-issued `tgw_*` workspace root across Telegram group→supergroup migration and rejects invalid/non-canonical/cross-workspace scope fail-closed.
+
+Evidence: `../../evidence/TWM1_1_WORKSPACE_CONTRACT.md`.
+Verified gate: HEAD `fa72678cbd796dd163aa5208c664338ccb73223e`, SG 2.1 CI #7232 — SUCCESS.
+
+This status makes no claim for TWM1.2+ persistence, discovery, authority verification, bot-permission discovery, runtime wiring or live Telegram acceptance.
 
 ## Identity and authority
 Canonical human identity remains `global_user_id`.

@@ -1,6 +1,6 @@
 # SG 2.1 Semantic
 
-This branch contains the active SG 2.1 architecture and completed executable production foundation through Block 16.16. Repository-wide audit hardening has also wired the Internal Event Bus, Contract Versioning and Domain Runtime into production composition and closed cross-module observability, feature-result and Render-startup compatibility defects. Block 16.17 — Self Knowledge / System Self-Awareness is the next roadmap block, followed by Block 16.18 — Monarch Control / Owner Security, before Block 17 Render Deployment.
+This branch contains the active SG 2.1 architecture and executable production foundation through completed Block 16.17 — Self Knowledge / System Self-Awareness, with Blocks 18–19 also completed and acceptance-verified. Block 16.18 — Monarch Control / Owner Security remains planned. Block 17 — Render Deployment is implementation-complete but still requires external Render runtime evidence before operational completion. Cross-cutting Memory 2.0 M1–M9 and Project Memory 3.0 PM3.1–PM3.12 are CLOSED; PDK4.1–PDK4.12 are CLOSED / CI-verified while PDK4.13 remains PLANNED / NOT IMPLEMENTED; Telegram Workspace Manager TWM1.1–TWM1.9 are CLOSED / CI-verified and TWM1.10 Workspace Runtime Wiring is next.
 
 ## Requirements
 - Node.js 22
@@ -29,7 +29,7 @@ All non-secret options are documented in `.env.example`. Real API keys must be s
 
 ## Roadmap status
 
-### Completed
+### Completed / acceptance-verified
 - Block 0 — Engineering Foundation
 - Block 1 — Semantic Kernel
 - Block 2 — Context and Memory
@@ -60,14 +60,22 @@ All non-secret options are documented in `.env.example`. Real API keys must be s
 - Block 16.14 — Internal Event Bus
 - Block 16.15 — Schema & Contract Versioning
 - Block 16.16 — Feature Flags & Controlled Rollout
-
-### Next
 - Block 16.17 — Self Knowledge / System Self-Awareness
-- Block 16.18 — Monarch Control / Owner Security
-- Block 17 — Render Deployment
 - Block 18 — End-to-End Verification
 - Block 19 — Security and Operations
-- Pilot Launch
+
+### Remaining / not fully closed
+- Block 16.18 — Monarch Control / Owner Security — planned
+- Block 17 — Render Deployment — implementation complete; external Render runtime evidence pending
+- Pilot Launch — planned
+
+### Cross-cutting programs
+- Memory 2.0 M1–M9 — CLOSED
+- Project Memory 3.0 PM3.1–PM3.12 — CLOSED
+- Project Development Knowledge 4.0 PDK4.1–PDK4.12 — CLOSED / CI-verified
+- PDK4.13 Live Production Wiring & Autonomous Project History — PLANNED / NOT IMPLEMENTED
+- Telegram Workspace Manager TWM1.1–TWM1.9 — CLOSED / CI-verified
+- TWM1.10 Workspace Runtime Wiring — NEXT
 
 ## Implemented
 ### Block 0 — Engineering Foundation
@@ -284,7 +292,7 @@ The repository-wide audit after Block 16.16 additionally verified and hardened t
 Individual implementation and acceptance evidence remains in `pillars/roadmap/16_8_*.md` through `16_16_FEATURE_FLAGS_AND_CONTROLLED_ROLLOUT.md`.
 
 ### Block 16.17 — Self Knowledge / System Self-Awareness
-**Status:** Planned — next.
+**Status:** Completed and acceptance-verified.
 
 - dedicated system-owned Self Knowledge separate from user/project memory;
 - structured identity, purpose, architecture, capability, module, integration, development-status and limitation facts;
@@ -293,15 +301,16 @@ Individual implementation and acceptance evidence remains in `pillars/roadmap/16
 - `SelfKnowledgeBuilder` and `SelfKnowledgeConsistencyChecker`;
 - documentation-vs-code/runtime conflict detection;
 - bounded retrieval for questions about SG itself without full-repository prompt injection;
-- live-state questions still require runtime/diagnostics verification;
+- live-state questions require runtime/diagnostics verification;
 - user/model text cannot redefine canonical SG identity, owner or architecture truth;
-- raw secrets never enter Self Knowledge.
+- raw secrets never enter Self Knowledge;
+- bounded response context carries relevant verified identity/memory/conversation/settings/self-knowledge facts to final AI response composition.
 
-Detailed planned specification: `pillars/roadmap/16_17_SELF_KNOWLEDGE_SYSTEM_SELF_AWARENESS.md`.
+Detailed implementation and acceptance evidence: `pillars/roadmap/16_17_SELF_KNOWLEDGE_SYSTEM_SELF_AWARENESS.md`.
 Architecture boundary: `pillars/architecture/SELF_KNOWLEDGE.md`.
 
 ### Block 16.18 — Monarch Control / Owner Security
-**Status:** Planned — after 16.17.
+**Status:** Planned — next numbered roadmap block not yet implemented.
 
 - verified owner/Monarch authority rooted in canonical `global_user_id`;
 - owner status cannot be inferred from names, usernames, commands, phrases or AI output;
@@ -311,18 +320,35 @@ Architecture boundary: `pillars/architecture/SELF_KNOWLEDGE.md`.
 - raw secrets remain non-disclosable through ordinary SG surfaces;
 - privileged allow/deny decisions are auditable;
 - emergency lockdown and trusted owner recovery are required;
-- privilege-escalation, impersonation and bypass tests are mandatory before deployment.
+- privilege-escalation, impersonation and bypass tests are mandatory before closure.
 
 Detailed planned specification: `pillars/roadmap/16_18_MONARCH_CONTROL_OWNER_SECURITY.md`.
 Architecture boundary: `pillars/architecture/MONARCH_OWNER_SECURITY.md`.
+
+### Block 17 — Render Deployment
+**Status:** Implementation complete; external Render runtime evidence still required before operational completion.
+
+The approved deployment source remains `dev/sg2.1-semantic`. Existing Render web-service compatibility, boot migrations, health/readiness endpoints, production web runtime, Telegram webhook registration and rollback-safe startup are implemented. Operational completion requires verified external Render runtime evidence as defined by the Block 17 roadmap.
+
+Detailed implementation status and evidence requirements: `pillars/roadmap/17_RENDER_DEPLOYMENT.md`.
+
+### Block 18 — End-to-End Verification
+**Status:** Completed and acceptance-verified.
+
+Detailed implementation and acceptance evidence: `pillars/roadmap/18_END_TO_END_VERIFICATION.md`.
+
+### Block 19 — Security and Operations
+**Status:** Completed and acceptance-verified.
+
+Detailed implementation and acceptance evidence: `pillars/roadmap/19_SECURITY_AND_OPERATIONS.md`.
 
 ## Runtime direction
 Current production-composed path is:
 `Platform Input → Transport Adapter → Identity/Scope → User Settings/Conversation/Language Context → Contract Version Check → Semantic Kernel → Context Resolution → Decision Engine → Capability Selection → Connection/Resource Authority where required → Action Gate → Feature/Contract-gated Capability or Domain Runtime → Delivery Router where required → Response → Observability/Internal Events`.
 
-Block 16.17 will add a bounded Self Knowledge context path for system-self-description and system-capability questions; it will not become a mandatory hop in every request or replace live diagnostics.
+Block 16.17 has added bounded Self Knowledge and response-context assembly for system-self-description/system-capability and relevant answer-composition contexts; live-state claims still require runtime/diagnostic evidence rather than static Self Knowledge alone.
 
-Block 16.18 will then tighten privileged execution by composing verified Owner Security before protected SG-wide system changes; it will not replace Action Gate or the existing Identity/Scope/Resource Authority boundaries.
+Block 16.18 remains planned and will tighten privileged execution by composing verified Owner Security before protected SG-wide system changes; it must not replace Action Gate or the existing Identity/Scope/Resource Authority boundaries.
 
 The production interpretation route remains:
 `ProductionMeaningInterpreter → AIRouter → ProductionAiPolicy → ModelRegistry → AIProvider`
@@ -358,7 +384,7 @@ The production interpretation route remains:
 - Original natural-language text remains available to Semantic Kernel; multilingual support does not require mandatory pre-translation.
 
 ## Current boundary
-Blocks 0–16.16 provide the completed executable SG 2.1 foundation. Block 16.17 Self Knowledge / System Self-Awareness is the next roadmap stage; Block 16.18 Monarch Control / Owner Security follows after its implementation and acceptance verification, then Block 17 Render Deployment, Block 18 End-to-End Verification, Block 19 Security and Operations, and Pilot Launch.
+Blocks 0–16.17 are implemented/acceptance-verified except Block 16.18, which remains planned. Block 17 implementation is complete but awaits external Render runtime evidence before operational completion. Blocks 18 and 19 are completed and acceptance-verified. Cross-cutting Memory 2.0 and Project Memory 3.0 are closed; PDK4.1–PDK4.12 are closed with PDK4.13 still planned; TWM1.1–TWM1.9 are closed with TWM1.10 next. Pilot Launch remains planned.
 
 ## Authority
 Read in this order:

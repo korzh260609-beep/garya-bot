@@ -49,7 +49,7 @@ integration('TWM1.9 PostgreSQL pending proposal survives restart and can be clai
   await restarted.start();
   const restartedPending = createPostgresTelegramWorkspaceNaturalLanguagePendingStore(restarted.database, { ttlMs: 300_000 });
   const wrongActor = await restartedPending.claim({ token: created.token, actorGlobalUserId: 'usr_wrong_actor', telegramUserId });
-  assert.equal(wrongActor.status, 'pending');
+  assert.equal(wrongActor, null);
   const claimed = await restartedPending.claim({ token: created.token, actorGlobalUserId, telegramUserId });
   assert.equal(claimed.status, 'processing');
   assert.equal(claimed.proposal.workspaceId, workspaceId);

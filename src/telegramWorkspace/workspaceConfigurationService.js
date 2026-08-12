@@ -53,8 +53,7 @@ function freeze(value) {
 }
 function clone(value) { return value == null ? value : structuredClone(value); }
 function fail(message, code, details = null) {
-  const error = new TelegramWorkspaceConfigurationError(message, code, details);
-  throw error;
+  throw new TelegramWorkspaceConfigurationError(message, code, details);
 }
 function managedNamespace(value) {
   const name = required(value, 'namespace');
@@ -153,6 +152,15 @@ function historyValue(row, camel, snake) { return row?.[camel] ?? row?.[snake] ?
 function publicAuthority(decision) {
   return freeze({ allowed: decision.allowed, reason: decision.reason, workspaceRole: decision.workspaceRole ?? null, verificationTime: decision.verificationTime ?? null });
 }
+function publicGate(decision) {
+  return freeze({
+    outcome: decision.outcome,
+    gate: decision.audit?.gate ?? null,
+    traceId: decision.audit?.traceId ?? null,
+    requestId: decision.audit?.requestId ?? null,
+    reasons: freeze([...(decision.reasons ?? [])])
+  });
+}
 
 export class TelegramWorkspaceConfigurationError extends Error {
   constructor(message, code = 'twm-workspace-configuration-error', details = null) {
@@ -166,6 +174,7 @@ export class TelegramWorkspaceConfigurationError extends Error {
 export function createTelegramWorkspaceConfigurationService({
   workspaceStore,
   authorityResolver,
+  mutationGate,
   eventBus = null,
   projectScope = 'sg2.1',
   environment = null,
@@ -177,6 +186,7 @@ export function createTelegramWorkspaceConfigurationService({
     if (typeof workspaceStore?.[method] !== 'function') throw new TypeError(`workspaceStore.${method} is required`);
   }
   if (typeof authorityResolver?.verify !== 'function') throw new TypeError('authorityResolver.verify is required');
+  if (typeof mutationGate?.evaluateMutation !== 'function') throw new TypeError('mutationGate.evaluateMutation is required');
   if (eventBus !== null && typeof eventBus?.publish !== 'function') throw new TypeError('eventBus.publish is required');
   const project = required(projectScope, 'projectScope');
   if (typeof idFactory !== 'function' || typeof audit !== 'function') throw new TypeError('invalid workspace configuration service dependency');
@@ -184,18 +194,18 @@ export function createTelegramWorkspaceConfigurationService({
   async function emitAudit(event) {
     try { await audit(freeze({ eventClass: 'telegram_workspace_configuration', ...event })); } catch {}
   }
-  async function emitMutationEvent({ operation, workspaceId, namespace, actorGlobalUserId, traceId, version, previousVersion, risk, confirmationRequired, paths }) {
+  async function emitMutationEvent({ operation, workspaceId, namespace, actorGlobalUserId, traceId, requestId, version, previousVersion, risk, confirmationRequired, paths, gateOutcome }) {
     if (!eventBus) return false;
     try {
       await eventBus.publish({
         eventType: 'resource.updated',
-        traceContext: { traceId, requestId: traceId, environment, revision },
+        traceContext: { traceId, requestId, environment, revision },
         scope: { projectScope: project, globalUserId: actorGlobalUserId, resourceId: workspaceId },
         actorGlobalUserId,
         privacyClass: 'internal',
         orderingKey: `workspace-config:${workspaceId}:${namespace}`,
-        provenance: { source: 'twm1.6', operation },
-        payload: { updateKind: 'workspace_configuration', operation, namespace, version, previousVersion, risk, confirmationRequired, changedPaths: paths }
+        provenance: { source: 'twm1.7', operation },
+        payload: { updateKind: 'workspace_configuration', operation, namespace, version, previousVersion, risk, confirmationRequired, changedPaths: paths, gateOutcome }
       });
       return true;
     } catch {
@@ -226,9 +236,10 @@ export function createTelegramWorkspaceConfigurationService({
     const rows = await workspaceStore.listConfigs({ workspaceId });
     return freeze(rows.filter((row) => MANAGED_NAMESPACE_SET.has(row.namespace)));
   }
-  async function proposeChange({ workspaceId, namespace, nextConfig, actorGlobalUserId, telegramUserId, traceId, reason = null } = {}) {
+  async function proposeChange({ workspaceId, namespace, nextConfig, actorGlobalUserId, telegramUserId, traceId, requestId = null, reason = null } = {}) {
     const name = managedNamespace(namespace);
     const trace = required(traceId, 'traceId');
+    const request = required(requestId ?? trace, 'requestId');
     const actor = required(actorGlobalUserId, 'actorGlobalUserId');
     const validated = validateTelegramWorkspaceConfiguration(name, nextConfig);
     const authority = await authorize({ workspaceId, actorGlobalUserId: actor, telegramUserId, requestedAction: 'workspace:configure', forceFresh: true });
@@ -239,6 +250,7 @@ export function createTelegramWorkspaceConfigurationService({
     const proposal = freeze({
       kind: 'telegram-workspace-config-proposal',
       proposalId: idFactory(),
+      requestId: request,
       workspaceId: required(workspaceId, 'workspaceId'),
       namespace: name,
       actorGlobalUserId: actor,
@@ -251,20 +263,33 @@ export function createTelegramWorkspaceConfigurationService({
       confirmationRequired: classification.confirmationRequired,
       authority: publicAuthority(authority)
     });
-    await emitAudit({ operation: 'propose', outcome: 'success', workspaceId: proposal.workspaceId, namespace: name, actorGlobalUserId: actor, traceId: trace, baseVersion: current.version, risk: proposal.risk, confirmationRequired: proposal.confirmationRequired, changedPaths: proposal.changedPaths });
+    await emitAudit({ operation: 'propose', outcome: 'success', workspaceId: proposal.workspaceId, namespace: name, actorGlobalUserId: actor, traceId: trace, requestId: request, baseVersion: current.version, risk: proposal.risk, confirmationRequired: proposal.confirmationRequired, changedPaths: proposal.changedPaths });
     return proposal;
   }
-  async function applyProposal({ proposal, actorGlobalUserId, telegramUserId, confirmed = false } = {}) {
+  async function applyProposal({ proposal, actorGlobalUserId, telegramUserId, confirmation = null } = {}) {
     plainObject(proposal, 'proposal');
     if (proposal.kind !== 'telegram-workspace-config-proposal') fail('unsupported workspace configuration proposal', 'twm-workspace-config-proposal-invalid');
     const actor = required(actorGlobalUserId, 'actorGlobalUserId');
     if (actor !== proposal.actorGlobalUserId) fail('workspace configuration proposal actor mismatch', 'twm-workspace-config-proposal-actor-mismatch');
     const name = managedNamespace(proposal.namespace);
     const validated = validateTelegramWorkspaceConfiguration(name, proposal.nextConfig);
-    const paths = changedPaths((await workspaceStore.getConfig({ workspaceId: proposal.workspaceId, namespace: name }))?.config ?? {}, validated);
+    const current = configRowOrDefault({ workspaceId: proposal.workspaceId, namespace: name, row: await workspaceStore.getConfig({ workspaceId: proposal.workspaceId, namespace: name }) });
+    const paths = changedPaths(current.config, validated);
     const classification = riskFor(name, 'apply');
-    if (classification.confirmationRequired && confirmed !== true) fail('workspace configuration confirmation required', 'twm-workspace-config-confirmation-required', classification);
-    await authorize({ workspaceId: proposal.workspaceId, actorGlobalUserId: actor, telegramUserId, requestedAction: 'workspace:configure', forceFresh: true });
+    const authority = await authorize({ workspaceId: proposal.workspaceId, actorGlobalUserId: actor, telegramUserId, requestedAction: 'workspace:configure', forceFresh: true });
+    const gateDecision = await mutationGate.evaluateMutation({
+      operation: 'apply',
+      workspaceId: proposal.workspaceId,
+      namespace: name,
+      actorGlobalUserId: actor,
+      traceId: required(proposal.traceId, 'proposal.traceId'),
+      requestId: required(proposal.requestId ?? proposal.traceId, 'proposal.requestId'),
+      baseVersion: Number(proposal.baseVersion),
+      risk: classification.risk,
+      confirmationRequired: classification.confirmationRequired,
+      authority: publicAuthority(authority),
+      confirmation
+    });
     let applied;
     try {
       applied = await workspaceStore.setConfig({
@@ -272,36 +297,36 @@ export function createTelegramWorkspaceConfigurationService({
         namespace: name,
         config: validated,
         actorGlobalUserId: actor,
-        traceId: required(proposal.traceId, 'proposal.traceId'),
+        traceId: proposal.traceId,
         expectedVersion: Number(proposal.baseVersion),
-        reason: proposal.reason ?? 'twm1.6 configuration apply'
+        reason: proposal.reason ?? 'twm1.7 action-gated configuration apply'
       });
     } catch (error) {
-      await emitAudit({ operation: 'apply', outcome: 'failure', workspaceId: proposal.workspaceId, namespace: name, actorGlobalUserId: actor, traceId: proposal.traceId, reason: error?.code ?? 'workspace-config-write-failed' });
+      await emitAudit({ operation: 'apply', outcome: 'failure', workspaceId: proposal.workspaceId, namespace: name, actorGlobalUserId: actor, traceId: proposal.traceId, requestId: proposal.requestId, reason: error?.code ?? 'workspace-config-write-failed', gateOutcome: gateDecision.outcome });
       throw error;
     }
-    const eventEmitted = await emitMutationEvent({ operation: 'apply', workspaceId: proposal.workspaceId, namespace: name, actorGlobalUserId: actor, traceId: proposal.traceId, version: applied.version, previousVersion: Number(proposal.baseVersion), risk: classification.risk, confirmationRequired: classification.confirmationRequired, paths });
-    await emitAudit({ operation: 'apply', outcome: 'success', workspaceId: proposal.workspaceId, namespace: name, actorGlobalUserId: actor, traceId: proposal.traceId, version: applied.version, previousVersion: Number(proposal.baseVersion), risk: classification.risk, confirmationRequired: classification.confirmationRequired, changedPaths: paths, eventEmitted });
-    return freeze({ config: applied, risk: classification.risk, confirmationRequired: classification.confirmationRequired, eventEmitted });
+    const eventEmitted = await emitMutationEvent({ operation: 'apply', workspaceId: proposal.workspaceId, namespace: name, actorGlobalUserId: actor, traceId: proposal.traceId, requestId: proposal.requestId, version: applied.version, previousVersion: Number(proposal.baseVersion), risk: classification.risk, confirmationRequired: classification.confirmationRequired, paths, gateOutcome: gateDecision.outcome });
+    await emitAudit({ operation: 'apply', outcome: 'success', workspaceId: proposal.workspaceId, namespace: name, actorGlobalUserId: actor, traceId: proposal.traceId, requestId: proposal.requestId, version: applied.version, previousVersion: Number(proposal.baseVersion), risk: classification.risk, confirmationRequired: classification.confirmationRequired, changedPaths: paths, eventEmitted, gateOutcome: gateDecision.outcome });
+    return freeze({ config: applied, risk: classification.risk, confirmationRequired: classification.confirmationRequired, actionGate: publicGate(gateDecision), eventEmitted });
   }
   async function applyChange(input = {}) {
     const proposal = await proposeChange(input);
-    return applyProposal({ proposal, actorGlobalUserId: input.actorGlobalUserId, telegramUserId: input.telegramUserId, confirmed: input.confirmed === true });
+    return applyProposal({ proposal, actorGlobalUserId: input.actorGlobalUserId, telegramUserId: input.telegramUserId, confirmation: input.confirmation ?? null });
   }
   async function history({ workspaceId, namespace, actorGlobalUserId, telegramUserId, limit = 100 } = {}) {
     const name = managedNamespace(namespace);
     await authorize({ workspaceId, actorGlobalUserId, telegramUserId, requestedAction: 'workspace:view', forceFresh: false });
     return workspaceStore.configHistory({ workspaceId, namespace: name, limit });
   }
-  async function rollback({ workspaceId, namespace, targetVersion, actorGlobalUserId, telegramUserId, traceId, reason = null, confirmed = false } = {}) {
+  async function rollback({ workspaceId, namespace, targetVersion, actorGlobalUserId, telegramUserId, traceId, requestId = null, reason = null, confirmation = null } = {}) {
     const name = managedNamespace(namespace);
     const target = Number(targetVersion);
     if (!Number.isInteger(target) || target < 1) fail('targetVersion must be a positive integer', 'twm-workspace-config-rollback-version-invalid');
     const actor = required(actorGlobalUserId, 'actorGlobalUserId');
     const trace = required(traceId, 'traceId');
+    const request = required(requestId ?? trace, 'requestId');
     const classification = riskFor(name, 'rollback');
-    if (classification.confirmationRequired && confirmed !== true) fail('workspace configuration rollback confirmation required', 'twm-workspace-config-confirmation-required', classification);
-    await authorize({ workspaceId, actorGlobalUserId: actor, telegramUserId, requestedAction: 'workspace:configure', forceFresh: true });
+    const authority = await authorize({ workspaceId, actorGlobalUserId: actor, telegramUserId, requestedAction: 'workspace:configure', forceFresh: true });
     const current = configRowOrDefault({ workspaceId, namespace: name, row: await workspaceStore.getConfig({ workspaceId, namespace: name }) });
     if (current.version === 0) fail('workspace configuration does not exist', 'twm-workspace-config-not-found');
     if (current.version === target) fail('rollback target is already current', 'twm-workspace-config-noop');
@@ -310,6 +335,20 @@ export function createTelegramWorkspaceConfigurationService({
     if (!targetRow) fail('rollback target version is not available in bounded history', 'twm-workspace-config-rollback-version-not-found');
     const targetConfig = validateTelegramWorkspaceConfiguration(name, historyValue(targetRow, 'newConfig', 'new_config'));
     const paths = changedPaths(current.config, targetConfig);
+    const gateDecision = await mutationGate.evaluateMutation({
+      operation: 'rollback',
+      workspaceId,
+      namespace: name,
+      actorGlobalUserId: actor,
+      traceId: trace,
+      requestId: request,
+      baseVersion: current.version,
+      targetVersion: target,
+      risk: classification.risk,
+      confirmationRequired: true,
+      authority: publicAuthority(authority),
+      confirmation
+    });
     const applied = await workspaceStore.setConfig({
       workspaceId,
       namespace: name,
@@ -319,9 +358,9 @@ export function createTelegramWorkspaceConfigurationService({
       expectedVersion: current.version,
       reason: reason == null ? `rollback-to-version:${target}` : String(reason).slice(0, 500)
     });
-    const eventEmitted = await emitMutationEvent({ operation: 'rollback', workspaceId, namespace: name, actorGlobalUserId: actor, traceId: trace, version: applied.version, previousVersion: current.version, risk: classification.risk, confirmationRequired: true, paths });
-    await emitAudit({ operation: 'rollback', outcome: 'success', workspaceId, namespace: name, actorGlobalUserId: actor, traceId: trace, version: applied.version, previousVersion: current.version, targetVersion: target, risk: classification.risk, confirmationRequired: true, changedPaths: paths, eventEmitted });
-    return freeze({ config: applied, rolledBackToVersion: target, risk: classification.risk, confirmationRequired: true, eventEmitted });
+    const eventEmitted = await emitMutationEvent({ operation: 'rollback', workspaceId, namespace: name, actorGlobalUserId: actor, traceId: trace, requestId: request, version: applied.version, previousVersion: current.version, risk: classification.risk, confirmationRequired: true, paths, gateOutcome: gateDecision.outcome });
+    await emitAudit({ operation: 'rollback', outcome: 'success', workspaceId, namespace: name, actorGlobalUserId: actor, traceId: trace, requestId: request, version: applied.version, previousVersion: current.version, targetVersion: target, risk: classification.risk, confirmationRequired: true, changedPaths: paths, eventEmitted, gateOutcome: gateDecision.outcome });
+    return freeze({ config: applied, rolledBackToVersion: target, risk: classification.risk, confirmationRequired: true, actionGate: publicGate(gateDecision), eventEmitted });
   }
 
   return Object.freeze({

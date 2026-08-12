@@ -53,11 +53,16 @@ export function createIdentityContext(input) {
 
 export function createScopeContext(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new TypeError('scope input is required');
+  const workspaceScope = input.workspaceScope == null ? null : requireNonEmptyString(input.workspaceScope, 'workspaceScope');
+  if (workspaceScope !== null && !workspaceScope.startsWith('tgw_')) {
+    throw new TypeError('workspaceScope must be a canonical tgw_* workspace id');
+  }
   return Object.freeze({
     userScope: requireNonEmptyString(input.userScope, 'userScope'),
     projectScope: requireNonEmptyString(input.projectScope, 'projectScope'),
     groupScope: input.groupScope == null ? null : requireNonEmptyString(input.groupScope, 'groupScope'),
     threadScope: input.threadScope == null ? null : requireNonEmptyString(input.threadScope, 'threadScope'),
+    workspaceScope,
     dataClassification: requireNonEmptyString(input.dataClassification ?? 'internal', 'dataClassification'),
     allowedCapabilities: stringList(input.allowedCapabilities, 'allowedCapabilities')
   });

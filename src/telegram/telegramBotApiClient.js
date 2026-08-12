@@ -91,13 +91,25 @@ export function createTelegramBotApiClient({
       chat_id: chatId,
       user_id: userId
     }),
-    sendMessage: ({ chatId, text, messageThreadId = null, replyToMessageId = null }) => call('sendMessage', {
+    sendMessage: ({ chatId, text, messageThreadId = null, replyToMessageId = null, replyMarkup = null }) => call('sendMessage', {
       chat_id: chatId,
       text: requiredString(text, 'telegram message text'),
       ...(messageThreadId == null ? {} : { message_thread_id: messageThreadId }),
-      ...(replyToMessageId == null ? {} : { reply_parameters: { message_id: replyToMessageId } })
+      ...(replyToMessageId == null ? {} : { reply_parameters: { message_id: replyToMessageId } }),
+      ...(replyMarkup == null ? {} : { reply_markup: replyMarkup })
     }),
-    setWebhook: ({ url, secretToken, allowedUpdates = ['message', 'edited_message'] }) => call('setWebhook', {
+    editMessageText: ({ chatId, messageId, text, replyMarkup = null }) => call('editMessageText', {
+      chat_id: chatId,
+      message_id: messageId,
+      text: requiredString(text, 'telegram message text'),
+      ...(replyMarkup == null ? {} : { reply_markup: replyMarkup })
+    }),
+    answerCallbackQuery: ({ callbackQueryId, text = null, showAlert = false }) => call('answerCallbackQuery', {
+      callback_query_id: requiredString(callbackQueryId, 'callback query id'),
+      ...(text == null ? {} : { text: String(text).slice(0, 200) }),
+      show_alert: showAlert === true
+    }),
+    setWebhook: ({ url, secretToken, allowedUpdates = ['message', 'edited_message', 'channel_post', 'edited_channel_post', 'callback_query', 'my_chat_member'] }) => call('setWebhook', {
       url: requiredString(url, 'webhook url'),
       secret_token: requiredString(secretToken, 'webhook secret'),
       allowed_updates: allowedUpdates,

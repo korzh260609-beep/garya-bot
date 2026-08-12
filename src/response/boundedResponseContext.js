@@ -64,14 +64,17 @@ export function createBoundedResponseContextAssembler({
       const identity = request.actor;
       const scope = request.scope;
       const now = new Date().toISOString();
-      const layers = ['user-memory','user-group-memory','group-memory','thread-memory','project-memory'];
+      const workspaceMemoryEnabled = request.input?.workspaceRuntimePolicy?.workspaceMemoryEnabled !== false;
+      const layers = workspaceMemoryEnabled
+        ? ['user-memory','user-group-memory','group-memory','thread-memory','project-memory']
+        : ['user-memory','user-group-memory','project-memory'];
       const queried = typeof memoryProvider.recall === 'function'
         ? await memoryProvider.recall({ scope, actor: identity, query: semanticMessage ?? request.input?.text ?? '', layers, maxRecords: Math.max(1, maxUserMemory + maxProjectMemory + maxSharedMemory), maxCharacters: Math.max(2000, Math.floor(maxCharacters * 0.6)) })
         : await memoryProvider.query({ scope, layers: ['user-memory','project-memory'], keys: [], now, actor: identity });
       const confirmed = queried.records.filter((record) => record.confirmed === true);
       const allUserMemory = confirmed.filter((record) => record.layer === 'user-memory' || record.layer === 'user-group-memory');
       const allProjectMemory = confirmed.filter((record) => record.layer === 'project-memory');
-      const allSharedMemory = confirmed.filter((record) => record.layer === 'group-memory' || record.layer === 'thread-memory');
+      const allSharedMemory = confirmed.filter((record) => workspaceMemoryEnabled && (record.layer === 'group-memory' || record.layer === 'thread-memory'));
       const userMemory = allUserMemory.slice(0, maxUserMemory).map(memoryView);
       const projectMemory = allProjectMemory.slice(0, maxProjectMemory).map(memoryView);
       const sharedMemory = allSharedMemory.slice(0, maxSharedMemory).map(memoryView);
@@ -103,7 +106,7 @@ export function createBoundedResponseContextAssembler({
         confirmedUserMemory: userMemory,
         confirmedProjectMemory: projectMemory,
         confirmedSharedMemory: sharedMemory,
-        memoryRecall: { diagnostics: clone(queried.diagnostics ?? {}), conflicts: clone(queried.conflicts ?? []) },
+        memoryRecall: { workspaceMemoryEnabled, diagnostics: clone(queried.diagnostics ?? {}), conflicts: clone(queried.conflicts ?? []) },
         conversationContext: { conversationId: conversationRef?.conversationId ?? null, topicId: conversationRef?.topicId ?? null, recentTurns: conversation },
         selfKnowledge: { snapshotVersion: selfKnowledge.snapshot?.version ?? null, sourceRevision: selfKnowledge.snapshot?.sourceRevision ?? null, validationStatus: selfKnowledge.snapshot?.validationStatus ?? 'invalid', facts: selfKnowledge.facts.slice(0, maxSelfKnowledgeFacts).map(selfFactView) },
         userSettings: clone(request.input?.userPreferences ?? null),
@@ -142,7 +145,7 @@ export function createBoundedResponseContextAssembler({
       observability?.record?.({
         eventClass: 'audit_event', channel: 'telemetry', stage: 'response-context', outcome: 'assembled', traceContext: telemetryTrace,
         actorRef: identity.globalUserId,
-        data: { responseContextEventClass: 'response_context_assembled', userMemoryCount: safe.confirmedUserMemory.length, projectMemoryCount: safe.confirmedProjectMemory.length, sharedMemoryCount: safe.confirmedSharedMemory.length, memoryConflictCount: safe.provenance.memoryConflictCount, conversationTurnCount: safe.conversationContext.recentTurns.length, selfKnowledgeFactCount: safe.selfKnowledge.facts.length, selfKnowledgeVersion: safe.selfKnowledge.snapshotVersion, selfKnowledgeValidationStatus: safe.selfKnowledge.validationStatus, truncated: safe.truncationEvidence }
+        data: { responseContextEventClass: 'response_context_assembled', userMemoryCount: safe.confirmedUserMemory.length, projectMemoryCount: safe.confirmedProjectMemory.length, sharedMemoryCount: safe.confirmedSharedMemory.length, workspaceMemoryEnabled: safe.memoryRecall.workspaceMemoryEnabled, memoryConflictCount: safe.provenance.memoryConflictCount, conversationTurnCount: safe.conversationContext.recentTurns.length, selfKnowledgeFactCount: safe.selfKnowledge.facts.length, selfKnowledgeVersion: safe.selfKnowledge.snapshotVersion, selfKnowledgeValidationStatus: safe.selfKnowledge.validationStatus, truncated: safe.truncationEvidence }
       });
       return Object.freeze(clone(safe));
     }

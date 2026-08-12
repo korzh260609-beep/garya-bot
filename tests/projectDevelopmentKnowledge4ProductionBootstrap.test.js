@@ -88,7 +88,7 @@ integration('PDK4.13: production bootstrap persists cursor, resumes after restar
   const replay = await runtime2.reconcile({ reason: 'acceptance-replay' });
   assert.equal(replay.processed, 0);
 
-  const stored = await restarted.database.query(`SELECT m.trust,m.confirmed,e.confirmation_state,p.source_kind,p.source_ref,e.fact
+  const stored = await restarted.database.query(`SELECT m.trust,m.confirmed,m.confirmation_state,p.source_kind,p.source_ref,e.fact
     FROM project_memory_entries e JOIN memory_records m USING(memory_id) JOIN project_memory_provenance p USING(memory_id)
     WHERE e.project_key=$1 AND e.fact_type='project-event' ORDER BY e.valid_from`, [projectKey]);
   assert.equal(stored.rowCount, 2);

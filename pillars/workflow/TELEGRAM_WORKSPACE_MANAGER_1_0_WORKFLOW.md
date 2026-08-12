@@ -1,7 +1,7 @@
 # SG 2.1 — TELEGRAM WORKSPACE MANAGER 1.0 WORKFLOW
 
 ## Status
-**PLANNED / NOT IMPLEMENTED.**
+**IN PROGRESS — TWM1.1 CLOSED / TWM1.2 NEXT.**
 
 This workflow defines how TWM1 stages are implemented and verified without bypassing existing SG identity, authority, Action Gate, persistence, memory or transport boundaries.
 
@@ -31,9 +31,14 @@ Before implementing a TWM stage:
 5. preserve `main` as non-authoritative for SG 2.1 state evaluation.
 
 ## TWM1.1 — Workspace Contract & Lifecycle
-Implement canonical contracts first. Add deterministic tests for valid workspace types/lifecycle, canonical workspace ids, scope isolation and Telegram group→supergroup migration mapping. Do not add persistence behavior before the contract is stable.
+**Status: CLOSED / IMPLEMENTED / CI-VERIFIED.**
 
-Acceptance: invalid/cross-workspace context fails closed and no ownership is inferred from metadata or invitation order.
+Implemented canonical contracts first, with deterministic tests for valid workspace types/lifecycle, canonical workspace ids, scope isolation and Telegram group→supergroup migration mapping. Persistence behavior remains intentionally deferred to TWM1.2.
+
+Acceptance passed: invalid/non-canonical/cross-workspace context fails closed; canonical `ScopeContext.workspaceScope` is integrated; no ownership is inferred from metadata or invitation order.
+
+Evidence: `../../evidence/TWM1_1_WORKSPACE_CONTRACT.md`.
+Verified gate: HEAD `fa72678cbd796dd163aa5208c664338ccb73223e`, SG 2.1 CI #7232 — SUCCESS.
 
 ## TWM1.2 — PostgreSQL Workspace Persistence
 Add migrations/stores only for contract-approved entities. Preserve transactionality, unique Telegram resource mapping, canonical workspace isolation, versioned configuration and restart continuity.

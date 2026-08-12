@@ -63,17 +63,19 @@ export function createTelegramWorkspaceDiagnosticsObservabilityService({
   revision = 'sg2.1',
   clock = () => new Date()
 } = {}) {
-  for (const method of ['getWorkspace']) if (typeof workspaceStore?.[method] !== 'function') throw new TypeError(`workspaceStore.${method} is required`);
+  if (typeof workspaceStore?.getWorkspace !== 'function') throw new TypeError('workspaceStore.getWorkspace is required');
   if (typeof authorityResolver?.verify !== 'function') throw new TypeError('authorityResolver.verify is required');
   for (const method of ['listConfigs', 'history', 'rollback']) if (typeof configurationService?.[method] !== 'function') throw new TypeError(`configurationService.${method} is required`);
   if (botCapabilityService !== null && typeof botCapabilityService?.getHealth !== 'function') throw new TypeError('botCapabilityService.getHealth is required');
   if (observability !== null && (typeof observability?.record !== 'function' || typeof observability?.list !== 'function')) throw new TypeError('observability record/list are required');
+  if (typeof clock !== 'function') throw new TypeError('clock is required');
 
   const env = required(environment, 'environment');
   const rev = required(revision, 'revision');
 
   function generatedAt() {
-    const date = new Date(clock()?.toISOString?.() ?? clock());
+    const value = clock();
+    const date = new Date(value?.toISOString?.() ?? value);
     if (Number.isNaN(date.getTime())) throw new TypeError('clock must return a valid time');
     return date.toISOString();
   }
@@ -116,13 +118,7 @@ export function createTelegramWorkspaceDiagnosticsObservabilityService({
   }
 
   async function history({ workspaceId, namespace, actorGlobalUserId, telegramUserId, limit = 20 } = {}) {
-    const rows = await configurationService.history({
-      workspaceId,
-      namespace,
-      actorGlobalUserId,
-      telegramUserId,
-      limit: bounded(limit, 20, 100)
-    });
+    const rows = await configurationService.history({ workspaceId, namespace, actorGlobalUserId, telegramUserId, limit: bounded(limit, 20, 100) });
     return freeze(rows.map((row) => ({
       version: Number(row.version),
       who: row.actor_global_user_id ?? null,
@@ -159,7 +155,8 @@ export function createTelegramWorkspaceDiagnosticsObservabilityService({
     const connectionState = bot?.status === 'disconnected' ? 'disconnected' : workspace.lifecycleState === 'active' ? 'connected' : 'degraded';
     const reasons = [];
     if (connectionState !== 'connected') reasons.push(bot?.reason ?? `workspace-${workspace.lifecycleState ?? 'unknown'}`);
-    if (bot && bot.status !== 'healthy') reasons.push(bot.reason ?? bot.status);
+    if (!bot) reasons.push('bot-capability-service-not-configured');
+    else if (bot.status !== 'healthy') reasons.push(bot.reason ?? bot.status);
     const status = reasons.length ? 'degraded' : 'healthy';
     const report = freeze({
       contractVersion: TELEGRAM_WORKSPACE_DIAGNOSTICS_CONTRACT_VERSION,
@@ -168,7 +165,7 @@ export function createTelegramWorkspaceDiagnosticsObservabilityService({
       status,
       ok: status === 'healthy',
       generatedAt: generatedAt(),
-      connection: freeze({ state: connectionState, lifecycleState: workspace.lifecycleState ?? null, botMembershipState: workspace.botMembershipState ?? null }),
+      connection: freeze({ state: connectionState, lifecycleState: workspace.lifecycleState ?? null, botMembershipState: bot?.membershipState ?? workspace.botMembershipState ?? null }),
       authority: freeze({ state: authority.allowed ? 'authorized' : 'denied', role: authority.workspaceRole ?? null, verificationTime: authority.verificationTime ?? null, reason: authority.reason ?? null }),
       botPermissions: bot ? freeze({ status: bot.status, available: bot.available === true, reason: bot.reason ?? null, missingCapabilities: bot.missingCapabilities ?? [], missingPermissions: bot.missingPermissions ?? [], fetchedAt: bot.fetchedAt ?? null }) : freeze({ status: 'unavailable', available: false, reason: 'bot-capability-service-not-configured', missingCapabilities: [], missingPermissions: [], fetchedAt: null }),
       configuration: freeze({ namespaceCount: configs.length, versions: configVersions, maxVersion: Math.max(0, ...Object.values(configVersions)) }),

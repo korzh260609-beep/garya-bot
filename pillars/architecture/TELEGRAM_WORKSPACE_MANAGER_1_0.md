@@ -1,7 +1,7 @@
 # SG 2.1 — TELEGRAM WORKSPACE MANAGER 1.0
 
 ## Status
-**IN PROGRESS — TWM1.1 CLOSED / TWM1.2 NEXT.**
+**IN PROGRESS — TWM1.1–TWM1.2 CLOSED / TWM1.3 NEXT.**
 
 Telegram Workspace Manager 1.0 (TWM1) is a cross-cutting SG module that lets any authorized SG user connect, configure and operate SG inside Telegram groups, supergroups and channels without programming.
 
@@ -86,7 +86,15 @@ TWM1.1 is **CLOSED / IMPLEMENTED / CI-VERIFIED**. The canonical workspace contra
 Evidence: `../../evidence/TWM1_1_WORKSPACE_CONTRACT.md`.
 Verified gate: HEAD `fa72678cbd796dd163aa5208c664338ccb73223e`, SG 2.1 CI #7232 — SUCCESS.
 
-This status makes no claim for TWM1.2+ persistence, discovery, authority verification, bot-permission discovery, runtime wiring or live Telegram acceptance.
+### TWM1.2 implementation status
+TWM1.2 is **CLOSED / IMPLEMENTED / CI-VERIFIED**. Durable persistence is implemented through the existing SG PostgreSQL migration/runtime boundary in `src/persistence/migrations/900_twm1_workspace_persistence.sql` and `src/telegramWorkspace/postgresWorkspaceStore.js`.
+
+The implemented storage root remains canonical SG `workspace_id`; Telegram chat ids are unique platform locators. Contract-approved workspace/member-role/bot-permission/config/current-history state is persisted, config version + history writes are atomic in one PostgreSQL transaction, stale expected versions fail closed, and secret-shaped config fields are rejected before persistence. PostgreSQL close/reopen and group→supergroup remap behavior are integration-tested without changing canonical workspace identity.
+
+Evidence: `../../evidence/TWM1_2_POSTGRES_WORKSPACE_PERSISTENCE.md`.
+Verified implementation gate: HEAD `d106c283ce5b8047e72ce75c209d7e5eebcbebb0`, SG 2.1 CI #7241 — SUCCESS.
+
+This status makes no claim for TWM1.3+ discovery, authority verification, live bot-permission discovery, configuration-service authorization, runtime wiring or live Telegram acceptance.
 
 ## Identity and authority
 Canonical human identity remains `global_user_id`.
@@ -177,12 +185,14 @@ workspace.content.preview_before_publish = true
 Configuration is versioned. Every mutation records actor, scope, old value, new value, reason/source, trace id and timestamp.
 
 ## Persistence
-Planned PostgreSQL entities include:
+Implemented by TWM1.2:
 - `telegram_workspaces`;
 - `telegram_workspace_members`;
 - `telegram_workspace_bot_permissions`;
 - `telegram_workspace_configs`;
-- `telegram_workspace_config_history`;
+- `telegram_workspace_config_history`.
+
+Planned extension entities include:
 - `telegram_workspace_content`;
 - `telegram_workspace_media`;
 - `telegram_workspace_polls`;

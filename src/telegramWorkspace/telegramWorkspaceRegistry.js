@@ -46,24 +46,52 @@ function updateMetadata(existing, event, lifecycleState, clock) {
 export function createTelegramWorkspaceRegistry({ store, clock = () => new Date() } = {}) {
   const persistence = requiredStore(store);
 
+  async function resolveKnown(telegramChatId) {
+    const chatId = String(telegramChatId);
+    const direct = await persistence.getWorkspaceByTelegramChatId(chatId);
+    if (direct) return Object.freeze({ workspace: direct, viaAlias: false });
+    if (typeof persistence.getWorkspaceByMigrationSourceTelegramChatId === 'function') {
+      const alias = await persistence.getWorkspaceByMigrationSourceTelegramChatId(chatId);
+      if (alias) return Object.freeze({ workspace: alias, viaAlias: true });
+    }
+    return Object.freeze({ workspace: null, viaAlias: false });
+  }
+
+  async function persistNewOrConcurrent(workspace, event) {
+    try {
+      return await persistence.putWorkspace(workspace);
+    } catch (error) {
+      const concurrent = await persistence.getWorkspaceByTelegramChatId(workspace.telegramChatId);
+      if (!concurrent) throw error;
+      const reconciled = updateMetadata(concurrent, event, lifecycleForObservation(concurrent), clock);
+      return persistence.putWorkspace(reconciled);
+    }
+  }
+
   async function observe(event) {
-    const existing = await persistence.getWorkspaceByTelegramChatId(event.telegramChatId);
-    const workspace = updateMetadata(existing, event, lifecycleForObservation(existing), clock);
-    return persistence.putWorkspace(workspace);
+    const resolved = await resolveKnown(event.telegramChatId);
+    // A replayed pre-migration update may carry the historical group id. Preserve the
+    // migrated canonical root and current locator instead of recreating or moving it back.
+    if (resolved.viaAlias) return resolved.workspace;
+    const workspace = updateMetadata(resolved.workspace, event, lifecycleForObservation(resolved.workspace), clock);
+    if (resolved.workspace) return persistence.putWorkspace(workspace);
+    return persistNewOrConcurrent(workspace, event);
   }
 
   async function migrate(event) {
-    const source = await persistence.getWorkspaceByTelegramChatId(event.fromTelegramChatId);
-    const target = await persistence.getWorkspaceByTelegramChatId(event.toTelegramChatId);
+    const sourceResolved = await resolveKnown(event.fromTelegramChatId);
+    const targetResolved = await resolveKnown(event.toTelegramChatId);
+    const source = sourceResolved.workspace;
+    const target = targetResolved.workspace;
     if (target && source && target.workspaceId !== source.workspaceId) {
       const error = new Error('telegram migration target already belongs to another workspace');
       error.code = 'twm-workspace-migration-conflict';
       throw error;
     }
-    if (target && !source) return target;
+    if (target && (!source || target.workspaceId === source.workspaceId)) return target;
     if (!source) {
       const at = event.detectedAt ?? clock().toISOString();
-      return persistence.putWorkspace(createTelegramWorkspace({
+      const discovered = createTelegramWorkspace({
         telegramChatId: event.toTelegramChatId,
         workspaceType: 'supergroup',
         title: eventValue(event, 'title', null),
@@ -72,7 +100,14 @@ export function createTelegramWorkspaceRegistry({ store, clock = () => new Date(
         botMembershipState: 'UNKNOWN',
         createdAt: at,
         updatedAt: at
-      }));
+      });
+      try {
+        return await persistence.putWorkspace(discovered);
+      } catch (error) {
+        const concurrent = await persistence.getWorkspaceByTelegramChatId(event.toTelegramChatId);
+        if (concurrent) return concurrent;
+        throw error;
+      }
     }
     if (source.workspaceType === 'supergroup' && source.telegramChatId === String(event.toTelegramChatId)) return source;
     const migrationAt = monotonicAt(source, event.detectedAt, clock);
@@ -88,7 +123,11 @@ export function createTelegramWorkspaceRegistry({ store, clock = () => new Date(
   }
 
   async function membership(event) {
-    let workspace = await persistence.getWorkspaceByTelegramChatId(event.telegramChatId);
+    const resolved = await resolveKnown(event.telegramChatId);
+    // Historical membership updates for a migrated-from group cannot mutate the live
+    // supergroup state when they are replayed later.
+    if (resolved.viaAlias) return resolved.workspace;
+    let workspace = resolved.workspace;
     if (!workspace) workspace = await observe(event);
     let nextState = workspace.lifecycleState;
     if (event.connectionState === 'connected' && workspace.lifecycleState === 'DISCONNECTED') nextState = 'CONNECTED';
@@ -116,7 +155,7 @@ export function createTelegramWorkspaceRegistry({ store, clock = () => new Date(
   }
 
   async function resolveTelegramChatId(telegramChatId) {
-    return persistence.getWorkspaceByTelegramChatId(String(telegramChatId));
+    return (await resolveKnown(telegramChatId)).workspace;
   }
 
   return Object.freeze({ apply, applyAll, resolveTelegramChatId });

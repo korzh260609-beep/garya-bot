@@ -1,7 +1,7 @@
 # SG 2.1 — TELEGRAM WORKSPACE MANAGER 1.0 WORKFLOW
 
 ## Status
-**IN PROGRESS — TWM1.1–TWM1.4 CLOSED / TWM1.5 NEXT.**
+**IN PROGRESS — TWM1.1–TWM1.5 CLOSED / TWM1.6 NEXT.**
 
 This workflow defines how TWM1 stages are implemented and verified without bypassing existing SG identity, authority, Action Gate, persistence, memory or transport boundaries.
 
@@ -104,14 +104,56 @@ Implementation/tests:
 Evidence: `../../evidence/TWM1_4_WORKSPACE_AUTHORITY_VERIFICATION.md`.
 Verified implementation gate: HEAD `acd4770cae660a811bb85d64d4ecce961b318c73`, SG 2.1 CI #7274 — SUCCESS.
 
-## TWM1.5 — Bot Permission Discovery
-**Status: NEXT / PLANNED.**
+## TWM1.5 — Bot Permission Discovery & Capability Health
+**Status: CLOSED / IMPLEMENTED / CI-VERIFIED.**
 
-Capture actual Telegram bot membership/permissions and map them to bounded SG capability health. Missing permission is a first-class degraded result.
+Implemented `TelegramWorkspaceBotCapabilityService` using the existing Telegram Bot API and TWM PostgreSQL permission snapshot store.
 
-Acceptance: configured action requiring unavailable permission cannot report success and provides actionable missing-permission diagnostics.
+Verification sequence:
+
+```text
+workspace_id
+→ workspace Telegram chat locator
+→ bot id from config or cached getMe
+→ live getChatMember for SG bot
+→ normalized membership + permission fields
+→ bounded Telegram capability map
+→ telegram_workspace_bot_permissions snapshot + TTL
+→ healthy / degraded / disconnected / verification-failed
+→ checkCapabilities / requireCapabilities
+```
+
+The capability map covers message send/edit/delete/pin, member restrict/invite, chat/topic management, channel post, poll send and media send. Normal reads may reuse only an unexpired snapshot. Protected checks default to live verification. Missing permission is explicit degraded health with `missingCapabilities` and `missingPermissions`; bot removal is disconnected; live Telegram verification failure is fail-closed and cannot silently reuse stale healthy evidence for a protected operation. `requireCapabilities()` throws a structured capability error instead of allowing false success.
+
+Production wiring reuses `createPostgresTelegramUpdateStore(...).workspaceRegistry.store` and the same `TelegramBotApiClient`; when `TELEGRAM_BOT_USER_ID` is absent, `getMe` resolves the bot identity without adding a required environment setting. No second Telegram transport, credential path, permission database or authorization system exists.
+
+Acceptance passed:
+- actual administrator permissions map deterministically;
+- missing delete/post/etc. permission produces explicit degraded result;
+- guarded operation cannot claim success without required permission;
+- disconnected bot is denied;
+- channel post requires actual `can_post_messages`;
+- fresh cache is reused only inside TTL and stale evidence refreshes;
+- Telegram API failure does not trust stale healthy state for a fresh protected check;
+- bot identity is resolved once through `getMe` when needed;
+- multiple workspaces remain isolated;
+- PostgreSQL close/reopen preserves snapshots;
+- post-restart fresh verification can downgrade previously stored capability state.
+
+Implementation/tests:
+- `src/telegramWorkspace/telegramWorkspaceBotCapabilityService.js`;
+- `src/telegramWorkspace/index.js`;
+- `src/telegram/telegramBotApiClient.js`;
+- `src/runtime/renderWebApplication.js`;
+- `tests/telegramWorkspaceManager1BotCapability.test.js`;
+- `tests/telegramWorkspaceManager1BotCapabilityPostgres.test.js`.
+
+Evidence: `../../evidence/TWM1_5_BOT_PERMISSION_DISCOVERY_CAPABILITY_HEALTH.md`.
+Verified implementation gate: HEAD `d5d4ebdc68f066ac69877e00cad4db84484fb84b`, SG 2.1 CI #7281 — SUCCESS.
 
 ## TWM1.6 — Workspace Configuration Service
+**Status: NEXT / PLANNED.**
+
 Create the single mutation service. All configuration schemas and namespaces must be explicit. Mutation sequence:
 
 ```text

@@ -68,7 +68,7 @@ function pendingStore() {
   });
 }
 
-function fixture({ outputs = [], authority = () => true, histories = [] } = {}) {
+function fixture({ outputs = [], authority = () => true, histories = [], currentConfig = {} } = {}) {
   const sent = [];
   const edited = [];
   const answered = [];
@@ -79,7 +79,7 @@ function fixture({ outputs = [], authority = () => true, histories = [] } = {}) 
   const service = createTelegramWorkspaceNaturalLanguageService({
     aiRouter: Object.freeze({
       async route(input) {
-        const output = outputs[Math.min(aiIndex++, outputs.length - 1)] ?? { kind: 'not-twm', workspaceId: null, namespace: null, nextConfigJson: null, historyPath: null, summary: 'ordinary' };
+        const output = outputs[Math.min(aiIndex++, outputs.length - 1)] ?? { kind: 'not-twm', workspaceId: null, namespace: null, configPatchJson: null, historyPath: null, summary: 'ordinary' };
         return Object.freeze({ text: JSON.stringify(output), provider: 'fake', model: 'fake', latencyMs: 1, usage: {}, costUsd: 0, traceId: input.traceContext.traceId, requestId: input.traceContext.requestId, reason: input.reason, attempts: 1, fallbackUsed: false, rawMetadata: {} });
       }
     }),
@@ -97,11 +97,12 @@ function fixture({ outputs = [], authority = () => true, histories = [] } = {}) 
       async verify(input) { return Object.freeze({ allowed: authority(input), reason: 'verified', workspaceRole: 'OWNER', verificationTime: '2026-08-12T13:00:00.000Z' }); }
     }),
     configurationService: Object.freeze({
+      async getConfig(input) { return Object.freeze({ workspaceId: input.workspaceId, namespace: input.namespace, config: structuredClone(currentConfig), version: 1 }); },
       async proposeChange(input) {
         proposed.push(input);
-        return Object.freeze({ kind: 'telegram-workspace-config-proposal', proposalId: 'p1', requestId: input.requestId, workspaceId: input.workspaceId, namespace: input.namespace, actorGlobalUserId: input.actorGlobalUserId, traceId: input.traceId, reason: input.reason, baseVersion: 0, nextConfig: input.nextConfig, changedPaths: Object.freeze(['enabled']), risk: 'low', confirmationRequired: false, authority: Object.freeze({ allowed: true }) });
+        return Object.freeze({ kind: 'telegram-workspace-config-proposal', proposalId: 'p1', requestId: input.requestId, workspaceId: input.workspaceId, namespace: input.namespace, actorGlobalUserId: input.actorGlobalUserId, traceId: input.traceId, reason: input.reason, baseVersion: 1, nextConfig: input.nextConfig, changedPaths: Object.freeze(['enabled']), risk: 'low', confirmationRequired: false, authority: Object.freeze({ allowed: true }) });
       },
-      async applyProposal(input) { applied.push(input); return Object.freeze({ config: Object.freeze({ version: 1 }), actionGate: Object.freeze({ outcome: 'allow' }) }); },
+      async applyProposal(input) { applied.push(input); return Object.freeze({ config: Object.freeze({ version: 2 }), actionGate: Object.freeze({ outcome: 'allow' }) }); },
       async history() { return histories; }
     }),
     pendingStore: pending,
@@ -112,7 +113,7 @@ function fixture({ outputs = [], authority = () => true, histories = [] } = {}) 
 }
 
 test('TWM1.9 ordinary conversation returns pass-through without configuration write', async () => {
-  const fx = fixture({ outputs: [{ kind: 'not-twm', workspaceId: null, namespace: null, nextConfigJson: null, historyPath: null, summary: 'ordinary' }] });
+  const fx = fixture({ outputs: [{ kind: 'not-twm', workspaceId: null, namespace: null, configPatchJson: null, historyPath: null, summary: 'ordinary' }] });
   const result = await fx.service.handleUpdate(privateMessage('как дела?'));
   assert.equal(result.handled, false);
   assert.equal(fx.proposed.length, 0);
@@ -120,7 +121,7 @@ test('TWM1.9 ordinary conversation returns pass-through without configuration wr
 });
 
 test('TWM1.9 private natural language creates bounded proposal and writes nothing before confirmation', async () => {
-  const fx = fixture({ outputs: [{ kind: 'configure', workspaceId: workspaceA.workspaceId, namespace: 'responses', nextConfigJson: '{"enabled":true,"reply_enabled":true,"mode":"mention_only"}', historyPath: null, summary: 'Отвечать только при обращении' }] });
+  const fx = fixture({ outputs: [{ kind: 'configure', workspaceId: workspaceA.workspaceId, namespace: 'responses', configPatchJson: '{"enabled":true,"reply_enabled":true,"mode":"mention_only"}', historyPath: null, summary: 'Отвечать только при обращении' }] });
   const result = await fx.service.handleUpdate(privateMessage('В Crypto отвечай только когда тебя упоминают'));
   assert.equal(result.handled, true);
   assert.equal(result.outcome, 'proposal-pending');
@@ -130,8 +131,17 @@ test('TWM1.9 private natural language creates bounded proposal and writes nothin
   assert.match(fx.sent[0].replyMarkup.inline_keyboard[0][0].callback_data, /^twm19\|confirm\|twn_/);
 });
 
+test('TWM1.9 patch merge preserves unrelated existing namespace settings', async () => {
+  const fx = fixture({
+    currentConfig: { enabled: true, warning_limit: 3, spam: { enabled: false }, links: { enabled: true }, flood: { enabled: true } },
+    outputs: [{ kind: 'configure', workspaceId: workspaceA.workspaceId, namespace: 'moderation', configPatchJson: '{"spam":{"enabled":true}}', historyPath: null, summary: 'Включить антиспам' }]
+  });
+  await fx.service.handleUpdate(privateMessage('В Crypto включи антиспам'));
+  assert.deepEqual(fx.proposed[0].nextConfig, { enabled: true, warning_limit: 3, spam: { enabled: true }, links: { enabled: true }, flood: { enabled: true } });
+});
+
 test('TWM1.9 confirmation applies the exact stored proposal with request-bound Action Gate confirmation once', async () => {
-  const fx = fixture({ outputs: [{ kind: 'configure', workspaceId: workspaceA.workspaceId, namespace: 'responses', nextConfigJson: '{"enabled":true,"mode":"mention_only"}', historyPath: null, summary: 'mention only' }] });
+  const fx = fixture({ outputs: [{ kind: 'configure', workspaceId: workspaceA.workspaceId, namespace: 'responses', configPatchJson: '{"enabled":true,"mode":"mention_only"}', historyPath: null, summary: 'mention only' }] });
   const prepared = await fx.service.handleUpdate(privateMessage('Настрой Crypto только на упоминания', 10));
   const confirmed = await fx.service.handleUpdate(callback(prepared.token, 11));
   assert.equal(confirmed.outcome, 'applied');
@@ -145,13 +155,13 @@ test('TWM1.9 confirmation applies the exact stored proposal with request-bound A
 });
 
 test('TWM1.9 group scope is authoritative and AI cannot redirect configuration to another workspace', async () => {
-  const fx = fixture({ outputs: [{ kind: 'configure', workspaceId: workspaceB.workspaceId, namespace: 'moderation', nextConfigJson: '{"enabled":true}', historyPath: null, summary: 'moderation on' }] });
+  const fx = fixture({ outputs: [{ kind: 'configure', workspaceId: workspaceB.workspaceId, namespace: 'moderation', configPatchJson: '{"enabled":true}', historyPath: null, summary: 'moderation on' }] });
   await assert.rejects(() => fx.service.handleUpdate(groupMessage('включи модерацию в этой группе')), (error) => error.code === 'twm19-workspace-override-denied');
   assert.equal(fx.proposed.length, 0);
 });
 
 test('TWM1.9 ambiguous private request asks workspace selection instead of guessing', async () => {
-  const fx = fixture({ outputs: [{ kind: 'configure', workspaceId: null, namespace: 'moderation', nextConfigJson: '{"enabled":true}', historyPath: null, summary: 'enable moderation' }] });
+  const fx = fixture({ outputs: [{ kind: 'configure', workspaceId: null, namespace: 'moderation', configPatchJson: '{"enabled":true}', historyPath: null, summary: 'enable moderation' }] });
   const result = await fx.service.handleUpdate(privateMessage('включи модерацию'));
   assert.equal(result.outcome, 'workspace-selection-required');
   assert.equal(fx.proposed.length, 0);
@@ -160,7 +170,7 @@ test('TWM1.9 ambiguous private request asks workspace selection instead of guess
 
 test('TWM1.9 history query reports deterministic stored actor/version rather than invented AI facts', async () => {
   const fx = fixture({
-    outputs: [{ kind: 'history-query', workspaceId: workspaceB.workspaceId, namespace: 'moderation', nextConfigJson: null, historyPath: 'links.enabled', summary: 'who changed links' }],
+    outputs: [{ kind: 'history-query', workspaceId: workspaceB.workspaceId, namespace: 'moderation', configPatchJson: null, historyPath: 'links.enabled', summary: 'who changed links' }],
     histories: [Object.freeze({ version: 3, previous_config: { links: { enabled: true } }, new_config: { links: { enabled: false } }, actor_global_user_id: 'usr_real_actor', created_at: '2026-08-12T12:00:00.000Z' })]
   });
   const result = await fx.service.handleUpdate(privateMessage('кто отключил ссылки в Witch?'));

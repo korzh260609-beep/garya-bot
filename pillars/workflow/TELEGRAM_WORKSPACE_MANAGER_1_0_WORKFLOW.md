@@ -1,7 +1,7 @@
 # SG 2.1 — TELEGRAM WORKSPACE MANAGER 1.0 WORKFLOW
 
 ## Status
-**IN PROGRESS — TWM1.1–TWM1.6 CLOSED / TWM1.7 NEXT.**
+**IN PROGRESS — TWM1.1–TWM1.7 CLOSED / TWM1.8 NEXT.**
 
 This workflow defines how TWM1 stages are implemented and verified without bypassing existing SG identity, authority, Action Gate, persistence, memory or transport boundaries.
 
@@ -154,20 +154,21 @@ Verified implementation gate: HEAD `d5d4ebdc68f066ac69877e00cad4db84484fb84b`, S
 ## TWM1.6 — Workspace Configuration Service
 **Status: CLOSED / IMPLEMENTED / CI-VERIFIED.**
 
-Implemented the single TWM workspace-configuration mutation service. Mutation sequence:
+Implemented the single TWM workspace-configuration mutation service. Mutation sequence after TWM1.7 convergence:
 
 ```text
 request / structured proposal
 → exact workspace + namespace
 → bounded schema/value/secret validation
-→ workspace authority evaluation
-→ risk/confirmation classification
-→ atomic expected-version write
+→ fresh workspace authority evaluation
+→ service-derived risk classification
+→ canonical ActionRequest / SG Action Gate
+→ atomic expected-version write after allow only
 → append-only history
 → metadata-only audit / Internal Event Bus
 ```
 
-Reads require `workspace:view`. Mutations use `workspace:configure` with fresh authority verification. Low-risk configuration may apply without extra confirmation; medium/high-risk configuration and rollback require explicit confirmation at the service boundary. Stale proposals fail closed through the TWM1.2 optimistic version guard. Rollback writes a new version and never erases prior history.
+Reads require `workspace:view`. Mutations use `workspace:configure` with fresh authority verification. Stale proposals fail closed through the TWM1.2 optimistic version guard. Rollback writes a new version and never erases prior history. TWM1.6 determines risk; TWM1.7 ensures that this risk cannot weaken the canonical SG protected-action confirmation floor.
 
 Production wiring composes `WorkspaceConfigurationService` from the same PostgreSQL workspace store and existing `TelegramWorkspaceAuthorityResolver`; no second config persistence or authority path exists. Boundary tests scan application code and enforce that the service is the sole `workspaceStore.setConfig(...)` owner and that direct SQL config mutation remains confined to `PostgresTelegramWorkspaceStore`.
 
@@ -194,16 +195,68 @@ Implementation/tests:
 Evidence: `../../evidence/TWM1_6_WORKSPACE_CONFIGURATION_SERVICE.md`.
 Verified implementation gate: HEAD `7a36c708f916d1ae375d238b22416bd5cd86a5fa`, SG 2.1 CI #7293 — SUCCESS.
 
-TWM1.6 does not claim the canonical protected-action convergence owned by TWM1.7. It provides risk/confirmation classification at the configuration-service boundary; Decision / Action Gate Integration remains next.
-
 ## TWM1.7 — Action Gate Integration
-**Status: NEXT / PLANNED.**
+**Status: CLOSED / IMPLEMENTED / CI-VERIFIED.**
 
-Map TWM mutations and external effects to existing action classifications. Destructive/high-impact actions require explicit confirmation semantics and cannot be downgraded by user settings or model output.
+All workspace-configuration state changes now converge on the canonical SG protected mutation boundary:
 
-Acceptance: callback, command, natural language and worker-driven attempts all converge on the same protected path.
+```text
+request / proposal
+→ canonical actor + exact workspace
+→ bounded validation
+→ fresh workspace:configure authority
+→ service-derived risk
+→ canonical ActionRequest
+→ existing SG Action Gate
+→ request-bound confirmation + idempotency
+→ allow only
+→ atomic config/history write
+→ metadata-only audit/event
+```
+
+Implementation rules now enforced:
+- `WorkspaceConfigurationService` requires a mutation gate and cannot silently fall back to direct writes;
+- `apply`, proposal application and rollback invoke `mutationGate.evaluateMutation()` before persistence;
+- `TelegramWorkspaceActionGateIntegration` uses canonical `createActionRequest` and the existing production `harness.actionGate`;
+- ActionRequest is bound to canonical actor, project/workspace scope, `workspace:configure`, exact Resource Authority evidence, operation, risk, trace/request ids and idempotency key;
+- non-`allow` outcomes fail closed;
+- request-bound confirmation is authoritative; caller/user/model booleans are not execution authority;
+- TWM risk may tighten but never weaken global SG confirmation/security policy;
+- replay cannot authorize a second write;
+- rollback is a distinct protected state-changing request;
+- authority denial occurs before gate/persistence;
+- no second Action Gate, identity, Resource Authority or config persistence stack exists.
+
+Production composition is guarded: only a Render harness with canonical Resource Authority registry/access context composes the TWM authority/config runtime, and that real runtime then requires canonical `actionGate.evaluate`. Minimal non-TWM test/runtime harnesses remain compatible and cannot accidentally instantiate a partial TWM write path.
+
+Acceptance passed:
+- unconfirmed/denied mutation writes nothing;
+- confirmed request-bound mutation writes exactly once;
+- replay is rejected before a second config write;
+- high/service-derived risk cannot be caller-downgraded;
+- rollback is separately gated and durable;
+- PostgreSQL restart preserves confirmed apply/rollback history;
+- production wiring uses the same SG Action Gate;
+- boundary test proves one internally gated application config-write owner;
+- full SG 2.1 CI passes.
+
+Implementation/tests:
+- `src/telegramWorkspace/telegramWorkspaceActionGateIntegration.js`;
+- `src/telegramWorkspace/workspaceConfigurationService.js`;
+- `src/telegramWorkspace/index.js`;
+- `src/runtime/renderWebApplication.js`;
+- `tests/telegramWorkspaceManager1ActionGate.test.js`;
+- `tests/telegramWorkspaceManager1ActionGatePostgres.test.js`;
+- `tests/telegramWorkspaceManager1ConfigurationBoundary.test.js`.
+
+Evidence: `../../evidence/TWM1_7_DECISION_ACTION_GATE_INTEGRATION.md`.
+Verified code/runtime gate: HEAD `747a821de5a4fd19be766e0583e005b6ee8e38c0`, SG 2.1 CI #7307 — SUCCESS.
+
+The implementation does not claim that TWM1.8/TWM1.9 callback, UI, natural-language or worker surfaces already exist. Their future mutations must converge on this same protected backend path.
 
 ## TWM1.8 — Telegram Native UI & Setup Wizard
+**Status: NEXT / PLANNED.**
+
 Build inline keyboard UI as a presentation/controller layer only. UI callbacks carry opaque bounded identifiers and never encode authority. Re-resolve identity, scope and authorization server-side on every mutation.
 
 Wizard acceptance: a new non-technical user can activate a workspace using only Telegram-native steps.

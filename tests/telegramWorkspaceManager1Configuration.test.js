@@ -45,22 +45,39 @@ function authority({ deniedUsers = new Set() } = {}) {
   });
 }
 
+function permissiveMutationGate() {
+  const calls = [];
+  return Object.freeze({
+    calls,
+    async evaluateMutation(input) {
+      calls.push(input);
+      return Object.freeze({
+        outcome: 'allow',
+        reasons: Object.freeze([]),
+        audit: Object.freeze({ gate: 'twm1.6-test-gate', traceId: input.traceId, requestId: input.requestId })
+      });
+    }
+  });
+}
+
 function serviceFixture(options = {}) {
   const store = memoryStore();
   const auth = authority(options);
+  const mutationGate = permissiveMutationGate();
   const auditEvents = [];
   const busEvents = [];
   const service = createTelegramWorkspaceConfigurationService({
     workspaceStore: store,
     authorityResolver: auth,
+    mutationGate,
     eventBus: { async publish(event) { busEvents.push(event); return { event }; } },
     projectScope: 'sg2.1',
     environment: 'test',
-    revision: 'twm1.6-test',
+    revision: 'twm1.7-test',
     idFactory: (() => { let i = 0; return () => `twc_test_${++i}`; })(),
     audit: async (event) => auditEvents.push(event)
   });
-  return { store, auth, auditEvents, busEvents, service };
+  return { store, auth, mutationGate, auditEvents, busEvents, service };
 }
 
 const actor = 'usr_twm16_owner';
@@ -82,7 +99,7 @@ test('TWM1.6 validates bounded JSON, known values and rejects secret-shaped fiel
   assert.throws(() => validateTelegramWorkspaceConfiguration('general', { note: 'x'.repeat(5000) }), (error) => error.code === 'twm-workspace-config-schema-invalid');
 });
 
-test('TWM1.6 low-risk proposal applies atomically with version, history, fresh authority and metadata-only events', async () => {
+test('TWM1.6 proposal applies atomically with version, history, fresh authority and metadata-only events behind a mutation gate', async () => {
   const fx = serviceFixture();
   const proposal = await fx.service.proposeChange({ workspaceId, namespace: 'responses', nextConfig: { enabled: true, mode: 'mention_only', reply_enabled: true }, actorGlobalUserId: actor, telegramUserId, traceId: 'trace:twm16:v1', reason: 'setup responses' });
   assert.equal(proposal.baseVersion, 0);
@@ -93,6 +110,8 @@ test('TWM1.6 low-risk proposal applies atomically with version, history, fresh a
   const result = await fx.service.applyProposal({ proposal, actorGlobalUserId: actor, telegramUserId });
   assert.equal(result.config.version, 1);
   assert.equal(result.config.config.mode, 'mention_only');
+  assert.equal(result.actionGate.outcome, 'allow');
+  assert.equal(fx.mutationGate.calls.length, 1);
   assert.equal((await fx.service.history({ workspaceId, namespace: 'responses', actorGlobalUserId: actor, telegramUserId })).length, 1);
   assert.ok(fx.auth.calls.filter((call) => call.requestedAction === 'workspace:configure').every((call) => call.forceFresh === true));
   assert.equal(fx.busEvents.at(-1).eventType, 'resource.updated');
@@ -101,15 +120,14 @@ test('TWM1.6 low-risk proposal applies atomically with version, history, fresh a
   assert.equal(JSON.stringify(fx.auditEvents).includes('mention_only'), false);
 });
 
-test('TWM1.6 medium/high-risk namespaces require confirmation before any write', async () => {
+test('TWM1.6 risk classification is preserved and passed to the TWM1.7 mutation gate', async () => {
   const fx = serviceFixture();
-  const proposal = await fx.service.proposeChange({ workspaceId, namespace: 'moderation', nextConfig: { enabled: true, warning_limit: 2, spam: { enabled: true } }, actorGlobalUserId: actor, telegramUserId, traceId: 'trace:twm16:moderation' });
-  assert.equal(proposal.risk, 'medium');
-  assert.equal(proposal.confirmationRequired, true);
-  await assert.rejects(() => fx.service.applyProposal({ proposal, actorGlobalUserId: actor, telegramUserId }), (error) => error.code === 'twm-workspace-config-confirmation-required');
-  assert.equal(await fx.store.getConfig({ workspaceId, namespace: 'moderation' }), null);
-  const applied = await fx.service.applyProposal({ proposal, actorGlobalUserId: actor, telegramUserId, confirmed: true });
-  assert.equal(applied.config.version, 1);
+  const moderation = await fx.service.proposeChange({ workspaceId, namespace: 'moderation', nextConfig: { enabled: true, warning_limit: 2, spam: { enabled: true } }, actorGlobalUserId: actor, telegramUserId, traceId: 'trace:twm16:moderation' });
+  assert.equal(moderation.risk, 'medium');
+  assert.equal(moderation.confirmationRequired, true);
+  await fx.service.applyProposal({ proposal: moderation, actorGlobalUserId: actor, telegramUserId });
+  assert.equal(fx.mutationGate.calls.at(-1).risk, 'medium');
+  assert.equal(fx.mutationGate.calls.at(-1).confirmationRequired, true);
 
   const members = await fx.service.proposeChange({ workspaceId, namespace: 'members', nextConfig: { enabled: true }, actorGlobalUserId: actor, telegramUserId, traceId: 'trace:twm16:members' });
   assert.equal(members.risk, 'high');
@@ -125,6 +143,7 @@ test('TWM1.6 authority denial and proposal actor mismatch fail closed without wr
   const proposal = await fx.service.proposeChange({ workspaceId, namespace: 'responses', nextConfig: { enabled: true }, actorGlobalUserId: actor, telegramUserId, traceId: 'trace:actor' });
   await assert.rejects(() => fx.service.applyProposal({ proposal, actorGlobalUserId: 'usr_other', telegramUserId }), (error) => error.code === 'twm-workspace-config-proposal-actor-mismatch');
   assert.equal(await fx.store.getConfig({ workspaceId, namespace: 'responses' }), null);
+  assert.equal(fx.mutationGate.calls.length, 0);
 });
 
 test('TWM1.6 stale proposal loses optimistic race and cannot overwrite a newer version', async () => {
@@ -136,15 +155,17 @@ test('TWM1.6 stale proposal loses optimistic race and cannot overwrite a newer v
   assert.equal((await fx.store.getConfig({ workspaceId, namespace: 'responses' })).config.mode, 'mention_only');
 });
 
-test('TWM1.6 rollback is a confirmed authorized new version and preserves the full history chain', async () => {
+test('TWM1.6 rollback remains an authorized new version behind the mutation gate and preserves history', async () => {
   const fx = serviceFixture();
   await fx.service.applyChange({ workspaceId, namespace: 'responses', nextConfig: { enabled: true, mode: 'mention_only' }, actorGlobalUserId: actor, telegramUserId, traceId: 'trace:v1' });
   await fx.service.applyChange({ workspaceId, namespace: 'responses', nextConfig: { enabled: true, mode: 'all' }, actorGlobalUserId: actor, telegramUserId, traceId: 'trace:v2' });
-  await assert.rejects(() => fx.service.rollback({ workspaceId, namespace: 'responses', targetVersion: 1, actorGlobalUserId: actor, telegramUserId, traceId: 'trace:rollback' }), (error) => error.code === 'twm-workspace-config-confirmation-required');
-  const rolled = await fx.service.rollback({ workspaceId, namespace: 'responses', targetVersion: 1, actorGlobalUserId: actor, telegramUserId, traceId: 'trace:rollback', confirmed: true });
+  const rolled = await fx.service.rollback({ workspaceId, namespace: 'responses', targetVersion: 1, actorGlobalUserId: actor, telegramUserId, traceId: 'trace:rollback' });
   assert.equal(rolled.config.version, 3);
   assert.equal(rolled.config.config.mode, 'mention_only');
   assert.equal(rolled.rolledBackToVersion, 1);
+  assert.equal(rolled.actionGate.outcome, 'allow');
+  assert.equal(fx.mutationGate.calls.at(-1).operation, 'rollback');
+  assert.equal(fx.mutationGate.calls.at(-1).confirmationRequired, true);
   assert.deepEqual((await fx.store.configHistory({ workspaceId, namespace: 'responses' })).map((row) => row.version), [3, 2, 1]);
   assert.equal(fx.busEvents.at(-1).payload.operation, 'rollback');
 });

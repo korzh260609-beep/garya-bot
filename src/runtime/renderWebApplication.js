@@ -79,7 +79,8 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
   if (!harness.persistence) throw new Error('Render web service requires DATABASE_URL / PostgreSQL persistence');
   if (!harness.credentialManager || !harness.credentialAccessContext) throw new Error('Render web service requires credential management');
   if (!harness.connectionRegistry || !harness.connectionAccessContext) throw new Error('Render web service requires external connections registry');
-  if (!harness.actionGate?.evaluate) throw new Error('Render web service requires canonical SG Action Gate');
+  const telegramWorkspaceRuntimeAvailable = Boolean(harness.resourceAuthorityRegistry && harness.resourceAuthorityAccessContext);
+  if (telegramWorkspaceRuntimeAvailable && !harness.actionGate?.evaluate) throw new Error('Render Telegram workspace runtime requires canonical SG Action Gate');
   if (effectiveEnv.SG_AI_ENABLED === 'true' && !harness.productionAI) throw new Error('Production AI was enabled but did not initialize');
 
   const telegramConfig = loadTelegramConfig(effectiveEnv);
@@ -164,7 +165,7 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
       })
     : null;
 
-  const telegramWorkspaceAuthority = workspaceStore
+  const telegramWorkspaceAuthority = workspaceStore && telegramWorkspaceRuntimeAvailable
     ? createPostgresTelegramWorkspaceAuthorityResolver({
         persistence: harness.persistence,
         workspaceRegistry: telegramUpdateStore.workspaceRegistry,

@@ -68,6 +68,7 @@ export function createTelegramProductionIntegration({
   updateStore,
   identityResolver,
   runtime,
+  workspaceRuntime = null,
   nativeUi = null,
   naturalLanguage = null,
   observability = null,
@@ -86,10 +87,12 @@ export function createTelegramProductionIntegration({
   if (!updateStore || typeof updateStore.claim !== 'function' || typeof updateStore.complete !== 'function' || typeof updateStore.fail !== 'function') throw new TypeError('Telegram update store is required');
   if (!identityResolver || typeof identityResolver !== 'function') throw new TypeError('identityResolver is required');
   if (!runtime || typeof runtime.handle !== 'function') throw new TypeError('runtime.handle is required');
+  if (workspaceRuntime !== null && (typeof workspaceRuntime?.handle !== 'function' || typeof workspaceRuntime?.evaluateInvocation !== 'function')) throw new TypeError('workspaceRuntime.handle and workspaceRuntime.evaluateInvocation are required');
   if (nativeUi !== null && typeof nativeUi?.handleUpdate !== 'function') throw new TypeError('nativeUi.handleUpdate is required');
   if (naturalLanguage !== null && typeof naturalLanguage?.handleUpdate !== 'function') throw new TypeError('naturalLanguage.handleUpdate is required');
 
   const pending = new Set();
+  const runtimeHandler = workspaceRuntime?.handle ?? ((canonicalInput) => runtime.handle(canonicalInput));
 
   async function verifyWebhookSecret(suppliedSecret) {
     if (!hasCredentialManager) return secureEqual(suppliedSecret, legacySecret);
@@ -123,7 +126,7 @@ export function createTelegramProductionIntegration({
 
   const adapter = createTelegramTransportAdapter({
     identityResolver,
-    requestHandler: (canonicalInput) => runtime.handle(canonicalInput),
+    requestHandler: (canonicalInput) => runtimeHandler(canonicalInput),
     responseDeliverer: async ({ response, canonicalInput, platformInput }) => {
       const message = messageFromUpdate(platformInput);
       const traceContext = canonicalInput.traceContext;
@@ -309,13 +312,17 @@ export function createTelegramProductionIntegration({
       return Object.freeze({ statusCode: 503, body: { ok: false, code: processed.error.code ?? 'twm-native-ui-failed' } });
     }
 
-    const invocation = evaluateTelegramInvocation(body, { botUserId, botUsername });
+    const baseInvocation = evaluateTelegramInvocation(body, { botUserId, botUsername });
+    const invocation = workspaceRuntime
+      ? await workspaceRuntime.evaluateInvocation({ update: body, baseInvocation })
+      : baseInvocation;
     if (!invocation.accepted) {
       await updateStore.complete(claim.updateId, 'ignored');
       return Object.freeze({ statusCode: 200, body: { ok: true, ignored: true, reason: invocation.reason } });
     }
 
-    const work = naturalLanguage
+    const naturalLanguageAllowed = naturalLanguage && invocation.workspaceRuntimePolicy?.aiEnabled !== false;
+    const work = naturalLanguageAllowed
       ? processNaturalLanguageOrRuntime(body, claim, invocation)
       : processClaimedUpdate(body, claim, invocation);
 

@@ -1,12 +1,14 @@
 # TWM1.7 — Decision / Action Gate Integration Evidence
 
 ## Status
-**IMPLEMENTED / CODE-CI-VERIFIED; canonical documentation synchronization and final closure CI pending.**
+**CLOSED / IMPLEMENTED / CI-VERIFIED.**
 
-## Verified implementation point
+## Verified implementation and closure points
 - Code/runtime HEAD: `747a821de5a4fd19be766e0583e005b6ee8e38c0`.
-- SG 2.1 CI #7307: **SUCCESS**.
-- The run passed migrations, Block 19 security gate, full `npm run check`, web runtime startup, worker startup and diagnostics.
+- SG 2.1 CI #7307: **SUCCESS** — code/runtime integration gate.
+- Canonical architecture/roadmap/workflow synchronized through HEAD `f23a087890a28e35d4c61377b5ee45b1634ca984`.
+- SG 2.1 CI #7311: **SUCCESS** — synchronized documentation closure gate.
+- Both verified runs passed migrations, Block 19 security gate, full `npm run check`, web runtime startup, worker startup and diagnostics.
 
 ## Canonical mutation boundary
 TWM1.7 routes workspace configuration mutations through the existing SG Action Gate instead of maintaining a parallel authorization mechanism:
@@ -25,7 +27,7 @@ request / structured proposal
 → metadata-only audit / event
 ```
 
-`WorkspaceConfigurationService` now requires an injected protected mutation gate and cannot be constructed without it. Its `apply`, proposal application and rollback write paths evaluate that gate before `workspaceStore.setConfig(...)`.
+`WorkspaceConfigurationService` requires an injected protected mutation gate and cannot be constructed without it. Its apply, proposal-application and rollback write paths evaluate that gate before `workspaceStore.setConfig(...)`.
 
 ## ActionRequest mapping
 `src/telegramWorkspace/telegramWorkspaceActionGateIntegration.js` maps TWM mutations to canonical SG requests:
@@ -96,14 +98,14 @@ Verified scenarios include:
 - TWM1.2 persistence is reused rather than duplicated.
 
 ## Regression found and fixed
-The first full integration run, SG 2.1 CI #7306, exposed three legacy Render regression tests. The initial TWM1.7 wiring required `harness.actionGate` even in minimal Render test harnesses that did not compose Resource Authority/TWM configuration runtime.
+SG 2.1 CI #7306 exposed three legacy Render regression tests. The initial TWM1.7 wiring required `harness.actionGate` even in minimal Render test harnesses that did not compose Resource Authority/TWM configuration runtime.
 
 Fix commit `747a821de5a4fd19be766e0583e005b6ee8e38c0` restored the existing guarded composition rule:
 - TWM authority/configuration runtime is composed only with canonical Resource Authority registry + access context;
 - canonical Action Gate is then mandatory for that TWM runtime;
 - non-TWM minimal Render harnesses remain valid.
 
-SG 2.1 CI #7307 subsequently passed the complete suite.
+SG 2.1 CI #7307 subsequently passed the complete code/runtime suite, and synchronized documentation passed SG 2.1 CI #7311.
 
 ## Non-claims
 TWM1.7 does **not** claim:
@@ -114,4 +116,4 @@ TWM1.7 does **not** claim:
 - TWM1.12 real Telegram production/live acceptance;
 - callback/command/NL/worker surfaces that do not yet exist as implemented features.
 
-What TWM1.7 does guarantee is that any present or future application surface that wants to mutate workspace configuration must converge on the sole configuration write owner, whose internal mutation boundary now requires canonical SG Action Gate authorization.
+What TWM1.7 guarantees is that any present or future application surface that wants to mutate workspace configuration must converge on the sole configuration write owner, whose internal mutation boundary requires canonical SG Action Gate authorization.

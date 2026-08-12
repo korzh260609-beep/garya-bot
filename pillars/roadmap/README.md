@@ -8,6 +8,8 @@ Project Memory 3.0 is a completed specialized cross-cutting program documented i
 
 Project Development Knowledge 4.0 has a completed CI-verified PDK4.1–PDK4.12 baseline plus a newly planned PDK4.13 Live Production Wiring & Autonomous Project History extension. PDK4.13 wires the existing engine into real production bootstrap/resume, continuous ingestion, protected diagnostics and live acceptance. It remains built on Project Memory 3.0 and does not create a parallel memory system or renumber Blocks 0–19.
 
+Telegram Workspace Manager 1.0 is a planned cross-cutting Telegram management program documented in `TELEGRAM_WORKSPACE_MANAGER_1_0_PROGRAM.md`. It lets any authorized SG user configure SG for their own Telegram groups, supergroups and channels through native Telegram UI and natural language while reusing Block 14 Telegram Production Integration, canonical Identity/Scope, Resource Authority, Action Gate, PostgreSQL, Memory 2.0 isolation and AI Router. TWM1 does not renumber Blocks 0–19 and does not create a second Telegram transport or authorization system.
+
 Universal Diagnostics is a separate planned cross-cutting diagnostic program documented in `UNIVERSAL_DIAGNOSTICS_PROGRAM.md`. It is implemented as an independent observer application around SG, not as a new core layer and not as a renumbering of Blocks 0–19.
 
 Block 8.1 is a production extension of completed Block 8 Interfaces. It adds the real Discord production transport on top of the existing Discord adapter contract and does not renumber Blocks 9–19.
@@ -54,7 +56,8 @@ Block 8.1 is a production extension of completed Block 8 Interfaces. It adds the
 38. `PROJECT_MEMORY_3_0_PROGRAM.md` — completed specialized Project Memory 3.0 PM3.1–PM3.12 program
 39. `PROJECT_DEVELOPMENT_KNOWLEDGE_4_0_PROGRAM.md` — completed PDK4.1–PDK4.12 baseline program
 40. `PROJECT_DEVELOPMENT_KNOWLEDGE_4_13_LIVE_PRODUCTION_WIRING.md` — planned PDK4.13 live production wiring/autonomous history extension
-41. `UNIVERSAL_DIAGNOSTICS_PROGRAM.md` — planned cross-cutting Universal Diagnostics D1–D12 program
+41. `TELEGRAM_WORKSPACE_MANAGER_1_0_PROGRAM.md` — planned TWM1 multi-user Telegram workspace management program
+42. `UNIVERSAL_DIAGNOSTICS_PROGRAM.md` — planned cross-cutting Universal Diagnostics D1–D12 program
 
 ## Block 8.1 — Discord Transport Integration
 
@@ -129,6 +132,24 @@ PDK4.13 architecture: `../architecture/PROJECT_DEVELOPMENT_KNOWLEDGE_4_13_LIVE_P
 Baseline workflow: `../workflow/PROJECT_DEVELOPMENT_KNOWLEDGE_4_0_WORKFLOW.md`.
 PDK4.13 workflow: `../workflow/PROJECT_DEVELOPMENT_KNOWLEDGE_4_13_LIVE_PRODUCTION_WIRING_WORKFLOW.md`.
 
+## Telegram Workspace Manager 1.0
+
+**Status: PLANNED / NOT IMPLEMENTED.**
+
+Canonical implementation order:
+
+`TWM1.1 Workspace Contract & Lifecycle → TWM1.2 PostgreSQL Workspace Persistence → TWM1.3 Telegram Workspace Discovery & Registry → TWM1.4 Workspace Authority Verification → TWM1.5 Bot Permission Discovery & Capability Health → TWM1.6 Workspace Configuration Service → TWM1.7 Decision/Action Gate Integration → TWM1.8 Telegram Native UI & Setup Wizard → TWM1.9 Natural-Language Configuration → TWM1.10 Workspace Runtime Wiring → TWM1.11 Audit/Rollback/Diagnostics/Observability → TWM1.12 Production E2E & Live Acceptance → TWM1.13 Telegram Mini App`.
+
+TWM1 is the SG-native alternative to a separate third-party bot constructor. Any authorized SG user can manage SG in their own Telegram groups/channels without programming. One user may manage many workspaces and one workspace may have several bounded managers, but every mutation remains tied to canonical `global_user_id`, verified workspace scope and revocable Resource Authority.
+
+The Telegram transport remains thin. Telegram creator/administrator metadata is only workspace-specific authority evidence and cannot create SG-global ownership. AI may translate natural-language requests into structured configuration proposals only through AI Router; configuration writes remain owned by `WorkspaceConfigurationService` and protected by validation, authorization and Action Gate.
+
+Core TWM1 is complete only after real Telegram group+channel live acceptance proves configuration persistence, runtime effect, restart continuity, unauthorized denial, authority revocation and cross-workspace isolation. The Mini App is an optional rich UI after the native Telegram backend is live.
+
+Program: `TELEGRAM_WORKSPACE_MANAGER_1_0_PROGRAM.md`.
+Architecture: `../architecture/TELEGRAM_WORKSPACE_MANAGER_1_0.md`.
+Workflow: `../workflow/TELEGRAM_WORKSPACE_MANAGER_1_0_WORKFLOW.md`.
+
 ## Universal Diagnostics
 
 **Status: Planned and architecturally specified.**
@@ -145,7 +166,7 @@ Workflow: `../workflow/UNIVERSAL_DIAGNOSTICS_WORKFLOW.md`.
 
 ## Production continuation
 
-`PRODUCTION_ROADMAP.md` remains the canonical numbered continuation after Block 10. Memory 2.0, Project Memory 3.0, Project Development Knowledge 4.0 and Universal Diagnostics are separate cross-cutting programs and do not renumber Blocks 11–19. Block 8.1 remains an extension of Block 8 rather than a renumbering of that continuation.
+`PRODUCTION_ROADMAP.md` remains the canonical numbered continuation after Block 10. Memory 2.0, Project Memory 3.0, Project Development Knowledge 4.0, Telegram Workspace Manager 1.0 and Universal Diagnostics are separate cross-cutting programs and do not renumber Blocks 11–19. Block 8.1 remains an extension of Block 8 rather than a renumbering of that continuation.
 
 Each production block/program stage must still be independently verifiable, reversible and completed through code, tests, documentation, CI and runtime evidence.
 

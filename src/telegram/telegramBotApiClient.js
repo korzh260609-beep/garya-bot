@@ -86,6 +86,11 @@ export function createTelegramBotApiClient({
 
   return Object.freeze({
     call,
+    getMe: () => call('getMe'),
+    getChatMember: ({ chatId, userId }) => call('getChatMember', {
+      chat_id: chatId,
+      user_id: userId
+    }),
     sendMessage: ({ chatId, text, messageThreadId = null, replyToMessageId = null }) => call('sendMessage', {
       chat_id: chatId,
       text: requiredString(text, 'telegram message text'),

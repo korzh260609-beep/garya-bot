@@ -21,3 +21,11 @@ export {
   assertWorkspaceConfigContainsNoSecrets,
   TELEGRAM_WORKSPACE_PERSISTED_CONFIG_NAMESPACES
 } from './postgresWorkspaceStore.js';
+
+export { extractTelegramWorkspaceEvents } from './telegramWorkspaceDiscovery.js';
+export { createTelegramWorkspaceRegistry } from './telegramWorkspaceRegistry.js';
+export { createPostgresTelegramWorkspaceRegistry } from './postgresWorkspaceRegistry.js';
+export {
+  createTelegramWorkspaceDiscoveryIntegration,
+  createTelegramWorkspaceDiscoveryUpdateStore
+} from './telegramWorkspaceDiscoveryIntegration.js';

@@ -39,22 +39,23 @@ Completed and acceptance-verified:
 - Block 16.14 — Internal Event Bus;
 - Block 16.15 — Schema & Contract Versioning;
 - Block 16.16 — Feature Flags & Controlled Rollout;
+- Block 16.17 — Self Knowledge / System Self-Awareness;
 - Block 18 — End-to-End Verification;
 - Block 19 — Security and Operations.
 
-Current executable SG therefore already has the approved Semantic Kernel, memory/context boundary, AI Router, Decision Engine, Action Gate, Capability System, global identity/scope, observability, transport abstractions, durable PostgreSQL/worker foundations, Telegram production path, production AI path, Temporal Context, multilingual Language & Locale Context, centralized Configuration & Policy, bounded Secrets & Credentials, a durable External Connections Registry, verified Resource Authority enforcement for concrete resources, durable scoped conversation/session/topic continuity, global user settings, authorized delivery routing, a production-wired Internal Event Bus, production contract-version enforcement/quarantine, controlled feature flags, a CI-gated end-to-end verification suite, and the Block 19 security/operations layer with mandatory CI security gates, hardened Telegram ingress, emergency controls and PostgreSQL recovery verification.
+Current executable SG therefore already has the approved Semantic Kernel, memory/context boundary, AI Router, Decision Engine, Action Gate, Capability System, global identity/scope, observability, transport abstractions, durable PostgreSQL/worker foundations, Telegram production path, production AI path, Temporal Context, multilingual Language & Locale Context, centralized Configuration & Policy, bounded Secrets & Credentials, a durable External Connections Registry, verified Resource Authority enforcement for concrete resources, durable scoped conversation/session/topic continuity, global user settings, authorized delivery routing, a production-wired Internal Event Bus, production contract-version enforcement/quarantine, controlled feature flags, durable Self Knowledge with bounded response-context composition, a CI-gated end-to-end verification suite, and the Block 19 security/operations layer with mandatory CI security gates, hardened Telegram ingress, emergency controls and PostgreSQL recovery verification.
 
 Repository-wide audit hardening after Block 16.16 additionally closed cross-module observability contract mismatches, normalized feature-disabled capability results, bound Domain Runtime execution to the same canonical GateDecision actor/scope, and made Render startup rollback-safe. These are corrections within completed blocks, not a new roadmap block.
 
 ## Current implementation boundary
 
-- Blocks 11–16.16 listed above are completed and implementation-verified.
-- Block 16.17 — Self Knowledge / System Self-Awareness is planned next.
-- Block 16.18 — Monarch Control / Owner Security follows after Block 16.17.
-- Block 17 — Render Deployment follows only after Blocks 16.17 and 16.18 are implementation- and acceptance-verified.
+- Blocks 11–16.17 listed above are completed and implementation/acceptance-verified, except Block 16.18 which remains planned.
+- Block 16.17 — Self Knowledge / System Self-Awareness is completed and acceptance-verified by `16_17_SELF_KNOWLEDGE_SYSTEM_SELF_AWARENESS.md`.
+- Block 16.18 — Monarch Control / Owner Security remains planned and is the next unimplemented numbered control block.
+- Block 17 — Render Deployment is implementation-complete, but external Render runtime evidence is still required before operational completion.
 - Block 18 — End-to-End Verification is completed and acceptance-verified by `18_END_TO_END_VERIFICATION.md` and the branch CI.
 - Block 19 — Security and Operations is completed and acceptance-verified by `19_SECURITY_AND_OPERATIONS.md` and GitHub Actions `SG 2.1 CI` #6909.
-- Pilot Launch remains the subsequent production stage.
+- Pilot Launch remains planned.
 
 ---
 
@@ -153,11 +154,11 @@ Acceptance evidence: `16_11_SESSION_AND_CONVERSATION_CONTEXT.md`.
 
 ---
 
-# Completed foundational continuation before Render
+# Foundational continuation and Render boundary
 
-These blocks complete core control, ownership, continuity, extensibility and rollout foundations. Block 16.17 adds canonical Self Knowledge, and Block 16.18 adds the explicit owner-security boundary before deployment becomes the next mandatory stage.
+The foundational control chain through Block 16.17 is implemented and acceptance-verified. Block 16.18 remains the unimplemented owner-security stage. Block 17 code/configuration is already implemented, but its operational closure still requires external Render runtime evidence.
 
-Canonical dependency direction:
+Canonical dependency/status direction:
 
 ```text
 16.7 Configuration & Policy [completed]
@@ -170,9 +171,9 @@ Canonical dependency direction:
 → 16.14 Internal Event Bus [completed]
 → 16.15 Schema & Contract Versioning [completed]
 → 16.16 Feature Flags & Controlled Rollout [completed]
-→ 16.17 Self Knowledge / System Self-Awareness [planned, next]
+→ 16.17 Self Knowledge / System Self-Awareness [completed]
 → 16.18 Monarch Control / Owner Security [planned]
-→ 17 Render Deployment
+→ 17 Render Deployment [implementation complete / external runtime evidence pending]
 ```
 
 Architecture coordination: `../architecture/FOUNDATIONAL_CONTROL_LAYERS.md`, `../architecture/SELF_KNOWLEDGE.md` and `../architecture/MONARCH_OWNER_SECURITY.md`.
@@ -553,7 +554,7 @@ Detailed specification and evidence: `16_16_FEATURE_FLAGS_AND_CONTROLLED_ROLLOUT
 # Block 16.17 — Self Knowledge / System Self-Awareness
 
 ## Status
-Planned — next mandatory block.
+Completed and acceptance-verified.
 
 ## Goal
 Give SG a durable, structured and verifiable model of itself so it can answer what SG is, what it can do, what is implemented, what is planned and what its current limitations are without guessing from model context or re-reading the whole repository on every request.
@@ -568,6 +569,7 @@ Give SG a durable, structured and verifiable model of itself so it can answer wh
 - documentation/implementation/runtime mismatch detection;
 - bounded retrieval for system-self-description questions;
 - runtime/diagnostics verification handoff for live-state questions;
+- bounded response-context assembly before final AI response composition;
 - secret-safe observability;
 - prompt/user/model resistance for canonical identity, owner and architecture truth.
 
@@ -580,19 +582,21 @@ Give SG a durable, structured and verifiable model of itself so it can answer wh
 - live operational state still requires runtime evidence where applicable.
 
 ## Acceptance criteria
-- [ ] dedicated Self Knowledge storage is isolated from user/project memory;
-- [ ] canonical identity/purpose/owner/architecture facts are queryable;
-- [ ] capabilities/modules/integrations expose one canonical status;
-- [ ] snapshots are deterministic, versioned and revision-bound;
-- [ ] no-op rebuild does not create duplicate state;
-- [ ] roadmap-vs-code/runtime conflicts are detected and surfaced;
-- [ ] planned/disabled/broken/unknown features are never claimed as working;
-- [ ] self-description does not require full-repository prompt injection;
-- [ ] live-state questions can invoke runtime/diagnostics verification;
-- [ ] user/model injection cannot alter canonical owner/identity facts;
-- [ ] restart persistence, secret-leakage and isolation tests pass.
+- [x] dedicated Self Knowledge storage is isolated from user/project memory;
+- [x] canonical identity/purpose/owner/architecture facts are queryable;
+- [x] capabilities/modules/integrations expose one canonical status;
+- [x] snapshots are deterministic, versioned and revision-bound;
+- [x] no-op rebuild does not create duplicate state;
+- [x] roadmap-vs-code/runtime conflicts are detected and surfaced;
+- [x] planned/disabled/broken/unknown features are never claimed as working;
+- [x] self-description does not require full-repository prompt injection;
+- [x] live-state questions can invoke runtime/diagnostics verification;
+- [x] `BoundedResponseContext` is assembled before final AI response composition;
+- [x] relevant Self Knowledge, verified identity and authorized context reach final response composition;
+- [x] user/model injection cannot alter canonical owner/identity facts;
+- [x] restart persistence, secret-leakage and scope/isolation tests pass.
 
-Detailed specification: `16_17_SELF_KNOWLEDGE_SYSTEM_SELF_AWARENESS.md`.
+Detailed implementation and acceptance evidence: `16_17_SELF_KNOWLEDGE_SYSTEM_SELF_AWARENESS.md`.
 Architecture: `../architecture/SELF_KNOWLEDGE.md`.
 
 ---
@@ -600,7 +604,7 @@ Architecture: `../architecture/SELF_KNOWLEDGE.md`.
 # Block 16.18 — Monarch Control / Owner Security
 
 ## Status
-Planned — follows Block 16.17.
+Planned — next unimplemented numbered control block.
 
 ## Goal
 Guarantee that only the verified SG owner/Monarch can alter SG-wide security, privileged configuration, roles/grants, owner/global identity administration and other owner-only system state.
@@ -641,52 +645,24 @@ Architecture: `../architecture/MONARCH_OWNER_SECURITY.md`.
 # Block 17 — Render Deployment
 
 ## Status
-Planned — follows Block 16.18.
+Implementation complete. External Render runtime evidence is still required before operational completion.
 
 ## Goal
-Deploy SG 2.1 as a controlled production environment on Render after foundational control layers, Self Knowledge and Monarch/Owner Security are implementation-verified.
+Deploy SG 2.1 through the approved `dev/sg2.1-semantic` Render path while preserving SG 2.1 runtime, persistence, worker, identity, capability, Action Gate and AI Router boundaries.
 
-## Target services
+## Implemented deployment boundary
+- approved branch deployment compatibility is implemented;
+- existing Render web-service environment is reused;
+- boot migrations are supported and fail closed before incompatible runtime startup;
+- health/readiness endpoints are implemented;
+- production web runtime and Telegram webhook registration are implemented;
+- startup rollback is safe when webhook registration fails;
+- worker/runtime persistence and existing secret/config boundaries are preserved.
 
-### Web service
-- Telegram webhook;
-- health/readiness endpoints;
-- synchronous request handling;
-- production runtime composition.
+## Remaining acceptance requirement
+Operational completion requires external Render runtime evidence defined in `17_RENDER_DEPLOYMENT.md`; repository/CI implementation alone is not sufficient to claim deployed/live-verified state.
 
-### Worker service
-- scheduled task polling;
-- durable queue processing;
-- retries/DLQ;
-- worker health.
-
-### PostgreSQL
-- persistent production database;
-- migration execution;
-- backup policy.
-
-## Deliverables
-- approved branch deployment configuration;
-- environment/secret inventory using Blocks 16.7–16.8;
-- build/start/migration commands;
-- health checks;
-- log redaction;
-- rollback procedure;
-- Telegram webhook registration;
-- connection/credential readiness evidence;
-- resource-authority readiness evidence;
-- conversation/session persistence readiness evidence;
-- Block 16.17 Self Knowledge readiness evidence;
-- Block 16.18 owner-security readiness evidence.
-
-## Acceptance criteria
-- only approved branch is deployed;
-- secrets are not exposed;
-- web/worker reconnect after restart;
-- migrations finish before incompatible runtime startup;
-- failed deployment can be rolled back safely;
-- health distinguishes process health from dependency readiness;
-- owner-only system changes remain inaccessible to non-owner actors.
+Detailed implementation/evidence status: `17_RENDER_DEPLOYMENT.md`.
 
 ---
 
@@ -803,5 +779,5 @@ Validate the production system with deliberately limited real-user scope.
 - mandatory confirmation for protected actions;
 - controlled feature flags;
 - Self Knowledge enabled and revision-validated;
-- owner-only SG changes enforced by Block 16.18;
+- owner-only SG changes enforced by Block 16.18 when that stage is implemented/closed;
 - close monitoring of cost, errors, resource authority, owner-security denials, delivery, conversation isolation and memory isolation.

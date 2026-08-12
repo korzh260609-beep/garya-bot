@@ -1,7 +1,7 @@
 # SG 2.1 — TELEGRAM WORKSPACE MANAGER 1.0 WORKFLOW
 
 ## Status
-**IN PROGRESS — TWM1.1–TWM1.10 CLOSED / TWM1.11 NEXT.**
+**IN PROGRESS — TWM1.1–TWM1.11 CLOSED / TWM1.12 NEXT.**
 
 This workflow defines how TWM1 stages are implemented and verified without bypassing existing SG identity, authority, Action Gate, persistence, memory or transport boundaries.
 
@@ -252,7 +252,7 @@ Implementation/tests:
 Evidence: `../../evidence/TWM1_7_DECISION_ACTION_GATE_INTEGRATION.md`.
 Verified code/runtime gate: HEAD `747a821de5a4fd19be766e0583e005b6ee8e38c0`, SG 2.1 CI #7307 — SUCCESS.
 
-TWM1.8–TWM1.10 are now CLOSED and converge on the same protected backend/runtime path. TWM1.11 is next.
+TWM1.8–TWM1.11 are now CLOSED and converge on the same protected backend/runtime path. TWM1.12 is next.
 
 ## TWM1.8 — Telegram Native UI & Setup Wizard
 **Status: CLOSED / IMPLEMENTED / CI-VERIFIED.**
@@ -344,14 +344,59 @@ Acceptance passed on implementation HEAD `3004dfe4665327db0d830d5ecc52c36cdb9483
 Evidence: `../../evidence/TWM1_10_WORKSPACE_RUNTIME_WIRING.md`.
 
 ## TWM1.11 — Audit, Rollback, Diagnostics
-**Status: PLANNED / NEXT.**
+**Status: CLOSED / IMPLEMENTED / CI-VERIFIED.**
 
-Expose history and rollback through authorized services. Rollback creates a new version and audit record; it does not delete history. Diagnostics are read-only and secret-safe.
+TWM1.11 completes the configuration-control audit/diagnostics surface without adding a second mutation, permission or observability stack.
 
-Acceptance: SG can identify actor/time/before/after and restore a permitted prior version while retaining full audit chain.
+Workflow:
+
+```text
+authorized diagnostics request
+→ exact workspace_id + canonical actor
+→ fresh workspace:view authority
+→ existing workspace/config/bot-capability sources
+→ existing workspace-scoped Observability events
+→ bounded secret-safe diagnostics report
+```
+
+History exposes normalized `who/what/when/before/after`, version and trace data through the existing authorized configuration-history boundary, with recursive redaction of secret-shaped fields before exposure. Rollback delegates unchanged to the TWM1.6/TWM1.7 protected rollback path and therefore remains a fresh-authority, canonical Action-Gated, request-bound mutation that writes a new version and preserves the prior audit chain.
+
+Diagnostics expose:
+- workspace connection/lifecycle state;
+- authority verification state/role/time;
+- bot capability/permission health and actionable missing permissions;
+- configuration namespace versions/max version;
+- degraded reasons;
+- last successful/failed configuration mutation summaries;
+- configuration action/success/failure counters;
+- authorization denial and Action Gate denial counters;
+- trace/request/environment/revision continuity.
+
+Freshness/replay counters belonging to later content/result-ingestion stages are not fabricated before those ingestion surfaces exist.
+
+Acceptance passed:
+- authorized history identifies actor/time/before/after;
+- secret-shaped before/after fields are redacted;
+- rollback reuses the existing protected mutation path unchanged;
+- healthy and degraded diagnostics are deterministic;
+- missing bot permission is actionable;
+- configuration/authority/Action Gate counters aggregate existing events;
+- last success/failure is visible without copying raw config into telemetry;
+- trace/request continuity is preserved;
+- unauthorized diagnostics fail closed before workspace/config/bot details are disclosed;
+- full SG 2.1 CI passes on implementation HEAD.
+
+Implementation/tests:
+- `src/telegramWorkspace/telegramWorkspaceDiagnosticsObservability.js`;
+- `src/telegramWorkspace/index.js`;
+- `tests/telegramWorkspaceManager1AuditDiagnosticsObservability.test.js`;
+- existing TWM1.6/TWM1.7/PostgreSQL suites continue to prove append-only rollback/history and atomic persistence.
+
+Evidence: `../../evidence/TWM1_11_AUDIT_ROLLBACK_DIAGNOSTICS_OBSERVABILITY.md`.
+Verified implementation gate: HEAD `f41328b9216cca794a298df100002875178f3c2b`, SG 2.1 CI #7376 — SUCCESS. External closure declaration requires full SUCCESS on the documentation-synchronized closure HEAD.
 
 ## TWM1.12 — Production E2E & Live Acceptance
-**Status: PLANNED.**
+**Status: PLANNED / NEXT.**
 
 Use real Telegram group and channel acceptance with at least two human authority levels and two independent workspaces.
 

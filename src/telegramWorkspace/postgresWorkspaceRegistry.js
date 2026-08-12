@@ -19,7 +19,18 @@ function normalizeRow(row) {
 
 export function createPostgresTelegramWorkspaceRegistry(database, options = {}) {
   if (!database?.query || !database?.transaction) throw new TypeError('started PostgreSQL database is required');
-  const store = createPostgresTelegramWorkspaceStore(database);
+  const baseStore = createPostgresTelegramWorkspaceStore(database);
+  const store = Object.freeze({
+    ...baseStore,
+    async getWorkspaceByMigrationSourceTelegramChatId(telegramChatId) {
+      const chatId = String(telegramChatId);
+      if (!/^-?\d+$/.test(chatId)) throw new TypeError('telegramChatId must be integer-compatible');
+      const result = await database.query(`SELECT workspace_id FROM telegram_workspaces
+        WHERE platform='telegram' AND migration->>'fromTelegramChatId'=$1
+        ORDER BY updated_at DESC LIMIT 1`, [chatId]);
+      return result.rows[0] ? baseStore.getWorkspace(result.rows[0].workspace_id) : null;
+    }
+  });
   const registry = createTelegramWorkspaceRegistry({ store, ...options });
 
   async function listWorkspaces({ lifecycleState = null, workspaceType = null, limit = 100 } = {}) {
@@ -36,6 +47,6 @@ export function createPostgresTelegramWorkspaceRegistry(database, options = {}) 
   return Object.freeze({
     ...registry,
     listWorkspaces,
-    store
+    store: baseStore
   });
 }

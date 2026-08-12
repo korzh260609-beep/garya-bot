@@ -95,6 +95,37 @@ test('PDK4.5: replay is deterministic for event semantics and extraction fingerp
   assert.equal(first.extractionFingerprint, second.extractionFingerprint);
 });
 
+test('PDK4.5: inferred supersession stays active and proposed without a structured supersededBy target', async () => {
+  const extractor = createDevelopmentEventExtractor({ clock: fixedClock });
+  const result = await extractor.extract(source({
+    payload: Object.freeze({
+      sha,
+      message: 'Superseded old implementation with a new approach',
+      files: Object.freeze([{ path: 'src/projectDevelopmentKnowledge/developmentEventExtractor.js', status: 'modified', additions: 5, deletions: 5, changes: 10, patch: '+ superseded old implementation' }]),
+      stats: Object.freeze({ additions: 5, deletions: 5, total: 10 })
+    })
+  }), classification());
+
+  assert.equal(result.event.eventType, 'superseded');
+  assert.equal(result.event.previousState, 'implemented');
+  assert.equal(result.event.newState, 'implemented');
+  assert.equal(result.event.lifecycleState, 'active');
+  assert.equal(result.candidate.confirmed, false);
+  assert.equal(result.candidate.confirmationState, 'proposed');
+});
+
+test('PDK4.5: AI cannot promote an extracted event to superseded lifecycle without structured target evidence', async () => {
+  const extractor = createDevelopmentEventExtractor({
+    aiRouter: { async route() { return { text: JSON.stringify({ eventType: 'superseded', previousState: 'implemented', newState: 'superseded' }) }; } },
+    clock: fixedClock
+  });
+  const result = await extractor.extract(source(), classification());
+  assert.notEqual(result.event.newState, 'superseded');
+  assert.equal(result.event.lifecycleState, 'active');
+  assert.equal(result.candidate.confirmed, false);
+  assert.equal(result.candidate.confirmationState, 'proposed');
+});
+
 test('PDK4.5: suppressed and supporting-evidence classifications cannot become DevelopmentEvents', async () => {
   const extractor = createDevelopmentEventExtractor({ clock: fixedClock });
   await assert.rejects(

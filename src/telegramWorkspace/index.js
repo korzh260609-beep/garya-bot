@@ -15,3 +15,9 @@ export {
   assertSameTelegramWorkspace,
   telegramWorkspaceConfigNamespace
 } from './workspaceContract.js';
+
+export {
+  createPostgresTelegramWorkspaceStore,
+  assertWorkspaceConfigContainsNoSecrets,
+  TELEGRAM_WORKSPACE_PERSISTED_CONFIG_NAMESPACES
+} from './postgresWorkspaceStore.js';

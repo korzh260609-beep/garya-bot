@@ -29,3 +29,8 @@ export {
   createTelegramWorkspaceDiscoveryIntegration,
   createTelegramWorkspaceDiscoveryUpdateStore
 } from './telegramWorkspaceDiscoveryIntegration.js';
+export {
+  TELEGRAM_WORKSPACE_AUTHORITY_ACTIONS,
+  createTelegramWorkspaceAuthorityResolver,
+  createPostgresTelegramWorkspaceAuthorityResolver
+} from './telegramWorkspaceAuthorityResolver.js';

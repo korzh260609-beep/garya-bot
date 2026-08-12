@@ -40,6 +40,11 @@ export {
   createTelegramWorkspaceBotCapabilityService
 } from './telegramWorkspaceBotCapabilityService.js';
 export {
+  TELEGRAM_WORKSPACE_MUTATION_CAPABILITIES,
+  TelegramWorkspaceActionGateError,
+  createTelegramWorkspaceActionGateIntegration
+} from './telegramWorkspaceActionGateIntegration.js';
+export {
   TELEGRAM_WORKSPACE_CONFIGURATION_NAMESPACES,
   TELEGRAM_WORKSPACE_PERSISTENCE_NAMESPACES,
   TelegramWorkspaceConfigurationError,

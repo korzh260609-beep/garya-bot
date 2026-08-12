@@ -58,3 +58,7 @@ export {
   createTelegramWorkspaceRuntimeWiring,
   TELEGRAM_WORKSPACE_RUNTIME_POLICY_VERSION
 } from './telegramWorkspaceRuntimeWiring.js';
+export {
+  createTelegramWorkspaceDiagnosticsObservabilityService,
+  TELEGRAM_WORKSPACE_DIAGNOSTICS_CONTRACT_VERSION
+} from './telegramWorkspaceDiagnosticsObservability.js';

@@ -1,7 +1,7 @@
 # SG 2.1 — TELEGRAM WORKSPACE MANAGER 1.0 WORKFLOW
 
 ## Status
-**IN PROGRESS — TWM1.1–TWM1.2 CLOSED / TWM1.3 NEXT.**
+**IN PROGRESS — TWM1.1–TWM1.3 CLOSED / TWM1.4 NEXT.**
 
 This workflow defines how TWM1 stages are implemented and verified without bypassing existing SG identity, authority, Action Gate, persistence, memory or transport boundaries.
 
@@ -53,9 +53,16 @@ Verified implementation gate: HEAD `d106c283ce5b8047e72ce75c209d7e5eebcbebb0`, S
 This stage persists scoped role/permission/configuration state only. It does not claim Telegram discovery, live authority proof, live bot-permission discovery, authorized configuration service/runtime wiring or live Telegram acceptance from TWM1.3+.
 
 ## TWM1.3 — Workspace Discovery & Registry
-Wire real Telegram update facts into a thin discovery adapter feeding `TelegramWorkspaceRegistry`. Transport reports platform facts only; registry owns canonical workspace resolution. Handle removal, reconnect and migration explicitly.
+**Status: CLOSED / IMPLEMENTED / CI-VERIFIED.**
 
-Acceptance: discovery is replay-safe/idempotent and multiple workspaces remain independent.
+Real Telegram update facts are wired into a thin discovery adapter feeding `TelegramWorkspaceRegistry`. Transport reports platform facts only; registry owns canonical workspace creation/resolution and PostgreSQL-backed metadata state. Discovery runs before invocation filtering, so ignored ambient group/channel traffic still discovers or refreshes workspace state without causing an SG response.
+
+Implemented handling includes group/supergroup/channel extraction, private-chat exclusion, metadata refresh, bot membership disconnect/reconnect, group→supergroup migration, durable migration-alias resolution for stale/replayed old-group updates, bounded listing and PostgreSQL restart continuity. No human OWNER/ADMIN authority is inferred at this stage.
+
+Acceptance passed: discovery is replay-safe/idempotent; multiple workspaces remain independent; migration and stale replay preserve one canonical SG workspace root; full SG 2.1 CI passes.
+
+Evidence: `../../evidence/TWM1_3_TELEGRAM_WORKSPACE_DISCOVERY_REGISTRY.md`.
+Verified implementation gate: HEAD `a007a159ab705d94eb31676115632d3ac71c5377`, SG 2.1 CI #7266 — SUCCESS.
 
 ## TWM1.4 — Authority Verification
 Reuse canonical Identity Links and Resource Authority. Query/re-verify Telegram resource authority according to sensitivity/freshness policy. Add bounded TWM roles only as workspace-scoped grants.

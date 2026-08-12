@@ -309,6 +309,40 @@ Action/risk rules:
 
 **Gate:** production acceptance proves an authorized user can create and publish a poll/quiz, publish supplied photo/video content, schedule content, receive result updates, obtain deterministic statistics after restart/replay without double counting, receive bounded AI analysis of the deterministic result snapshot, and that unauthorized/cross-workspace users cannot publish, read protected results or reuse media outside allowed scope.
 
+### TWM1.15 — Community Operations, Engagement & Analytics
+**Status: PLANNED.**
+
+TWM1.15 turns the configured Telegram workspace into a broader community-operations surface while reusing the same SG core. It is split into five bounded packages:
+
+```text
+TWM Content
+TWM Engagement
+TWM Community
+TWM Operations
+TWM Analytics
+```
+
+Planned capabilities include:
+- multi-step forms/questionnaires and feedback;
+- events, RSVP, capacity, waitlists and reminders;
+- competitions/challenges/draws with deterministic auditable eligibility/selection mechanics where applicable;
+- workspace FAQ/approved knowledge and newcomer onboarding;
+- unanswered-question and moderation queues;
+- request/case/ticket lifecycle and operator assignment;
+- tasks and reminders through the existing SG task/automation system;
+- proposal→discussion→optional vote→authorized decision confirmation→optional Group Shared Memory promotion;
+- content calendar, editorial queues and recurring rubrics over TWM1.14;
+- bounded discussion summaries that remain derived until explicitly confirmed;
+- deterministic workspace analytics from normalized structured events;
+- owner daily/weekly/monthly briefs;
+- authorized report/export paths where SG artifact capabilities support them.
+
+TWM1.15 MUST NOT create a second memory, task, scheduler, identity, authority or analytics-truth system. Private form/case/feedback data cannot silently enter shared memory or FAQ. Poll/test results do not become binding decisions automatically. AI Router may classify, summarize and interpret bounded data, but exact metrics/state transitions remain deterministic and AI cannot mutate state or grant authority.
+
+Detailed implementation sequence and gates are canonical in `TELEGRAM_WORKSPACE_MANAGER_1_15_COMMUNITY_OPERATIONS_PROGRAM.md`.
+Architecture: `../architecture/TELEGRAM_WORKSPACE_MANAGER_1_15_COMMUNITY_OPERATIONS.md`.
+Workflow: `../workflow/TELEGRAM_WORKSPACE_MANAGER_1_15_COMMUNITY_OPERATIONS_WORKFLOW.md`.
+
 ## UX principles
 - natural language is primary;
 - Telegram-native inline UI is the first visual control plane;
@@ -319,20 +353,22 @@ Action/risk rules:
 - one user may manage many workspaces;
 - one workspace may have multiple authorized managers with bounded roles;
 - content creation should use draft/preview flows when publication impact is material;
-- statistics should distinguish exact deterministic metrics from AI interpretation.
+- statistics should distinguish exact deterministic metrics from AI interpretation;
+- community workflows expose clear statuses/queues instead of raw storage structures.
 
 ## Security boundaries
 TWM1 must never:
 - treat Telegram username/name as identity or authority;
 - treat any Telegram administrator as SG owner/Monarch;
-- let AI write config or publication/result state directly;
+- let AI write config or publication/result/operations state directly;
 - let a config key weaken mandatory SG security/Action Gate/owner security;
-- leak settings, memory, members, media, drafts, responses, results or audit between workspaces;
+- leak settings, memory, members, media, drafts, responses, results, forms, cases, feedback, analytics or audit between workspaces;
 - store bot tokens/secrets in ordinary workspace config/content records;
 - claim success when Telegram denies the required action;
 - persist stale authority indefinitely without re-verification policy;
-- invent poll/test statistics from model output;
-- deanonymize anonymous Telegram polls.
+- invent poll/test/workspace statistics from model output;
+- deanonymize anonymous Telegram polls or promise anonymous forms when identifiers are retained;
+- convert a poll/test result into a binding decision or confirmed shared-memory fact without the required policy/authorization transition.
 
 ## Dependencies
 Uses existing:
@@ -343,11 +379,13 @@ Uses existing:
 - Block 16.7 Configuration & Policy;
 - PostgreSQL persistence;
 - Memory 2.0;
+- Session & Conversation Context;
 - AI Router;
-- Durable Automation / Scheduler for scheduled content;
+- Durable Automation / Scheduler;
+- existing task/capability system;
 - Delivery Router;
 - Observability / Internal Event Bus;
 - Security & Operations controls.
 
 ## Definition of DONE
-Core TWM workspace management is complete when TWM1.1–TWM1.12 are implemented, tested, CI-verified and live-accepted, and any authorized ordinary SG user can safely configure their own Telegram groups/channels without programming while unauthorized users cannot. TWM1.13 remains an optional richer UI extension. TWM1.14 is a separately closable functional extension and is complete only after real Telegram content/poll/quiz/media/result E2E proves deterministic statistics, restart/replay safety, workspace isolation, authorization and bounded AI analysis.
+Core TWM workspace management is complete when TWM1.1–TWM1.12 are implemented, tested, CI-verified and live-accepted, and any authorized ordinary SG user can safely configure their own Telegram groups/channels without programming while unauthorized users cannot. TWM1.13 remains an optional richer UI extension. TWM1.14 and TWM1.15 are separately closable functional extensions. TWM1.14 requires real Telegram content/poll/quiz/media/result E2E; TWM1.15 requires TWM1.15.1–TWM1.15.13 code, tests, CI and live acceptance proving community workflows, deterministic analytics, restart/replay safety, privacy/authority and workspace isolation.

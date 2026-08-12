@@ -51,3 +51,4 @@ export {
   validateTelegramWorkspaceConfiguration,
   createTelegramWorkspaceConfigurationService
 } from './workspaceConfigurationService.js';
+export { createTelegramWorkspaceNativeUi } from './telegramWorkspaceNativeUi.js';

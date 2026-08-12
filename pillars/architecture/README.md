@@ -19,18 +19,19 @@ SG 2.1 is one global transport-independent project system whose reasoning layer 
 5. `PROJECT_MEMORY_3_0.md`
 6. `PROJECT_DEVELOPMENT_KNOWLEDGE_4_0.md`
 7. `PROJECT_DEVELOPMENT_KNOWLEDGE_4_13_LIVE_PRODUCTION_WIRING.md`
-8. `DECISION_AND_ACTION_GATE.md`
-9. `CAPABILITY_SYSTEM.md`
-10. `IDENTITY_AND_SCOPE.md`
-11. `OBSERVABILITY.md`
-12. `TRANSPORTS_AND_AI_ROUTING.md`
-13. `LANGUAGE_AND_LOCALE_CONTEXT.md`
-14. `FOUNDATIONAL_CONTROL_LAYERS.md`
-15. `SELF_KNOWLEDGE.md`
-16. `MONARCH_OWNER_SECURITY.md`
-17. `RUNTIME_COMPOSITION.md`
-18. `POSTGRESQL_PERSISTENCE.md`
-19. `UNIVERSAL_DIAGNOSTICS.md`
+8. `TELEGRAM_WORKSPACE_MANAGER_1_0.md`
+9. `DECISION_AND_ACTION_GATE.md`
+10. `CAPABILITY_SYSTEM.md`
+11. `IDENTITY_AND_SCOPE.md`
+12. `OBSERVABILITY.md`
+13. `TRANSPORTS_AND_AI_ROUTING.md`
+14. `LANGUAGE_AND_LOCALE_CONTEXT.md`
+15. `FOUNDATIONAL_CONTROL_LAYERS.md`
+16. `SELF_KNOWLEDGE.md`
+17. `MONARCH_OWNER_SECURITY.md`
+18. `RUNTIME_COMPOSITION.md`
+19. `POSTGRESQL_PERSISTENCE.md`
+20. `UNIVERSAL_DIAGNOSTICS.md`
 
 ## Core flow
 
@@ -61,6 +62,8 @@ Project Development Knowledge 4.0 is the development-history and project-evoluti
 
 PDK4.13 Live Production Wiring & Autonomous Project History is the production-composition extension of the completed PDK4.1–PDK4.12 software baseline. It wires historical bootstrap/resume, incremental reconciliation, bounded polling, PostgreSQL single-flight protection, protected diagnostics and live acceptance into the real SG production runtime. It reuses the existing PDK4 engine and PM3 substrate rather than creating a new memory path.
 
+Telegram Workspace Manager 1.0 is a cross-cutting management layer over the existing Telegram production transport/runtime. It lets any authorized SG user manage SG behavior for their own Telegram groups, supergroups and channels through native Telegram UI and natural language. TWM1 reuses canonical `global_user_id`, Identity/Scope, Resource Authority, Action Gate, PostgreSQL, Memory 2.0 isolation, AI Router and Observability. Telegram administrator status is workspace-scoped evidence only and never SG-global owner/Monarch authority. AI/model output may propose configuration but cannot write configuration or grant authority directly.
+
 Self Knowledge is a shared system-context layer used for evidence-aware descriptions of SG itself. It does not sit as a mandatory reasoning hop in every request and does not replace live diagnostics.
 
 Universal Diagnostics is an independent observer application outside the mandatory SG request path. SG emits bounded diagnostic facts through Observability and approved read-only surfaces; the separate Diagnostics application reconstructs traces, compares expected vs actual paths, finds first divergence, performs deterministic root-cause analysis, runs isolated synthetic checks, and produces evidence-backed reports. SG must continue operating if Diagnostics is unavailable.
@@ -81,6 +84,11 @@ Universal Diagnostics is an independent observer application outside the mandato
 - PDK4.13 production wiring must be resumable, bounded, idempotent and single-flight per project/repository; concurrent triggers cannot duplicate history processing.
 - PDK4.13 GitHub/provider degradation must degrade the project-history subsystem rather than take normal SG transports offline by default.
 - PDK4.13 credentials/secrets never enter PM3/PDK4 facts, AI context, ordinary diagnostics or observability payloads.
+- TWM1 cannot create a second Telegram transport, identity root, authorization system or direct AI→configuration path.
+- TWM1 workspace configuration, members, memory, automation and audit are isolated per canonical workspace scope.
+- TWM1 Telegram administrator evidence cannot grant SG-global ownership/Monarch authority.
+- TWM1 must re-verify revocable Telegram authority according to action sensitivity and fail closed when required bot permissions are absent.
+- TWM1 configuration cannot weaken mandatory security, owner security or Action Gate requirements.
 - System Self Knowledge is separate from user/project memory and cannot grant authority.
 - Universal Diagnostics is not SG brain, Decision Engine, Action Gate, authorization or ordinary request routing.
 - Diagnostics is read-only by default; it must not silently edit code/config, deploy, mutate production state, grant authority or repair SG automatically.

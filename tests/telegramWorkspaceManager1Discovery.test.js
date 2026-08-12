@@ -24,6 +24,10 @@ function createMemoryWorkspaceStore() {
     },
     async getWorkspace(workspaceId) { return byId.get(workspaceId) ?? null; },
     async getWorkspaceByTelegramChatId(chatId) { return byChat.get(String(chatId)) ?? null; },
+    async getWorkspaceByMigrationSourceTelegramChatId(chatId) {
+      const source = String(chatId);
+      return [...byId.values()].find((workspace) => workspace.migration?.fromTelegramChatId === source) ?? null;
+    },
     snapshot() { return new Map(byId); }
   });
 }
@@ -145,7 +149,7 @@ test('TWM1.3 registry refreshes metadata, keeps monotonic time and reconnects de
   assert.equal(reconnected.workspaceId, first.workspaceId);
 });
 
-test('TWM1.3 migration replay preserves one canonical workspace root and independent workspaces stay isolated', async () => {
+test('TWM1.3 migration replay and old-update replay preserve one canonical workspace root', async () => {
   const store = createMemoryWorkspaceStore();
   const registry = createTelegramWorkspaceRegistry({ store, clock: () => new Date('2026-08-12T11:00:00.000Z') });
 
@@ -156,10 +160,15 @@ test('TWM1.3 migration replay preserves one canonical workspace root and indepen
   const event = { kind: 'workspace_migrated', fromTelegramChatId: '-70', toTelegramChatId: '-10070', workspaceType: 'supergroup', title: 'Migrating', username: null, detectedAt: '2026-08-12T10:52:00.000Z' };
   const migrated = await registry.apply(event);
   const replayed = await registry.apply(event);
+  const oldObservationReplay = await registry.apply({ kind: 'workspace_observed', telegramChatId: '-70', workspaceType: 'group', title: 'Stale old group', username: null, detectedAt: '2026-08-12T10:49:00.000Z' });
+  const oldRemovalReplay = await registry.apply({ kind: 'bot_membership_changed', telegramChatId: '-70', workspaceType: 'group', title: 'Stale old group', username: null, membershipState: 'LEFT', connectionState: 'disconnected', detectedAt: '2026-08-12T10:49:30.000Z' });
 
   assert.equal(migrated.workspaceId, group.workspaceId);
   assert.equal(replayed.workspaceId, group.workspaceId);
-  assert.equal(await registry.resolveTelegramChatId('-70'), null);
+  assert.equal(oldObservationReplay.workspaceId, group.workspaceId);
+  assert.equal(oldObservationReplay.telegramChatId, '-10070');
+  assert.equal(oldRemovalReplay.lifecycleState, migrated.lifecycleState);
+  assert.equal((await registry.resolveTelegramChatId('-70')).workspaceId, group.workspaceId);
   assert.equal((await registry.resolveTelegramChatId('-10070')).workspaceId, group.workspaceId);
   assert.equal((await registry.resolveTelegramChatId('-10071')).workspaceId, other.workspaceId);
   assert.equal(store.snapshot().size, 2);

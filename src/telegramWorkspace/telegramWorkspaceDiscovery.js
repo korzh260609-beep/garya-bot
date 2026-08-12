@@ -22,11 +22,15 @@ function messageFrom(update) {
   return update?.message ?? update?.edited_message ?? update?.channel_post ?? update?.edited_channel_post ?? null;
 }
 
-function detectedAt(update, payload) {
+function detectedAt(payload) {
   const unixSeconds = Number(payload?.date);
   if (Number.isSafeInteger(unixSeconds) && unixSeconds >= 0) return new Date(unixSeconds * 1000).toISOString();
+  return null;
+}
+
+function sourceUpdateId(update) {
   const updateId = Number(update?.update_id);
-  return Number.isSafeInteger(updateId) && updateId >= 0 ? null : null;
+  return Number.isSafeInteger(updateId) && updateId >= 0 ? updateId : null;
 }
 
 function observationEvent(update, message) {
@@ -35,8 +39,8 @@ function observationEvent(update, message) {
   return freeze({
     kind: 'workspace_observed',
     ...chat,
-    detectedAt: detectedAt(update, message),
-    sourceUpdateId: Number.isSafeInteger(Number(update?.update_id)) ? Number(update.update_id) : null
+    detectedAt: detectedAt(message),
+    sourceUpdateId: sourceUpdateId(update)
   });
 }
 
@@ -46,25 +50,25 @@ function migrationEvent(update, message) {
   if (message.migrate_to_chat_id != null) {
     return freeze({
       kind: 'workspace_migrated',
-      fromTelegramChatId: String(chat.telegramChatId),
+      fromTelegramChatId: chat.telegramChatId,
       toTelegramChatId: String(message.migrate_to_chat_id),
       workspaceType: 'supergroup',
       title: chat.title,
       username: chat.username,
-      detectedAt: detectedAt(update, message),
-      sourceUpdateId: Number.isSafeInteger(Number(update?.update_id)) ? Number(update.update_id) : null
+      detectedAt: detectedAt(message),
+      sourceUpdateId: sourceUpdateId(update)
     });
   }
   if (message.migrate_from_chat_id != null && chat.workspaceType === 'supergroup') {
     return freeze({
       kind: 'workspace_migrated',
       fromTelegramChatId: String(message.migrate_from_chat_id),
-      toTelegramChatId: String(chat.telegramChatId),
+      toTelegramChatId: chat.telegramChatId,
       workspaceType: 'supergroup',
       title: chat.title,
       username: chat.username,
-      detectedAt: detectedAt(update, message),
-      sourceUpdateId: Number.isSafeInteger(Number(update?.update_id)) ? Number(update.update_id) : null
+      detectedAt: detectedAt(message),
+      sourceUpdateId: sourceUpdateId(update)
     });
   }
   return null;
@@ -86,8 +90,8 @@ function membershipEvent(update) {
     ...chat,
     membershipState: rawStatus.toUpperCase(),
     connectionState,
-    detectedAt: detectedAt(update, payload),
-    sourceUpdateId: Number.isSafeInteger(Number(update?.update_id)) ? Number(update.update_id) : null
+    detectedAt: detectedAt(payload),
+    sourceUpdateId: sourceUpdateId(update)
   });
 }
 

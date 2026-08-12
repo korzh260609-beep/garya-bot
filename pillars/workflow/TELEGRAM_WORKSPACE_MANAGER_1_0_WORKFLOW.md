@@ -194,6 +194,45 @@ authorized workspace admin
 
 Acceptance must also cover Telegram API failure/missing permission, poll closure where supported, scheduled-action cancellation/idempotency and secret/privacy-safe observability.
 
+## TWM1.15 — Community Operations, Engagement & Analytics
+TWM1.15 is implemented as a separate functional extension over the same TWM backend. Canonical substage sequence:
+
+```text
+TWM1.15.1 Domain Contracts & Scope
+→ TWM1.15.2 PostgreSQL Persistence
+→ TWM1.15.3 Forms, Surveys & Feedback
+→ TWM1.15.4 Events, Registration & Participation
+→ TWM1.15.5 FAQ, Knowledge & Onboarding
+→ TWM1.15.6 Community Assistance & Moderation Workflows
+→ TWM1.15.7 Cases, Requests & Operator Queues
+→ TWM1.15.8 Tasks, Reminders & Decisions
+→ TWM1.15.9 Content Planning & Recurring Rubrics
+→ TWM1.15.10 Discussion Summaries & Unanswered Questions
+→ TWM1.15.11 Deterministic Workspace Analytics
+→ TWM1.15.12 Owner Briefs, Reports & Exports
+→ TWM1.15.13 Production E2E & Live Acceptance
+```
+
+Mandatory implementation rule:
+
+```text
+reuse existing SG primitive first
+→ add only missing workspace-scoped state/service
+→ deterministic state transition/metric logic
+→ authority/privacy/Action Gate
+→ Telegram/runtime integration
+→ tests/replay/restart
+→ live evidence
+```
+
+TWM1.15 must reuse Memory 2.0, Session/Conversation Context, the existing task/capability system, Durable Automation/Scheduler, Delivery Router, AI Router and Observability. It must not create duplicate memory/task/scheduler systems.
+
+Required live acceptance includes forms/submissions, event registration/waitlist, FAQ/onboarding, case lifecycle, bounded discussion summary, explicit decision confirmation with optional controlled Group Shared Memory promotion, task/reminder creation, content plan/recurring publication, deterministic analytics snapshot, restart/replay, owner brief/export, unauthorized denial and second-workspace isolation.
+
+Detailed procedure: `TELEGRAM_WORKSPACE_MANAGER_1_15_COMMUNITY_OPERATIONS_WORKFLOW.md`.
+Roadmap: `../roadmap/TELEGRAM_WORKSPACE_MANAGER_1_15_COMMUNITY_OPERATIONS_PROGRAM.md`.
+Architecture: `../architecture/TELEGRAM_WORKSPACE_MANAGER_1_15_COMMUNITY_OPERATIONS.md`.
+
 ## Test layers
 Each stage should use the appropriate combination of:
 - unit contract/service tests;
@@ -203,7 +242,7 @@ Each stage should use the appropriate combination of:
 - runtime integration tests;
 - E2E tests;
 - replay/idempotency tests;
-- deterministic statistics fixtures for TWM1.14;
+- deterministic statistics fixtures for TWM1.14/TWM1.15 analytics;
 - real live Telegram acceptance for production claims.
 
 ## Required invariants
@@ -215,11 +254,13 @@ Throughout all stages:
 - Action Gate remains authoritative for protected execution;
 - AI Router is the only model path;
 - AI output is never authority or direct mutation;
-- AI is not the numeric source of poll/test results;
-- workspace memory/settings/members/media/content/results/audit never cross scopes by default;
+- AI is not the numeric source of poll/test/workspace analytics results;
+- workspace memory/settings/members/media/content/results/forms/cases/feedback/analytics/audit never cross scopes by default;
 - bot/user authority can be revoked and re-verified;
 - scheduled external actions do not inherit permanent authority from task-creation time;
-- anonymous poll semantics are preserved;
+- anonymous poll/form semantics must match actual evidence/storage behavior;
+- operational records do not become confirmed Memory 2.0 facts automatically;
+- poll/test outcomes do not become binding decisions automatically;
 - secrets never enter ordinary config/content/history/model context;
 - UI convenience cannot weaken backend security.
 
@@ -228,8 +269,9 @@ After every CLOSED stage, synchronize:
 - architecture status/evidence where material;
 - `TELEGRAM_WORKSPACE_MANAGER_1_0_PROGRAM.md`;
 - this workflow if acceptance procedure changes;
+- TWM1.15 dedicated architecture/roadmap/workflow when applicable;
 - canonical indexes where status/order references change;
 - implementation/test paths and CI evidence.
 
 ## Final closure rule
-TWM1.1–TWM1.12 are CLOSED only after the full multi-user, multi-workspace real Telegram acceptance passes. TWM1.13 remains a separately closable optional rich-UI extension. TWM1.14 remains a separately closable content/polls/quizzes/media extension and requires its own real Telegram publication/result/restart/replay/analysis acceptance before it can be marked CLOSED.
+TWM1.1–TWM1.12 are CLOSED only after the full multi-user, multi-workspace real Telegram acceptance passes. TWM1.13 remains a separately closable optional rich-UI extension. TWM1.14 remains a separately closable content/polls/quizzes/media extension. TWM1.15 remains a separately closable Community Operations, Engagement & Analytics extension and requires TWM1.15.1–TWM1.15.13 code, CI and real Telegram live acceptance before CLOSED.

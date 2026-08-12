@@ -20,18 +20,19 @@ SG 2.1 is one global transport-independent project system whose reasoning layer 
 6. `PROJECT_DEVELOPMENT_KNOWLEDGE_4_0.md`
 7. `PROJECT_DEVELOPMENT_KNOWLEDGE_4_13_LIVE_PRODUCTION_WIRING.md`
 8. `TELEGRAM_WORKSPACE_MANAGER_1_0.md`
-9. `DECISION_AND_ACTION_GATE.md`
-10. `CAPABILITY_SYSTEM.md`
-11. `IDENTITY_AND_SCOPE.md`
-12. `OBSERVABILITY.md`
-13. `TRANSPORTS_AND_AI_ROUTING.md`
-14. `LANGUAGE_AND_LOCALE_CONTEXT.md`
-15. `FOUNDATIONAL_CONTROL_LAYERS.md`
-16. `SELF_KNOWLEDGE.md`
-17. `MONARCH_OWNER_SECURITY.md`
-18. `RUNTIME_COMPOSITION.md`
-19. `POSTGRESQL_PERSISTENCE.md`
-20. `UNIVERSAL_DIAGNOSTICS.md`
+9. `TELEGRAM_WORKSPACE_MANAGER_1_15_COMMUNITY_OPERATIONS.md`
+10. `DECISION_AND_ACTION_GATE.md`
+11. `CAPABILITY_SYSTEM.md`
+12. `IDENTITY_AND_SCOPE.md`
+13. `OBSERVABILITY.md`
+14. `TRANSPORTS_AND_AI_ROUTING.md`
+15. `LANGUAGE_AND_LOCALE_CONTEXT.md`
+16. `FOUNDATIONAL_CONTROL_LAYERS.md`
+17. `SELF_KNOWLEDGE.md`
+18. `MONARCH_OWNER_SECURITY.md`
+19. `RUNTIME_COMPOSITION.md`
+20. `POSTGRESQL_PERSISTENCE.md`
+21. `UNIVERSAL_DIAGNOSTICS.md`
 
 ## Core flow
 
@@ -64,6 +65,8 @@ PDK4.13 Live Production Wiring & Autonomous Project History is the production-co
 
 Telegram Workspace Manager 1.0 is a cross-cutting management layer over the existing Telegram production transport/runtime. It lets any authorized SG user manage SG behavior for their own Telegram groups, supergroups and channels through native Telegram UI and natural language. TWM1 reuses canonical `global_user_id`, Identity/Scope, Resource Authority, Action Gate, PostgreSQL, Memory 2.0 isolation, AI Router, Durable Automation and Observability. TWM1.14 extends this same workspace-scoped backend with text/media publication, polls, quiz/test sessions, scheduled content, deterministic result collection/statistics and optional AI Router interpretation. Telegram administrator status remains workspace-scoped evidence only and never SG-global owner/Monarch authority. AI/model output may propose configuration/content or analyze a computed result snapshot, but cannot write state directly, grant authority or invent numeric poll/test results.
 
+TWM1.15 Community Operations, Engagement & Analytics extends the same workspace backend with five bounded functional packages: `TWM Content`, `TWM Engagement`, `TWM Community`, `TWM Operations` and `TWM Analytics`. It adds multi-step forms/questionnaires, feedback, event/RSVP/waitlist flows, contests/challenges with auditable deterministic mechanics, FAQ and newcomer onboarding, unanswered-question and moderation workflows, request/case queues, task/reminder/decision workflows, content planning/recurring rubrics, bounded discussion summaries, deterministic workspace analytics, owner briefs and authorized exports. It MUST reuse Memory 2.0, Conversation Context, existing task/capability and Durable Automation systems rather than creating parallel stores or schedulers.
+
 Self Knowledge is a shared system-context layer used for evidence-aware descriptions of SG itself. It does not sit as a mandatory reasoning hop in every request and does not replace live diagnostics.
 
 Universal Diagnostics is an independent observer application outside the mandatory SG request path. SG emits bounded diagnostic facts through Observability and approved read-only surfaces; the separate Diagnostics application reconstructs traces, compares expected vs actual paths, finds first divergence, performs deterministic root-cause analysis, runs isolated synthetic checks, and produces evidence-backed reports. SG must continue operating if Diagnostics is unavailable.
@@ -92,6 +95,12 @@ Universal Diagnostics is an independent observer application outside the mandato
 - TWM1 exact poll/test totals, percentages and scores must come from deterministic structured evidence, not model output.
 - TWM1 must preserve anonymous Telegram poll semantics and cannot claim participant identity for anonymous votes.
 - TWM1 configuration/content behavior cannot weaken mandatory security, owner security, privacy or Action Gate requirements.
+- TWM1.15 operational records are not Memory 2.0 facts by default; forms, cases, feedback, event registrations and analytics require explicit memory-promotion policy before becoming shared durable memory.
+- TWM1.15 private form/case/feedback data cannot leak through FAQ, summaries, analytics, exports or Group Shared Memory.
+- TWM1.15 poll/test results do not automatically become binding decisions; decision confirmation is a separate authorized transition.
+- TWM1.15 AI output may classify, summarize or interpret but cannot mutate state, execute moderation, fabricate analytics, grant authority or create confirmed shared truth.
+- TWM1.15 tasks/reminders/content schedules must reuse the existing task/capability/Durable Automation systems instead of creating parallel execution engines.
+- TWM1.15 anonymity claims must match actual Telegram/storage evidence; SG must not promise anonymity when identifiers are retained.
 - System Self Knowledge is separate from user/project memory and cannot grant authority.
 - Universal Diagnostics is not SG brain, Decision Engine, Action Gate, authorization or ordinary request routing.
 - Diagnostics is read-only by default; it must not silently edit code/config, deploy, mutate production state, grant authority or repair SG automatically.

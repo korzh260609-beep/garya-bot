@@ -1,7 +1,7 @@
 # SG 2.1 — TELEGRAM WORKSPACE MANAGER 1.0 WORKFLOW
 
 ## Status
-**IN PROGRESS — TWM1.1 CLOSED / TWM1.2 NEXT.**
+**IN PROGRESS — TWM1.1–TWM1.2 CLOSED / TWM1.3 NEXT.**
 
 This workflow defines how TWM1 stages are implemented and verified without bypassing existing SG identity, authority, Action Gate, persistence, memory or transport boundaries.
 
@@ -41,9 +41,16 @@ Evidence: `../../evidence/TWM1_1_WORKSPACE_CONTRACT.md`.
 Verified gate: HEAD `fa72678cbd796dd163aa5208c664338ccb73223e`, SG 2.1 CI #7232 — SUCCESS.
 
 ## TWM1.2 — PostgreSQL Workspace Persistence
-Add migrations/stores only for contract-approved entities. Preserve transactionality, unique Telegram resource mapping, canonical workspace isolation, versioned configuration and restart continuity.
+**Status: CLOSED / IMPLEMENTED / CI-VERIFIED.**
 
-Acceptance: PostgreSQL close/reopen preserves workspace/config/history without duplication or cross-workspace access.
+Implemented contract-approved PostgreSQL schema/store primitives for workspaces, members/roles, bot-permission snapshots, current configuration and version history. Writes reuse the canonical SG persistence/migrator; configuration current-version update and history insertion are transactional, canonical `workspace_id` scopes reads/writes, and secret-shaped config fields are rejected before persistence.
+
+Acceptance passed: PostgreSQL close/reopen preserves workspace/member/permission/config/history state; independent workspaces remain isolated; optimistic stale-version writes fail closed; group→supergroup remapping preserves the SG workspace root; SG 2.0→SG 2.1 migration compatibility remains green.
+
+Evidence: `../../evidence/TWM1_2_POSTGRES_WORKSPACE_PERSISTENCE.md`.
+Verified implementation gate: HEAD `d106c283ce5b8047e72ce75c209d7e5eebcbebb0`, SG 2.1 CI #7241 — SUCCESS.
+
+This stage persists scoped role/permission/configuration state only. It does not claim Telegram discovery, live authority proof, live bot-permission discovery, authorized configuration service/runtime wiring or live Telegram acceptance from TWM1.3+.
 
 ## TWM1.3 — Workspace Discovery & Registry
 Wire real Telegram update facts into a thin discovery adapter feeding `TelegramWorkspaceRegistry`. Transport reports platform facts only; registry owns canonical workspace resolution. Handle removal, reconnect and migration explicitly.

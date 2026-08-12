@@ -55,13 +55,17 @@ export function createPostgresTelegramWorkspaceNaturalLanguagePendingStore(datab
   async function claim({ token, actorGlobalUserId, telegramUserId }) {
     return database.transaction(async (tx) => {
       const now = clock();
+      const actor = required(actorGlobalUserId, 'actorGlobalUserId');
+      const telegram = required(String(telegramUserId), 'telegramUserId');
+      const pendingToken = required(token, 'token');
       const result = await tx.query(`UPDATE telegram_workspace_pending_actions
         SET status='processing'
         WHERE token=$1 AND actor_global_user_id=$2 AND telegram_user_id=$3
           AND status='pending' AND expires_at>$4
-        RETURNING *`, [required(token, 'token'), required(actorGlobalUserId, 'actorGlobalUserId'), required(String(telegramUserId), 'telegramUserId'), now]);
+        RETURNING *`, [pendingToken, actor, telegram, now]);
       if (result.rowCount === 1) return normalize(result.rows[0]);
-      const existing = await tx.query('SELECT * FROM telegram_workspace_pending_actions WHERE token=$1', [token]);
+      const existing = await tx.query(`SELECT * FROM telegram_workspace_pending_actions
+        WHERE token=$1 AND actor_global_user_id=$2 AND telegram_user_id=$3`, [pendingToken, actor, telegram]);
       return normalize(existing.rows[0]);
     });
   }

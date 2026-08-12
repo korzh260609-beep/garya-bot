@@ -12,4 +12,5 @@ Workflow defines how one selected roadmap item is implemented safely. It does no
 7. `PROJECT_MEMORY_3_0_WORKFLOW.md` — canonical implementation and verification workflow for Project Memory 3.0 PM3.1–PM3.12
 8. `PROJECT_DEVELOPMENT_KNOWLEDGE_4_0_WORKFLOW.md` — completed baseline workflow for Project Development Knowledge 4.0 PDK4.1–PDK4.12
 9. `PROJECT_DEVELOPMENT_KNOWLEDGE_4_13_LIVE_PRODUCTION_WIRING_WORKFLOW.md` — planned production wiring, autonomous history and live acceptance workflow for PDK4.13
-10. `UNIVERSAL_DIAGNOSTICS_WORKFLOW.md` — canonical implementation and verification workflow for Universal Diagnostics D1–D12
+10. `TELEGRAM_WORKSPACE_MANAGER_1_0_WORKFLOW.md` — planned implementation/verification workflow for TWM1 multi-user Telegram workspace management
+11. `UNIVERSAL_DIAGNOSTICS_WORKFLOW.md` — canonical implementation and verification workflow for Universal Diagnostics D1–D12

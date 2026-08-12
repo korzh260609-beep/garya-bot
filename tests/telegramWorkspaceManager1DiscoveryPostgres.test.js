@@ -157,16 +157,27 @@ integration('TWM1.3: production Telegram ingestion discovers ignored groups/chan
   };
   const migrationResult = await tg.handleWebhook({ headers, body: migration });
   assert.equal(migrationResult.body.ignored, true);
-  assert.equal(await updateStore.workspaceRegistry.resolveTelegramChatId(ids.group), null);
+  assert.equal(await updateStore.workspaceRegistry.store.getWorkspaceByTelegramChatId(ids.group), null);
   const migrated = await updateStore.workspaceRegistry.resolveTelegramChatId(ids.supergroup);
   assert.equal(migrated.workspaceId, groupWorkspace.workspaceId);
   assert.equal(migrated.workspaceType, 'supergroup');
   assert.equal(migrated.migration.fromTelegramChatId, ids.group);
   assert.equal(migrated.migration.toTelegramChatId, ids.supergroup);
+  assert.equal((await updateStore.workspaceRegistry.resolveTelegramChatId(ids.group)).workspaceId, groupWorkspace.workspaceId);
 
   const replayMigration = { ...migration, update_id: updateBase + 6 };
   await tg.handleWebhook({ headers, body: replayMigration });
   assert.equal((await updateStore.workspaceRegistry.resolveTelegramChatId(ids.supergroup)).workspaceId, groupWorkspace.workspaceId);
+
+  const staleOldGroupReplay = {
+    ...ignoredGroup,
+    update_id: updateBase + 7,
+    message: { ...ignoredGroup.message, message_id: 7, date: 1786526999, text: 'stale replay after migration' }
+  };
+  await tg.handleWebhook({ headers, body: staleOldGroupReplay });
+  assert.equal(await updateStore.workspaceRegistry.store.getWorkspaceByTelegramChatId(ids.group), null);
+  assert.equal((await updateStore.workspaceRegistry.resolveTelegramChatId(ids.group)).workspaceId, groupWorkspace.workspaceId);
+  assert.equal((await updateStore.workspaceRegistry.resolveTelegramChatId(ids.supergroup)).telegramChatId, ids.supergroup);
 
   const listed = await updateStore.workspaceRegistry.listWorkspaces({ limit: 500 });
   const ours = listed.filter((workspace) => [ids.supergroup, ids.channel].includes(workspace.telegramChatId));
@@ -179,9 +190,10 @@ integration('TWM1.3: production Telegram ingestion discovers ignored groups/chan
   await restarted.start();
   const restartedRegistry = createPostgresTelegramWorkspaceRegistry(restarted.database);
   assert.equal((await restartedRegistry.resolveTelegramChatId(ids.supergroup)).workspaceId, groupWorkspace.workspaceId);
+  assert.equal((await restartedRegistry.resolveTelegramChatId(ids.group)).workspaceId, groupWorkspace.workspaceId);
   assert.equal((await restartedRegistry.resolveTelegramChatId(ids.channel)).workspaceId, channelWorkspace.workspaceId);
 
-  await restarted.database.query('DELETE FROM telegram_updates WHERE update_id BETWEEN $1 AND $2', [updateBase, updateBase + 6]);
+  await restarted.database.query('DELETE FROM telegram_updates WHERE update_id BETWEEN $1 AND $2', [updateBase, updateBase + 7]);
   await restarted.database.query('DELETE FROM telegram_workspaces WHERE telegram_chat_id=ANY($1::text[])', [[ids.group, ids.supergroup, ids.channel, ids.other]]);
   await restarted.close();
 });

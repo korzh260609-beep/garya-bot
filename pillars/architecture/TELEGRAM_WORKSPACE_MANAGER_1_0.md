@@ -1,7 +1,7 @@
 # SG 2.1 — TELEGRAM WORKSPACE MANAGER 1.0
 
 ## Status
-**IN PROGRESS — TWM1.1–TWM1.10 CLOSED / TWM1.11 NEXT.**
+**IN PROGRESS — TWM1.1–TWM1.11 CLOSED / TWM1.12 NEXT.**
 
 Telegram Workspace Manager 1.0 (TWM1) is a cross-cutting SG module that lets any authorized SG user connect, configure and operate SG inside Telegram groups, supergroups and channels without programming.
 
@@ -161,7 +161,7 @@ Render production composition reuses the existing `harness.actionGate`, policy l
 Evidence: `../../evidence/TWM1_7_DECISION_ACTION_GATE_INTEGRATION.md`.
 Verified code/runtime gate: HEAD `747a821de5a4fd19be766e0583e005b6ee8e38c0`, SG 2.1 CI #7307 — SUCCESS.
 
-TWM1.8 Telegram-native UI, TWM1.9 natural-language configuration and TWM1.10 runtime wiring are now implemented and CLOSED on top of this same protected backend/runtime. TWM1.11–TWM1.12 still own the broader diagnostics/audit extension and real Telegram live acceptance.
+TWM1.8 Telegram-native UI, TWM1.9 natural-language configuration, TWM1.10 runtime wiring and TWM1.11 audit/diagnostics are implemented and CLOSED on top of this same protected backend/runtime. TWM1.12 owns the real Telegram live acceptance closure.
 
 ### TWM1.8 implementation status
 TWM1.8 is **CLOSED / IMPLEMENTED / CI-VERIFIED**. `createTelegramWorkspaceNativeUi` provides Telegram-native private-chat management and callback flows over the existing configuration service, authority resolver, bot capability service and Action Gate path.
@@ -202,6 +202,30 @@ Implementation paths:
 
 Evidence: `../../evidence/TWM1_10_WORKSPACE_RUNTIME_WIRING.md`.
 Verified implementation gate: HEAD `3004dfe4665327db0d830d5ecc52c36cdb948307`, SG 2.1 CI #7368 — SUCCESS. External closure declaration additionally requires full SUCCESS on the documentation-synchronized closure HEAD.
+
+### TWM1.11 implementation status
+TWM1.11 is **CLOSED / IMPLEMENTED / CI-VERIFIED**. `createTelegramWorkspaceDiagnosticsObservabilityService` adds one secret-safe read/diagnostics facade over the existing TWM workspace store, authority resolver, configuration service, bot capability health and common SG Observability.
+
+Implemented boundaries:
+- authorized normalized configuration history exposes `who`, `what`, `when`, `before`, `after`, version and trace id while recursively redacting secret-shaped fields;
+- rollback delegates unchanged to the existing TWM1.6/TWM1.7 protected rollback path, so rollback remains a fresh-authority, Action-Gated, request-bound mutation that creates a new append-only version;
+- diagnostics authorizes before disclosure and reports workspace connection/lifecycle, authority verification, bot permission health, missing capabilities/permissions and configuration namespace versions;
+- degraded diagnostics carry bounded actionable reasons instead of claiming healthy;
+- existing workspace-scoped Observability events provide last successful/failed configuration mutation summaries and configuration/authority/Action Gate counters;
+- diagnostics telemetry preserves trace/request/environment/revision continuity and emits bounded metadata only;
+- no second transport, permission model, counter store, config owner, Action Gate or persistence stack is introduced.
+
+Implementation paths:
+- `src/telegramWorkspace/telegramWorkspaceDiagnosticsObservability.js`;
+- `src/telegramWorkspace/index.js`;
+- existing `src/telegramWorkspace/workspaceConfigurationService.js` and common Observability remain the authoritative mutation/audit sources.
+
+Tests:
+- `tests/telegramWorkspaceManager1AuditDiagnosticsObservability.test.js`;
+- existing TWM1.6/TWM1.7/PostgreSQL suites continue to verify append-only rollback/history, authorization, Action Gate and atomic persistence semantics.
+
+Evidence: `../../evidence/TWM1_11_AUDIT_ROLLBACK_DIAGNOSTICS_OBSERVABILITY.md`.
+Verified implementation gate: HEAD `f41328b9216cca794a298df100002875178f3c2b`, SG 2.1 CI #7376 — SUCCESS. External closure declaration additionally requires full SUCCESS on the documentation-synchronized closure HEAD.
 
 ## Identity and authority
 Canonical human identity remains `global_user_id`.
@@ -294,7 +318,7 @@ Configuration is versioned. Every mutation records actor, scope, old value, new 
 TWM1.6 actively manages nine configuration namespaces: `general`, `responses`, `moderation`, `memory`, `ai`, `publication`, `automation`, `notifications`, `members`. The persistence contract also reserves `content`, `polls` and `media` for later TWM stages; their presence in the persistence namespace model does not make them TWM1.6-managed settings.
 
 ## Persistence
-Implemented by TWM1.2 and consumed through TWM1.10:
+Implemented by TWM1.2 and consumed through TWM1.11:
 - `telegram_workspaces`;
 - `telegram_workspace_members`;
 - `telegram_workspace_bot_permissions`;
@@ -467,23 +491,25 @@ user memory ≠ workspace memory ≠ project memory
 Private user facts must not become group/channel memory merely because the same user administers that workspace. Workspace configuration/content cannot weaken Memory 2.0 privacy/scope rules. TWM1.10 enforces `workspace.memory.enabled=false` as a runtime boundary for shared group/thread recall, explicit shared writes/promotions and automatic capture while preserving the existing personal/user-group/project memory rules.
 
 ## Audit and rollback
-Every accepted configuration mutation must provide an auditable history and authorized rollback path. TWM1.8 exposes history/rollback UI and TWM1.9 supports deterministic natural-language history queries; TWM1.11 remains responsible for the broader audit/diagnostics/observability completion scope. Content actions must also emit auditable actor/workspace/action/result evidence appropriate to the operation.
+Every accepted configuration mutation provides append-only auditable history through the existing TWM configuration store/service. TWM1.8 exposes history/rollback UI, TWM1.9 supports deterministic natural-language history queries and TWM1.11 adds the normalized secret-safe `who/what/when/before/after` diagnostics facade plus last-mutation/metric visibility. Content actions in later stages must also emit auditable actor/workspace/action/result evidence appropriate to the operation.
 
-Users with sufficient authority should be able to ask who changed a setting, when it changed and restore an earlier version. Rollback itself is a new audited state-changing action.
+Users with sufficient authority can identify who changed a setting, when it changed and restore an earlier permitted version. Rollback itself remains a new fresh-authority, Action-Gated, audited state-changing action and never deletes the prior audit chain.
 
 ## Diagnostics and observability
-TWM1 should expose bounded secret-safe health such as:
-- workspace connection state;
+TWM1.11 exposes bounded secret-safe workspace health for the implemented configuration/control surface:
+- workspace connection/lifecycle state;
 - authority verification state;
-- bot permission health;
-- configuration version;
-- content/poll subsystem health;
-- degraded configured capabilities;
-- last successful/failed configuration/content mutation;
-- result-ingestion freshness/replay counters;
-- authorization denials.
+- bot permission health and actionable missing capability/permission data;
+- configuration namespace versions;
+- degraded capability explanations;
+- last successful/failed configuration mutation;
+- configuration action/success/failure counters;
+- authorization denial and Action Gate denial counters;
+- trace/request/environment/revision continuity.
 
-TWM1.5 emits bounded bot-capability health audit/telemetry from the production service without exposing bot credentials or cross-workspace private data. TWM1.6/TWM1.7 emit bounded configuration and Action Gate mutation metadata without placing raw configuration values or secrets into ordinary telemetry events. TWM1.8/TWM1.9 add bounded UI/NL completion/failure telemetry while preserving the same secret-safe and workspace-scoped rules. TWM1.10 additionally propagates bounded effective runtime policy and memory-isolation state without exposing raw secrets or cross-workspace memory.
+Freshness/replay counters for later content/result-ingestion stages remain owned by those stages and are not fabricated before the corresponding ingestion pipelines exist.
+
+TWM1.5 emits bounded bot-capability health audit/telemetry from the production service without exposing bot credentials or cross-workspace private data. TWM1.6/TWM1.7 emit bounded configuration and Action Gate mutation metadata without placing raw configuration values or secrets into ordinary telemetry events. TWM1.8/TWM1.9 add bounded UI/NL completion/failure telemetry while preserving the same secret-safe and workspace-scoped rules. TWM1.10 propagates bounded effective runtime policy and memory-isolation state. TWM1.11 aggregates those existing workspace-scoped events instead of creating a second counter store, authorizes before disclosure, recursively redacts secret-shaped history values and emits bounded diagnostics telemetry through the common SG Observability service.
 
 ## Isolation
 Hard rule:

@@ -18,6 +18,6 @@ Expected future module groups include:
 - automation
 - telegram-workspace-manager
 
-Telegram Workspace Manager 1.0 is now an accepted planned cross-cutting module at the canonical architecture/roadmap/workflow level. Implementation-specific module documentation under `pillars/modules/` is still deferred until TWM1 code implementation begins.
+Telegram Workspace Manager 1.0 is now an accepted planned cross-cutting module at the canonical architecture/roadmap/workflow level. Its planned scope includes multi-user group/channel configuration plus TWM1.14 content, polls, quizzes, user-supplied media publication, deterministic result statistics and bounded AI Router analysis. Implementation-specific module documentation under `pillars/modules/` is still deferred until TWM1 code implementation begins.
 
 Historical SG 2.0 module documentation must not be restored here.

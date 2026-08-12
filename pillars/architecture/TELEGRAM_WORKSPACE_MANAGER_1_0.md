@@ -1,7 +1,7 @@
 # SG 2.1 — TELEGRAM WORKSPACE MANAGER 1.0
 
 ## Status
-**IN PROGRESS — TWM1.1–TWM1.2 CLOSED / TWM1.3 NEXT.**
+**IN PROGRESS — TWM1.1–TWM1.3 CLOSED / TWM1.4 NEXT.**
 
 Telegram Workspace Manager 1.0 (TWM1) is a cross-cutting SG module that lets any authorized SG user connect, configure and operate SG inside Telegram groups, supergroups and channels without programming.
 
@@ -94,7 +94,15 @@ The implemented storage root remains canonical SG `workspace_id`; Telegram chat 
 Evidence: `../../evidence/TWM1_2_POSTGRES_WORKSPACE_PERSISTENCE.md`.
 Verified implementation gate: HEAD `d106c283ce5b8047e72ce75c209d7e5eebcbebb0`, SG 2.1 CI #7241 — SUCCESS.
 
-This status makes no claim for TWM1.3+ discovery, authority verification, live bot-permission discovery, configuration-service authorization, runtime wiring or live Telegram acceptance.
+### TWM1.3 implementation status
+TWM1.3 is **CLOSED / IMPLEMENTED / CI-VERIFIED**. Discovery is wired into the existing PostgreSQL-backed Telegram ingestion path before invocation filtering, so ordinary ignored group/channel updates can register or refresh workspace state without forcing SG to answer.
+
+The implemented registry accepts only group/supergroup/channel facts, refreshes metadata without changing canonical `workspace_id`, tracks bot membership disconnect/reconnect, preserves one SG workspace root through group→supergroup migration, maintains durable migration-alias resolution for stale/replayed pre-migration updates, and exposes bounded workspace listing. Discovery remains transport-fact-only and does not infer human OWNER/ADMIN authority.
+
+Evidence: `../../evidence/TWM1_3_TELEGRAM_WORKSPACE_DISCOVERY_REGISTRY.md`.
+Verified implementation gate: HEAD `a007a159ab705d94eb31676115632d3ac71c5377`, SG 2.1 CI #7266 — SUCCESS.
+
+This status makes no claim for TWM1.4+ authority verification, live bot-permission discovery, configuration-service authorization, runtime wiring or live Telegram acceptance.
 
 ## Identity and authority
 Canonical human identity remains `global_user_id`.

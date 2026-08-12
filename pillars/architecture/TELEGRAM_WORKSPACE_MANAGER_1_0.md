@@ -1,7 +1,7 @@
 # SG 2.1 — TELEGRAM WORKSPACE MANAGER 1.0
 
 ## Status
-**IN PROGRESS — TWM1.1–TWM1.4 CLOSED / TWM1.5 NEXT.**
+**IN PROGRESS — TWM1.1–TWM1.5 CLOSED / TWM1.6 NEXT.**
 
 Telegram Workspace Manager 1.0 (TWM1) is a cross-cutting SG module that lets any authorized SG user connect, configure and operate SG inside Telegram groups, supergroups and channels without programming.
 
@@ -112,7 +112,17 @@ PostgreSQL acceptance proves scoped member/Resource Authority persistence across
 Evidence: `../../evidence/TWM1_4_WORKSPACE_AUTHORITY_VERIFICATION.md`.
 Verified implementation gate: HEAD `acd4770cae660a811bb85d64d4ecce961b318c73`, SG 2.1 CI #7274 — SUCCESS.
 
-This status makes no claim for TWM1.5+ bot-permission discovery, configuration-service authorization, Action Gate integration, runtime wiring or live Telegram acceptance.
+### TWM1.5 implementation status
+TWM1.5 is **CLOSED / IMPLEMENTED / CI-VERIFIED**. `TelegramWorkspaceBotCapabilityService` is implemented in `src/telegramWorkspace/telegramWorkspaceBotCapabilityService.js`, reuses the canonical Telegram Bot API client and the existing `telegram_workspace_bot_permissions` persistence boundary, and is composed in the Render production bootstrap from the same PostgreSQL workspace registry used by discovery.
+
+The service resolves the bot identity through configured `TELEGRAM_BOT_USER_ID` or a cached `getMe` result, performs live `getChatMember` checks for the exact workspace, normalizes Telegram membership and known boolean permission fields, derives bounded SG capability health, persists fetched/expiry timestamps and returns explicit `healthy`, `degraded`, `disconnected` or `verification-failed` results. `requireCapabilities()` fails closed with structured missing-capability/permission diagnostics, so a protected operation cannot claim success when Telegram denies a required permission. Stale healthy evidence is not accepted when a fresh protected check fails.
+
+Capability snapshots are workspace-scoped and PostgreSQL restart-tested; one workspace's permission state cannot satisfy another. No second Telegram transport, credential path, permission database or authorization model is introduced.
+
+Evidence: `../../evidence/TWM1_5_BOT_PERMISSION_DISCOVERY_CAPABILITY_HEALTH.md`.
+Verified implementation gate: HEAD `d5d4ebdc68f066ac69877e00cad4db84484fb84b`, SG 2.1 CI #7281 — SUCCESS.
+
+This status makes no claim for TWM1.6+ configuration-service authorization, Action Gate integration, configuration runtime consumption or real Telegram production E2E/live acceptance.
 
 ## Identity and authority
 Canonical human identity remains `global_user_id`.
@@ -203,7 +213,7 @@ workspace.content.preview_before_publish = true
 Configuration is versioned. Every mutation records actor, scope, old value, new value, reason/source, trace id and timestamp.
 
 ## Persistence
-Implemented by TWM1.2:
+Implemented by TWM1.2 and consumed by TWM1.5:
 - `telegram_workspaces`;
 - `telegram_workspace_members`;
 - `telegram_workspace_bot_permissions`;
@@ -244,7 +254,7 @@ Telegram adapters, UI callbacks, AI Router and language responders must not writ
 - refresh title/type/username metadata;
 - detect bot removal or reconnect;
 - detect group→supergroup migration;
-- expose actual bot membership and permissions.
+- expose actual bot membership and permissions through the TWM1.5 capability service.
 
 ## Authority Resolver
 `TelegramWorkspaceAuthorityResolver` evaluates:
@@ -261,9 +271,20 @@ global_user_id
 Output must be explicit and auditable: allowed/denied, role/grant, Telegram evidence, reason and verification time.
 
 ## Bot permission awareness
-TWM1 must know what SG itself can actually do in each workspace, including relevant Telegram permissions such as posting, editing, deleting, restricting, pinning and inviting where applicable.
+TWM1.5 implements `TelegramWorkspaceBotCapabilityService` as the canonical bot-permission health boundary.
 
-A configuration or requested external effect may proceed only when its semantics are valid and required bot capability is present. Missing permission produces explicit degraded/denied behavior, never false success.
+```text
+workspace_id
+→ Telegram chat locator
+→ bot identity
+→ Telegram getChatMember
+→ membership + permission snapshot
+→ bounded capability map
+→ PostgreSQL snapshot with TTL
+→ checkCapabilities / requireCapabilities
+```
+
+The current capability map covers message send/edit/delete/pin, member restrict/invite, chat/topic management, channel posting, poll sending and media sending. Missing permission is a first-class `degraded` result with actionable `missingPermissions`; bot removal is `disconnected`; live verification failure is `verification-failed`. A configuration or requested external effect may proceed only when its semantics are valid and its required capability health is available.
 
 ## Native UX
 TWM1 has three UI surfaces over the same backend:
@@ -391,7 +412,7 @@ TWM1 should expose bounded secret-safe health such as:
 - result-ingestion freshness/replay counters;
 - authorization denials.
 
-Observability must preserve trace ids and must not expose secrets or private cross-workspace data.
+TWM1.5 emits bounded bot-capability health audit/telemetry from the production service without exposing bot credentials or cross-workspace private data.
 
 ## Isolation
 Hard rule:
@@ -400,7 +421,7 @@ Hard rule:
 Workspace A ≠ Workspace B
 ```
 
-Settings, members, memory, automation, media, drafts, publications, poll/test results and authority evidence do not cross workspace boundaries by default, even when the same human administers both.
+Settings, members, memory, automation, media, drafts, publications, poll/test results and authority/capability evidence do not cross workspace boundaries by default, even when the same human administers both.
 
 ## Reuse of existing SG layers
 TWM1 MUST reuse:

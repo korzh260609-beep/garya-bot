@@ -1,7 +1,7 @@
 # SG 2.1 — TELEGRAM WORKSPACE MANAGER 1.0 WORKFLOW
 
 ## Status
-**IN PROGRESS — TWM1.1–TWM1.7 CLOSED / TWM1.8 NEXT.**
+**IN PROGRESS — TWM1.1–TWM1.9 CLOSED / TWM1.10 NEXT.**
 
 This workflow defines how TWM1 stages are implemented and verified without bypassing existing SG identity, authority, Action Gate, persistence, memory or transport boundaries.
 
@@ -252,31 +252,72 @@ Implementation/tests:
 Evidence: `../../evidence/TWM1_7_DECISION_ACTION_GATE_INTEGRATION.md`.
 Verified code/runtime gate: HEAD `747a821de5a4fd19be766e0583e005b6ee8e38c0`, SG 2.1 CI #7307 — SUCCESS.
 
-The implementation does not claim that TWM1.8/TWM1.9 callback, UI, natural-language or worker surfaces already exist. Their future mutations must converge on this same protected backend path.
+TWM1.8 and TWM1.9 are now CLOSED and both converge on this same protected backend path. TWM1.10 is next and must wire persisted effective configuration into real Telegram runtime behavior.
 
 ## TWM1.8 — Telegram Native UI & Setup Wizard
-**Status: NEXT / PLANNED.**
+**Status: CLOSED / IMPLEMENTED / CI-VERIFIED.**
 
-Build inline keyboard UI as a presentation/controller layer only. UI callbacks carry opaque bounded identifiers and never encode authority. Re-resolve identity, scope and authorization server-side on every mutation.
+Implemented inline keyboard UI as a presentation/controller layer only. UI callbacks carry bounded identifiers and never encode authority. Identity, scope and authorization are re-resolved server-side for every protected mutation.
 
-Wizard acceptance: a new non-technical user can activate a workspace using only Telegram-native steps.
+Implemented acceptance includes:
+- authority-filtered workspace list/select;
+- connect instructions;
+- progressive setup wizard;
+- response/moderation/publication and advanced settings;
+- members/roles;
+- diagnostics/history/rollback;
+- preview without mutation;
+- explicit request-bound confirmation before apply;
+- rollback as a new separately confirmed mutation;
+- ordinary non-TWM Telegram messages remain on the existing runtime path.
+
+Evidence: `../../evidence/TWM1_8_TELEGRAM_NATIVE_UI_SETUP_WIZARD.md`.
+Verified final gate: HEAD `dda7f2ec3188bb1f9b25cc8951caca484ca8aab6`, SG 2.1 CI #7323 — SUCCESS.
 
 ## TWM1.9 — Natural-Language Configuration
-Add semantic intent/proposal generation. Prefer deterministic semantic resolution where possible; use AI Router only for bounded interpretation. Model payload/output is data-only and cannot grant authority or mutate storage.
+**Status: CLOSED / IMPLEMENTED / CI-VERIFIED.**
 
-Acceptance: natural-language request produces the same validated mutation result as equivalent UI selection.
+Natural-language configuration is implemented through the existing AI Router as bounded interpretation only. Model output is data-only and cannot grant authority or mutate storage.
+
+Implemented workflow:
+
+```text
+ordinary Telegram request
+→ existing invocation boundary
+→ canonical identity
+→ authority-filtered workspaces / exact chat scope
+→ AI Router strict bounded structure
+→ deterministic workspace resolution + patch validation
+→ TWM1.6 proposal/current-config merge
+→ durable actor-bound TTL pending action
+→ explicit Telegram confirmation
+→ exact stored proposal + original request id
+→ TWM1.7 Action Gate
+→ atomic config/history write
+```
+
+Private ambiguity asks for workspace selection rather than guessing. Explicit group/supergroup/channel scope is authoritative. Cross-workspace model redirection is rejected. Classification failure or `not-twm` passes the original message to ordinary SG runtime; protected `twm19` callbacks fail closed. History queries use stored deterministic config history.
+
+Evidence: `../../evidence/TWM1_9_NATURAL_LANGUAGE_CONFIGURATION.md`.
+Verified final closure: HEAD `c5da8de6aa87489e0423b512920cf3a0875037f9`, SG 2.1 CI #7347 — SUCCESS.
 
 ## TWM1.10 — Runtime Wiring
+**Status: NEXT / PLANNED.**
+
 Make Telegram runtime consume effective workspace configuration through an approved read interface. Configuration reads must be bounded/cached safely and invalidate predictably after writes.
 
 Acceptance: real runtime response/moderation/publication behavior changes after config mutation and persists across restart.
 
 ## TWM1.11 — Audit, Rollback, Diagnostics
+**Status: PLANNED.**
+
 Expose history and rollback through authorized services. Rollback creates a new version and audit record; it does not delete history. Diagnostics are read-only and secret-safe.
 
 Acceptance: SG can identify actor/time/before/after and restore a permitted prior version while retaining full audit chain.
 
 ## TWM1.12 — Production E2E & Live Acceptance
+**Status: PLANNED.**
+
 Use real Telegram group and channel acceptance with at least two human authority levels and two independent workspaces.
 
 Required group scenario:

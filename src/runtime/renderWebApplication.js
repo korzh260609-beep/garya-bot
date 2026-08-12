@@ -5,7 +5,11 @@ import { createTelegramBotApiClient } from '../telegram/telegramBotApiClient.js'
 import { createPostgresTelegramUpdateStore } from '../telegram/postgresTelegramUpdateStore.js';
 import { createTelegramProductionIntegration } from '../telegram/telegramProductionIntegration.js';
 import { createTelegramWebhookHttpHandler } from '../telegram/telegramWebhookHttpHandler.js';
-import { createTelegramWorkspaceBotCapabilityService } from '../telegramWorkspace/index.js';
+import {
+  createPostgresTelegramWorkspaceAuthorityResolver,
+  createTelegramWorkspaceBotCapabilityService,
+  createTelegramWorkspaceConfigurationService
+} from '../telegramWorkspace/index.js';
 import { createDeploymentDeliveryRouter } from '../delivery/deploymentDeliveryRouter.js';
 import { createTelegramDeliveryTransport } from '../delivery/telegramDeliveryTransport.js';
 import { createDiscordDeliveryTransport } from '../delivery/discordDeliveryTransport.js';
@@ -138,9 +142,10 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
   }) : null;
 
   const telegramUpdateStore = createPostgresTelegramUpdateStore(harness.persistence.database);
-  const telegramBotCapabilities = telegramUpdateStore.workspaceRegistry
+  const workspaceStore = telegramUpdateStore.workspaceRegistry?.store ?? null;
+  const telegramBotCapabilities = workspaceStore
     ? createTelegramWorkspaceBotCapabilityService({
-        workspaceStore: telegramUpdateStore.workspaceRegistry.store,
+        workspaceStore,
         telegramApiClient: botClient,
         botUserId: telegramConfig.botUserId,
         audit: async (event) => {
@@ -152,6 +157,66 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
             traceContext: { traceId: correlation, requestId: correlation, environment: harness.config.environment, revision: harness.config.revision },
             outcome: event.outcome,
             data: { capabilityEventClass: event.eventClass, workspaceId: event.workspaceId, membershipState: event.membershipState, reason: event.reason, missingCapabilities: event.missingCapabilities, missingPermissions: event.missingPermissions, fetchedAt: event.fetchedAt }
+          });
+        }
+      })
+    : null;
+
+  const telegramWorkspaceAuthority = workspaceStore
+    ? createPostgresTelegramWorkspaceAuthorityResolver({
+        persistence: harness.persistence,
+        workspaceRegistry: telegramUpdateStore.workspaceRegistry,
+        telegramApiClient: botClient,
+        resourceAuthorityRegistry: harness.resourceAuthorityRegistry,
+        resourceAuthorityAccessContext: harness.resourceAuthorityAccessContext,
+        projectScope: harness.config.projectScope,
+        audit: async (event) => {
+          const correlation = `twm1.4:${event.workspaceId ?? 'unknown'}:${event.requestedAction ?? 'authority'}`;
+          return harness.observability.record({
+            eventClass: 'audit_event',
+            channel: 'telemetry',
+            stage: 'telegram-workspace-authority',
+            traceContext: { traceId: correlation, requestId: correlation, environment: harness.config.environment, revision: harness.config.revision },
+            actorRef: event.actorGlobalUserId ?? null,
+            outcome: event.outcome,
+            reason: event.reason,
+            data: { authorityEventClass: event.eventClass, workspaceId: event.workspaceId, requestedAction: event.requestedAction, workspaceRole: event.workspaceRole, verificationTime: event.verificationTime }
+          });
+        }
+      })
+    : null;
+
+  const telegramWorkspaceConfiguration = workspaceStore && telegramWorkspaceAuthority
+    ? createTelegramWorkspaceConfigurationService({
+        workspaceStore,
+        authorityResolver: telegramWorkspaceAuthority,
+        eventBus: harness.eventBus ?? null,
+        projectScope: harness.config.projectScope,
+        environment: harness.config.environment,
+        revision: harness.config.revision,
+        audit: async (event) => {
+          const correlation = event.traceId ?? `twm1.6:${event.workspaceId ?? 'unknown'}:${event.operation ?? 'configuration'}`;
+          return harness.observability.record({
+            eventClass: 'audit_event',
+            channel: 'telemetry',
+            stage: 'telegram-workspace-configuration',
+            traceContext: { traceId: correlation, requestId: correlation, environment: harness.config.environment, revision: harness.config.revision },
+            actorRef: event.actorGlobalUserId ?? null,
+            outcome: event.outcome,
+            reason: event.reason ?? null,
+            data: {
+              configurationEventClass: event.eventClass,
+              operation: event.operation,
+              workspaceId: event.workspaceId,
+              namespace: event.namespace ?? null,
+              version: event.version ?? null,
+              previousVersion: event.previousVersion ?? null,
+              targetVersion: event.targetVersion ?? null,
+              risk: event.risk ?? null,
+              confirmationRequired: event.confirmationRequired ?? null,
+              changedPaths: event.changedPaths ?? null,
+              eventEmitted: event.eventEmitted ?? null
+            }
           });
         }
       })
@@ -296,6 +361,8 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
     telegramIntegration: integration,
     telegramUpdateStore,
     telegramBotCapabilities,
+    telegramWorkspaceAuthority,
+    telegramWorkspaceConfiguration,
     discordIntegration,
     discordGateway,
     discordRestClient,

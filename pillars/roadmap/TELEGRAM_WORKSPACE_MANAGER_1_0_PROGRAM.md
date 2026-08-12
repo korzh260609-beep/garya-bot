@@ -1,7 +1,7 @@
 # SG 2.1 — TELEGRAM WORKSPACE MANAGER 1.0 PROGRAM
 
 ## Status
-**IN PROGRESS — TWM1.1–TWM1.2 CLOSED / TWM1.3 NEXT.**
+**IN PROGRESS — TWM1.1–TWM1.3 CLOSED / TWM1.4 NEXT.**
 
 TWM1 is the cross-cutting Telegram workspace management program that lets any authorized SG user configure SG for their own Telegram groups, supergroups and channels through native Telegram UI and natural language.
 
@@ -70,18 +70,24 @@ Evidence: `../../evidence/TWM1_2_POSTGRES_WORKSPACE_PERSISTENCE.md`.
 Verified implementation gate: HEAD `d106c283ce5b8047e72ce75c209d7e5eebcbebb0`, SG 2.1 CI #7241 — SUCCESS.
 
 ### TWM1.3 — Telegram Workspace Discovery & Registry
-**Status: PLANNED.**
+**Status: CLOSED / IMPLEMENTED / CI-VERIFIED.**
 
-Implement:
-- discovery from real Telegram updates;
-- explicit registration/resolution of group/channel resources;
-- metadata refresh;
-- bot membership status;
-- removal/reconnect handling;
-- group→supergroup migration handling;
-- user-facing list of managed/discovered workspaces.
+Implemented:
+- discovery from real Telegram update shapes through the existing production ingestion path;
+- explicit canonical registration/resolution for group, supergroup and channel resources;
+- metadata refresh without changing SG `workspace_id`;
+- bot membership state tracking;
+- removal/disconnect and reconnect handling;
+- group→supergroup migration preserving one canonical workspace root;
+- durable migration-alias resolution so stale/replayed old-group updates cannot recreate duplicate roots;
+- bounded workspace listing from PostgreSQL registry;
+- discovery before invocation filtering so ignored ambient group/channel traffic can still update registry state;
+- no human authority inference from title, username, inviter, message content or bot-add order.
 
-**Gate:** one user can discover multiple independent real Telegram workspaces without duplicate canonical roots.
+**Gate: PASS.** Repeated updates are replay-safe/idempotent; multiple Telegram workspaces remain independent; group→supergroup migration and stale replay preserve one SG workspace root; PostgreSQL restart preserves resolution state; full SG 2.1 CI passes.
+
+Evidence: `../../evidence/TWM1_3_TELEGRAM_WORKSPACE_DISCOVERY_REGISTRY.md`.
+Verified implementation gate: HEAD `a007a159ab705d94eb31676115632d3ac71c5377`, SG 2.1 CI #7266 — SUCCESS.
 
 ### TWM1.4 — Workspace Authority Verification
 **Status: PLANNED.**

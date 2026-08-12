@@ -22,6 +22,10 @@ function monotonicAt(existing, detectedAt, clock) {
   return new Date(candidate) > new Date(existing.updatedAt) ? candidate : existing.updatedAt;
 }
 
+function eventValue(event, field, fallback) {
+  return Object.prototype.hasOwnProperty.call(event, field) ? event[field] : fallback;
+}
+
 function updateMetadata(existing, event, lifecycleState, clock) {
   const at = monotonicAt(existing, event.detectedAt, clock);
   return createTelegramWorkspace({
@@ -29,8 +33,8 @@ function updateMetadata(existing, event, lifecycleState, clock) {
     workspaceId: existing?.workspaceId,
     telegramChatId: event.telegramChatId ?? existing?.telegramChatId,
     workspaceType: event.workspaceType ?? existing?.workspaceType,
-    title: event.title ?? existing?.title ?? null,
-    username: event.username ?? existing?.username ?? null,
+    title: eventValue(event, 'title', existing?.title ?? null),
+    username: eventValue(event, 'username', existing?.username ?? null),
     lifecycleState: lifecycleState ?? existing?.lifecycleState ?? 'DISCOVERED',
     botMembershipState: event.membershipState ?? existing?.botMembershipState ?? 'UNKNOWN',
     migration: existing?.migration ?? null,
@@ -62,8 +66,8 @@ export function createTelegramWorkspaceRegistry({ store, clock = () => new Date(
       return persistence.putWorkspace(createTelegramWorkspace({
         telegramChatId: event.toTelegramChatId,
         workspaceType: 'supergroup',
-        title: event.title ?? null,
-        username: event.username ?? null,
+        title: eventValue(event, 'title', null),
+        username: eventValue(event, 'username', null),
         lifecycleState: 'DISCOVERED',
         botMembershipState: 'UNKNOWN',
         createdAt: at,
@@ -78,8 +82,8 @@ export function createTelegramWorkspaceRegistry({ store, clock = () => new Date(
     });
     return persistence.putWorkspace(createTelegramWorkspace({
       ...migrated,
-      title: event.title ?? migrated.title,
-      username: event.username ?? migrated.username
+      title: eventValue(event, 'title', migrated.title),
+      username: eventValue(event, 'username', migrated.username)
     }));
   }
 

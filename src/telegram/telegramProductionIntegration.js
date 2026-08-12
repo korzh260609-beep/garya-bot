@@ -30,6 +30,11 @@ function isNativeWorkspaceUiUpdate(update) {
   return TWM_NATIVE_COMMANDS.has(command);
 }
 
+function isNaturalLanguageWorkspaceCallback(update) {
+  const callbackData = update?.callback_query?.data;
+  return typeof callbackData === 'string' && callbackData.startsWith('twm19|');
+}
+
 function visibleFailureText(update) {
   const language = String(messageFromUpdate(update)?.from?.language_code ?? update?.locale ?? 'ru').toLowerCase();
   if (language.startsWith('uk')) return 'Не вдалося обробити повідомлення. Спробуй ще раз трохи пізніше.';
@@ -64,6 +69,7 @@ export function createTelegramProductionIntegration({
   identityResolver,
   runtime,
   nativeUi = null,
+  naturalLanguage = null,
   observability = null,
   botUserId = null,
   botUsername = null,
@@ -81,6 +87,7 @@ export function createTelegramProductionIntegration({
   if (!identityResolver || typeof identityResolver !== 'function') throw new TypeError('identityResolver is required');
   if (!runtime || typeof runtime.handle !== 'function') throw new TypeError('runtime.handle is required');
   if (nativeUi !== null && typeof nativeUi?.handleUpdate !== 'function') throw new TypeError('nativeUi.handleUpdate is required');
+  if (naturalLanguage !== null && typeof naturalLanguage?.handleUpdate !== 'function') throw new TypeError('naturalLanguage.handleUpdate is required');
 
   const pending = new Set();
 
@@ -228,6 +235,34 @@ export function createTelegramProductionIntegration({
     }
   }
 
+  async function processNaturalLanguageCallback(body, claim) {
+    try {
+      const result = await naturalLanguage.handleUpdate(body);
+      if (!result?.handled) throw Object.assign(new Error('TWM1.9 callback declined'), { code: 'twm19-callback-declined' });
+      await updateStore.complete(claim.updateId, 'completed');
+      recordDiagnosticSensor({ eventClass: 'telegram_workspace_nl_completed', channel: 'telemetry', stage: 'telegram-workspace-natural-language', outcome: result.outcome ?? 'handled', data: { updateId: claim.updateId, callback: true } });
+      return Object.freeze({ ok: true, result });
+    } catch (error) {
+      try { await updateStore.fail(claim.updateId, error.code ?? 'twm19-callback-failed'); } catch {}
+      try { observability?.recordFailure?.({ stage: 'telegram-workspace-natural-language', reason: redactSensitiveText(error.message), code: error.code ?? 'twm19-callback-failed' }); } catch {}
+      return Object.freeze({ ok: false, error });
+    }
+  }
+
+  async function processNaturalLanguageOrRuntime(body, claim, invocation) {
+    try {
+      const result = await naturalLanguage.handleUpdate(body);
+      if (result?.handled) {
+        await updateStore.complete(claim.updateId, 'completed');
+        recordDiagnosticSensor({ eventClass: 'telegram_workspace_nl_completed', channel: 'telemetry', stage: 'telegram-workspace-natural-language', outcome: result.outcome ?? 'handled', data: { updateId: claim.updateId, callback: false } });
+        return Object.freeze({ ok: true, naturalLanguage: true, result });
+      }
+    } catch (error) {
+      try { observability?.recordFailure?.({ stage: 'telegram-workspace-natural-language-classification', reason: redactSensitiveText(error.message), code: error.code ?? 'twm19-classification-failed' }); } catch {}
+    }
+    return processClaimedUpdate(body, claim, invocation);
+  }
+
   function trackBackground(promise) {
     pending.add(promise);
     promise.then(
@@ -254,6 +289,16 @@ export function createTelegramProductionIntegration({
     }
     if (!claim.claimed) return Object.freeze({ statusCode: 200, body: { ok: true, duplicate: true } });
 
+    if (naturalLanguage && isNaturalLanguageWorkspaceCallback(body)) {
+      if (acknowledgeBeforeProcessing) {
+        trackBackground(processNaturalLanguageCallback(body, claim));
+        return Object.freeze({ statusCode: 200, body: { ok: true, accepted: true, naturalLanguage: true } });
+      }
+      const processed = await processNaturalLanguageCallback(body, claim);
+      if (processed.ok) return Object.freeze({ statusCode: 200, body: { ok: true, naturalLanguage: true } });
+      return Object.freeze({ statusCode: 503, body: { ok: false, code: processed.error.code ?? 'twm19-callback-failed' } });
+    }
+
     if (nativeUi && isNativeWorkspaceUiUpdate(body)) {
       if (acknowledgeBeforeProcessing) {
         trackBackground(processNativeUiUpdate(body, claim));
@@ -270,14 +315,17 @@ export function createTelegramProductionIntegration({
       return Object.freeze({ statusCode: 200, body: { ok: true, ignored: true, reason: invocation.reason } });
     }
 
+    const work = naturalLanguage
+      ? processNaturalLanguageOrRuntime(body, claim, invocation)
+      : processClaimedUpdate(body, claim, invocation);
+
     if (acknowledgeBeforeProcessing) {
-      const work = processClaimedUpdate(body, claim, invocation);
       trackBackground(work);
       return Object.freeze({ statusCode: 200, body: { ok: true, accepted: true } });
     }
 
-    const processed = await processClaimedUpdate(body, claim, invocation);
-    if (processed.ok) return Object.freeze({ statusCode: 200, body: { ok: true } });
+    const processed = await work;
+    if (processed.ok) return Object.freeze({ statusCode: 200, body: { ok: true, naturalLanguage: processed.naturalLanguage === true } });
     return Object.freeze({ statusCode: 503, body: { ok: false, code: processed.error.code ?? 'telegram-update-failed' } });
   }
 

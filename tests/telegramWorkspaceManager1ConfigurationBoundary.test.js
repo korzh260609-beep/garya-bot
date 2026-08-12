@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readdir, readFile } from 'node:fs/promises';
 import { join, relative } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 async function javascriptFiles(root) {
   const files = [];
@@ -27,13 +28,14 @@ test('TWM1.6 production wiring composes authority + configuration service over t
 });
 
 test('TWM1.6 application code has one workspace config write owner: WorkspaceConfigurationService', async () => {
-  const srcRoot = new URL('../src/', import.meta.url);
+  const projectRoot = fileURLToPath(new URL('../', import.meta.url));
+  const srcRoot = fileURLToPath(new URL('../src/', import.meta.url));
   const files = await javascriptFiles(srcRoot);
   const directWorkspaceWrites = [];
   const directConfigSqlWrites = [];
   for (const file of files) {
     const source = await readFile(file, 'utf8');
-    const path = relative(new URL('../', import.meta.url).pathname, file);
+    const path = relative(projectRoot, file).replaceAll('\\', '/');
     if (/workspaceStore\.setConfig\s*\(/.test(source)) directWorkspaceWrites.push(path);
     if (/\b(?:INSERT\s+INTO|UPDATE)\s+telegram_workspace_configs\b/i.test(source)) directConfigSqlWrites.push(path);
   }

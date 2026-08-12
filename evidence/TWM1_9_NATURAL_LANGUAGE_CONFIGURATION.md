@@ -1,7 +1,7 @@
 # TWM1.9 — Natural-Language Configuration Evidence
 
 ## Status
-CODE / MIGRATION / TEST / PRODUCTION-COMPOSITION VERIFIED.
+CLOSED / IMPLEMENTED / CI-VERIFIED.
 
 ## Verified code gate
 - Branch: `dev/sg2.1-semantic`
@@ -9,7 +9,12 @@ CODE / MIGRATION / TEST / PRODUCTION-COMPOSITION VERIFIED.
 - SG 2.1 CI: #7343
 - Result: SUCCESS
 
-The successful full CI includes dependency install, canonical PostgreSQL migration, Block 19 security gate, complete `npm run check`, web start, worker start and independent diagnostics verification.
+## Verified documentation-synchronized gate
+- Documentation HEAD: `ee4cffb0c9263395dc61426941219a0b650d7dd9`
+- SG 2.1 CI: #7345
+- Result: SUCCESS
+
+Both successful full CI runs include dependency install, canonical PostgreSQL migration, Block 19 security gate, complete `npm run check`, web start, worker start and independent diagnostics verification.
 
 ## Implemented path
 ```text

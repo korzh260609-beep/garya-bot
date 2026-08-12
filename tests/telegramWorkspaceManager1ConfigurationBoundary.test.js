@@ -17,17 +17,20 @@ async function javascriptFiles(root) {
   return files;
 }
 
-test('TWM1.6 production wiring composes authority + configuration service over the canonical workspace store', async () => {
+test('TWM1.7 production wiring composes the canonical SG Action Gate before WorkspaceConfigurationService', async () => {
   const source = await readFile(new URL('../src/runtime/renderWebApplication.js', import.meta.url), 'utf8');
   assert.match(source, /createPostgresTelegramWorkspaceAuthorityResolver/);
+  assert.match(source, /createTelegramWorkspaceActionGateIntegration/);
+  assert.match(source, /actionGate:\s*harness\.actionGate/);
+  assert.match(source, /policyContextResolver:\s*\(\) => harness\.policyLayer\?\.resolve\?\.\(\) \?\? null/);
   assert.match(source, /createTelegramWorkspaceConfigurationService/);
+  assert.match(source, /mutationGate:\s*telegramWorkspaceMutationGate/);
   assert.match(source, /const workspaceStore = telegramUpdateStore\.workspaceRegistry\?\.store \?\? null/);
-  assert.match(source, /workspaceStore,\s*authorityResolver: telegramWorkspaceAuthority/);
-  assert.match(source, /eventBus: harness\.eventBus \?\? null/);
+  assert.match(source, /telegramWorkspaceMutationGate/);
   assert.match(source, /telegramWorkspaceConfiguration/);
 });
 
-test('TWM1.6 application code has one workspace config write owner: WorkspaceConfigurationService', async () => {
+test('TWM1.7 application code has one workspace config write owner and it is internally action-gated', async () => {
   const projectRoot = fileURLToPath(new URL('../', import.meta.url));
   const srcRoot = fileURLToPath(new URL('../src/', import.meta.url));
   const files = await javascriptFiles(srcRoot);
@@ -41,9 +44,15 @@ test('TWM1.6 application code has one workspace config write owner: WorkspaceCon
   }
   assert.deepEqual(directWorkspaceWrites, ['src/telegramWorkspace/workspaceConfigurationService.js']);
   assert.deepEqual(directConfigSqlWrites, ['src/telegramWorkspace/postgresWorkspaceStore.js']);
+
+  const serviceSource = await readFile(new URL('../src/telegramWorkspace/workspaceConfigurationService.js', import.meta.url), 'utf8');
+  assert.match(serviceSource, /mutationGate\.evaluateMutation\s*\(/);
+  assert.match(serviceSource, /if \(typeof mutationGate\?\.evaluateMutation !== 'function'\) throw new TypeError/);
+  assert.doesNotMatch(serviceSource, /confirmed\s*=\s*false/);
+  assert.doesNotMatch(serviceSource, /confirmed\s*===\s*true/);
 });
 
-test('TWM1.6 reuses the TWM1.2 migration instead of introducing a second config persistence stack', async () => {
+test('TWM1.7 reuses the TWM1.2 migration instead of introducing a second config persistence stack', async () => {
   const migration = await readFile(new URL('../src/persistence/migrations/900_twm1_workspace_persistence.sql', import.meta.url), 'utf8');
   assert.match(migration, /CREATE TABLE IF NOT EXISTS telegram_workspace_configs/);
   assert.match(migration, /CREATE TABLE IF NOT EXISTS telegram_workspace_config_history/);

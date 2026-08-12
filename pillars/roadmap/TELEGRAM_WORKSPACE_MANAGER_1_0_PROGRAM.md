@@ -1,7 +1,7 @@
 # SG 2.1 — TELEGRAM WORKSPACE MANAGER 1.0 PROGRAM
 
 ## Status
-**IN PROGRESS — TWM1.1–TWM1.5 CLOSED / TWM1.6 NEXT.**
+**IN PROGRESS — TWM1.1–TWM1.6 CLOSED / TWM1.7 NEXT.**
 
 TWM1 is the cross-cutting Telegram workspace management program that lets any authorized SG user configure SG for their own Telegram groups, supergroups and channels through native Telegram UI and natural language.
 
@@ -146,20 +146,21 @@ Evidence: `../../evidence/TWM1_5_BOT_PERMISSION_DISCOVERY_CAPABILITY_HEALTH.md`.
 Verified implementation gate: HEAD `d5d4ebdc68f066ac69877e00cad4db84484fb84b`, SG 2.1 CI #7281 — SUCCESS.
 
 ### TWM1.6 — Workspace Configuration Service
-**Status: PLANNED / NEXT.**
+**Status: CLOSED / IMPLEMENTED / CI-VERIFIED.**
 
-Implement the sole mutation surface:
-- get/list config;
-- propose change;
-- schema/value validation;
-- authority evaluation;
-- confirmation/risk classification;
-- atomic versioned apply;
-- history;
-- rollback;
-- audit event emission.
+Implemented the sole TWM workspace-configuration mutation surface:
+- authorized get/list config;
+- structured change proposals;
+- bounded schema/value/JSON validation and secret-field rejection;
+- fresh `workspace:configure` authority evaluation for mutations;
+- deterministic risk classification and confirmation requirement;
+- atomic versioned apply through the existing TWM1.2 PostgreSQL store;
+- optimistic stale-proposal conflict protection;
+- append-only history;
+- authorized rollback as a new configuration version;
+- metadata-only audit and Internal Event Bus emission.
 
-Namespaces:
+Managed namespaces:
 - general;
 - responses;
 - moderation;
@@ -170,10 +171,28 @@ Namespaces:
 - notifications;
 - members.
 
-**Gate:** no transport/UI/AI direct DB write path exists.
+`content`, `polls` and `media` remain persistence-reserved for later TWM stages and are not accepted by the TWM1.6 mutation service.
+
+Implementation paths:
+- `src/telegramWorkspace/workspaceConfigurationService.js`;
+- `src/telegramWorkspace/index.js`;
+- `src/runtime/renderWebApplication.js`;
+- existing `src/telegramWorkspace/postgresWorkspaceStore.js` and TWM1.2 migration reused without a second persistence stack.
+
+Tests:
+- `tests/telegramWorkspaceManager1Configuration.test.js`;
+- `tests/telegramWorkspaceManager1ConfigurationPostgres.test.js`;
+- `tests/telegramWorkspaceManager1ConfigurationBoundary.test.js`.
+
+**Gate: PASS.** Application code has one workspace-config write owner (`WorkspaceConfigurationService`); direct SQL config writes remain inside `PostgresTelegramWorkspaceStore`; stale proposals/unauthorized actors fail closed; rollback preserves full history; PostgreSQL restart and multi-workspace isolation pass.
+
+Evidence: `../../evidence/TWM1_6_WORKSPACE_CONFIGURATION_SERVICE.md`.
+Verified implementation gate: HEAD `7a36c708f916d1ae375d238b22416bd5cd86a5fa`, SG 2.1 CI #7293 — SUCCESS.
+
+TWM1.6 classifies configuration risk and enforces its service-level confirmation requirement. Full convergence of protected TWM actions through the existing SG Decision / Action Gate remains TWM1.7 and is not claimed here.
 
 ### TWM1.7 — Decision / Action Gate Integration
-**Status: PLANNED.**
+**Status: PLANNED / NEXT.**
 
 Route every state-changing TWM action through existing SG action classification and Action Gate.
 

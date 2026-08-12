@@ -62,3 +62,8 @@ export {
   createTelegramWorkspaceDiagnosticsObservabilityService,
   TELEGRAM_WORKSPACE_DIAGNOSTICS_CONTRACT_VERSION
 } from './telegramWorkspaceDiagnosticsObservability.js';
+export {
+  createTelegramWorkspaceProductionAcceptance,
+  TELEGRAM_WORKSPACE_PRODUCTION_ACCEPTANCE_VERSION,
+  TELEGRAM_WORKSPACE_ACCEPTANCE_SCENARIOS
+} from './telegramWorkspaceProductionAcceptance.js';

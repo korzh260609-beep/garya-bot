@@ -4,6 +4,11 @@ function required(value, name) { if (typeof value !== 'string' || value.trim() =
 function sha(value) { const text = required(value,'commitSha').toLowerCase(); if (!/^[a-f0-9]{40}$/.test(text)) throw new TypeError('commitSha must be a full immutable git SHA'); return text; }
 function freeze(value) { if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value; for (const child of Object.values(value)) freeze(child); return Object.freeze(value); }
 function fail(code,message){const e=new Error(message);e.code=code;throw e;}
+function proposedCandidate(candidate) {
+  if (!candidate || typeof candidate !== 'object') return candidate;
+  if (candidate.confirmationState != null) return candidate;
+  return { ...candidate, confirmationState: 'proposed' };
+}
 
 export function createIncrementalDevelopmentKnowledgeProcessor({ sourceNormalizer, classifier, extractor, projectMemoryStore, reconciliationUpdater = null, projectMemoryCandidateProjector = null } = {}) {
   if (typeof sourceNormalizer?.normalizeAndVerify !== 'function') throw new TypeError('sourceNormalizer.normalizeAndVerify is required');
@@ -28,9 +33,10 @@ export function createIncrementalDevelopmentKnowledgeProcessor({ sourceNormalize
 
     const extraction = await extractor.extract(normalized,classification,{traceContext});
     if (extraction.trust !== 'extracted-candidate' || extraction.confirmed !== false || extraction.candidate?.confirmed !== false) fail('pdk4-incremental-extraction-promotion','extraction attempted to promote trust/confirmation');
-    const candidate = projectMemoryCandidateProjector
+    const projected = projectMemoryCandidateProjector
       ? await projectMemoryCandidateProjector(extraction.candidate, { projectKey:project, repository:repo, commitSha:commit, normalizedSource:normalized, classification, extraction, triggerId, triggerType })
       : extraction.candidate;
+    const candidate = proposedCandidate(projected);
     if (!candidate || candidate.projectKey !== project || candidate.confirmed !== false || candidate.confirmationState !== 'proposed' || candidate.trust === 'confirmed') fail('pdk4-incremental-candidate-projection-denied','project memory candidate projection must remain proposed and unconfirmed');
     const stored = await projectMemoryStore.put(candidate);
     if (!stored || stored.projectKey !== project || stored.confirmed !== false || stored.confirmationState !== 'proposed' || stored.trust === 'confirmed') fail('pdk4-incremental-pm3-promotion','incremental Project Memory candidate must remain unconfirmed');

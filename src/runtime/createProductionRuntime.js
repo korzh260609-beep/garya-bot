@@ -120,6 +120,9 @@ export function createProductionRuntime({ config, semanticPipeline, actionGate, 
   }
   async function captureMemory(requestInput) {
     if (!memoryCaptureService) return null;
+    if (requestInput.metadata?.workspaceRuntimePolicy?.workspaceMemoryEnabled === false && requestInput.scopeContext?.groupScope) {
+      return Object.freeze({ status: 'suppressed', persisted: false, reason: 'workspace-memory-disabled' });
+    }
     try {
       return await memoryCaptureService.capture({
         text: requestInput.text,

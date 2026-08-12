@@ -60,13 +60,23 @@ export function createTelegramWorkspaceRuntimeWiring({ runtime, workspaceRegistr
       workspaceId: workspace.workspaceId,
       telegramChatId: String(workspace.telegramChatId),
       responseMode: responseMode(responses),
-      memoryEnabled: enabled(memory),
+      workspaceMemoryEnabled: enabled(memory),
       aiEnabled: enabled(ai),
       moderation: { enabled: enabled(moderation), ...moderation },
       publication: { enabled: enabled(publication), ...publication },
       automation: { enabled: enabled(automation), ...automation },
       notifications: { enabled: enabled(notifications), ...notifications },
-      members: { enabled: enabled(members), ...members }
+      members: { enabled: enabled(members), ...members },
+      enforcement: {
+        responses: 'runtime',
+        ai: 'runtime',
+        workspaceMemory: 'runtime-context',
+        moderation: 'propagation-only',
+        publication: 'propagation-only',
+        automation: 'propagation-only',
+        notifications: 'propagation-only',
+        members: 'propagation-only'
+      }
     });
   }
 

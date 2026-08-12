@@ -31,18 +31,27 @@ function authority() {
   });
 }
 
+function mutationGate() {
+  return Object.freeze({
+    async evaluateMutation(input) {
+      return Object.freeze({ outcome: 'allow', reasons: Object.freeze([]), audit: Object.freeze({ gate: 'postgres-fixture-gate', traceId: input.traceId, requestId: input.requestId }) });
+    }
+  });
+}
+
 function service(store, auth) {
   return createTelegramWorkspaceConfigurationService({
     workspaceStore: store,
     authorityResolver: auth,
+    mutationGate: mutationGate(),
     projectScope: 'sg2.1',
     environment: 'test',
-    revision: 'twm1.6-postgres',
+    revision: 'twm1.7-postgres',
     audit: async () => {}
   });
 }
 
-integration('TWM1.6 PostgreSQL: apply + rollback survive restart as an append-only version chain', async () => {
+integration('TWM1.6 PostgreSQL: apply + rollback survive restart as an append-only version chain behind mutation boundary', async () => {
   const fx = fixture();
   const actorGlobalUserId = 'usr_twm16_pg_owner';
   const telegramUserId = '16001';
@@ -57,7 +66,7 @@ integration('TWM1.6 PostgreSQL: apply + rollback survive restart as an append-on
   assert.equal(v1.config.version, 1);
   const v2 = await configuration.applyChange({ workspaceId: fx.workspaceId, namespace: 'responses', nextConfig: { enabled: true, mode: 'all', reply_enabled: true }, actorGlobalUserId, telegramUserId, traceId: 'trace:twm16:pg:v2' });
   assert.equal(v2.config.version, 2);
-  const v3 = await configuration.rollback({ workspaceId: fx.workspaceId, namespace: 'responses', targetVersion: 1, actorGlobalUserId, telegramUserId, traceId: 'trace:twm16:pg:rollback', confirmed: true });
+  const v3 = await configuration.rollback({ workspaceId: fx.workspaceId, namespace: 'responses', targetVersion: 1, actorGlobalUserId, telegramUserId, traceId: 'trace:twm16:pg:rollback' });
   assert.equal(v3.config.version, 3);
   assert.equal(v3.config.config.mode, 'mention_only');
   assert.ok(auth.calls.filter((call) => call.requestedAction === 'workspace:configure').every((call) => call.forceFresh === true));

@@ -1,7 +1,7 @@
 # SG 2.1 — TELEGRAM WORKSPACE MANAGER 1.0 PROGRAM
 
 ## Status
-**IN PROGRESS — TWM1.1 CLOSED / TWM1.2 NEXT.**
+**IN PROGRESS — TWM1.1–TWM1.2 CLOSED / TWM1.3 NEXT.**
 
 TWM1 is the cross-cutting Telegram workspace management program that lets any authorized SG user configure SG for their own Telegram groups, supergroups and channels through native Telegram UI and natural language.
 
@@ -44,23 +44,30 @@ Evidence: `../../evidence/TWM1_1_WORKSPACE_CONTRACT.md`.
 Verified implementation gate: HEAD `fa72678cbd796dd163aa5208c664338ccb73223e`, SG 2.1 CI #7232 — SUCCESS.
 
 ### TWM1.2 — PostgreSQL Workspace Persistence
-**Status: PLANNED.**
+**Status: CLOSED / IMPLEMENTED / CI-VERIFIED.**
 
-Implement durable tables/stores for:
-- workspaces;
-- workspace members/roles;
-- bot permissions;
-- configuration;
-- configuration history/versioning.
+Implemented durable PostgreSQL persistence for:
+- `telegram_workspaces`;
+- `telegram_workspace_members`;
+- `telegram_workspace_bot_permissions`;
+- `telegram_workspace_configs`;
+- `telegram_workspace_config_history`.
 
-Requirements:
-- transactional writes;
-- canonical workspace isolation;
-- restart durability;
-- migration compatibility;
-- no secrets in workspace configuration/history.
+Implemented requirements:
+- existing canonical SG migrator reused; no second persistence stack;
+- unique Telegram resource mapping with SG-issued `workspace_id` as canonical root;
+- workspace-scoped member/role, permission, config and history storage;
+- transactional current-config update + version-history insertion;
+- optimistic `expectedVersion` conflict guard;
+- PostgreSQL close/reopen durability;
+- group→supergroup Telegram locator remap preserving canonical workspace identity;
+- recursive secret-shaped config/permission field rejection before persistence;
+- SG 2.0 migration compatibility and canonical migration-count regression coverage.
 
-**Gate:** persistence survives PostgreSQL restart with no cross-workspace leakage.
+**Gate: PASS.** Persistence survives PostgreSQL restart with config/history intact and no cross-workspace leakage; stale version writes fail closed; full SG 2.1 CI passes.
+
+Evidence: `../../evidence/TWM1_2_POSTGRES_WORKSPACE_PERSISTENCE.md`.
+Verified implementation gate: HEAD `d106c283ce5b8047e72ce75c209d7e5eebcbebb0`, SG 2.1 CI #7241 — SUCCESS.
 
 ### TWM1.3 — Telegram Workspace Discovery & Registry
 **Status: PLANNED.**

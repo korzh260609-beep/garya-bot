@@ -32,11 +32,12 @@ function sharedWorkspaceWrite(input = {}) {
 function workspaceMemoryDeniedResult() {
   return { status: 'failed', error: { code: 'workspace-memory-disabled', message: 'Workspace shared memory is disabled', retryable: false } };
 }
-function recallLayers(request) {
+function recallPolicy(request) {
   const requested = request.input?.layers ?? [];
-  if (workspaceMemoryEnabled(request)) return requested;
-  if (requested.length === 0) return WORKSPACE_ALLOWED_RECALL_LAYERS;
-  return requested.filter((layer) => !WORKSPACE_SHARED_LAYERS.has(layer));
+  if (workspaceMemoryEnabled(request)) return Object.freeze({ blocked: false, layers: requested });
+  if (requested.length === 0) return Object.freeze({ blocked: false, layers: WORKSPACE_ALLOWED_RECALL_LAYERS });
+  const layers = requested.filter((layer) => !WORKSPACE_SHARED_LAYERS.has(layer));
+  return Object.freeze({ blocked: layers.length === 0, layers });
 }
 
 export function createMemory2Capabilities({ memory2Service } = {}) {
@@ -72,7 +73,9 @@ export function createMemory2Capabilities({ memory2Service } = {}) {
     capability({
       name: 'memory2-recall', description: 'Recall the smallest authorized Memory 2.0 context.', actionTypes: ['memory-read'], actionClasses: ['read-only','private-data'],
       execute: async (request) => {
-        const result = await memory2Service.recall({ scope: scopeFrom(request), actor: request.actor, query: request.input?.query ?? request.input?.text ?? '', layers: recallLayers(request), keys: request.input?.keys ?? [], maxRecords: request.input?.maxRecords ?? 20, maxCharacters: request.input?.maxCharacters ?? 12000, includeHistory: request.input?.includeHistory === true });
+        const policy = recallPolicy(request);
+        if (policy.blocked) return { status: 'success', data: { records: [], conflicts: [], diagnostics: { returnedCount: 0, workspaceMemoryEnabled: false, suppressedSharedMemory: true }, message: 'Memory 2.0 records: 0' } };
+        const result = await memory2Service.recall({ scope: scopeFrom(request), actor: request.actor, query: request.input?.query ?? request.input?.text ?? '', layers: policy.layers, keys: request.input?.keys ?? [], maxRecords: request.input?.maxRecords ?? 20, maxCharacters: request.input?.maxCharacters ?? 12000, includeHistory: request.input?.includeHistory === true });
         return { status: 'success', data: { ...result, message: `Memory 2.0 records: ${result.records.length}` } };
       }
     }),

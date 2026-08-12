@@ -97,7 +97,7 @@ export function createPostgresProjectMemoryStore(database) {
       const sourceEventLock = `pm3:source-event:${fact.projectKey}:${fact.sourceEventId}`;
       await db.query('SELECT pg_advisory_xact_lock(hashtext($1))', [sourceEventLock]);
       const replay = await db.query('SELECT memory_id FROM project_memory_entries WHERE project_key=$1 AND source_event_id=$2 LIMIT 1', [fact.projectKey, fact.sourceEventId]);
-      if (replay.rowCount === 1) {
+      if (replay.rowCount === 1 && replay.rows[0].memory_id !== fact.memoryId) {
         const existing = await get(replay.rows[0].memory_id, { projectKey: fact.projectKey }, db);
         if (!existing) throw scopeError('project memory source-event replay record is unavailable');
         return existing;

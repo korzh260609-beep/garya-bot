@@ -62,7 +62,7 @@ Project Development Knowledge 4.0 is the development-history and project-evoluti
 
 PDK4.13 Live Production Wiring & Autonomous Project History is the production-composition extension of the completed PDK4.1–PDK4.12 software baseline. It wires historical bootstrap/resume, incremental reconciliation, bounded polling, PostgreSQL single-flight protection, protected diagnostics and live acceptance into the real SG production runtime. It reuses the existing PDK4 engine and PM3 substrate rather than creating a new memory path.
 
-Telegram Workspace Manager 1.0 is a cross-cutting management layer over the existing Telegram production transport/runtime. It lets any authorized SG user manage SG behavior for their own Telegram groups, supergroups and channels through native Telegram UI and natural language. TWM1 reuses canonical `global_user_id`, Identity/Scope, Resource Authority, Action Gate, PostgreSQL, Memory 2.0 isolation, AI Router and Observability. Telegram administrator status is workspace-scoped evidence only and never SG-global owner/Monarch authority. AI/model output may propose configuration but cannot write configuration or grant authority directly.
+Telegram Workspace Manager 1.0 is a cross-cutting management layer over the existing Telegram production transport/runtime. It lets any authorized SG user manage SG behavior for their own Telegram groups, supergroups and channels through native Telegram UI and natural language. TWM1 reuses canonical `global_user_id`, Identity/Scope, Resource Authority, Action Gate, PostgreSQL, Memory 2.0 isolation, AI Router, Durable Automation and Observability. TWM1.14 extends this same workspace-scoped backend with text/media publication, polls, quiz/test sessions, scheduled content, deterministic result collection/statistics and optional AI Router interpretation. Telegram administrator status remains workspace-scoped evidence only and never SG-global owner/Monarch authority. AI/model output may propose configuration/content or analyze a computed result snapshot, but cannot write state directly, grant authority or invent numeric poll/test results.
 
 Self Knowledge is a shared system-context layer used for evidence-aware descriptions of SG itself. It does not sit as a mandatory reasoning hop in every request and does not replace live diagnostics.
 
@@ -84,11 +84,14 @@ Universal Diagnostics is an independent observer application outside the mandato
 - PDK4.13 production wiring must be resumable, bounded, idempotent and single-flight per project/repository; concurrent triggers cannot duplicate history processing.
 - PDK4.13 GitHub/provider degradation must degrade the project-history subsystem rather than take normal SG transports offline by default.
 - PDK4.13 credentials/secrets never enter PM3/PDK4 facts, AI context, ordinary diagnostics or observability payloads.
-- TWM1 cannot create a second Telegram transport, identity root, authorization system or direct AI→configuration path.
-- TWM1 workspace configuration, members, memory, automation and audit are isolated per canonical workspace scope.
+- TWM1 cannot create a second Telegram transport, identity root, authorization system or direct AI→configuration/content/result path.
+- TWM1 workspace configuration, members, memory, automation, media, drafts, publications, poll/test results and audit are isolated per canonical workspace scope.
 - TWM1 Telegram administrator evidence cannot grant SG-global ownership/Monarch authority.
 - TWM1 must re-verify revocable Telegram authority according to action sensitivity and fail closed when required bot permissions are absent.
-- TWM1 configuration cannot weaken mandatory security, owner security or Action Gate requirements.
+- TWM1 scheduled external actions must reuse durable automation and must not rely indefinitely on creation-time authority.
+- TWM1 exact poll/test totals, percentages and scores must come from deterministic structured evidence, not model output.
+- TWM1 must preserve anonymous Telegram poll semantics and cannot claim participant identity for anonymous votes.
+- TWM1 configuration/content behavior cannot weaken mandatory security, owner security, privacy or Action Gate requirements.
 - System Self Knowledge is separate from user/project memory and cannot grant authority.
 - Universal Diagnostics is not SG brain, Decision Engine, Action Gate, authorization or ordinary request routing.
 - Diagnostics is read-only by default; it must not silently edit code/config, deploy, mutate production state, grant authority or repair SG automatically.

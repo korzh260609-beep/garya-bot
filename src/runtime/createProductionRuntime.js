@@ -25,7 +25,7 @@ function presentationPreferences(canonicalInput) {
   return Object.freeze({ response: settings.response ?? null, units: settings.units ?? null, formatting: settings.formatting ?? null, accessibility: settings.accessibility ?? null });
 }
 function languagePayload(canonicalInput, semantic) {
-  return Object.freeze({ text: canonicalInput.text, message: semantic.responsePlan.message, semanticMessage: semantic.responsePlan.message, languageContext: canonicalInput.metadata?.languageContext ?? null, conversationContext: publicConversationReference(canonicalInput), userPreferences: presentationPreferences(canonicalInput), locale: canonicalInput.locale });
+  return Object.freeze({ text: canonicalInput.text, message: semantic.responsePlan.message, semanticMessage: semantic.responsePlan.message, languageContext: canonicalInput.metadata?.languageContext ?? null, conversationContext: publicConversationReference(canonicalInput), userPreferences: presentationPreferences(canonicalInput), workspaceRuntimePolicy: canonicalInput.metadata?.workspaceRuntimePolicy ?? null, locale: canonicalInput.locale });
 }
 function conversationKey(input) {
   const contextId = input.metadata?.conversationContext?.conversationId;
@@ -131,7 +131,8 @@ export function createProductionRuntime({ config, semanticPipeline, actionGate, 
           transport: requestInput.metadata?.transport ?? 'unknown',
           conversationId: requestInput.metadata?.conversationContext?.conversationId ?? null,
           topicId: requestInput.metadata?.conversationContext?.topicId ?? null,
-          memoryCandidate: requestInput.metadata?.memoryCandidate ?? null
+          memoryCandidate: requestInput.metadata?.memoryCandidate ?? null,
+          workspaceRuntimePolicy: requestInput.metadata?.workspaceRuntimePolicy ?? null
         }
       });
     } catch (error) {

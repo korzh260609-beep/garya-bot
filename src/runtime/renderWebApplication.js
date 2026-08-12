@@ -12,7 +12,8 @@ import {
   createTelegramWorkspaceConfigurationService,
   createTelegramWorkspaceNativeUi,
   createTelegramWorkspaceNaturalLanguageService,
-  createPostgresTelegramWorkspaceNaturalLanguagePendingStore
+  createPostgresTelegramWorkspaceNaturalLanguagePendingStore,
+  createTelegramWorkspaceRuntimeWiring
 } from '../telegramWorkspace/index.js';
 import { createDeploymentDeliveryRouter } from '../delivery/deploymentDeliveryRouter.js';
 import { createTelegramDeliveryTransport } from '../delivery/telegramDeliveryTransport.js';
@@ -308,6 +309,14 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
       })
     : null;
 
+  const telegramWorkspaceRuntime = workspaceStore && telegramUpdateStore.workspaceRegistry
+    ? createTelegramWorkspaceRuntimeWiring({
+        runtime: harness.runtime,
+        workspaceRegistry: telegramUpdateStore.workspaceRegistry,
+        workspaceStore
+      })
+    : null;
+
   const integration = createTelegramProductionIntegration({
     credentialManager: harness.credentialManager,
     credentialAccessContext: harness.credentialAccessContext,
@@ -317,6 +326,7 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
     updateStore: telegramUpdateStore,
     identityResolver,
     runtime: harness.runtime,
+    workspaceRuntime: telegramWorkspaceRuntime,
     nativeUi: telegramWorkspaceNativeUi,
     naturalLanguage: telegramWorkspaceNaturalLanguage,
     observability: harness.observability,
@@ -454,6 +464,7 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
     telegramWorkspaceConfiguration,
     telegramWorkspaceNativeUi,
     telegramWorkspaceNaturalLanguage,
+    telegramWorkspaceRuntime,
     discordIntegration,
     discordGateway,
     discordRestClient,

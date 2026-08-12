@@ -30,6 +30,8 @@ Active files:
 - `MEMORY_2_0.md`
 - `PROJECT_MEMORY_3_0.md` — specialized evidence-backed Project Memory architecture inside Memory 2.0
 - `PROJECT_DEVELOPMENT_KNOWLEDGE_4_0.md` — development-history/project-evolution architecture built on Project Memory 3.0
+- `PROJECT_DEVELOPMENT_KNOWLEDGE_4_13_LIVE_PRODUCTION_WIRING.md` — planned live production wiring for PDK4.13
+- `TELEGRAM_WORKSPACE_MANAGER_1_0.md` — planned multi-user Telegram group/channel management architecture
 - `DECISION_AND_ACTION_GATE.md`
 - `CAPABILITY_SYSTEM.md`
 - `IDENTITY_AND_SCOPE.md`
@@ -83,7 +85,9 @@ Active files:
 - `16_18_MONARCH_CONTROL_OWNER_SECURITY.md` — Block 16.18 specification/evidence
 - `MEMORY_2_0_ROADMAP.md` — completed canonical Memory 2.0 M1–M9 program and acceptance evidence
 - `PROJECT_MEMORY_3_0_PROGRAM.md` — completed specialized Project Memory PM3.1–PM3.12 program
-- `PROJECT_DEVELOPMENT_KNOWLEDGE_4_0_PROGRAM.md` — planned PDK4.1–PDK4.12 development-history/project-evolution program
+- `PROJECT_DEVELOPMENT_KNOWLEDGE_4_0_PROGRAM.md` — completed PDK4.1–PDK4.12 development-history/project-evolution baseline
+- `PROJECT_DEVELOPMENT_KNOWLEDGE_4_13_LIVE_PRODUCTION_WIRING.md` — planned PDK4.13 live production wiring extension
+- `TELEGRAM_WORKSPACE_MANAGER_1_0_PROGRAM.md` — planned TWM1 multi-user Telegram workspace management program
 - `UNIVERSAL_DIAGNOSTICS_PROGRAM.md` — canonical Universal Diagnostics D1–D12 cross-cutting program
 - `PRODUCTION_ROADMAP.md` — canonical continuation covering Blocks 11–19, intermediate Blocks 16.5–16.18 and Pilot Launch
 
@@ -98,25 +102,29 @@ Active files:
 - `ARCHITECTURE_DECISION_PROTOCOL.md`
 - `MEMORY_2_0_WORKFLOW.md` — Memory 2.0 implementation/verification sequence
 - `PROJECT_MEMORY_3_0_WORKFLOW.md` — Project Memory 3.0 implementation/verification sequence
-- `PROJECT_DEVELOPMENT_KNOWLEDGE_4_0_WORKFLOW.md` — PDK4 implementation/verification sequence
+- `PROJECT_DEVELOPMENT_KNOWLEDGE_4_0_WORKFLOW.md` — PDK4 baseline implementation/verification sequence
+- `PROJECT_DEVELOPMENT_KNOWLEDGE_4_13_LIVE_PRODUCTION_WIRING_WORKFLOW.md` — PDK4.13 production wiring workflow
+- `TELEGRAM_WORKSPACE_MANAGER_1_0_WORKFLOW.md` — TWM1 implementation/verification sequence
 - `UNIVERSAL_DIAGNOSTICS_WORKFLOW.md` — Universal Diagnostics D1–D12 implementation/verification sequence
 
 Workflow defines implementation procedure and does not store per-block runtime history. Therefore `workflow/changes/` and `workflow/changes/BLOCK_11_RUNTIME_COMPOSITION.md` are not canonical paths.
 
 ## Cross-cutting programs and extensions
 
-Memory 2.0, Project Memory 3.0, Project Development Knowledge 4.0 and Universal Diagnostics are cross-cutting programs and do not renumber the canonical Blocks 0–19.
+Memory 2.0, Project Memory 3.0, Project Development Knowledge 4.0, Telegram Workspace Manager 1.0 and Universal Diagnostics are cross-cutting programs and do not renumber the canonical Blocks 0–19.
 
 Project Memory 3.0 is not a replacement for Memory 2.0. It specializes the `Project Memory` domain using trusted-source ingestion, candidate/confirmation policy, deduplication, conflict handling, temporal supersession, relations, hybrid retrieval and guarded project-context injection. It remains separate from System Self Knowledge and live diagnostics. Render must not be treated as a live Project Memory source until a real Render Connector is implemented and verified.
 
 Project Development Knowledge 4.0 is not a new memory store. It builds on Project Memory 3.0 to reconstruct and continuously maintain SG development knowledge across origin, requirements, proposals, decisions/rationale, implementation/rework, incidents/fixes, CI/deployment/runtime evidence, historical supersession, current state and next plan. It must keep `implemented`, `ci-verified`, `deployed` and `live-verified` distinct, preserve provenance and history, and route all model assistance through AI Router.
+
+Telegram Workspace Manager 1.0 is not a second Telegram transport or a second identity/authorization stack. It lets any authorized SG user configure SG for their own Telegram groups, supergroups and channels through native Telegram UI and natural language while reusing canonical `global_user_id`, Identity/Scope, Resource Authority, Action Gate, PostgreSQL, Memory 2.0 isolation, AI Router and existing Telegram production integration. Telegram administrator status is workspace-scoped evidence only and never SG-global owner/Monarch authority.
 
 Block 8.1 is not a new independent core layer. It is the production Discord transport extension of Block 8 Interfaces and does not renumber Blocks 9–19. Its implementation must reuse the existing Identity/Scope, canonical `global_user_id`, Memory 2.0, Resource Authority, Delivery Router, Observability and security boundaries.
 
 Universal Diagnostics is explicitly an independent observer application. SG provides bounded observable facts; the external Diagnostics program reconstructs execution, verifies expected paths/invariants, finds first divergence/root cause and reports evidence. Diagnostics must not become a required SG runtime dependency or a bypass around identity, permissions, Action Gate, resource authority or owner security.
 
 ## Modules
-`modules/` starts empty except for its README. Module documentation is created only when the corresponding SG 2.1 module is introduced through the active roadmap.
+`modules/` starts empty except for its README. Module documentation is created only when the corresponding SG 2.1 module is introduced through the active roadmap. TWM1 is now introduced at architecture/roadmap/workflow level; implementation-specific module docs are created when its code implementation starts.
 
 ## Hard rule
 Any file not listed by this index is not active SG 2.1 truth and must not be added under `pillars/` without explicit architectural purpose.

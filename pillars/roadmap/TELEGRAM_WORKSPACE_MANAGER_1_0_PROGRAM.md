@@ -1,7 +1,7 @@
 # SG 2.1 — TELEGRAM WORKSPACE MANAGER 1.0 PROGRAM
 
 ## Status
-**IN PROGRESS — TWM1.1–TWM1.10 CLOSED / TWM1.11 NEXT.**
+**IN PROGRESS — TWM1.1–TWM1.11 CLOSED / TWM1.12 NEXT.**
 
 TWM1 is the cross-cutting Telegram workspace management program that lets any authorized SG user configure SG for their own Telegram groups, supergroups and channels through native Telegram UI and natural language.
 
@@ -329,21 +329,42 @@ Tests:
 Evidence: `../../evidence/TWM1_10_WORKSPACE_RUNTIME_WIRING.md`.
 
 ### TWM1.11 — Audit, Rollback, Diagnostics & Observability
-**Status: PLANNED / NEXT.**
+**Status: CLOSED / IMPLEMENTED / CI-VERIFIED.**
 
-Implement:
-- who/what/when/before/after history;
-- authorized rollback as a new audited mutation;
-- connection/authority/bot-permission/config health;
-- degraded capability explanations;
-- last config success/failure;
-- authorization denial and action counters;
-- trace-id continuity and secret-safe observability.
+Implemented one bounded secret-safe diagnostics/audit facade over the existing TWM backend rather than creating parallel mutation, permission or telemetry systems.
 
-**Gate:** SG can answer who changed a setting and restore an allowed prior configuration version.
+Implemented:
+- authorized normalized `who/what/when/before/after` configuration history with version, reason and trace visibility;
+- recursive redaction of secret-shaped fields before history before/after values are exposed;
+- rollback delegation to the existing TWM1.6/TWM1.7 protected rollback path, preserving fresh authority, canonical Action Gate, request-bound confirmation/idempotency, new-version semantics and append-only history;
+- connection/lifecycle health for the exact workspace;
+- authority verification state, role, timestamp and reason;
+- canonical bot capability health with missing capabilities/Telegram permissions;
+- persisted configuration namespace version visibility;
+- bounded degraded reasons;
+- last successful/failed configuration mutation summaries from existing workspace-scoped Observability events;
+- configuration action/success/failure, authorization-denial and Action-Gate-denial counters from existing telemetry;
+- trace/request/environment/revision continuity for generated diagnostics events;
+- bounded metadata-only diagnostics telemetry through the common SG Observability service;
+- fail-closed authorization before workspace/config/bot detail disclosure.
+
+Freshness/replay counters for later content/result-ingestion stages are not fabricated before those ingestion pipelines exist.
+
+Implementation paths:
+- `src/telegramWorkspace/telegramWorkspaceDiagnosticsObservability.js`;
+- `src/telegramWorkspace/index.js`;
+- existing `src/telegramWorkspace/workspaceConfigurationService.js`, TWM PostgreSQL store and common Observability remain authoritative sources.
+
+Tests:
+- `tests/telegramWorkspaceManager1AuditDiagnosticsObservability.test.js`;
+- existing TWM1.6/TWM1.7/PostgreSQL suites continue to prove actual append-only rollback/history, protected mutation and atomic persistence semantics.
+
+**Gate: PASS on implementation HEAD.** SG can identify actor/time/before/after, report healthy/degraded workspace configuration-control diagnostics and restore a permitted prior version through the same protected rollback path while retaining the full audit chain. Implementation HEAD `f41328b9216cca794a298df100002875178f3c2b` completed SG 2.1 CI #7376 — SUCCESS. External CLOSED declaration additionally requires full SUCCESS on the documentation-synchronized closure HEAD.
+
+Evidence: `../../evidence/TWM1_11_AUDIT_ROLLBACK_DIAGNOSTICS_OBSERVABILITY.md`.
 
 ### TWM1.12 — Production E2E & Live Acceptance
-**Status: PLANNED.**
+**Status: PLANNED / NEXT.**
 
 Prove with real Telegram group and channel flows:
 

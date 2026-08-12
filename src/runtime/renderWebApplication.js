@@ -5,6 +5,7 @@ import { createTelegramBotApiClient } from '../telegram/telegramBotApiClient.js'
 import { createPostgresTelegramUpdateStore } from '../telegram/postgresTelegramUpdateStore.js';
 import { createTelegramProductionIntegration } from '../telegram/telegramProductionIntegration.js';
 import { createTelegramWebhookHttpHandler } from '../telegram/telegramWebhookHttpHandler.js';
+import { createTelegramWorkspaceBotCapabilityService } from '../telegramWorkspace/index.js';
 import { createDeploymentDeliveryRouter } from '../delivery/deploymentDeliveryRouter.js';
 import { createTelegramDeliveryTransport } from '../delivery/telegramDeliveryTransport.js';
 import { createDiscordDeliveryTransport } from '../delivery/discordDeliveryTransport.js';
@@ -136,13 +137,33 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
     monarchLanguage: effectiveEnv.SG_MONARCH_LANGUAGE
   }) : null;
 
+  const telegramUpdateStore = createPostgresTelegramUpdateStore(harness.persistence.database);
+  const telegramBotCapabilities = telegramUpdateStore.workspaceRegistry
+    ? createTelegramWorkspaceBotCapabilityService({
+        workspaceStore: telegramUpdateStore.workspaceRegistry.store,
+        telegramApiClient: botClient,
+        botUserId: telegramConfig.botUserId,
+        audit: async (event) => {
+          const correlation = `twm1.5:${event.workspaceId ?? 'unknown'}:${event.operation}`;
+          return harness.observability.record({
+            eventClass: 'audit_event',
+            channel: 'telemetry',
+            stage: 'telegram-workspace-bot-capability',
+            traceContext: { traceId: correlation, requestId: correlation, environment: harness.config.environment, revision: harness.config.revision },
+            outcome: event.outcome,
+            data: { capabilityEventClass: event.eventClass, workspaceId: event.workspaceId, membershipState: event.membershipState, reason: event.reason, missingCapabilities: event.missingCapabilities, missingPermissions: event.missingPermissions, fetchedAt: event.fetchedAt }
+          });
+        }
+      })
+    : null;
+
   const integration = createTelegramProductionIntegration({
     credentialManager: harness.credentialManager,
     credentialAccessContext: harness.credentialAccessContext,
     webhookCredentialId: telegramConfig.webhookSecretCredentialId,
     botClient,
     deliveryRouter: deliveryDeployment.router,
-    updateStore: createPostgresTelegramUpdateStore(harness.persistence.database),
+    updateStore: telegramUpdateStore,
     identityResolver,
     runtime: harness.runtime,
     observability: harness.observability,
@@ -273,6 +294,8 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
     effectiveEnv: publicEnvironmentView(effectiveEnv),
     harness,
     telegramIntegration: integration,
+    telegramUpdateStore,
+    telegramBotCapabilities,
     discordIntegration,
     discordGateway,
     discordRestClient,

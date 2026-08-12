@@ -16,5 +16,8 @@ Expected future module groups include:
 - ai-routing
 - transports
 - automation
+- telegram-workspace-manager
+
+Telegram Workspace Manager 1.0 is now an accepted planned cross-cutting module at the canonical architecture/roadmap/workflow level. Implementation-specific module documentation under `pillars/modules/` is still deferred until TWM1 code implementation begins.
 
 Historical SG 2.0 module documentation must not be restored here.

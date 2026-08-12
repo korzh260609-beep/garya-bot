@@ -1,7 +1,7 @@
 # SG 2.1 — TELEGRAM WORKSPACE MANAGER 1.0
 
 ## Status
-**IN PROGRESS — TWM1.1–TWM1.9 CLOSED / TWM1.10 NEXT.**
+**IN PROGRESS — TWM1.1–TWM1.10 CLOSED / TWM1.11 NEXT.**
 
 Telegram Workspace Manager 1.0 (TWM1) is a cross-cutting SG module that lets any authorized SG user connect, configure and operate SG inside Telegram groups, supergroups and channels without programming.
 
@@ -161,7 +161,7 @@ Render production composition reuses the existing `harness.actionGate`, policy l
 Evidence: `../../evidence/TWM1_7_DECISION_ACTION_GATE_INTEGRATION.md`.
 Verified code/runtime gate: HEAD `747a821de5a4fd19be766e0583e005b6ee8e38c0`, SG 2.1 CI #7307 — SUCCESS.
 
-TWM1.8 Telegram-native UI and TWM1.9 natural-language configuration are now implemented and CLOSED on top of this same protected backend. TWM1.10 is the next stage and owns effective runtime consumption of persisted workspace configuration; TWM1.11–TWM1.12 still own the broader diagnostics/audit extension and real Telegram live acceptance.
+TWM1.8 Telegram-native UI, TWM1.9 natural-language configuration and TWM1.10 runtime wiring are now implemented and CLOSED on top of this same protected backend/runtime. TWM1.11–TWM1.12 still own the broader diagnostics/audit extension and real Telegram live acceptance.
 
 ### TWM1.8 implementation status
 TWM1.8 is **CLOSED / IMPLEMENTED / CI-VERIFIED**. `createTelegramWorkspaceNativeUi` provides Telegram-native private-chat management and callback flows over the existing configuration service, authority resolver, bot capability service and Action Gate path.
@@ -178,6 +178,30 @@ The implementation supports bounded `configure`, `history-query` and `not-twm` o
 
 Evidence: `../../evidence/TWM1_9_NATURAL_LANGUAGE_CONFIGURATION.md`.
 Verified final closure: HEAD `c5da8de6aa87489e0423b512920cf3a0875037f9`, SG 2.1 CI #7347 — SUCCESS.
+
+### TWM1.10 implementation status
+TWM1.10 is **CLOSED / IMPLEMENTED / CI-VERIFIED**. Persisted workspace configuration is resolved for the exact Telegram chat and converted into one immutable `workspaceRuntimePolicy` consumed by the existing Telegram/SG production runtime. No second Telegram transport, runtime, AI router, Memory 2.0 service or policy persistence stack is introduced.
+
+Implemented boundaries:
+- `responses.mode=off/all/mention_only` deterministically controls Telegram invocation behavior;
+- `ai.enabled=false` fails closed before ordinary SG runtime/AI execution;
+- current persisted config is resolved per request instead of relying on a stale in-process workspace-policy cache;
+- unmanaged Telegram chats preserve the existing SG runtime path;
+- `memory.enabled=false` excludes shared `group-memory`/`thread-memory` from response-context recall while authorized personal/user-group/project memory remains under existing Memory 2.0 rules;
+- explicit Memory 2.0 group/thread writes and promotion into group/thread memory fail closed with `workspace-memory-disabled`;
+- explicit shared-only recall cannot recover group/thread memory while workspace memory is disabled;
+- automatic capture from a disabled Telegram workspace is suppressed before Memory 2.0 persistence;
+- moderation/publication/automation/notifications/member configuration is propagated as bounded runtime policy for existing/later capability consumers.
+
+Implementation paths:
+- `src/telegramWorkspace/telegramWorkspaceRuntimeWiring.js`;
+- `src/runtime/renderWebApplication.js`;
+- `src/runtime/createProductionRuntime.js`;
+- `src/response/boundedResponseContext.js`;
+- `src/memory2/memory2Capabilities.js`.
+
+Evidence: `../../evidence/TWM1_10_WORKSPACE_RUNTIME_WIRING.md`.
+Verified implementation gate: HEAD `3004dfe4665327db0d830d5ecc52c36cdb948307`, SG 2.1 CI #7368 — SUCCESS. External closure declaration additionally requires full SUCCESS on the documentation-synchronized closure HEAD.
 
 ## Identity and authority
 Canonical human identity remains `global_user_id`.
@@ -270,7 +294,7 @@ Configuration is versioned. Every mutation records actor, scope, old value, new 
 TWM1.6 actively manages nine configuration namespaces: `general`, `responses`, `moderation`, `memory`, `ai`, `publication`, `automation`, `notifications`, `members`. The persistence contract also reserves `content`, `polls` and `media` for later TWM stages; their presence in the persistence namespace model does not make them TWM1.6-managed settings.
 
 ## Persistence
-Implemented by TWM1.2 and consumed through TWM1.9:
+Implemented by TWM1.2 and consumed through TWM1.10:
 - `telegram_workspaces`;
 - `telegram_workspace_members`;
 - `telegram_workspace_bot_permissions`;
@@ -440,7 +464,7 @@ Workspace memory is a separate scope from personal memory and Project Memory.
 user memory ≠ workspace memory ≠ project memory
 ```
 
-Private user facts must not become group/channel memory merely because the same user administers that workspace. Workspace configuration/content cannot weaken Memory 2.0 privacy/scope rules.
+Private user facts must not become group/channel memory merely because the same user administers that workspace. Workspace configuration/content cannot weaken Memory 2.0 privacy/scope rules. TWM1.10 enforces `workspace.memory.enabled=false` as a runtime boundary for shared group/thread recall, explicit shared writes/promotions and automatic capture while preserving the existing personal/user-group/project memory rules.
 
 ## Audit and rollback
 Every accepted configuration mutation must provide an auditable history and authorized rollback path. TWM1.8 exposes history/rollback UI and TWM1.9 supports deterministic natural-language history queries; TWM1.11 remains responsible for the broader audit/diagnostics/observability completion scope. Content actions must also emit auditable actor/workspace/action/result evidence appropriate to the operation.
@@ -459,7 +483,7 @@ TWM1 should expose bounded secret-safe health such as:
 - result-ingestion freshness/replay counters;
 - authorization denials.
 
-TWM1.5 emits bounded bot-capability health audit/telemetry from the production service without exposing bot credentials or cross-workspace private data. TWM1.6/TWM1.7 emit bounded configuration and Action Gate mutation metadata without placing raw configuration values or secrets into ordinary telemetry events. TWM1.8/TWM1.9 add bounded UI/NL completion/failure telemetry while preserving the same secret-safe and workspace-scoped rules.
+TWM1.5 emits bounded bot-capability health audit/telemetry from the production service without exposing bot credentials or cross-workspace private data. TWM1.6/TWM1.7 emit bounded configuration and Action Gate mutation metadata without placing raw configuration values or secrets into ordinary telemetry events. TWM1.8/TWM1.9 add bounded UI/NL completion/failure telemetry while preserving the same secret-safe and workspace-scoped rules. TWM1.10 additionally propagates bounded effective runtime policy and memory-isolation state without exposing raw secrets or cross-workspace memory.
 
 ## Isolation
 Hard rule:

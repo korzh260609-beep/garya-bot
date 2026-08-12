@@ -48,20 +48,7 @@ jobs:
       - run: npm run migrate
       - name: Block 19 security gate
         run: npm run security:check
-      - name: Run npm run check
-        shell: bash
-        run: |
-          set +e
-          npm run check 2>&1 | tee /tmp/sg-check.log
-          status=${PIPESTATUS[0]}
-          set -e
-          if [ "$status" -ne 0 ]; then
-            failures=$(grep -B 4 -A 22 -E '^not ok|^# Subtest:.*$' /tmp/sg-check.log | grep -B 4 -A 22 -E 'not ok|failureType:|error:|code:|actual:|expected:|operator:|location:' | tail -n 120 || true)
-            if [ -z "$failures" ]; then failures=$(tail -n 80 /tmp/sg-check.log); fi
-            summary=$(printf '%s' "$failures" | tr '\n' ' ' | sed 's/%/%25/g; s/\r/%0D/g; s/::/%3A%3A/g' | cut -c1-7000)
-            echo "::error title=SG npm run check failed::${summary}"
-            exit "$status"
-          fi
+      - run: npm run check
       - run: npm start
       - run: npm run start:worker
       - name: Verify independent diagnostics service

@@ -1,7 +1,7 @@
 # SG 2.1 — TELEGRAM WORKSPACE MANAGER 1.0 PROGRAM
 
 ## Status
-**PLANNED / NOT IMPLEMENTED.**
+**IN PROGRESS — TWM1.1 CLOSED / TWM1.2 NEXT.**
 
 TWM1 is the cross-cutting Telegram workspace management program that lets any authorized SG user configure SG for their own Telegram groups, supergroups and channels through native Telegram UI and natural language.
 
@@ -27,17 +27,21 @@ user opens SG
 ## Canonical implementation order
 
 ### TWM1.1 — Workspace Contract & Lifecycle
-**Status: PLANNED.**
+**Status: CLOSED / IMPLEMENTED / CI-VERIFIED.**
 
-Implement:
+Implemented:
 - canonical `TelegramWorkspace` contract and SG-issued `workspace_id`;
 - workspace types: group, supergroup, channel;
 - lifecycle: DISCOVERED, CONNECTED, CONFIGURING, ACTIVE, DEGRADED, DISCONNECTED, REVOKED;
 - strict workspace scope fields in request/action context;
-- group→supergroup migration semantics;
+- canonical `ScopeContext.workspaceScope` integration;
+- group→supergroup migration semantics that preserve the SG workspace root;
 - no ownership inference from name, username, first message or invitation order.
 
-**Gate:** deterministic contract tests; invalid/cross-workspace identities fail closed.
+**Gate:** deterministic contract and canonical scope-integration tests pass; invalid/non-canonical/cross-workspace identities fail closed.
+
+Evidence: `../../evidence/TWM1_1_WORKSPACE_CONTRACT.md`.
+Verified implementation gate: HEAD `fa72678cbd796dd163aa5208c664338ccb73223e`, SG 2.1 CI #7232 — SUCCESS.
 
 ### TWM1.2 — PostgreSQL Workspace Persistence
 **Status: PLANNED.**

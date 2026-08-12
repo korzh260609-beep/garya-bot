@@ -1,7 +1,7 @@
 # SG 2.1 — TELEGRAM WORKSPACE MANAGER 1.0 WORKFLOW
 
 ## Status
-**IN PROGRESS — TWM1.1–TWM1.5 CLOSED / TWM1.6 NEXT.**
+**IN PROGRESS — TWM1.1–TWM1.6 CLOSED / TWM1.7 NEXT.**
 
 This workflow defines how TWM1 stages are implemented and verified without bypassing existing SG identity, authority, Action Gate, persistence, memory or transport boundaries.
 
@@ -152,24 +152,53 @@ Evidence: `../../evidence/TWM1_5_BOT_PERMISSION_DISCOVERY_CAPABILITY_HEALTH.md`.
 Verified implementation gate: HEAD `d5d4ebdc68f066ac69877e00cad4db84484fb84b`, SG 2.1 CI #7281 — SUCCESS.
 
 ## TWM1.6 — Workspace Configuration Service
-**Status: NEXT / PLANNED.**
+**Status: CLOSED / IMPLEMENTED / CI-VERIFIED.**
 
-Create the single mutation service. All configuration schemas and namespaces must be explicit. Mutation sequence:
+Implemented the single TWM workspace-configuration mutation service. Mutation sequence:
 
 ```text
-request
-→ resolve workspace
-→ authorize actor
-→ validate key/value/schema
-→ determine risk/confirmation policy
-→ Action Gate when state-changing
-→ atomic versioned write
-→ history/audit/observability
+request / structured proposal
+→ exact workspace + namespace
+→ bounded schema/value/secret validation
+→ workspace authority evaluation
+→ risk/confirmation classification
+→ atomic expected-version write
+→ append-only history
+→ metadata-only audit / Internal Event Bus
 ```
 
-Acceptance: direct writes from transport/UI/AI paths are absent or rejected.
+Reads require `workspace:view`. Mutations use `workspace:configure` with fresh authority verification. Low-risk configuration may apply without extra confirmation; medium/high-risk configuration and rollback require explicit confirmation at the service boundary. Stale proposals fail closed through the TWM1.2 optimistic version guard. Rollback writes a new version and never erases prior history.
+
+Production wiring composes `WorkspaceConfigurationService` from the same PostgreSQL workspace store and existing `TelegramWorkspaceAuthorityResolver`; no second config persistence or authority path exists. Boundary tests scan application code and enforce that the service is the sole `workspaceStore.setConfig(...)` owner and that direct SQL config mutation remains confined to `PostgresTelegramWorkspaceStore`.
+
+Acceptance passed:
+- canonical nine TWM1.6 namespaces are explicit and bounded;
+- `content`, `polls`, `media` remain reserved for later stages;
+- schema/value/secret validation fails closed;
+- unauthorized users and proposal actor mismatches cannot write;
+- stale proposals cannot overwrite newer versions;
+- history and rollback preserve the version chain;
+- PostgreSQL restart continuity passes;
+- multiple workspaces remain isolated;
+- production composition uses existing PostgreSQL, Resource Authority, Internal Event Bus and Observability boundaries;
+- transport/UI/AI application paths have no direct workspace-config write owner.
+
+Implementation/tests:
+- `src/telegramWorkspace/workspaceConfigurationService.js`;
+- `src/telegramWorkspace/index.js`;
+- `src/runtime/renderWebApplication.js`;
+- `tests/telegramWorkspaceManager1Configuration.test.js`;
+- `tests/telegramWorkspaceManager1ConfigurationPostgres.test.js`;
+- `tests/telegramWorkspaceManager1ConfigurationBoundary.test.js`.
+
+Evidence: `../../evidence/TWM1_6_WORKSPACE_CONFIGURATION_SERVICE.md`.
+Verified implementation gate: HEAD `7a36c708f916d1ae375d238b22416bd5cd86a5fa`, SG 2.1 CI #7293 — SUCCESS.
+
+TWM1.6 does not claim the canonical protected-action convergence owned by TWM1.7. It provides risk/confirmation classification at the configuration-service boundary; Decision / Action Gate Integration remains next.
 
 ## TWM1.7 — Action Gate Integration
+**Status: NEXT / PLANNED.**
+
 Map TWM mutations and external effects to existing action classifications. Destructive/high-impact actions require explicit confirmation semantics and cannot be downgraded by user settings or model output.
 
 Acceptance: callback, command, natural language and worker-driven attempts all converge on the same protected path.

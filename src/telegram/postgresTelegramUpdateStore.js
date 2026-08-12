@@ -19,8 +19,15 @@ function messageFrom(update) {
 export function createPostgresTelegramUpdateStore(database) {
   if (!database || typeof database.query !== 'function') throw new TypeError('database.query is required');
 
-  const workspaceRegistry = createPostgresTelegramWorkspaceRegistry(database);
-  const workspaceDiscovery = createTelegramWorkspaceDiscoveryIntegration({ registry: workspaceRegistry });
+  // TWM1.3 requires the transactional persistence contract provided by the real
+  // PostgreSQL runtime database. Legacy/query-only test doubles remain supported
+  // for existing Telegram transport tests, but they cannot claim workspace discovery.
+  const workspaceRegistry = typeof database.transaction === 'function'
+    ? createPostgresTelegramWorkspaceRegistry(database)
+    : null;
+  const workspaceDiscovery = workspaceRegistry
+    ? createTelegramWorkspaceDiscoveryIntegration({ registry: workspaceRegistry })
+    : null;
 
   async function claim(update) {
     const updateId = requiredUpdateId(update?.update_id);
@@ -28,7 +35,7 @@ export function createPostgresTelegramUpdateStore(database) {
     // TWM1.3 discovery runs before the invocation filter and before the durable update claim.
     // Registry writes are idempotent, so duplicate/replayed Telegram updates repair state
     // without creating duplicate canonical workspace roots.
-    await workspaceDiscovery.ingest(update);
+    if (workspaceDiscovery) await workspaceDiscovery.ingest(update);
 
     const message = messageFrom(update);
     const membershipChat = update?.my_chat_member?.chat ?? null;

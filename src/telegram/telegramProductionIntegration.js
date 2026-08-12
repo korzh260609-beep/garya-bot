@@ -4,6 +4,8 @@ import { evaluateTelegramInvocation } from './telegramInvocation.js';
 import { redactSensitiveText } from '../secrets/redaction.js';
 import { assessFinalResponse, fingerprintFinalResponse } from '../response/finalResponseGuard.js';
 
+const TWM_NATIVE_COMMANDS = new Set(['/workspace', '/workspaces', '/sg_workspace', '/sg_workspaces']);
+
 function requiredString(value, name) {
   if (typeof value !== 'string' || value.trim() === '') throw new TypeError(`${name} is required`);
   return value.trim();
@@ -17,6 +19,15 @@ function secureEqual(actual, expected) {
 
 function messageFromUpdate(update) {
   return update?.message ?? update?.edited_message ?? update?.channel_post ?? null;
+}
+
+function isNativeWorkspaceUiUpdate(update) {
+  const callbackData = update?.callback_query?.data;
+  if (typeof callbackData === 'string' && callbackData.startsWith('twm|')) return true;
+  const message = update?.message;
+  if (message?.chat?.type !== 'private' || typeof message?.text !== 'string') return false;
+  const command = message.text.trim().split(/\s+/, 1)[0]?.split('@', 1)[0]?.toLowerCase();
+  return TWM_NATIVE_COMMANDS.has(command);
 }
 
 function visibleFailureText(update) {
@@ -52,6 +63,7 @@ export function createTelegramProductionIntegration({
   updateStore,
   identityResolver,
   runtime,
+  nativeUi = null,
   observability = null,
   botUserId = null,
   botUsername = null,
@@ -68,6 +80,7 @@ export function createTelegramProductionIntegration({
   if (!updateStore || typeof updateStore.claim !== 'function' || typeof updateStore.complete !== 'function' || typeof updateStore.fail !== 'function') throw new TypeError('Telegram update store is required');
   if (!identityResolver || typeof identityResolver !== 'function') throw new TypeError('identityResolver is required');
   if (!runtime || typeof runtime.handle !== 'function') throw new TypeError('runtime.handle is required');
+  if (nativeUi !== null && typeof nativeUi?.handleUpdate !== 'function') throw new TypeError('nativeUi.handleUpdate is required');
 
   const pending = new Set();
 
@@ -184,6 +197,20 @@ export function createTelegramProductionIntegration({
     }
   }
 
+  async function processNativeUiUpdate(body, claim) {
+    try {
+      const result = await nativeUi.handleUpdate(body);
+      if (!result?.handled) throw Object.assign(new Error('native Telegram UI declined a classified update'), { code: 'twm-native-ui-declined' });
+      await updateStore.complete(claim.updateId, 'completed');
+      recordDiagnosticSensor({ eventClass: 'telegram_native_ui_completed', channel: 'telemetry', stage: 'telegram-workspace-native-ui', outcome: 'success', data: { updateId: claim.updateId } });
+      return Object.freeze({ ok: true, result });
+    } catch (error) {
+      try { await updateStore.fail(claim.updateId, error.code ?? 'twm-native-ui-failed'); } catch {}
+      try { observability?.recordFailure?.({ stage: 'telegram-workspace-native-ui', reason: redactSensitiveText(error.message), code: error.code ?? 'twm-native-ui-failed' }); } catch {}
+      return Object.freeze({ ok: false, error });
+    }
+  }
+
   async function processClaimedUpdate(body, claim, invocation) {
     try {
       const result = await adapter.receive(body);
@@ -226,6 +253,16 @@ export function createTelegramProductionIntegration({
       return Object.freeze({ statusCode: 503, body: { ok: false, code: 'telegram-dedupe-failed' } });
     }
     if (!claim.claimed) return Object.freeze({ statusCode: 200, body: { ok: true, duplicate: true } });
+
+    if (nativeUi && isNativeWorkspaceUiUpdate(body)) {
+      if (acknowledgeBeforeProcessing) {
+        trackBackground(processNativeUiUpdate(body, claim));
+        return Object.freeze({ statusCode: 200, body: { ok: true, accepted: true, nativeUi: true } });
+      }
+      const processed = await processNativeUiUpdate(body, claim);
+      if (processed.ok) return Object.freeze({ statusCode: 200, body: { ok: true, nativeUi: true } });
+      return Object.freeze({ statusCode: 503, body: { ok: false, code: processed.error.code ?? 'twm-native-ui-failed' } });
+    }
 
     const invocation = evaluateTelegramInvocation(body, { botUserId, botUsername });
     if (!invocation.accepted) {

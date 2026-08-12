@@ -1,7 +1,7 @@
 # SG 2.1 — TELEGRAM WORKSPACE MANAGER 1.0 PROGRAM
 
 ## Status
-**IN PROGRESS — TWM1.1–TWM1.4 CLOSED / TWM1.5 NEXT.**
+**IN PROGRESS — TWM1.1–TWM1.5 CLOSED / TWM1.6 NEXT.**
 
 TWM1 is the cross-cutting Telegram workspace management program that lets any authorized SG user configure SG for their own Telegram groups, supergroups and channels through native Telegram UI and natural language.
 
@@ -116,16 +116,37 @@ Evidence: `../../evidence/TWM1_4_WORKSPACE_AUTHORITY_VERIFICATION.md`.
 Verified implementation gate: HEAD `acd4770cae660a811bb85d64d4ecce961b318c73`, SG 2.1 CI #7274 — SUCCESS.
 
 ### TWM1.5 — Bot Permission Discovery & Capability Health
-**Status: PLANNED / NEXT.**
+**Status: CLOSED / IMPLEMENTED / CI-VERIFIED.**
 
-Implement detection/caching/refresh of actual SG bot permissions in each workspace.
+Implemented `TelegramWorkspaceBotCapabilityService` over the existing Telegram Bot API client and TWM PostgreSQL store:
+- bot identity comes from configured bot user id or one cached `getMe` lookup;
+- live `getChatMember` reads actual bot membership and Telegram permission fields for the exact workspace;
+- group/supergroup/channel facts are normalized into bounded SG capabilities for message send/edit/delete/pin, member restrict/invite, chat/topic management, channel posting, polls and media;
+- snapshots persist in existing `telegram_workspace_bot_permissions` with `fetched_at` / `expires_at`;
+- bounded cache is accepted only within TTL;
+- protected checks default to live re-verification;
+- missing permission returns explicit `degraded` health with `missingCapabilities` and `missingPermissions`;
+- bot removal returns `disconnected`;
+- live verification failure returns `verification-failed` and cannot reuse stale healthy evidence for protected execution;
+- `requireCapabilities()` fails closed with structured actionable diagnostics;
+- Render production bootstrap creates this service from the same PostgreSQL workspace registry/store used by TWM discovery;
+- no second transport, credential path, persistence stack or permission database is introduced.
 
-Runtime/configuration must know whether SG can perform required Telegram actions such as post/edit/delete/restrict/pin/invite where applicable.
+Implementation paths:
+- `src/telegramWorkspace/telegramWorkspaceBotCapabilityService.js`;
+- `src/telegramWorkspace/index.js`;
+- `src/telegram/telegramBotApiClient.js`;
+- `src/runtime/renderWebApplication.js`;
+- `tests/telegramWorkspaceManager1BotCapability.test.js`;
+- `tests/telegramWorkspaceManager1BotCapabilityPostgres.test.js`.
 
-**Gate:** missing bot permission produces explicit degraded/denied result, never false success.
+**Gate: PASS.** Missing bot permission cannot report capability success; group/channel capability mapping, disconnect, TTL refresh, API failure fail-closed semantics, automatic bot identity resolution, multi-workspace isolation and PostgreSQL restart/downgrade behavior pass in the full SG 2.1 CI.
+
+Evidence: `../../evidence/TWM1_5_BOT_PERMISSION_DISCOVERY_CAPABILITY_HEALTH.md`.
+Verified implementation gate: HEAD `d5d4ebdc68f066ac69877e00cad4db84484fb84b`, SG 2.1 CI #7281 — SUCCESS.
 
 ### TWM1.6 — Workspace Configuration Service
-**Status: PLANNED.**
+**Status: PLANNED / NEXT.**
 
 Implement the sole mutation surface:
 - get/list config;

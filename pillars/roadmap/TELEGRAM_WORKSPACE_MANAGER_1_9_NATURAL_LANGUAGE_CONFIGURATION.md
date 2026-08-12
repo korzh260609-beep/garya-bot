@@ -1,7 +1,7 @@
 # TWM1.9 — Natural-Language Configuration
 
 ## Status
-IMPLEMENTED / PENDING FINAL CI CLOSURE.
+IMPLEMENTED / CODE-CI-VERIFIED / PENDING FINAL DOCUMENTATION CI.
 
 ## Delivered
 - ordinary-language Telegram configuration through the existing AI Router;
@@ -19,10 +19,14 @@ IMPLEMENTED / PENDING FINAL CI CLOSURE.
 - replay, expiry and actor mismatch do not execute;
 - history answers use stored config history facts rather than AI-invented actor/version/time;
 - classification failures/pass-through keep the ordinary SG runtime path intact;
-- protected TWM1.9 callbacks fail closed.
+- protected TWM1.9 callbacks fail closed;
+- ordinary Telegram webhook success contract remains backward-compatible.
 
 ## Acceptance
-Automated tests cover proposal-without-write, safe deep merge, exact confirmation, replay rejection, group scope, private ambiguity, deterministic history, production routing, classifier fallback, callback fail-closed behavior, PostgreSQL restart, actor privacy and TTL expiry.
+Automated tests cover proposal-without-write, safe deep merge, exact confirmation, replay rejection, group scope, private ambiguity, deterministic history, production routing, classifier fallback, callback fail-closed behavior, PostgreSQL restart, actor privacy, TTL expiry and legacy Telegram/persistence compatibility.
+
+## Verified code gate
+HEAD `80863ce9dc5ec7db70a1f00389bf5a41caaa7265`, SG 2.1 CI #7343 — SUCCESS.
 
 ## Architecture
 `../architecture/TELEGRAM_WORKSPACE_MANAGER_1_9_NATURAL_LANGUAGE_CONFIGURATION.md`
@@ -34,4 +38,4 @@ Automated tests cover proposal-without-write, safe deep merge, exact confirmatio
 `../../evidence/TWM1_9_NATURAL_LANGUAGE_CONFIGURATION.md`
 
 ## Next
-After a green full SG 2.1 CI on the documentation-synchronized final HEAD, TWM1.9 may be marked CLOSED and TWM1.10 — Workspace Runtime Wiring becomes NEXT.
+After a green full SG 2.1 CI on the final documentation HEAD, TWM1.9 may be marked CLOSED and TWM1.10 — Workspace Runtime Wiring becomes NEXT.

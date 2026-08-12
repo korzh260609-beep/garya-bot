@@ -229,6 +229,86 @@ The Mini App cannot create a second authorization, configuration or business-log
 
 **Gate:** parity with backend authorization and config semantics; disabling Mini App does not disable chat/inline management.
 
+### TWM1.14 — Content, Polls, Quizzes & Media Management
+**Status: PLANNED.**
+
+Extend TWM1 so an authorized workspace manager can ask SG to create, publish, schedule, collect and analyze Telegram content inside their own groups/channels.
+
+Supported content operations:
+- create ordinary text posts;
+- publish user-supplied photos, videos and documents;
+- publish text with attached/related media where Telegram semantics allow;
+- create Telegram polls;
+- create Telegram quiz-mode polls with a configured correct answer where supported;
+- create multi-question SG-managed tests as a sequence/session of Telegram content and result records;
+- save drafts before publication;
+- schedule publication through the existing durable automation/scheduler path;
+- stop/close polls where the actor and bot have required authority;
+- collect Telegram poll updates and SG-managed test responses;
+- build deterministic result snapshots and reports;
+- route bounded result interpretation/summarization through AI Router only after deterministic counting.
+
+Natural-language examples:
+
+```text
+"SG, create a 5-question quiz about history for this group"
+"publish this photo with the text I sent"
+"post this video in my channel tomorrow morning"
+"show the results of yesterday's poll"
+"analyze where participants made the most mistakes"
+```
+
+Planned services/components:
+- `WorkspaceContentService`;
+- `PollQuizManager`;
+- `WorkspaceMediaManager`;
+- `PollResultCollector`;
+- `Quiz/TestSessionManager`;
+- deterministic `WorkspaceStatisticsEngine`;
+- bounded `WorkspaceResultAnalysis` through AI Router.
+
+Planned persistence includes workspace-scoped entities equivalent to:
+- `telegram_workspace_content`;
+- `telegram_workspace_media`;
+- `telegram_workspace_polls`;
+- `telegram_workspace_quizzes` / test sessions;
+- `telegram_workspace_poll_results`;
+- `telegram_workspace_test_results`;
+- `telegram_workspace_content_schedule` or an explicit link to the existing durable task scheduler.
+
+Media rules:
+- media received from an authorized user remains provenance-bound to that user/workspace request;
+- Telegram reusable file identifiers may be stored where appropriate instead of duplicating bytes;
+- media must never cross workspace/user boundaries merely because SG has seen it elsewhere;
+- publication requires current Resource Authority plus required SG bot permissions;
+- TWM1 does not imply SG can generate new image/video content unless a separate approved media-generation capability exists.
+
+Statistics rule:
+
+```text
+raw Telegram/SG response events
+→ deterministic normalization/deduplication
+→ deterministic counts/scores/percentages
+→ immutable result snapshot/version
+→ optional AI Router analysis/explanation
+```
+
+AI may explain patterns, summarize free-text answers or suggest follow-up questions, but AI must not be the source of numeric counts, vote totals, scores, percentages or participant cardinality when those can be computed from structured evidence.
+
+Privacy and visibility:
+- anonymous Telegram polls remain anonymous to SG except for aggregate data Telegram actually exposes;
+- SG must not claim participant-level identity for anonymous votes;
+- non-anonymous response handling remains workspace-scoped and subject to existing privacy/retention policy;
+- reports shown to users must respect Telegram visibility plus SG Resource Authority.
+
+Action/risk rules:
+- draft creation may be prepare-only;
+- actual publication, poll creation/closure, scheduled delivery and deletion/editing are external state-changing actions and must pass existing Action Gate policy;
+- scheduling revalidates authority/capability at execution time where required rather than trusting only creation-time authority;
+- missing bot posting/media/poll permissions fail closed with an actionable explanation.
+
+**Gate:** production acceptance proves an authorized user can create and publish a poll/quiz, publish supplied photo/video content, schedule content, receive result updates, obtain deterministic statistics after restart/replay without double counting, receive bounded AI analysis of the deterministic result snapshot, and that unauthorized/cross-workspace users cannot publish, read protected results or reuse media outside allowed scope.
+
 ## UX principles
 - natural language is primary;
 - Telegram-native inline UI is the first visual control plane;
@@ -237,18 +317,22 @@ The Mini App cannot create a second authorization, configuration or business-log
 - SG explains missing permissions in user language;
 - dangerous changes show impact before execution;
 - one user may manage many workspaces;
-- one workspace may have multiple authorized managers with bounded roles.
+- one workspace may have multiple authorized managers with bounded roles;
+- content creation should use draft/preview flows when publication impact is material;
+- statistics should distinguish exact deterministic metrics from AI interpretation.
 
 ## Security boundaries
 TWM1 must never:
 - treat Telegram username/name as identity or authority;
 - treat any Telegram administrator as SG owner/Monarch;
-- let AI write config directly;
+- let AI write config or publication/result state directly;
 - let a config key weaken mandatory SG security/Action Gate/owner security;
-- leak settings, memory, members or audit between workspaces;
-- store bot tokens/secrets in ordinary workspace config;
+- leak settings, memory, members, media, drafts, responses, results or audit between workspaces;
+- store bot tokens/secrets in ordinary workspace config/content records;
 - claim success when Telegram denies the required action;
-- persist stale authority indefinitely without re-verification policy.
+- persist stale authority indefinitely without re-verification policy;
+- invent poll/test statistics from model output;
+- deanonymize anonymous Telegram polls.
 
 ## Dependencies
 Uses existing:
@@ -260,9 +344,10 @@ Uses existing:
 - PostgreSQL persistence;
 - Memory 2.0;
 - AI Router;
+- Durable Automation / Scheduler for scheduled content;
 - Delivery Router;
 - Observability / Internal Event Bus;
 - Security & Operations controls.
 
 ## Definition of DONE
-TWM1 is complete when TWM1.1–TWM1.12 are implemented, tested, CI-verified and live-accepted, and any authorized ordinary SG user can safely configure their own Telegram groups/channels without programming while unauthorized users cannot. TWM1.13 is an optional richer UI extension after the core Telegram-native system is complete.
+Core TWM workspace management is complete when TWM1.1–TWM1.12 are implemented, tested, CI-verified and live-accepted, and any authorized ordinary SG user can safely configure their own Telegram groups/channels without programming while unauthorized users cannot. TWM1.13 remains an optional richer UI extension. TWM1.14 is a separately closable functional extension and is complete only after real Telegram content/poll/quiz/media/result E2E proves deterministic statistics, restart/replay safety, workspace isolation, authorization and bounded AI analysis.

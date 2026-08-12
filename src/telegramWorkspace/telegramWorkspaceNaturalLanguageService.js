@@ -14,15 +14,25 @@ function freeze(value) {
   for (const child of Object.values(value)) freeze(child);
   return Object.freeze(value);
 }
+function plainObject(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value) && Object.getPrototypeOf(value) === Object.prototype;
+}
+function deepMerge(base, patch) {
+  const current = plainObject(base) ? structuredClone(base) : {};
+  for (const [key, value] of Object.entries(patch)) {
+    current[key] = plainObject(value) && plainObject(current[key]) ? deepMerge(current[key], value) : structuredClone(value);
+  }
+  return current;
+}
 function messageFrom(update) { return update?.message ?? update?.edited_message ?? null; }
 function callbackData(update) { return update?.callback_query?.data ?? null; }
 function button(text, action, token) { return { text, callback_data: `${CALLBACK_PREFIX}${action}|${token}` }; }
 function keyboard(rows) { return { inline_keyboard: rows }; }
-function parseConfigJson(value) {
-  if (typeof value !== 'string' || value.length > 16_384) throw Object.assign(new Error('invalid NL config JSON'), { code: 'twm19-output-invalid' });
+function parseConfigPatchJson(value) {
+  if (typeof value !== 'string' || value.length > 16_384) throw Object.assign(new Error('invalid NL config patch JSON'), { code: 'twm19-output-invalid' });
   let parsed;
-  try { parsed = JSON.parse(value); } catch { throw Object.assign(new Error('invalid NL config JSON'), { code: 'twm19-output-invalid' }); }
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw Object.assign(new Error('NL config JSON must be an object'), { code: 'twm19-output-invalid' });
+  try { parsed = JSON.parse(value); } catch { throw Object.assign(new Error('invalid NL config patch JSON'), { code: 'twm19-output-invalid' }); }
+  if (!plainObject(parsed)) throw Object.assign(new Error('NL config patch JSON must be an object'), { code: 'twm19-output-invalid' });
   return parsed;
 }
 function actorFacts(update) {
@@ -62,11 +72,11 @@ function outputSchema(workspaceIds) {
         ? { anyOf: [{ type: 'string', enum: workspaceIds }, { type: 'null' }] }
         : { type: 'null' },
       namespace: { anyOf: [{ type: 'string', enum: CONFIG_NAMESPACES }, { type: 'null' }] },
-      nextConfigJson: { anyOf: [{ type: 'string', maxLength: 16384 }, { type: 'null' }] },
+      configPatchJson: { anyOf: [{ type: 'string', maxLength: 16384 }, { type: 'null' }] },
       historyPath: { anyOf: [{ type: 'string', maxLength: 128 }, { type: 'null' }] },
       summary: { type: 'string', maxLength: 300 }
     },
-    required: ['kind', 'workspaceId', 'namespace', 'nextConfigJson', 'historyPath', 'summary']
+    required: ['kind', 'workspaceId', 'namespace', 'configPatchJson', 'historyPath', 'summary']
   };
 }
 function pathValue(object, path) {
@@ -92,7 +102,7 @@ export function createTelegramWorkspaceNaturalLanguageService({
   if (typeof identityResolver !== 'function') throw new TypeError('identityResolver is required');
   if (typeof workspaceRegistry?.listWorkspaces !== 'function' || typeof workspaceRegistry?.resolveTelegramChatId !== 'function') throw new TypeError('workspaceRegistry is incomplete');
   if (typeof authorityResolver?.verify !== 'function') throw new TypeError('authorityResolver.verify is required');
-  for (const method of ['proposeChange', 'applyProposal', 'history']) if (typeof configurationService?.[method] !== 'function') throw new TypeError(`configurationService.${method} is required`);
+  for (const method of ['getConfig', 'proposeChange', 'applyProposal', 'history']) if (typeof configurationService?.[method] !== 'function') throw new TypeError(`configurationService.${method} is required`);
   for (const method of ['create', 'claim', 'complete', 'fail', 'cancel']) if (typeof pendingStore?.[method] !== 'function') throw new TypeError(`pendingStore.${method} is required`);
   const project = required(projectScope, 'projectScope');
 
@@ -134,7 +144,7 @@ export function createTelegramWorkspaceNaturalLanguageService({
       reason: 'twm1.9-natural-language-configuration',
       specialty: 'semantic-interpretation',
       messages: [
-        { role: 'system', content: 'Classify a Telegram message for SG Telegram Workspace Manager. Return only the requested JSON schema. Configuration requests may target only listed workspaces and managed namespaces. Never invent permissions, workspace ids, exact history, or config facts. If the message is ordinary conversation, kind=not-twm. If forcedWorkspaceId is set, use only that workspace. For configure, nextConfigJson must be a JSON object string containing only the intended resulting namespace object. For history questions use kind=history-query, namespace and optional dot path; nextConfigJson=null.' },
+        { role: 'system', content: 'Classify a Telegram message for SG Telegram Workspace Manager. Return only the requested JSON schema. Configuration requests may target only listed workspaces and managed namespaces. Never invent permissions, workspace ids, exact history, or config facts. If the message is ordinary conversation, kind=not-twm. If forcedWorkspaceId is set, use only that workspace. For configure, configPatchJson must be a JSON object string containing only fields explicitly requested by the user; omitted fields must not be changed. For history questions use kind=history-query, namespace and optional dot path; configPatchJson=null.' },
         { role: 'user', content: JSON.stringify({ text, forcedWorkspaceId: forcedWorkspace?.workspaceId ?? null, authorizedWorkspaces: candidates.map(compactWorkspace), managedNamespaces: CONFIG_NAMESPACES }) }
       ],
       responseFormat: { name: 'twm19_intent', strict: true, jsonSchema: outputSchema(candidates.map((item) => item.workspaceId)) },
@@ -187,8 +197,10 @@ export function createTelegramWorkspaceNaturalLanguageService({
       return freeze({ handled: true, outcome: 'history-query' });
     }
 
-    if (interpreted.kind !== 'configure' || !interpreted.namespace || interpreted.nextConfigJson == null) throw Object.assign(new Error('invalid NL configuration output'), { code: 'twm19-output-invalid' });
-    const nextConfig = parseConfigJson(interpreted.nextConfigJson);
+    if (interpreted.kind !== 'configure' || !interpreted.namespace || interpreted.configPatchJson == null) throw Object.assign(new Error('invalid NL configuration output'), { code: 'twm19-output-invalid' });
+    const patch = parseConfigPatchJson(interpreted.configPatchJson);
+    const current = await configurationService.getConfig({ workspaceId: workspace.workspaceId, namespace: interpreted.namespace, actorGlobalUserId: actor.actorGlobalUserId, telegramUserId: actor.telegramUserId });
+    const nextConfig = deepMerge(current?.config ?? {}, patch);
     const proposal = await configurationService.proposeChange({
       workspaceId: workspace.workspaceId,
       namespace: interpreted.namespace,

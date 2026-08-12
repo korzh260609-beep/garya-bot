@@ -34,3 +34,8 @@ export {
   createTelegramWorkspaceAuthorityResolver,
   createPostgresTelegramWorkspaceAuthorityResolver
 } from './telegramWorkspaceAuthorityResolver.js';
+export {
+  TELEGRAM_WORKSPACE_BOT_CAPABILITIES,
+  TelegramWorkspaceBotCapabilityError,
+  createTelegramWorkspaceBotCapabilityService
+} from './telegramWorkspaceBotCapabilityService.js';

@@ -100,6 +100,48 @@ integration('PM3.2: project facts persist atomically inside Memory 2.0 and survi
   await restarted.close();
 });
 
+integration('PM3.2: source-event replay with a new memoryId is idempotent and preserves proposed trust state', async () => {
+  const suffix = randomUUID();
+  const persistence = createPostgresPersistence({ connectionString, ssl: false, applicationName: 'pm3.2-source-event-replay-test' });
+  await persistence.start();
+  const store = createPostgresProjectMemoryStore(persistence.database);
+  const sourceEventId = `github:event:replay:${suffix}`;
+  const firstMemoryId = `pm3:${suffix}:first`;
+  const replayMemoryId = `pm3:${suffix}:replay`;
+  const base = factInput(`replay-${suffix}`, {
+    memoryId: firstMemoryId,
+    sourceEventId,
+    trust: 'verified',
+    confirmed: false,
+    confirmationState: 'proposed'
+  });
+
+  const first = await store.put(base);
+  const replay = await store.put({ ...base, memoryId: replayMemoryId });
+
+  assert.equal(first.memoryId, firstMemoryId);
+  assert.equal(replay.memoryId, firstMemoryId);
+  assert.equal(replay.sourceEventId, sourceEventId);
+  assert.equal(replay.trust, 'verified');
+  assert.equal(replay.confirmed, false);
+  assert.equal(replay.confirmationState, 'proposed');
+
+  const entries = await persistence.database.query(`SELECT memory_id,source_event_id
+    FROM project_memory_entries WHERE project_key=$1 AND source_event_id=$2`, ['sg2.1', sourceEventId]);
+  assert.equal(entries.rowCount, 1);
+  assert.equal(entries.rows[0].memory_id, firstMemoryId);
+
+  const phantom = await persistence.database.query('SELECT memory_id FROM memory_records WHERE memory_id=$1', [replayMemoryId]);
+  assert.equal(phantom.rowCount, 0);
+
+  const history = await persistence.database.query(`SELECT count(*)::int AS count
+    FROM project_memory_history WHERE project_key=$1 AND source_event_id=$2`, ['sg2.1', sourceEventId]);
+  assert.equal(history.rows[0].count, 1);
+
+  await persistence.database.query('DELETE FROM memory_records WHERE memory_id=$1', [firstMemoryId]);
+  await persistence.close();
+});
+
 integration('PM3.2: conflict records are durable and project-scoped', async () => {
   const suffix = randomUUID();
   const persistence = createPostgresPersistence({ connectionString, ssl: false, applicationName: 'pm3.2-conflict-test' });

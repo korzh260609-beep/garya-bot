@@ -325,7 +325,9 @@ export function createTelegramProductionIntegration({
     }
 
     const processed = await work;
-    if (processed.ok) return Object.freeze({ statusCode: 200, body: { ok: true, naturalLanguage: processed.naturalLanguage === true } });
+    if (processed.ok) {
+      return Object.freeze({ statusCode: 200, body: processed.naturalLanguage === true ? { ok: true, naturalLanguage: true } : { ok: true } });
+    }
     return Object.freeze({ statusCode: 503, body: { ok: false, code: processed.error.code ?? 'telegram-update-failed' } });
   }
 

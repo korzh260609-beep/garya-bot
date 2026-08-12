@@ -43,6 +43,10 @@ function fakeIdentityResolver({ platformFacts, scopeFacts }) {
   };
 }
 
+function bodyMessage(label, result) {
+  return `${label}: status=${result?.statusCode} body=${JSON.stringify(result?.body)}`;
+}
+
 integration('TWM1.3: production Telegram ingestion discovers ignored groups/channels, tracks membership, migrates and survives restart', async () => {
   const ids = chatIds();
   const updateBase = Number(`8${String(Date.now()).slice(-8)}`);
@@ -72,8 +76,8 @@ integration('TWM1.3: production Telegram ingestion discovers ignored groups/chan
     }
   };
   const first = await tg.handleWebhook({ headers, body: ignoredGroup });
-  assert.equal(first.statusCode, 200);
-  assert.equal(first.body.ignored, true);
+  assert.equal(first.statusCode, 200, bodyMessage('first', first));
+  assert.equal(first.body.ignored, true, bodyMessage('first', first));
   assert.equal(runtimeInputs.length, 0);
 
   const groupWorkspace = await updateStore.workspaceRegistry.resolveTelegramChatId(ids.group);
@@ -83,7 +87,7 @@ integration('TWM1.3: production Telegram ingestion discovers ignored groups/chan
   assert.equal(groupWorkspace.username, 'twm_old');
 
   const duplicate = await tg.handleWebhook({ headers, body: ignoredGroup });
-  assert.equal(duplicate.body.duplicate, true);
+  assert.equal(duplicate.body.duplicate, true, bodyMessage('duplicate', duplicate));
   assert.equal((await updateStore.workspaceRegistry.resolveTelegramChatId(ids.group)).workspaceId, groupWorkspace.workspaceId);
 
   const metadataRefresh = {
@@ -111,7 +115,7 @@ integration('TWM1.3: production Telegram ingestion discovers ignored groups/chan
     }
   };
   const channelResult = await tg.handleWebhook({ headers, body: channelUpdate });
-  assert.equal(channelResult.body.ignored, true);
+  assert.equal(channelResult.body.ignored, true, bodyMessage('channel', channelResult));
   const channelWorkspace = await updateStore.workspaceRegistry.resolveTelegramChatId(ids.channel);
   assert.equal(channelWorkspace.workspaceType, 'channel');
   assert.notEqual(channelWorkspace.workspaceId, groupWorkspace.workspaceId);
@@ -127,7 +131,7 @@ integration('TWM1.3: production Telegram ingestion discovers ignored groups/chan
     }
   };
   const removedResult = await tg.handleWebhook({ headers, body: removed });
-  assert.equal(removedResult.body.ignored, true);
+  assert.equal(removedResult.body.ignored, true, bodyMessage('removed', removedResult));
   assert.equal((await updateStore.workspaceRegistry.resolveTelegramChatId(ids.group)).lifecycleState, 'DISCONNECTED');
 
   const reconnected = {
@@ -140,7 +144,8 @@ integration('TWM1.3: production Telegram ingestion discovers ignored groups/chan
       new_chat_member: { user: { id: 999, is_bot: true }, status: 'administrator' }
     }
   };
-  await tg.handleWebhook({ headers, body: reconnected });
+  const reconnectResult = await tg.handleWebhook({ headers, body: reconnected });
+  assert.equal(reconnectResult.body.ignored, true, bodyMessage('reconnected', reconnectResult));
   const connected = await updateStore.workspaceRegistry.resolveTelegramChatId(ids.group);
   assert.equal(connected.lifecycleState, 'CONNECTED');
   assert.equal(connected.botMembershipState, 'ADMINISTRATOR');
@@ -156,7 +161,7 @@ integration('TWM1.3: production Telegram ingestion discovers ignored groups/chan
     }
   };
   const migrationResult = await tg.handleWebhook({ headers, body: migration });
-  assert.equal(migrationResult.body.ignored, true);
+  assert.equal(migrationResult.body.ignored, true, bodyMessage('migration', migrationResult));
   assert.equal(await updateStore.workspaceRegistry.store.getWorkspaceByTelegramChatId(ids.group), null);
   const migrated = await updateStore.workspaceRegistry.resolveTelegramChatId(ids.supergroup);
   assert.equal(migrated.workspaceId, groupWorkspace.workspaceId);
@@ -166,7 +171,8 @@ integration('TWM1.3: production Telegram ingestion discovers ignored groups/chan
   assert.equal((await updateStore.workspaceRegistry.resolveTelegramChatId(ids.group)).workspaceId, groupWorkspace.workspaceId);
 
   const replayMigration = { ...migration, update_id: updateBase + 6 };
-  await tg.handleWebhook({ headers, body: replayMigration });
+  const replayMigrationResult = await tg.handleWebhook({ headers, body: replayMigration });
+  assert.equal(replayMigrationResult.body.ignored, true, bodyMessage('replayMigration', replayMigrationResult));
   assert.equal((await updateStore.workspaceRegistry.resolveTelegramChatId(ids.supergroup)).workspaceId, groupWorkspace.workspaceId);
 
   const staleOldGroupReplay = {
@@ -174,7 +180,8 @@ integration('TWM1.3: production Telegram ingestion discovers ignored groups/chan
     update_id: updateBase + 7,
     message: { ...ignoredGroup.message, message_id: 7, date: 1786526999, text: 'stale replay after migration' }
   };
-  await tg.handleWebhook({ headers, body: staleOldGroupReplay });
+  const staleReplayResult = await tg.handleWebhook({ headers, body: staleOldGroupReplay });
+  assert.equal(staleReplayResult.body.ignored, true, bodyMessage('staleOldGroupReplay', staleReplayResult));
   assert.equal(await updateStore.workspaceRegistry.store.getWorkspaceByTelegramChatId(ids.group), null);
   assert.equal((await updateStore.workspaceRegistry.resolveTelegramChatId(ids.group)).workspaceId, groupWorkspace.workspaceId);
   assert.equal((await updateStore.workspaceRegistry.resolveTelegramChatId(ids.supergroup)).telegramChatId, ids.supergroup);

@@ -16,7 +16,14 @@ function lifecycleForObservation(existing) {
   return existing.lifecycleState;
 }
 
-function updateMetadata(existing, event, lifecycleState = null) {
+function monotonicAt(existing, detectedAt, clock) {
+  const candidate = detectedAt ?? clock().toISOString();
+  if (!existing?.updatedAt) return candidate;
+  return new Date(candidate) > new Date(existing.updatedAt) ? candidate : existing.updatedAt;
+}
+
+function updateMetadata(existing, event, lifecycleState, clock) {
+  const at = monotonicAt(existing, event.detectedAt, clock);
   return createTelegramWorkspace({
     ...(existing ?? {}),
     workspaceId: existing?.workspaceId,
@@ -27,8 +34,8 @@ function updateMetadata(existing, event, lifecycleState = null) {
     lifecycleState: lifecycleState ?? existing?.lifecycleState ?? 'DISCOVERED',
     botMembershipState: event.membershipState ?? existing?.botMembershipState ?? 'UNKNOWN',
     migration: existing?.migration ?? null,
-    createdAt: existing?.createdAt,
-    updatedAt: event.detectedAt ?? new Date().toISOString()
+    createdAt: existing?.createdAt ?? at,
+    updatedAt: at
   });
 }
 
@@ -37,7 +44,7 @@ export function createTelegramWorkspaceRegistry({ store, clock = () => new Date(
 
   async function observe(event) {
     const existing = await persistence.getWorkspaceByTelegramChatId(event.telegramChatId);
-    const workspace = updateMetadata(existing, event, lifecycleForObservation(existing));
+    const workspace = updateMetadata(existing, event, lifecycleForObservation(existing), clock);
     return persistence.putWorkspace(workspace);
   }
 
@@ -51,6 +58,7 @@ export function createTelegramWorkspaceRegistry({ store, clock = () => new Date(
     }
     if (target && !source) return target;
     if (!source) {
+      const at = event.detectedAt ?? clock().toISOString();
       return persistence.putWorkspace(createTelegramWorkspace({
         telegramChatId: event.toTelegramChatId,
         workspaceType: 'supergroup',
@@ -58,14 +66,15 @@ export function createTelegramWorkspaceRegistry({ store, clock = () => new Date(
         username: event.username ?? null,
         lifecycleState: 'DISCOVERED',
         botMembershipState: 'UNKNOWN',
-        createdAt: event.detectedAt ?? clock().toISOString(),
-        updatedAt: event.detectedAt ?? clock().toISOString()
+        createdAt: at,
+        updatedAt: at
       }));
     }
     if (source.workspaceType === 'supergroup' && source.telegramChatId === String(event.toTelegramChatId)) return source;
+    const migrationAt = monotonicAt(source, event.detectedAt, clock);
     const migrated = migrateTelegramWorkspaceToSupergroup(source, {
       newTelegramChatId: event.toTelegramChatId,
-      detectedAt: event.detectedAt ?? clock().toISOString()
+      detectedAt: migrationAt
     });
     return persistence.putWorkspace(createTelegramWorkspace({
       ...migrated,
@@ -81,8 +90,8 @@ export function createTelegramWorkspaceRegistry({ store, clock = () => new Date(
     if (event.connectionState === 'connected' && workspace.lifecycleState === 'DISCONNECTED') nextState = 'CONNECTED';
     if (event.connectionState === 'connected' && workspace.lifecycleState === 'DISCOVERED') nextState = 'CONNECTED';
     if (event.connectionState === 'disconnected' && workspace.lifecycleState !== 'REVOKED') nextState = 'DISCONNECTED';
-    let updated = updateMetadata(workspace, event, workspace.lifecycleState);
-    if (nextState !== updated.lifecycleState) updated = transitionTelegramWorkspace(updated, nextState, { at: event.detectedAt ?? clock().toISOString() });
+    let updated = updateMetadata(workspace, event, workspace.lifecycleState, clock);
+    if (nextState !== updated.lifecycleState) updated = transitionTelegramWorkspace(updated, nextState, { at: updated.updatedAt });
     return persistence.putWorkspace(updated);
   }
 

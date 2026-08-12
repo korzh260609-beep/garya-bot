@@ -9,7 +9,8 @@ import {
   createPostgresTelegramWorkspaceAuthorityResolver,
   createTelegramWorkspaceBotCapabilityService,
   createTelegramWorkspaceActionGateIntegration,
-  createTelegramWorkspaceConfigurationService
+  createTelegramWorkspaceConfigurationService,
+  createTelegramWorkspaceNativeUi
 } from '../telegramWorkspace/index.js';
 import { createDeploymentDeliveryRouter } from '../delivery/deploymentDeliveryRouter.js';
 import { createTelegramDeliveryTransport } from '../delivery/telegramDeliveryTransport.js';
@@ -256,6 +257,31 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
       })
     : null;
 
+  const telegramWorkspaceNativeUi = telegramWorkspaceConfiguration && telegramUpdateStore.workspaceRegistry
+    ? createTelegramWorkspaceNativeUi({
+        botClient,
+        identityResolver,
+        workspaceRegistry: telegramUpdateStore.workspaceRegistry,
+        authorityResolver: telegramWorkspaceAuthority,
+        configurationService: telegramWorkspaceConfiguration,
+        botCapabilityService: telegramBotCapabilities,
+        projectScope: harness.config.projectScope,
+        audit: async (event) => {
+          const correlation = `twm1.8:${event.actorGlobalUserId ?? 'unknown'}:${event.action ?? 'ui'}`;
+          return harness.observability.record({
+            eventClass: 'audit_event',
+            channel: 'telemetry',
+            stage: 'telegram-workspace-native-ui',
+            traceContext: { traceId: correlation, requestId: correlation, environment: harness.config.environment, revision: harness.config.revision },
+            actorRef: event.actorGlobalUserId ?? null,
+            outcome: event.outcome,
+            reason: event.reason ?? null,
+            data: { nativeUiEventClass: event.eventClass, action: event.action ?? null }
+          });
+        }
+      })
+    : null;
+
   const integration = createTelegramProductionIntegration({
     credentialManager: harness.credentialManager,
     credentialAccessContext: harness.credentialAccessContext,
@@ -265,6 +291,7 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
     updateStore: telegramUpdateStore,
     identityResolver,
     runtime: harness.runtime,
+    nativeUi: telegramWorkspaceNativeUi,
     observability: harness.observability,
     botUserId: telegramConfig.botUserId,
     botUsername: telegramConfig.botUsername,
@@ -398,6 +425,7 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
     telegramWorkspaceAuthority,
     telegramWorkspaceMutationGate,
     telegramWorkspaceConfiguration,
+    telegramWorkspaceNativeUi,
     discordIntegration,
     discordGateway,
     discordRestClient,

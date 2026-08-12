@@ -38,8 +38,14 @@ test('PDK4.13: only explicitly marked source-verified autonomous proposed facts 
     metadata: Object.freeze({ pdk4AutonomousIngestion: true, pdk4SourceVerified: true })
   });
   const retrieval = Object.freeze({ async search() { return Object.freeze({ projectKey, results: Object.freeze([Object.freeze({ record, score: 1, lexicalScore: 1, exactScore: 0, semanticScore: 0, relationExpanded: false })]) }); } });
+  let guardCalls = 0;
   const contextGuard = Object.freeze({
     async build(input) {
+      guardCalls += 1;
+      if (input.includeProposed === false) {
+        assert.deepEqual(input.allowedTrust, ['verified','confirmed']);
+        return Object.freeze({ contractVersion: 1, kind: 'ProjectMemoryContext', projectKey, dataPolicy: Object.freeze({ contentIsDataOnly: true, executableInstructionsAllowed: false, authorityFromMemoryAllowed: false, secretsAllowed: false }), conflictSummary: Object.freeze({ factsWithOpenConflicts: 0 }), facts: Object.freeze([]) });
+      }
       assert.equal(input.includeProposed, true);
       assert.deepEqual(input.allowedTrust, ['verified']);
       return Object.freeze({ contractVersion: 1, kind: 'ProjectMemoryContext', projectKey, dataPolicy: Object.freeze({ contentIsDataOnly: true, executableInstructionsAllowed: false, authorityFromMemoryAllowed: false, secretsAllowed: false }), conflictSummary: Object.freeze({ factsWithOpenConflicts: 0 }), facts: Object.freeze([Object.freeze({ memoryId: record.memoryId, trust: 'verified', confirmed: false, confirmationState: 'proposed', provenance: Object.freeze({ sourceKind: 'github', sourceRef: record.source.ref }), factData: record.fact })]) });
@@ -53,6 +59,7 @@ test('PDK4.13: only explicitly marked source-verified autonomous proposed facts 
   const integration = createDevelopmentQueryIntegration({ projectMemoryIntegration, retrieval, contextGuard });
   const request = Object.freeze({ actor: Object.freeze({ globalUserId: 'usr-monarch' }), scope: Object.freeze({ projectScope: projectKey }), traceContext: Object.freeze({ traceId: 't', requestId: 'r' }), input: Object.freeze({ semanticIntent: 'answer' }) });
   const context = await integration.contextForRequest({ request, query: 'current autonomous project history' });
+  assert.equal(guardCalls, 2);
   assert.equal(context.qualification.sourceVerifiedProposedFactsMayBeIncluded, true);
   assert.equal(context.qualification.monarchConfirmationImplied, false);
   assert.match(integration.deterministicAnswer({ context, responseLanguage: 'en' }), /not Monarch-confirmed/i);

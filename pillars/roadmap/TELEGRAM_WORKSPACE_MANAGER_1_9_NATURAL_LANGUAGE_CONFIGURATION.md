@@ -1,7 +1,7 @@
 # TWM1.9 — Natural-Language Configuration
 
 ## Status
-IMPLEMENTED / CODE-CI-VERIFIED / PENDING FINAL DOCUMENTATION CI.
+CLOSED / IMPLEMENTED / CI-VERIFIED.
 
 ## Delivered
 - ordinary-language Telegram configuration through the existing AI Router;
@@ -25,8 +25,9 @@ IMPLEMENTED / CODE-CI-VERIFIED / PENDING FINAL DOCUMENTATION CI.
 ## Acceptance
 Automated tests cover proposal-without-write, safe deep merge, exact confirmation, replay rejection, group scope, private ambiguity, deterministic history, production routing, classifier fallback, callback fail-closed behavior, PostgreSQL restart, actor privacy, TTL expiry and legacy Telegram/persistence compatibility.
 
-## Verified code gate
-HEAD `80863ce9dc5ec7db70a1f00389bf5a41caaa7265`, SG 2.1 CI #7343 — SUCCESS.
+## Verified gates
+Code HEAD `80863ce9dc5ec7db70a1f00389bf5a41caaa7265`, SG 2.1 CI #7343 — SUCCESS.
+Documentation-synchronized HEAD `ee4cffb0c9263395dc61426941219a0b650d7dd9`, SG 2.1 CI #7345 — SUCCESS.
 
 ## Architecture
 `../architecture/TELEGRAM_WORKSPACE_MANAGER_1_9_NATURAL_LANGUAGE_CONFIGURATION.md`
@@ -38,4 +39,4 @@ HEAD `80863ce9dc5ec7db70a1f00389bf5a41caaa7265`, SG 2.1 CI #7343 — SUCCESS.
 `../../evidence/TWM1_9_NATURAL_LANGUAGE_CONFIGURATION.md`
 
 ## Next
-After a green full SG 2.1 CI on the final documentation HEAD, TWM1.9 may be marked CLOSED and TWM1.10 — Workspace Runtime Wiring becomes NEXT.
+TWM1.10 — Workspace Runtime Wiring.

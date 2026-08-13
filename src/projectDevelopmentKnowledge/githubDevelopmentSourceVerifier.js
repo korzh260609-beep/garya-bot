@@ -1,4 +1,5 @@
 export const PDK4_GITHUB_VERIFIER_CONTRACT_VERSION = 1;
+const PDK4_GITHUB_VERIFIED_FILE_EVIDENCE_LIMIT = 100;
 
 function requiredString(value, name) {
   if (typeof value !== 'string' || value.trim() === '') throw new TypeError(`${name} is required`);
@@ -28,6 +29,17 @@ function encodePath(path) {
 }
 function decodeBase64(content) {
   return Buffer.from(String(content ?? '').replace(/\n/g, ''), 'base64').toString('utf8');
+}
+function verifiedFiles(files) {
+  if (!Array.isArray(files)) return [];
+  return files.slice(0, PDK4_GITHUB_VERIFIED_FILE_EVIDENCE_LIMIT).map((file) => ({
+    path: file.filename,
+    status: file.status,
+    additions: file.additions,
+    deletions: file.deletions,
+    changes: file.changes,
+    patch: file.patch ?? null
+  }));
 }
 
 export function createGitHubDevelopmentSourceVerifier({
@@ -76,20 +88,19 @@ export function createGitHubDevelopmentSourceVerifier({
     assertAllowed(repository, allowed);
     const sha = normalizeSha(shaInput);
     const record = await request(`/repos/${repository}/commits/${sha}`);
+    const recordFiles = Array.isArray(record.files) ? record.files : [];
     return {
       sha: normalizeSha(record.sha, 'verified commit.sha'),
       committedAt: record.commit?.committer?.date ?? record.commit?.author?.date,
       message: record.commit?.message ?? null,
       parentShas: Array.isArray(record.parents) ? record.parents.map((parent) => parent.sha) : [],
       stats: record.stats ?? null,
-      files: Array.isArray(record.files) ? record.files.map((file) => ({
-        path: file.filename,
-        status: file.status,
-        additions: file.additions,
-        deletions: file.deletions,
-        changes: file.changes,
-        patch: file.patch ?? null
-      })) : []
+      files: verifiedFiles(recordFiles),
+      fileEvidence: Object.freeze({
+        reported: recordFiles.length,
+        retained: Math.min(recordFiles.length, PDK4_GITHUB_VERIFIED_FILE_EVIDENCE_LIMIT),
+        truncated: recordFiles.length > PDK4_GITHUB_VERIFIED_FILE_EVIDENCE_LIMIT
+      })
     };
   }
 

@@ -117,7 +117,7 @@ test('PDK4.11 regression: autonomous proposed facts require a genuinely relevant
   const retrievalResults = Object.freeze({
     projectKey,
     count: 1,
-    results: Object.freeze([Object.freeze({ record: autonomousRecord, exactScore: 0, lexicalScore: 0, semanticScore: 0.1, relationExpanded: true })])
+    results: Object.freeze([Object.freeze({ record: autonomousRecord, exactScore: 0, lexicalScore: 0, semanticScore: 0.1, relationExpanded: true, relationSourceMemoryId: 'seed-1' })])
   });
   const { calls, projectMemoryIntegration, retrieval, contextGuard } = mocks({ projectContext: null, retrievalResults, guardContext: guardedContext({ confirmed: false }) });
   const integration = createDevelopmentQueryIntegration({ projectMemoryIntegration, retrieval, contextGuard });
@@ -126,6 +126,44 @@ test('PDK4.11 regression: autonomous proposed facts require a genuinely relevant
   assert.equal(calls.pm.length, 1);
   assert.equal(calls.retrieval.length, 1);
   assert.equal(calls.guard.length, 0);
+});
+
+test('PDK4.13 regression: personal fact cannot activate PDK4 through relation-expanded GitHub history even when upstream intent is wrong', async () => {
+  const retrievalResults = Object.freeze({
+    projectKey,
+    count: 2,
+    results: Object.freeze([
+      Object.freeze({ record: Object.freeze({ memoryId: 'irrelevant-seed', source: Object.freeze({ kind: 'github' }) }), score: 0.1, exactScore: 0, lexicalScore: 0, semanticScore: 0.1, relationExpanded: false }),
+      Object.freeze({ record: Object.freeze({ memoryId: 'expanded-history', source: Object.freeze({ kind: 'github' }) }), score: 0.05, exactScore: 0, lexicalScore: 0, semanticScore: 0, relationExpanded: true, relationSourceMemoryId: 'irrelevant-seed' })
+    ])
+  });
+  const { calls, projectMemoryIntegration, retrieval, contextGuard } = mocks({ retrievalResults });
+  const integration = createDevelopmentQueryIntegration({ projectMemoryIntegration, retrieval, contextGuard });
+  const context = await integration.contextForRequest({
+    request: requestWithIntent('project_development_historical'),
+    query: 'а вторая машина passat b5 1998 года, бензин 1.8 атмосферник'
+  });
+  assert.equal(context, null);
+  assert.equal(calls.retrieval.length, 1);
+  assert.equal(calls.guard.length, 0);
+});
+
+test('PDK4.13 regression: real project history keeps only relations whose provenance points to the relevant direct anchor', async () => {
+  const retrievalResults = Object.freeze({
+    projectKey,
+    count: 3,
+    results: Object.freeze([
+      Object.freeze({ record: Object.freeze({ memoryId: 'history-anchor', source: Object.freeze({ kind: 'github' }) }), score: 0.9, exactScore: 0, lexicalScore: 1, semanticScore: 0, relationExpanded: false }),
+      Object.freeze({ record: Object.freeze({ memoryId: 'history-related', source: Object.freeze({ kind: 'github' }) }), score: 0.4, exactScore: 0, lexicalScore: 0, semanticScore: 0, relationExpanded: true, relationSourceMemoryId: 'history-anchor' }),
+      Object.freeze({ record: Object.freeze({ memoryId: 'history-stray', source: Object.freeze({ kind: 'github' }) }), score: 0.4, exactScore: 0, lexicalScore: 0, semanticScore: 0, relationExpanded: true, relationSourceMemoryId: 'other-anchor' })
+    ])
+  });
+  const { calls, projectMemoryIntegration, retrieval, contextGuard } = mocks({ retrievalResults });
+  const integration = createDevelopmentQueryIntegration({ projectMemoryIntegration, retrieval, contextGuard });
+  const context = await integration.contextForRequest({ request: requestWithIntent('project_development_historical'), query: 'what changed in the project history?' });
+  assert.equal(context.mode, 'historical');
+  assert.equal(calls.guard.length, 1);
+  assert.deepEqual(calls.guard[0].retrievalResult.results.map((item) => item.record.memoryId), ['history-anchor', 'history-related']);
 });
 
 test('PDK4.11: incident history stays advisory-only and never live diagnosis authority', async () => {

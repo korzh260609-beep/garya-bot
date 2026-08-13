@@ -69,13 +69,16 @@ export function createBoundedResponseContextAssembler({
         ? ['user-memory','user-group-memory','group-memory','thread-memory','project-memory']
         : ['user-memory','user-group-memory','project-memory'];
       const queried = typeof memoryProvider.recall === 'function'
-        ? await memoryProvider.recall({ scope, actor: identity, query: semanticMessage ?? request.input?.text ?? '', layers, maxRecords: Math.max(1, maxUserMemory + maxProjectMemory + maxSharedMemory), maxCharacters: Math.max(2000, Math.floor(maxCharacters * 0.6)) })
+        ? await memoryProvider.recall({ scope, actor: identity, query: semanticMessage ?? request.input?.text ?? '', layers, maxRecords: Math.max(1, maxUserMemory * 2 + maxProjectMemory + maxSharedMemory), maxCharacters: Math.max(2000, Math.floor(maxCharacters * 0.6)) })
         : await memoryProvider.query({ scope, layers: ['user-memory','project-memory'], keys: [], now, actor: identity });
       const confirmed = queried.records.filter((record) => record.confirmed === true);
+      const reported = queried.records.filter((record) => record.confirmed !== true && record.trust === 'reported');
       const allUserMemory = confirmed.filter((record) => record.layer === 'user-memory' || record.layer === 'user-group-memory');
+      const allReportedUserMemory = reported.filter((record) => record.layer === 'user-memory' || record.layer === 'user-group-memory');
       const allProjectMemory = confirmed.filter((record) => record.layer === 'project-memory');
       const allSharedMemory = confirmed.filter((record) => workspaceMemoryEnabled && (record.layer === 'group-memory' || record.layer === 'thread-memory'));
       const userMemory = allUserMemory.slice(0, maxUserMemory).map(memoryView);
+      const reportedUserMemory = allReportedUserMemory.slice(0, maxUserMemory).map(memoryView);
       const projectMemory = allProjectMemory.slice(0, maxProjectMemory).map(memoryView);
       const sharedMemory = allSharedMemory.slice(0, maxSharedMemory).map(memoryView);
 
@@ -104,6 +107,7 @@ export function createBoundedResponseContextAssembler({
         },
         scope: { userScope: scope.userScope, projectScope: scope.projectScope, groupScope: scope.groupScope ?? null, threadScope: scope.threadScope ?? null },
         confirmedUserMemory: userMemory,
+        reportedUserMemory,
         confirmedProjectMemory: projectMemory,
         confirmedSharedMemory: sharedMemory,
         memoryRecall: { workspaceMemoryEnabled, diagnostics: clone(queried.diagnostics ?? {}), conflicts: clone(queried.conflicts ?? []) },
@@ -113,14 +117,15 @@ export function createBoundedResponseContextAssembler({
         languageContext: clone(request.input?.languageContext ?? null),
         temporalContext: clone(temporalContext),
         runtimeEvidence: clone(runtimeEvidence),
-        provenance: { memoryReturned: confirmed.length, memoryCandidateCount: queried.diagnostics?.candidateCount ?? confirmed.length, memoryConflictCount: queried.diagnostics?.conflictCount ?? 0, selfKnowledgeConflictCount: selfKnowledge.diagnostics.conflictCount ?? 0 },
-        truncationEvidence: { userMemory: allUserMemory.length > userMemory.length, projectMemory: allProjectMemory.length > projectMemory.length, sharedMemory: allSharedMemory.length > sharedMemory.length, recall: Boolean(queried.diagnostics?.truncated), conversation: recentTurns.length > conversation.length, selfKnowledge: selfKnowledge.diagnostics.truncated, totalBudget: false }
+        provenance: { memoryReturned: confirmed.length + reportedUserMemory.length, reportedUserMemoryReturned: reportedUserMemory.length, memoryCandidateCount: queried.diagnostics?.candidateCount ?? queried.records.length, memoryConflictCount: queried.diagnostics?.conflictCount ?? 0, selfKnowledgeConflictCount: selfKnowledge.diagnostics.conflictCount ?? 0 },
+        truncationEvidence: { userMemory: allUserMemory.length > userMemory.length, reportedUserMemory: allReportedUserMemory.length > reportedUserMemory.length, projectMemory: allProjectMemory.length > projectMemory.length, sharedMemory: allSharedMemory.length > sharedMemory.length, recall: Boolean(queried.diagnostics?.truncated), conversation: recentTurns.length > conversation.length, selfKnowledge: selfKnowledge.diagnostics.truncated, totalBudget: false }
       };
       const safe = redactSensitiveData(context);
       const trimOrder = [
         () => safe.conversationContext.recentTurns.pop(),
         () => safe.confirmedSharedMemory.pop(),
         () => safe.confirmedProjectMemory.pop(),
+        () => safe.reportedUserMemory.pop(),
         () => safe.confirmedUserMemory.pop(),
         () => safe.selfKnowledge.facts.pop()
       ];
@@ -145,7 +150,7 @@ export function createBoundedResponseContextAssembler({
       observability?.record?.({
         eventClass: 'audit_event', channel: 'telemetry', stage: 'response-context', outcome: 'assembled', traceContext: telemetryTrace,
         actorRef: identity.globalUserId,
-        data: { responseContextEventClass: 'response_context_assembled', userMemoryCount: safe.confirmedUserMemory.length, projectMemoryCount: safe.confirmedProjectMemory.length, sharedMemoryCount: safe.confirmedSharedMemory.length, workspaceMemoryEnabled: safe.memoryRecall.workspaceMemoryEnabled, memoryConflictCount: safe.provenance.memoryConflictCount, conversationTurnCount: safe.conversationContext.recentTurns.length, selfKnowledgeFactCount: safe.selfKnowledge.facts.length, selfKnowledgeVersion: safe.selfKnowledge.snapshotVersion, selfKnowledgeValidationStatus: safe.selfKnowledge.validationStatus, truncated: safe.truncationEvidence }
+        data: { responseContextEventClass: 'response_context_assembled', userMemoryCount: safe.confirmedUserMemory.length, reportedUserMemoryCount: safe.reportedUserMemory.length, projectMemoryCount: safe.confirmedProjectMemory.length, sharedMemoryCount: safe.confirmedSharedMemory.length, workspaceMemoryEnabled: safe.memoryRecall.workspaceMemoryEnabled, memoryConflictCount: safe.provenance.memoryConflictCount, conversationTurnCount: safe.conversationContext.recentTurns.length, selfKnowledgeFactCount: safe.selfKnowledge.facts.length, selfKnowledgeVersion: safe.selfKnowledge.snapshotVersion, selfKnowledgeValidationStatus: safe.selfKnowledge.validationStatus, truncated: safe.truncationEvidence }
       });
       return Object.freeze(clone(safe));
     }

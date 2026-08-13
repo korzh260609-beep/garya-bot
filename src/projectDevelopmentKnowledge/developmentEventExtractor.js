@@ -55,7 +55,7 @@ const EVENT_RULES = Object.freeze([
   ['migration', /\b(migrat|schema|database migration)\b/i],
   ['refactor', /\brefactor\b/i],
   ['rework', /\b(rework|rewrite|replace)\b/i],
-  ['superseded', /\b(supersed|replaced by)\b/i],
+  ['superseded', /\b(supersed(?:e|ed|es|ing)?|replaced by)\b/i],
   ['decision', /\b(decision|decide|chosen|choose)\b/i],
   ['plan', /\b(plan|roadmap|next stage|milestone)\b/i],
   ['implementation', /\b(implement|implemented|add|introduc|support|enable)\b/i],

@@ -19,6 +19,7 @@ export const PDK4_SOURCE_LIMITS = Object.freeze({
 });
 
 const UNAVAILABLE_SOURCE_KINDS = new Set(['deployment-evidence', 'runtime-evidence']);
+const NORMALIZED_FINGERPRINT_BUDGET_BYTES = 128;
 
 function requiredString(value, name) {
   if (typeof value !== 'string' || value.trim() === '') throw new TypeError(`${name} is required`);
@@ -95,13 +96,34 @@ function boundedFiles(files = []) {
     };
   });
 }
+function normalizedBytes(value) {
+  return Buffer.byteLength(JSON.stringify(value), 'utf8');
+}
+function compactPatchEvidenceToBudget(core) {
+  const budget = PDK4_SOURCE_LIMITS.maxNormalizedBytes - NORMALIZED_FINGERPRINT_BUDGET_BYTES;
+  let current = core;
+  while (normalizedBytes(current) > budget) {
+    const files = current.payload?.files;
+    if (!Array.isArray(files) || files.length === 0) break;
+    let changed = false;
+    const nextFiles = files.map((file) => {
+      if (typeof file.patch !== 'string' || file.patch.length === 0) return file;
+      changed = true;
+      const nextLength = Math.floor(file.patch.length / 2);
+      return { ...file, patch: nextLength > 0 ? file.patch.slice(0, nextLength) : null };
+    });
+    if (!changed) break;
+    current = { ...current, payload: { ...current.payload, files: nextFiles } };
+  }
+  return current;
+}
 function assertNormalizedSize(value) {
-  if (Buffer.byteLength(JSON.stringify(value), 'utf8') > PDK4_SOURCE_LIMITS.maxNormalizedBytes) {
+  if (normalizedBytes(value) > PDK4_SOURCE_LIMITS.maxNormalizedBytes) {
     fail('pdk4-source-too-large', 'normalized source exceeds bounded payload limit');
   }
 }
 function createEnvelope({ projectKey, identity, kind, repository, occurredAt, evidenceDimension, verificationKinds, payload }) {
-  const core = {
+  let core = {
     contractVersion: PDK4_SOURCE_NORMALIZATION_CONTRACT_VERSION,
     projectKey,
     kind,
@@ -116,6 +138,7 @@ function createEnvelope({ projectKey, identity, kind, repository, occurredAt, ev
     contentMode: 'untrusted-data-only',
     payload
   };
+  core = compactPatchEvidenceToBudget(core);
   const normalizedFingerprint = sha256(stable(core));
   const envelope = { ...core, normalizedFingerprint };
   assertNormalizedSize(envelope);

@@ -183,7 +183,7 @@ export function createProjectMemoryHybridRetrieval({ database, store, authorize,
       const record = await store.get(row.memory_id, { projectKey: filters.projectKey });
       if (!allowedByFilters(record, filters)) continue;
       const sourceId = sourceByKey.get(record.memoryId) ?? sourceByKey.get(record.entityKey);
-      expanded.push({ record, score: clamp01((parentScore.get(sourceId) ?? 0.25) * 0.55), semanticScore: 0, lexicalScore: 0, exactScore: 0, relationExpanded: true });
+      expanded.push({ record, score: clamp01((parentScore.get(sourceId) ?? 0.25) * 0.55), semanticScore: 0, lexicalScore: 0, exactScore: 0, relationExpanded: true, relationSourceMemoryId: sourceId ?? null });
     }
     return expanded;
   }
@@ -227,7 +227,7 @@ export function createProjectMemoryHybridRetrieval({ database, store, authorize,
     const mergedById = new Map();
     for (const item of [...seeds, ...expanded]) {
       const current = mergedById.get(item.record.memoryId);
-      if (!current || item.score > current.score || item.relationExpanded) mergedById.set(item.record.memoryId, item);
+      if (!current || (current.relationExpanded === true && item.relationExpanded !== true) || (current.relationExpanded === item.relationExpanded && item.score > current.score)) mergedById.set(item.record.memoryId, item);
     }
     for (const item of ranked) {
       if (mergedById.size >= limit) break;

@@ -1,5 +1,16 @@
 const QUERY_MODES = Object.freeze(['current','historical','evolution','rationale','evidence','comparison','planning','incident-history','genesis']);
 const HISTORICAL_MODES = new Set(['historical','evolution','rationale','comparison','incident-history','genesis']);
+const SEMANTIC_INTENT_TO_MODE = Object.freeze({
+  project_development_current: 'current',
+  project_development_historical: 'historical',
+  project_development_evolution: 'evolution',
+  project_development_rationale: 'rationale',
+  project_development_evidence: 'evidence',
+  project_development_comparison: 'comparison',
+  project_development_planning: 'planning',
+  project_development_incident_history: 'incident-history',
+  project_development_genesis: 'genesis'
+});
 const MODE_FACT_TYPES = Object.freeze({
   current: [],
   historical: ['project-event','feature-status','architecture-decision','roadmap-state','incident','integration-status','infrastructure-state','security-state','identity-state','memory-state'],
@@ -22,10 +33,6 @@ function deepFreeze(value) {
   for (const child of Object.values(value)) deepFreeze(child);
   return Object.freeze(value);
 }
-function normalize(value) {
-  return String(value ?? '').normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
-}
-function hasAny(text, patterns) { return patterns.some((pattern) => pattern.test(text)); }
 function sourceKind(record) { return String(record?.source?.kind ?? '').trim().toLowerCase(); }
 function isRelevant(item) {
   return Number(item?.exactScore ?? 0) > 0 || Number(item?.lexicalScore ?? 0) > 0 || Number(item?.semanticScore ?? 0) >= 0.55;
@@ -56,26 +63,13 @@ function authorizationActor(request, projectKey) {
   });
 }
 
-const MODE_PATTERNS = Object.freeze({
-  genesis: [/\bgenesis\b/u,/\borigin\b/u,/\bcreation\b/u,/\bstarted?\b/u,/начал/u,/создан/u,/происхожд/u,/виток/u,/створ/u,/походжен/u],
-  'incident-history': [/\bincident/u,/\boutage/u,/\bfailure/u,/\bregression/u,/\bbug history\b/u,/инцидент/u,/сбой/u,/авари/u,/ошибк.*истор/u,/істор.*помил/u,/збій/u],
-  planning: [/\broadmap\b/u,/\bnext plan/u,/\bwhat next\b/u,/\bplanned\b/u,/план/u,/дальше/u,/далее/u,/следующ/u,/наступн/u,/далі/u],
-  comparison: [/\bcompare/u,/\bversus\b/u,/\bvs\b/u,/\bdifference/u,/\bbefore and after\b/u,/сравн/u,/отлич/u,/до и после/u,/порівн/u,/відмін/u],
-  evidence: [/\bevidence\b/u,/\bprovenance\b/u,/\bproof\b/u,/\bverified\b/u,/\bverification\b/u,/\bci\b/u,/доказ/u,/подтверж/u,/проверен/u,/провенанс/u,/підтвердж/u,/перевір/u],
-  rationale: [/\bwhy\b/u,/\brationale\b/u,/\breason\b/u,/\bdecision reason\b/u,/почему/u,/зачем/u,/причин/u,/обоснован/u,/чому/u,/навіщо/u,/обґрунт/u],
-  evolution: [/\bevolution\b/u,/\bevolv(?:e|ed|es|ing)\b/u,/\bchanged over time\b/u,/\bhow .* changed\b/u,/истори.*развит/u,/эволюц/u,/как .* менял/u,/развивал/u,/істор.*розвит/u,/еволюц/u,/як .* змін/u],
-  historical: [/\bhistorical\b/u,/\bhistory\b/u,/\bpreviously\b/u,/\bformerly\b/u,/\bat that time\b/u,/истор/u,/раньше/u,/ранее/u,/тогда/u,/істор/u,/раніше/u,/тоді/u]
-});
-
 export const PDK4_DEVELOPMENT_QUERY_INTEGRATION_CONTRACT_VERSION = 1;
 export const PDK4_DEVELOPMENT_QUERY_MODES = QUERY_MODES;
+export const PDK4_DEVELOPMENT_SEMANTIC_INTENTS = Object.freeze(Object.keys(SEMANTIC_INTENT_TO_MODE));
 
-export function classifyDevelopmentQueryMode({ query, semanticIntent = null } = {}) {
-  const text = normalize(`${semanticIntent ?? ''} ${required(query, 'query')}`);
-  for (const mode of ['genesis','incident-history','planning','comparison','evidence','rationale','evolution','historical']) {
-    if (hasAny(text, MODE_PATTERNS[mode])) return mode;
-  }
-  return 'current';
+export function classifyDevelopmentQueryMode({ semanticIntent = null } = {}) {
+  const normalizedIntent = String(semanticIntent ?? '').trim().toLowerCase();
+  return SEMANTIC_INTENT_TO_MODE[normalizedIntent] ?? null;
 }
 
 export function createDevelopmentQueryIntegration({ projectMemoryIntegration, retrieval, contextGuard } = {}) {
@@ -99,8 +93,11 @@ export function createDevelopmentQueryIntegration({ projectMemoryIntegration, re
       expandRelations: true,
       relationLimit: 8
     });
-    const autonomous = retrievalResult.results.filter((item) => isAutonomousVerified(item) && (isRelevant(item) || item.relationExpanded === true));
-    if (autonomous.length === 0) return null;
+    const autonomousVerified = retrievalResult.results.filter(isAutonomousVerified);
+    const anchors = autonomousVerified.filter(isRelevant);
+    if (anchors.length === 0) return null;
+    const anchorIds = new Set(anchors.map((item) => item.record.memoryId));
+    const autonomous = autonomousVerified.filter((item) => anchorIds.has(item.record.memoryId) || item.relationExpanded === true);
     const guarded = await contextGuard.build({
       actor,
       projectKey,
@@ -150,9 +147,10 @@ export function createDevelopmentQueryIntegration({ projectMemoryIntegration, re
   }
 
   async function contextForRequest({ request, query, projectKey = request?.scope?.projectScope, semanticIntent = request?.input?.semanticIntent ?? null } = {}) {
+    const mode = classifyDevelopmentQueryMode({ semanticIntent });
+    if (!mode) return null;
     const canonicalQuery = required(query ?? request?.input?.text, 'query');
     const project = required(projectKey, 'projectKey').toLowerCase();
-    const mode = classifyDevelopmentQueryMode({ query: canonicalQuery, semanticIntent });
     const includeHistorical = HISTORICAL_MODES.has(mode);
     let projectMemoryContext;
     if (includeHistorical) {

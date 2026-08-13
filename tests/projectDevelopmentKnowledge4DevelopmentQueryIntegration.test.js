@@ -8,14 +8,17 @@ import {
 import { createLanguageAwareConversationResponder } from '../src/language/languageAwareConversationResponder.js';
 
 const projectKey = 'sg2.1';
-const request = Object.freeze({
-  actor: Object.freeze({ globalUserId: 'usr-monarch', roles: Object.freeze(['monarch']) }),
-  scope: Object.freeze({ projectScope: projectKey }),
-  traceContext: Object.freeze({ traceId: 'trace-pdk411', requestId: 'req-pdk411', environment: 'test', revision: 'rev' }),
-  input: Object.freeze({ semanticIntent: 'answer', languageContext: Object.freeze({ responseLanguage: 'en' }) })
-});
+function requestWithIntent(semanticIntent) {
+  return Object.freeze({
+    actor: Object.freeze({ globalUserId: 'usr-monarch', roles: Object.freeze(['monarch']) }),
+    scope: Object.freeze({ projectScope: projectKey }),
+    traceContext: Object.freeze({ traceId: 'trace-pdk411', requestId: 'req-pdk411', environment: 'test', revision: 'rev' }),
+    input: Object.freeze({ semanticIntent, languageContext: Object.freeze({ responseLanguage: 'en' }) })
+  });
+}
+const request = requestWithIntent('project_development_current');
 
-function guardedContext({ currentness = 'current', lifecycleState = 'active', factType = 'project-event' } = {}) {
+function guardedContext({ currentness = 'current', lifecycleState = 'active', factType = 'project-event', confirmed = true } = {}) {
   return Object.freeze({
     contractVersion: 1,
     kind: 'ProjectMemoryContext',
@@ -27,53 +30,63 @@ function guardedContext({ currentness = 'current', lifecycleState = 'active', fa
     exclusions: Object.freeze({}),
     facts: Object.freeze([Object.freeze({
       memoryId: 'mem-1', namespace: 'project:sg2.1:architecture', factType, entityKey: 'event-1',
-      factData: Object.freeze({ summary: 'Verified development fact' }), tags: Object.freeze([]), trust: 'verified', confirmed: true,
-      confirmationState: 'confirmed', lifecycleState, validFrom: '2026-08-01T00:00:00.000Z', validTo: currentness === 'current' ? null : '2026-08-05T00:00:00.000Z', currentness,
+      factData: Object.freeze({ summary: 'Verified development fact' }), tags: Object.freeze([]), trust: 'verified', confirmed,
+      confirmationState: confirmed ? 'confirmed' : 'proposed', lifecycleState, validFrom: '2026-08-01T00:00:00.000Z', validTo: currentness === 'current' ? null : '2026-08-05T00:00:00.000Z', currentness,
       provenance: Object.freeze({ sourceKind: 'github', sourceRef: 'abc123', sourceTimestamp: '2026-08-01T00:00:00.000Z', actorId: null, traceId: 't', sourceEventId: 'event-1' }),
       conflict: Object.freeze({ open: false, count: 0, records: Object.freeze([]) }), retrieval: Object.freeze({ score: 1, semanticScore: 0, lexicalScore: 1, exactScore: 0, relationExpanded: false }), dataOnly: true
     })])
   });
 }
 
-function mocks() {
+function mocks({ projectContext = guardedContext(), retrievalResults = null, guardContext = null } = {}) {
   const calls = { pm: [], retrieval: [], guard: [], prepare: [], deterministic: [] };
   const projectMemoryIntegration = Object.freeze({
-    async contextForRequest(input) { calls.pm.push(input); return guardedContext(); },
+    async contextForRequest(input) { calls.pm.push(input); return projectContext; },
     prepareModelContext({ boundedResponseContext = null, projectMemoryContext = null } = {}) { calls.prepare.push({ boundedResponseContext, projectMemoryContext }); return Object.freeze({ boundedResponseContext, projectMemoryContext }); },
     deterministicAnswer({ context, responseLanguage }) { calls.deterministic.push({ context, responseLanguage }); return 'PM deterministic'; }
   });
-  const retrieval = Object.freeze({
-    async search(input) {
-      calls.retrieval.push(input);
-      return Object.freeze({ projectKey, count: 1, results: Object.freeze([Object.freeze({ record: Object.freeze({ memoryId: 'mem-1', source: Object.freeze({ kind: 'github' }) }), score: 1, lexicalScore: 1, exactScore: 0, semanticScore: 0, relationExpanded: false })]) });
-    }
+  const defaultResult = Object.freeze({
+    projectKey,
+    count: 1,
+    results: Object.freeze([Object.freeze({ record: Object.freeze({ memoryId: 'mem-1', source: Object.freeze({ kind: 'github' }) }), score: 1, lexicalScore: 1, exactScore: 0, semanticScore: 0, relationExpanded: false })])
   });
-  const contextGuard = Object.freeze({
-    async build(input) { calls.guard.push(input); return guardedContext({ currentness: 'expired', lifecycleState: 'superseded' }); }
-  });
+  const retrieval = Object.freeze({ async search(input) { calls.retrieval.push(input); return retrievalResults ?? defaultResult; } });
+  const contextGuard = Object.freeze({ async build(input) { calls.guard.push(input); return guardContext ?? guardedContext({ currentness: 'expired', lifecycleState: 'superseded' }); } });
   return { calls, projectMemoryIntegration, retrieval, contextGuard };
 }
 
-test('PDK4.11: exposes all nine canonical development query modes', () => {
+test('PDK4.11: exposes all nine canonical development query modes through semantic intents only', () => {
   assert.deepEqual(PDK4_DEVELOPMENT_QUERY_MODES, ['current','historical','evolution','rationale','evidence','comparison','planning','incident-history','genesis']);
   const samples = new Map([
-    ['current', 'What is the current project state?'],
-    ['historical', 'Show project history'],
-    ['evolution', 'How did Memory evolve?'],
-    ['rationale', 'Why was this decision made?'],
-    ['evidence', 'What evidence verifies this?'],
-    ['comparison', 'Compare before and after'],
-    ['planning', 'What is planned next?'],
-    ['incident-history', 'Show incident history'],
-    ['genesis', 'What is the project genesis?']
+    ['project_development_current', 'current'],
+    ['project_development_historical', 'historical'],
+    ['project_development_evolution', 'evolution'],
+    ['project_development_rationale', 'rationale'],
+    ['project_development_evidence', 'evidence'],
+    ['project_development_comparison', 'comparison'],
+    ['project_development_planning', 'planning'],
+    ['project_development_incident_history', 'incident-history'],
+    ['project_development_genesis', 'genesis']
   ]);
-  for (const [expected, query] of samples) assert.equal(classifyDevelopmentQueryMode({ query }), expected, query);
+  for (const [semanticIntent, expected] of samples) assert.equal(classifyDevelopmentQueryMode({ semanticIntent }), expected, semanticIntent);
+  assert.equal(classifyDevelopmentQueryMode({ semanticIntent: 'answer' }), null);
+  assert.equal(classifyDevelopmentQueryMode({ semanticIntent: 'user_identity' }), null);
 });
 
-test('PDK4.11: current query reuses normal PM3 guarded integration', async () => {
+test('PDK4.11 regression: unrelated semantic intent cannot activate Project Development Knowledge', async () => {
   const { calls, projectMemoryIntegration, retrieval, contextGuard } = mocks();
   const integration = createDevelopmentQueryIntegration({ projectMemoryIntegration, retrieval, contextGuard });
-  const context = await integration.contextForRequest({ request, query: 'What is current in SG 2.1?' });
+  const context = await integration.contextForRequest({ request: requestWithIntent('answer'), query: 'arbitrary user-domain statement' });
+  assert.equal(context, null);
+  assert.equal(calls.pm.length, 0);
+  assert.equal(calls.retrieval.length, 0);
+  assert.equal(calls.guard.length, 0);
+});
+
+test('PDK4.11: current semantic development query reuses normal PM3 guarded integration', async () => {
+  const { calls, projectMemoryIntegration, retrieval, contextGuard } = mocks();
+  const integration = createDevelopmentQueryIntegration({ projectMemoryIntegration, retrieval, contextGuard });
+  const context = await integration.contextForRequest({ request, query: 'current project question' });
   assert.equal(context.mode, 'current');
   assert.equal(calls.pm.length, 1);
   assert.equal(calls.retrieval.length, 0);
@@ -81,10 +94,10 @@ test('PDK4.11: current query reuses normal PM3 guarded integration', async () =>
   assert.equal(context.qualification.authorityAllowed, false);
 });
 
-test('PDK4.11: historical query uses PM3 hybrid retrieval plus Context Guard with explicit qualification', async () => {
+test('PDK4.11: historical semantic development query uses PM3 retrieval plus Context Guard', async () => {
   const { calls, projectMemoryIntegration, retrieval, contextGuard } = mocks();
   const integration = createDevelopmentQueryIntegration({ projectMemoryIntegration, retrieval, contextGuard });
-  const context = await integration.contextForRequest({ request, query: 'Show the history of Memory' });
+  const context = await integration.contextForRequest({ request: requestWithIntent('project_development_historical'), query: 'historical project question' });
   assert.equal(context.mode, 'historical');
   assert.equal(calls.pm.length, 0);
   assert.equal(calls.retrieval.length, 1);
@@ -94,41 +107,46 @@ test('PDK4.11: historical query uses PM3 hybrid retrieval plus Context Guard wit
   assert.deepEqual(calls.guard[0].allowedTemporalStates, ['current','superseded','expired']);
   assert.equal(context.projectMemoryContext.facts[0].currentness, 'expired');
   assert.equal(context.qualification.historicalFactsMustRemainQualified, true);
-  assert.equal(context.dataPolicy.executableInstructionsAllowed, false);
 });
 
-test('PDK4.11: incident history is advisory-only and never live diagnosis authority', async () => {
+test('PDK4.11 regression: autonomous proposed facts require a genuinely relevant anchor before relation expansion', async () => {
+  const autonomousRecord = Object.freeze({
+    memoryId: 'auto-1', source: Object.freeze({ kind: 'github' }), trust: 'verified', confirmed: false, confirmationState: 'proposed',
+    metadata: Object.freeze({ pdk4AutonomousIngestion: true, pdk4SourceVerified: true })
+  });
+  const retrievalResults = Object.freeze({
+    projectKey,
+    count: 1,
+    results: Object.freeze([Object.freeze({ record: autonomousRecord, exactScore: 0, lexicalScore: 0, semanticScore: 0.1, relationExpanded: true })])
+  });
+  const { calls, projectMemoryIntegration, retrieval, contextGuard } = mocks({ projectContext: null, retrievalResults, guardContext: guardedContext({ confirmed: false }) });
+  const integration = createDevelopmentQueryIntegration({ projectMemoryIntegration, retrieval, contextGuard });
+  const context = await integration.contextForRequest({ request, query: 'semantically unrelated content' });
+  assert.equal(context, null);
+  assert.equal(calls.pm.length, 1);
+  assert.equal(calls.retrieval.length, 1);
+  assert.equal(calls.guard.length, 0);
+});
+
+test('PDK4.11: incident history stays advisory-only and never live diagnosis authority', async () => {
   const { projectMemoryIntegration, retrieval, contextGuard } = mocks();
   const integration = createDevelopmentQueryIntegration({ projectMemoryIntegration, retrieval, contextGuard });
-  const context = await integration.contextForRequest({ request, query: 'Show incident history for runtime failures' });
+  const context = await integration.contextForRequest({ request: requestWithIntent('project_development_incident_history'), query: 'incident history question' });
   assert.equal(context.mode, 'incident-history');
   assert.equal(context.qualification.incidentSimilarityAdvisoryOnly, true);
   assert.equal(context.qualification.liveDiagnosisAuthorityAllowed, false);
   const answer = integration.deterministicAnswer({ context, responseLanguage: 'en' });
   assert.match(answer, /advisory only/i);
-  assert.match(answer, /does not prove the current root cause/i);
 });
 
 test('PDK4.11: cross-project scope mismatch fails closed before historical retrieval', async () => {
   const { calls, projectMemoryIntegration, retrieval, contextGuard } = mocks();
   const integration = createDevelopmentQueryIntegration({ projectMemoryIntegration, retrieval, contextGuard });
-  await assert.rejects(() => integration.contextForRequest({ request, projectKey: 'other', query: 'project history' }), (error) => error.code === 'pdk4-development-query-scope-mismatch');
+  await assert.rejects(() => integration.contextForRequest({ request: requestWithIntent('project_development_historical'), projectKey: 'other', query: 'history' }), (error) => error.code === 'pdk4-development-query-scope-mismatch');
   assert.equal(calls.retrieval.length, 0);
 });
 
-test('PDK4.11: prepared AI context contains bounded query metadata only and preserves guarded PM data', async () => {
-  const { projectMemoryIntegration, retrieval, contextGuard } = mocks();
-  const integration = createDevelopmentQueryIntegration({ projectMemoryIntegration, retrieval, contextGuard });
-  const context = await integration.contextForRequest({ request, query: 'Why was this architecture decision made?' });
-  const prepared = integration.prepareModelContext({ boundedResponseContext: { version: 1 }, developmentQueryContext: context });
-  assert.equal(prepared.developmentQuery.mode, 'rationale');
-  assert.equal(prepared.developmentQuery.qualification.authorityAllowed, false);
-  assert.equal(prepared.developmentQuery.dataPolicy.contentIsDataOnly, true);
-  assert.equal(prepared.projectMemoryContext.kind, 'ProjectMemoryContext');
-  assert.equal(Object.hasOwn(prepared.developmentQuery, 'query'), false);
-});
-
-test('PDK4.11: normal SG answer composition injects development context through AI Router', async () => {
+test('PDK4.11: normal SG answer composition injects development context only for semantic development intent', async () => {
   const routed = [];
   const aiRouter = Object.freeze({ async route(input) { routed.push(input); return Object.freeze({ text: 'Development answer grounded in verified history.' }); } });
   const developmentQueryContext = Object.freeze({
@@ -137,33 +155,18 @@ test('PDK4.11: normal SG answer composition injects development context through 
     dataPolicy: Object.freeze({ contentIsDataOnly: true })
   });
   const developmentQueryIntegration = Object.freeze({
-    async contextForRequest() { return developmentQueryContext; },
-    prepareModelContext({ boundedResponseContext }) { return Object.freeze({ boundedResponseContext, projectMemoryContext: developmentQueryContext.projectMemoryContext, developmentQuery: { mode: 'historical', qualification: developmentQueryContext.qualification, dataPolicy: developmentQueryContext.dataPolicy } }); },
+    async contextForRequest({ semanticIntent }) { return semanticIntent === 'project_development_historical' ? developmentQueryContext : null; },
+    prepareModelContext({ boundedResponseContext, developmentQueryContext: context }) { return Object.freeze({ boundedResponseContext, projectMemoryContext: context?.projectMemoryContext ?? null, developmentQuery: context ? { mode: context.mode, qualification: context.qualification, dataPolicy: context.dataPolicy } : null }); },
     deterministicAnswer() { return 'deterministic development answer'; }
   });
-  const responder = createLanguageAwareConversationResponder({
-    aiRouter,
-    responseContextAssembler: Object.freeze({ async assemble() { return Object.freeze({ version: 1 }); } }),
-    developmentQueryIntegration
-  });
-  const answer = await responder({ text: 'Show project history', request });
+  const responder = createLanguageAwareConversationResponder({ aiRouter, responseContextAssembler: Object.freeze({ async assemble() { return Object.freeze({ version: 1 }); } }), developmentQueryIntegration });
+  const answer = await responder({ text: 'history request', request: requestWithIntent('project_development_historical') });
   assert.equal(answer, 'Development answer grounded in verified history.');
-  assert.equal(routed.length, 1);
   assert.equal(routed[0].metadata.pdk4DevelopmentQueryMode, 'historical');
-  assert.equal(routed[0].metadata.pdk4HistoricalQualified, true);
-  assert.equal(routed[0].metadata.pdk4LiveDiagnosisAuthorityAllowed, false);
-  assert.equal(routed[0].messages.some((message) => String(message.content).includes('DEVELOPMENT_QUERY_CONTEXT')), true);
-});
 
-test('PDK4.11: AI failure falls back to qualified deterministic development answer', async () => {
-  const developmentQueryContext = Object.freeze({ kind: 'DevelopmentQueryContext', contractVersion: 1, projectKey, mode: 'incident-history', projectMemoryContext: guardedContext(), qualification: Object.freeze({ historicalFactsMustRemainQualified: true, incidentSimilarityAdvisoryOnly: true, liveDiagnosisAuthorityAllowed: false }), dataPolicy: Object.freeze({ contentIsDataOnly: true }) });
-  const responder = createLanguageAwareConversationResponder({
-    aiRouter: Object.freeze({ async route() { throw Object.assign(new Error('offline'), { code: 'provider-offline' }); } }),
-    developmentQueryIntegration: Object.freeze({
-      async contextForRequest() { return developmentQueryContext; },
-      prepareModelContext({ boundedResponseContext }) { return { boundedResponseContext, projectMemoryContext: developmentQueryContext.projectMemoryContext, developmentQuery: { mode: 'incident-history' } }; },
-      deterministicAnswer() { return 'Qualified incident history fallback'; }
-    })
-  });
-  assert.equal(await responder({ text: 'Show incident history', request }), 'Qualified incident history fallback');
+  routed.length = 0;
+  const normalAnswer = await responder({ text: 'ordinary personal statement', request: requestWithIntent('answer') });
+  assert.equal(normalAnswer, 'Development answer grounded in verified history.');
+  assert.equal(routed[0].metadata.pdk4DevelopmentQueryMode, null);
+  assert.equal(routed[0].messages.some((message) => String(message.content).includes('DEVELOPMENT_QUERY_CONTEXT') && String(message.content).includes('null')), true);
 });

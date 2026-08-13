@@ -55,6 +55,7 @@ export function createProductionDevelopmentKnowledgeRuntime({
   const pollIntervalMs = Number(config.pollIntervalMs);
   const requestTimeoutMs = Number(config.requestTimeoutMs);
   const leaseDurationMs = Math.max(15000, Math.min(3600000, requestTimeoutMs * 4 + batchSize * 250));
+  const startupLeaseRetryMs = Math.min(5000, pollIntervalMs);
 
   const historyCursorStore = createPostgresHistoricalCursorStore(database);
   const ingestionStateStore = createPostgresContinuousIngestionStore(database);
@@ -151,6 +152,7 @@ export function createProductionDevelopmentKnowledgeRuntime({
   let phase = config.enabled ? 'not-started' : 'disabled';
   let running = false;
   let timer = null;
+  let active = false;
   let lastSuccessAt = null;
   let lastAttemptAt = null;
   let lastError = null;
@@ -258,17 +260,34 @@ export function createProductionDevelopmentKnowledgeRuntime({
     return freeze({ ...report, productionRuntime: health(), singleFlight: lease ? { active: lease.active, leaseUntil: lease.leaseUntil } : null });
   }
 
+  function scheduleNext(delayMs) {
+    if (!active) return;
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(async () => {
+      timer = null;
+      if (!active) return;
+      let result = null;
+      try { result = await reconcile({ reason: 'poll' }); } catch {}
+      if (!active) return;
+      const startupContended = phase === 'not-started' && result?.status === 'single-flight-busy';
+      scheduleNext(startupContended ? startupLeaseRetryMs : pollIntervalMs);
+    }, delayMs);
+    timer.unref?.();
+  }
+
   async function start() {
     if (config.enabled !== true) { phase = 'disabled'; return health(); }
-    if (timer) return health();
-    await reconcile({ reason: 'startup' });
-    timer = setInterval(() => { reconcile({ reason: 'poll' }).catch(() => {}); }, pollIntervalMs);
-    timer.unref?.();
+    if (active) return health();
+    active = true;
+    const result = await reconcile({ reason: 'startup' });
+    const startupContended = phase === 'not-started' && result?.status === 'single-flight-busy';
+    scheduleNext(startupContended ? startupLeaseRetryMs : pollIntervalMs);
     return health();
   }
 
   async function stop() {
-    if (timer) clearInterval(timer);
+    active = false;
+    if (timer) clearTimeout(timer);
     timer = null;
     try { await singleFlight.release({ projectKey, repository, ownerId }); } catch {}
     running = false;

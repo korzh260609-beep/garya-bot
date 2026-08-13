@@ -6,7 +6,7 @@ export const MEMORY2_LIFECYCLE_STATES = Object.freeze(['active','temporary','exp
 export const MEMORY2_TRUST_LEVELS = Object.freeze(['unverified','reported','confirmed','verified']);
 export const MEMORY2_LAYERS = Object.freeze(['session','user-memory','user-group-memory','group-memory','thread-memory','project-memory','dialogue-archive','topic-digest','external-evidence','runtime-state']);
 
-const SECRET_PATTERN = /(api[-_ ]?key|authorization|bearer\s+[a-z0-9._-]+|password|passwd|secret|token|private[-_ ]?key|credential)/i;
+const SECRET_PATTERN = /(?:\b(?:api[-_ ]?key|password|passwd|secret|token|credential|private[-_ ]?key)\b["']?\s*(?::|=|\bis\b)\s*["']?[^\s"',;}{]{4,}|\bauthorization\b["']?\s*[:=]\s*["']?(?:bearer\s+)?[^\s"',;}{]{4,}|\bbearer\s+[a-z0-9._~+\/-]{8,}|\bgh[pousr]_[A-Za-z0-9_]{20,}\b|\bsk-[A-Za-z0-9_-]{16,}\b|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----)/i;
 const TRUST_WEIGHT = Object.freeze({ unverified: 0, reported: 0.1, confirmed: 0.25, verified: 0.35 });
 const ADMIN_ROLES = new Set(['monarch','owner','administrator','admin']);
 const MANAGER_ROLES = new Set(['manager']);

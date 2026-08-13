@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   PDK4_SOURCE_LIMITS,
-  createDevelopmentSourceNormalizer
+  createDevelopmentSourceNormalizer,
+  createGitHubDevelopmentSourceVerifier
 } from '../src/projectDevelopmentKnowledge/index.js';
 
 const repo = 'korzh260609-beep/garya-bot';
@@ -31,6 +32,10 @@ function createNormalizer(files) {
   });
 }
 
+function jsonResponse(payload) {
+  return Object.freeze({ ok: true, status: 200, async json() { return payload; } });
+}
+
 test('PDK4.3 regression: aggregate patch evidence is compacted deterministically within normalized byte budget', async () => {
   const files = Array.from({ length: PDK4_SOURCE_LIMITS.maxFiles }, (_, index) => ({
     path: `src/large-${index}.js`,
@@ -53,7 +58,45 @@ test('PDK4.3 regression: aggregate patch evidence is compacted deterministically
   assert.equal(first.normalizedFingerprint, second.normalizedFingerprint);
 });
 
-test('PDK4.3 regression: file-count guard remains fail-closed above maxFiles', async () => {
+test('PDK4.13 regression: approved GitHub verifier bounds oversized historical commit evidence before normalization', async () => {
+  const reportedFiles = PDK4_SOURCE_LIMITS.maxFiles + 37;
+  const files = Array.from({ length: reportedFiles }, (_, index) => ({
+    filename: `src/historical-${String(index).padStart(3, '0')}.js`,
+    status: 'modified',
+    additions: 1,
+    deletions: 0,
+    changes: 1,
+    patch: '+ bounded historical evidence'
+  }));
+  const fetchImpl = async (url) => {
+    assert.equal(url, `https://api.github.com/repos/${repo}/commits/${commitSha}`);
+    return jsonResponse({
+      sha: commitSha,
+      commit: { message: 'Historical oversized commit', committer: { date: '2026-08-01T12:00:00Z' } },
+      parents: [{ sha: 'b'.repeat(40) }],
+      stats: { additions: reportedFiles, deletions: 0, total: reportedFiles },
+      files
+    });
+  };
+  const verifier = createGitHubDevelopmentSourceVerifier({ fetchImpl, allowedRepositories: [repo] });
+  const verified = await verifier.getCommit({ repository: repo, sha: commitSha });
+
+  assert.equal(verified.files.length, PDK4_SOURCE_LIMITS.maxFiles);
+  assert.deepEqual(verified.fileEvidence, {
+    reported: reportedFiles,
+    retained: PDK4_SOURCE_LIMITS.maxFiles,
+    truncated: true
+  });
+  assert.equal(verified.files[0].path, 'src/historical-000.js');
+  assert.equal(verified.files.at(-1).path, 'src/historical-099.js');
+
+  const normalizer = createDevelopmentSourceNormalizer({ githubVerifier: verifier, approvedRepositories: [repo] });
+  const normalized = await normalizer.normalizeAndVerify({ kind: 'github-commit', projectKey, repository: repo, sha: commitSha });
+  assert.equal(normalized.payload.files.length, PDK4_SOURCE_LIMITS.maxFiles);
+  assert.ok(Buffer.byteLength(JSON.stringify(normalized), 'utf8') <= PDK4_SOURCE_LIMITS.maxNormalizedBytes);
+});
+
+test('PDK4.3 regression: normalizer file-count guard remains fail-closed above maxFiles for unbounded verifier payloads', async () => {
   const files = Array.from({ length: PDK4_SOURCE_LIMITS.maxFiles + 1 }, (_, index) => ({
     path: `src/too-many-${index}.js`,
     patch: '+x'

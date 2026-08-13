@@ -111,7 +111,9 @@ integration('PM3.7: relation expansion is bounded and cannot cross project filte
 
   const result = await retrieval.search({ actor, projectKey, query: 'alpha', relationLimit: 1, limit: 2 });
   assert.equal(result.results.some((row) => row.record.memoryId === source.memoryId), true);
-  assert.equal(result.results.some((row) => row.record.memoryId === target.memoryId && row.relationExpanded === true), true);
+  const expandedTarget = result.results.find((row) => row.record.memoryId === target.memoryId && row.relationExpanded === true);
+  assert.ok(expandedTarget);
+  assert.equal(expandedTarget.relationSourceMemoryId, source.memoryId);
   assert.ok(result.results.length <= 2);
   await persistence.close();
 });

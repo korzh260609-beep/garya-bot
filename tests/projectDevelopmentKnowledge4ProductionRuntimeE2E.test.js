@@ -26,7 +26,18 @@ integration('PDK4.12: durable PDK4 fact survives restart and ordinary SG answer 
     await store.put(fact);
   }finally{await first.close();}
 
-  const harness=createLocalProductionHarness({env:{SG_PERSISTENCE_MODE:'postgres',DATABASE_URL:connectionString,DATABASE_SSL:'false',SG_PROJECT_SCOPE:projectKey,SG_REVISION:'pdk4.12-production-e2e'},clock:()=>new Date('2026-08-11T04:30:00Z')});
+  const harness=createLocalProductionHarness({
+    env:{SG_PERSISTENCE_MODE:'postgres',DATABASE_URL:connectionString,DATABASE_SSL:'false',SG_PROJECT_SCOPE:projectKey,SG_REVISION:'pdk4.12-production-e2e'},
+    clock:()=>new Date('2026-08-11T04:30:00Z'),
+    interpretationResolver:()=>({
+      meaning:'Answer the current project-development state from authorized project evidence.',
+      goal:'answer-project-development-state',
+      intent:'project_development_current',
+      contextNeeds:[],evidenceNeeds:[],
+      candidateActions:[{type:'answer',name:'compose-answer',actionClass:'analysis'}],
+      rationale:'Semantic fixture for a current project-development query.'
+    })
+  });
   await harness.runtime.start();let result;
   try{
     const restored=await harness.projectMemoryStore.get(memoryId,{projectKey});assert.equal(restored.memoryId,memoryId);

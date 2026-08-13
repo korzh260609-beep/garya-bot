@@ -107,7 +107,7 @@ integration('PDK4.13: production bootstrap persists cursor, resumes after restar
   const contextGuard = createProjectMemoryContextGuard({ database: restarted.database, retrieval, authorize });
   const pmIntegration = createProjectMemoryAIRouterIntegration({ retrieval, contextGuard });
   const development = createDevelopmentQueryIntegration({ projectMemoryIntegration: pmIntegration, retrieval, contextGuard });
-  const request = Object.freeze({ actor: Object.freeze({ globalUserId: 'usr-monarch', roles: Object.freeze(['monarch']) }), scope: Object.freeze({ projectScope: projectKey }), traceContext: Object.freeze({ traceId: 'pdk413-query', requestId: 'pdk413-query' }), input: Object.freeze({ semanticIntent: 'answer' }) });
+  const request = Object.freeze({ actor: Object.freeze({ globalUserId: 'usr-monarch', roles: Object.freeze(['monarch']) }), scope: Object.freeze({ projectScope: projectKey }), traceContext: Object.freeze({ traceId: 'pdk413-query', requestId: 'pdk413-query' }), input: Object.freeze({ semanticIntent: 'project_development_historical' }) });
   const context = await development.contextForRequest({ request, query: 'project history autonomous project history' });
   assert.ok(context);
   assert.equal(context.qualification.sourceVerifiedProposedFactsMayBeIncluded, true);

@@ -37,6 +37,16 @@ function sourceKind(record) { return String(record?.source?.kind ?? '').trim().t
 function isRelevant(item) {
   return Number(item?.exactScore ?? 0) > 0 || Number(item?.lexicalScore ?? 0) > 0 || Number(item?.semanticScore ?? 0) >= 0.55;
 }
+function directRelevantAnchors(items) {
+  return items.filter((item) => item?.relationExpanded !== true && isRelevant(item));
+}
+function anchorBoundResults(items, anchors) {
+  const anchorIds = new Set(anchors.map((item) => item?.record?.memoryId).filter(Boolean));
+  return items.filter((item) => {
+    if (item?.relationExpanded !== true) return anchorIds.has(item?.record?.memoryId);
+    return typeof item?.relationSourceMemoryId === 'string' && anchorIds.has(item.relationSourceMemoryId);
+  });
+}
 function isAutonomousVerified(item) {
   const record = item?.record;
   return sourceKind(record) === 'github'
@@ -94,10 +104,9 @@ export function createDevelopmentQueryIntegration({ projectMemoryIntegration, re
       relationLimit: 8
     });
     const autonomousVerified = retrievalResult.results.filter(isAutonomousVerified);
-    const anchors = autonomousVerified.filter(isRelevant);
+    const anchors = directRelevantAnchors(autonomousVerified);
     if (anchors.length === 0) return null;
-    const anchorIds = new Set(anchors.map((item) => item.record.memoryId));
-    const autonomous = autonomousVerified.filter((item) => anchorIds.has(item.record.memoryId) || item.relationExpanded === true);
+    const autonomous = anchorBoundResults(autonomousVerified, anchors);
     const guarded = await contextGuard.build({
       actor,
       projectKey,
@@ -127,10 +136,9 @@ export function createDevelopmentQueryIntegration({ projectMemoryIntegration, re
       relationLimit: 8
     });
     const trusted = retrievalResult.results.filter((item) => sourceKind(item?.record) === 'github');
-    const anchors = trusted.filter(isRelevant);
+    const anchors = directRelevantAnchors(trusted);
     if (anchors.length === 0) return null;
-    const anchorIds = new Set(anchors.map((item) => item.record.memoryId));
-    const relevant = trusted.filter((item) => anchorIds.has(item.record.memoryId) || item.relationExpanded === true);
+    const relevant = anchorBoundResults(trusted, anchors);
     const guarded = await contextGuard.build({
       actor,
       projectKey,

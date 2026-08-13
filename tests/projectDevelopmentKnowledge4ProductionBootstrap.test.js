@@ -38,9 +38,9 @@ function githubFixture() {
     }
   });
 }
-function runtimeFor({ database, projectMemoryStore, projectKey, fetchImpl, ownerId }) {
+function runtimeFor({ database, projectMemoryStore, projectKey, fetchImpl, ownerId, pollIntervalMs = 60000 }) {
   return createProductionDevelopmentKnowledgeRuntime({
-    config: { enabled: true, projectKey, repository, branch, pollIntervalMs: 60000, batchSize: 25, maxCommitsPerRun: 100, requestTimeoutMs: 5000, credentialId: 'sg.github.pdk4' },
+    config: { enabled: true, projectKey, repository, branch, pollIntervalMs, batchSize: 25, maxCommitsPerRun: 100, requestTimeoutMs: 5000, credentialId: 'sg.github.pdk4' },
     database,
     projectMemoryStore,
     credentialManager: Object.freeze({ async useCredential({ operation }) { return operation('test-token'); } }),
@@ -51,6 +51,14 @@ function runtimeFor({ database, projectMemoryStore, projectKey, fetchImpl, owner
 }
 function authorize({ actor, projectKey, operation }) {
   return actor?.projectMemoryAuthorization?.projectScope === projectKey && ['read','context-read'].includes(operation);
+}
+async function waitFor(predicate, { timeoutMs = 4000, intervalMs = 50 } = {}) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (await predicate()) return true;
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+  return false;
 }
 
 integration('PDK4.13: production bootstrap persists cursor, resumes after restart, ingests a new commit once and feeds ordinary query integration', async () => {
@@ -113,4 +121,37 @@ integration('PDK4.13: production bootstrap persists cursor, resumes after restar
   assert.equal(finalDiagnostics.continuous_ingestion_health.lastCommitSha, sha2);
   await runtime2.stop();
   await restarted.close();
+});
+
+integration('PDK4.13: startup retries promptly after a rolling-deploy single-flight lease is released', async () => {
+  const suffix = randomUUID().replaceAll('-', '').slice(0, 8);
+  const projectKey = `pdk413-lease-${suffix}`;
+  const fixture = githubFixture();
+  const persistence = createPostgresPersistence({ connectionString, ssl: false, applicationName: `pdk413-lease-${suffix}` });
+  await persistence.start();
+  const projectMemoryStore = createPostgresProjectMemoryStore(persistence.database);
+  const holderOwnerId = `runtime-holder-${suffix}`;
+  const contenderOwnerId = `runtime-contender-${suffix}`;
+  const holder = runtimeFor({ database: persistence.database, projectMemoryStore, projectKey, fetchImpl: fixture.fetch, ownerId: holderOwnerId, pollIntervalMs: 1000 });
+  const contender = runtimeFor({ database: persistence.database, projectMemoryStore, projectKey, fetchImpl: fixture.fetch, ownerId: contenderOwnerId, pollIntervalMs: 1000 });
+
+  try {
+    const held = await holder.singleFlight.acquire({ projectKey, repository, ownerId: holderOwnerId, leaseDurationMs: 15000 });
+    assert.equal(held.acquired, true);
+
+    const initial = await contender.start();
+    assert.equal(initial.phase, 'not-started');
+    assert.equal(initial.lastAttemptAt, null);
+
+    const released = await holder.singleFlight.release({ projectKey, repository, ownerId: holderOwnerId });
+    assert.equal(released.released, true);
+
+    const recovered = await waitFor(() => contender.health().phase === 'current' && contender.health().lastAttemptAt !== null, { timeoutMs: 4000 });
+    assert.equal(recovered, true);
+    assert.equal(contender.health().lastErrorCode, null);
+  } finally {
+    await contender.stop();
+    await holder.singleFlight.release({ projectKey, repository, ownerId: holderOwnerId }).catch(() => {});
+    await persistence.close();
+  }
 });

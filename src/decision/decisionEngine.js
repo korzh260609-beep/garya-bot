@@ -6,8 +6,6 @@ const DEFAULT_ACTION = Object.freeze({
   actionClass: 'analysis'
 });
 
-const SAFE_INTERNAL_ANSWER_PLACEHOLDER = 'SG could not produce a final conversational response.';
-
 function finitePriority(value) {
   const priority = Number(value ?? 0);
   return Number.isFinite(priority) ? priority : 0;
@@ -49,14 +47,22 @@ function classifyDecision({ interpretation, selected, uncertaintyThreshold }) {
   return 'answer';
 }
 
-function buildMessage({ decisionType, interpretation, selectedAction }) {
+function answerFallback(locale) {
+  const language = String(locale ?? 'en').trim().toLowerCase();
+  if (language.startsWith('ru')) return 'СГ не смог сформировать разговорный ответ. Попробуйте повторить запрос.';
+  if (language.startsWith('uk')) return 'СГ не зміг сформувати розмовну відповідь. Спробуйте повторити запит.';
+  return 'SG could not compose a conversational answer. Please try the request again.';
+}
+
+function buildMessage({ decisionType, interpretation, selectedAction, locale }) {
   if (decisionType === 'clarification') return interpretation.clarificationQuestion;
   if (decisionType === 'prepare') {
     return `Prepared action: ${selectedAction.name ?? selectedAction.type ?? 'requested action'}. Execution is disabled before Action Gate.`;
   }
-  // This is an internal response-plan placeholder only. Never copy user input here:
-  // Gate downgrade/deny paths may surface this value without running compose-answer.
-  return SAFE_INTERNAL_ANSWER_PLACEHOLDER;
+  // Normal answer flow must execute compose-answer. This message exists only for
+  // fail-closed paths where execution is prevented, so it must always be safe
+  // for a user to see and must never expose an internal semantic placeholder.
+  return answerFallback(locale);
 }
 
 function buildRationale({ decisionType, interpretation, selected, requiresEvidence }) {
@@ -120,7 +126,7 @@ export function createDecisionEngine({ uncertaintyThreshold = 0.65 } = {}) {
 
       const responsePlan = createResponsePlan({
         mode: decisionType,
-        message: buildMessage({ decisionType, interpretation, selectedAction }),
+        message: buildMessage({ decisionType, interpretation, selectedAction, locale: canonicalInput.locale }),
         requiresConfirmation: false,
         preparedAction: decisionType === 'prepare' ? selectedAction : null
       });

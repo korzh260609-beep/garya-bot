@@ -52,6 +52,10 @@ function scopedWhere(alias = 't') {
   return `${alias}.global_user_id=$2 AND ${alias}.project_scope=$3 AND ${alias}.group_scope IS NOT DISTINCT FROM $4 AND ${alias}.thread_scope IS NOT DISTINCT FROM $5`;
 }
 
+function pendingTemplateStatus(status) {
+  return ['queued', 'scheduled', 'waiting_approval'].includes(status);
+}
+
 export function createPostgresRecurringScheduler({ database, recurrenceEngine, clock = () => new Date(), idFactory = randomUUID } = {}) {
   if (!database?.query || !database?.transaction) throw new TypeError('database is required');
   if (!recurrenceEngine?.next || !recurrenceEngine?.occurrences) throw new TypeError('recurrenceEngine is required');
@@ -119,6 +123,62 @@ export function createPostgresRecurringScheduler({ database, recurrenceEngine, c
   const pause = ({ scope, scheduleId }) => transition({ scope, scheduleId, fromStatuses: ['active'], sqlStatus: 'paused' });
   const resume = ({ scope, scheduleId }) => transition({ scope, scheduleId, fromStatuses: ['paused'], sqlStatus: 'active' });
   const cancel = ({ scope, scheduleId }) => transition({ scope, scheduleId, fromStatuses: ['active', 'paused', 'error'], sqlStatus: 'cancelled' });
+
+  async function update({ scope, scheduleId, recurrence = null, timeZone = null, dtstartLocal = null, state = null }) {
+    const [userScope, projectScope, groupScope, threadScope] = scopeValues(scope);
+    return database.transaction(async (tx) => {
+      const locked = await tx.query(`SELECT s.*,t.status AS template_status,t.approval_state AS template_approval
+        FROM schedules s JOIN tasks t ON t.task_id=s.task_id
+        WHERE s.schedule_id=$1 AND ${scopedWhere('t')} FOR UPDATE OF s,t`,
+      [required(scheduleId, 'scheduleId'), userScope, projectScope, groupScope, threadScope]);
+      const schedule = locked.rows[0];
+      if (!schedule || !['active', 'paused', 'error'].includes(schedule.status)) return null;
+
+      const nextRule = parseRecurrenceRule(recurrence ?? schedule.recurrence);
+      const nextZone = required(timeZone ?? schedule.timezone, 'timeZone');
+      const nextStart = required(dtstartLocal ?? schedule.dtstart_local, 'dtstartLocal');
+      const mergedState = state && typeof state === 'object' && !Array.isArray(state)
+        ? { ...(schedule.state ?? {}), ...state }
+        : (schedule.state ?? {});
+      const templatePending = pendingTemplateStatus(schedule.template_status);
+
+      if (templatePending) {
+        const first = await recurrenceEngine.next({ rule: nextRule, dtstartLocal: nextStart, timeZone: nextZone });
+        if (!first || first.status !== 'resolved') throw new Error(`Unable to resolve updated first recurring occurrence: ${first?.reason ?? 'none'}`);
+        const approval = schedule.template_approval ?? {};
+        const now = clock();
+        const taskStatus = approval.required === true && approval.approved !== true
+          ? 'waiting_approval'
+          : new Date(first.utcInstant) > now ? 'scheduled' : 'queued';
+        const following = await recurrenceEngine.next({ rule: nextRule, dtstartLocal: nextStart, timeZone: nextZone, afterUtc: first.utcInstant });
+        const completed = !following;
+        const updatedState = { ...mergedState, firstOccurrenceAt: first.utcInstant };
+        await tx.query(`UPDATE tasks SET available_at=$2,status=$3,updated_at=now()
+          WHERE task_id=$1 AND status IN ('queued','scheduled','waiting_approval')`, [schedule.task_id, first.utcInstant, taskStatus]);
+        await tx.query(`UPDATE schedule_occurrences SET scheduled_for=$2,local_datetime=$3,timezone=$4
+          WHERE schedule_id=$1 AND sequence=1`, [schedule.schedule_id, first.utcInstant, first.localDateTime, nextZone]);
+        const result = await tx.query(`UPDATE schedules SET recurrence=$2,timezone=$3,dtstart_local=$4,state=$5::jsonb,
+          status=$6,generated_count=1,last_occurrence_at=$7,next_occurrence_at=$8,due_at=$8,
+          completed_at=CASE WHEN $6='completed' THEN now() ELSE NULL END,updated_at=now()
+          WHERE schedule_id=$1 RETURNING *`, [schedule.schedule_id, nextRule.canonical, nextZone, nextStart, JSON.stringify(updatedState), completed ? 'completed' : schedule.status === 'paused' ? 'paused' : 'active', first.utcInstant, following?.utcInstant ?? null]);
+        return normalizedSchedule({ ...result.rows[0], first_occurrence_at: first.utcInstant });
+      }
+
+      const lastOccurrence = await tx.query(`SELECT sequence,local_datetime FROM schedule_occurrences
+        WHERE schedule_id=$1 ORDER BY sequence DESC LIMIT 1`, [schedule.schedule_id]);
+      const lastLocalDate = lastOccurrence.rows[0]?.local_datetime?.slice(0, 10) ?? null;
+      let next = await recurrenceEngine.next({ rule: nextRule, dtstartLocal: nextStart, timeZone: nextZone, afterUtc: schedule.last_occurrence_at ?? null });
+      if (next?.status === 'resolved' && lastLocalDate && next.localDateTime.slice(0, 10) === lastLocalDate) {
+        next = await recurrenceEngine.next({ rule: nextRule, dtstartLocal: nextStart, timeZone: nextZone, afterUtc: next.utcInstant });
+      }
+      if (next && next.status !== 'resolved') throw new Error(`Unable to resolve updated recurring occurrence: ${next.reason ?? 'unknown'}`);
+      const completed = !next;
+      const result = await tx.query(`UPDATE schedules SET recurrence=$2,timezone=$3,dtstart_local=$4,state=$5::jsonb,
+        status=$6,next_occurrence_at=$7,due_at=$7,completed_at=CASE WHEN $6='completed' THEN now() ELSE NULL END,updated_at=now()
+        WHERE schedule_id=$1 RETURNING *`, [schedule.schedule_id, nextRule.canonical, nextZone, nextStart, JSON.stringify(mergedState), completed ? 'completed' : schedule.status === 'paused' ? 'paused' : 'active', next?.utcInstant ?? null]);
+      return normalizedSchedule({ ...result.rows[0], first_occurrence_at: result.rows[0]?.state?.firstOccurrenceAt ?? null });
+    });
+  }
 
   async function materializeOccurrence(tx, schedule, occurrence, now) {
     const templateResult = await tx.query('SELECT * FROM tasks WHERE task_id=$1', [schedule.task_id]);
@@ -189,5 +249,5 @@ export function createPostgresRecurringScheduler({ database, recurrenceEngine, c
     });
   }
 
-  return Object.freeze({ register, get, list, pause, resume, cancel, materializeDue });
+  return Object.freeze({ register, get, list, pause, resume, cancel, update, materializeDue });
 }

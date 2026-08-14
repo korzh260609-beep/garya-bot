@@ -114,6 +114,34 @@ test('personal-fact semantic memory read is canonicalized to conversational comp
   assert.equal(result.decisionEnvelope.diagnostics.conversationalMemoryReadCanonicalized, true);
 });
 
+test('memory2-recall capability-shaped read is canonicalized to conversational compose-answer', () => {
+  const interpretation = semantic({
+    meaning: 'Recall a durable personal possession fact and answer the user',
+    memoryQuery: 'vehicle owned by current user',
+    candidateActions: [{
+      type: 'memory2-recall',
+      name: 'memory2-recall',
+      actionClass: 'read-only',
+      payload: { query: 'vehicle owned by current user' }
+    }]
+  });
+  const result = createDecisionEngine().decide({
+    canonicalInput: {
+      text: 'Which vehicle belongs to me?',
+      locale: 'en',
+      traceContext: { traceId: 't-memory2-route', requestId: 'r-memory2-route' }
+    },
+    interpretation
+  });
+
+  assert.equal(result.decisionEnvelope.decisionType, 'answer');
+  assert.equal(result.decisionEnvelope.selectedAction.type, 'answer');
+  assert.equal(result.decisionEnvelope.selectedAction.name, 'compose-answer');
+  assert.equal(result.decisionEnvelope.selectedAction.actionClass, 'analysis');
+  assert.equal(result.decisionEnvelope.selectedAction.payload.memoryQuery, 'vehicle owned by current user');
+  assert.equal(result.decisionEnvelope.diagnostics.conversationalMemoryReadCanonicalized, true);
+});
+
 test('state-changing memory action is never rewritten by conversational memory recall guard', () => {
   const interpretation = semantic({
     memoryQuery: 'existing durable fact',

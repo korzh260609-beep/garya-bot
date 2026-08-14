@@ -15,6 +15,12 @@ function rowMessage(row) {
   return { messageId: row.message_id, conversationId: row.conversation_id, sessionId: row.session_id, topicId: row.topic_id, replyToMessageId: row.reply_to_message_id, transport: row.transport, externalMessageId: row.external_message_id, globalUserId: row.global_user_id, projectScope: row.project_scope, groupScope: row.group_scope, threadScope: row.thread_scope, direction: row.direction, content: row.content ?? {}, provenance: row.provenance ?? {}, createdAt: row.created_at?.toISOString?.() ?? row.created_at };
 }
 
+function boundedLimit(limit, fallback = 100) {
+  const value = Number(limit ?? fallback);
+  if (!Number.isInteger(value) || value < 1 || value > 200) throw new TypeError('message query limit must be 1..200');
+  return value;
+}
+
 export function createPostgresConversationContextStore({ database } = {}) {
   if (!database?.query) throw new TypeError('database.query is required');
   return Object.freeze({
@@ -65,7 +71,19 @@ export function createPostgresConversationContextStore({ database } = {}) {
       return rowMessage(r.rows[0]);
     },
     async listRecentMessages({ conversationId, topicId = null, limit = 12 }) {
-      const r = await database.query(`SELECT * FROM (SELECT * FROM messages WHERE conversation_id=$1 AND ($2::text IS NULL OR topic_id=$2) ORDER BY created_at DESC,message_id DESC LIMIT $3) q ORDER BY created_at,message_id`, [conversationId,topicId,limit]);
+      const r = await database.query(`SELECT * FROM (SELECT * FROM messages WHERE conversation_id=$1 AND ($2::text IS NULL OR topic_id=$2) ORDER BY created_at DESC,message_id DESC LIMIT $3) q ORDER BY created_at,message_id`, [conversationId,topicId,boundedLimit(limit,12)]);
+      return r.rows.map(rowMessage);
+    },
+    async listMessagesByRange({ globalUserId, projectScope, groupScope = null, threadScope = null, conversationId = null, topicId = null, utcStart = null, utcEndExclusive = null, limit = 100 }) {
+      const bounded = boundedLimit(limit,100);
+      const r = await database.query(`SELECT * FROM messages
+        WHERE global_user_id=$1 AND project_scope=$2
+          AND group_scope IS NOT DISTINCT FROM $3 AND thread_scope IS NOT DISTINCT FROM $4
+          AND ($5::text IS NULL OR conversation_id=$5)
+          AND ($6::text IS NULL OR topic_id=$6)
+          AND ($7::timestamptz IS NULL OR created_at >= $7::timestamptz)
+          AND ($8::timestamptz IS NULL OR created_at < $8::timestamptz)
+        ORDER BY created_at,message_id LIMIT $9`, [globalUserId,projectScope,groupScope,threadScope,conversationId,topicId,utcStart,utcEndExclusive,bounded]);
       return r.rows.map(rowMessage);
     }
   });

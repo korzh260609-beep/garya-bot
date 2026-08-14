@@ -34,6 +34,9 @@ function visibleFailureText(update) {
   if (language.startsWith('ru')) return 'Не удалось обработать сообщение. Попробуй ещё раз немного позже.';
   return 'SG could not process the message. Please try again a little later.';
 }
+function normalizedBotUsername(value) {
+  return typeof value === 'string' && value.trim() !== '' ? value.trim().replace(/^@/, '') : null;
+}
 
 export function createInMemoryTelegramUpdateStore() {
   const updates = new Map();
@@ -89,6 +92,30 @@ export function createTelegramProductionIntegration({
   const effectiveSemanticRouter = semanticRouter ?? (typeof naturalLanguage?.routeUpdate === 'function' ? naturalLanguage : null);
   const pending = new Set();
   const runtimeHandler = workspaceRuntime?.handle ?? ((canonicalInput) => runtime.handle(canonicalInput));
+  let resolvedBotIdentity = Object.freeze({ botUserId: botUserId ?? null, botUsername: normalizedBotUsername(botUsername) });
+  let botIdentityPromise = null;
+
+  async function resolveBotInvocationIdentity() {
+    if (resolvedBotIdentity.botUserId != null && resolvedBotIdentity.botUsername) return resolvedBotIdentity;
+    if (typeof botClient.getMe !== 'function') return resolvedBotIdentity;
+    if (!botIdentityPromise) {
+      botIdentityPromise = Promise.resolve()
+        .then(() => botClient.getMe())
+        .then((me) => {
+          resolvedBotIdentity = Object.freeze({
+            botUserId: resolvedBotIdentity.botUserId ?? me?.id ?? null,
+            botUsername: resolvedBotIdentity.botUsername ?? normalizedBotUsername(me?.username)
+          });
+          return resolvedBotIdentity;
+        })
+        .catch((error) => {
+          botIdentityPromise = null;
+          try { observability?.recordFailure?.({ stage: 'telegram-bot-identity', reason: redactSensitiveText(error?.message ?? 'Telegram getMe failed'), code: error?.code ?? 'telegram-bot-identity-failed' }); } catch {}
+          return resolvedBotIdentity;
+        });
+    }
+    return botIdentityPromise;
+  }
 
   async function verifyWebhookSecret(suppliedSecret) {
     if (!hasCredentialManager) return secureEqual(suppliedSecret, legacySecret);
@@ -250,7 +277,10 @@ export function createTelegramProductionIntegration({
       return Object.freeze({ statusCode: 503, body: { ok: false, code: processed.error.code ?? 'twm-native-ui-failed' } });
     }
 
-    const baseInvocation = evaluateTelegramInvocation(body, { botUserId, botUsername });
+    const message = messageFromUpdate(body);
+    const groupChat = ['group', 'supergroup'].includes(message?.chat?.type);
+    const invocationIdentity = groupChat ? await resolveBotInvocationIdentity() : resolvedBotIdentity;
+    const baseInvocation = evaluateTelegramInvocation(body, invocationIdentity);
     const invocation = workspaceRuntime ? await workspaceRuntime.evaluateInvocation({ update: body, baseInvocation }) : baseInvocation;
     if (!invocation.accepted) {
       await updateStore.complete(claim.updateId, 'ignored');

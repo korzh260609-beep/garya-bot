@@ -1,4 +1,5 @@
 import { createDurableWorker } from './durableWorker.js';
+import { createNotificationDeliveryPolicy } from './notificationDeliveryPolicy.js';
 import { createProductionWorkerActionGate, createProductionWorkerExecutor } from './productionWorkerExecution.js';
 import { createSecurityOperationsConfig } from '../operations/securityOperations.js';
 
@@ -15,13 +16,21 @@ export function createDeploymentAutomationWorker({ harness, deliveryRouter, env 
     }
   });
 
+  const securityGate = createProductionWorkerActionGate({ ownerSecurityGateway: harness.ownerSecurityGateway });
+  const notificationPolicy = createNotificationDeliveryPolicy({ userSettingsService: harness.userSettingsService ?? null });
+  const actionGate = async (request) => {
+    const securityDecision = await securityGate(request);
+    if (!(securityDecision?.allowed === true || securityDecision?.outcome === 'allow')) return securityDecision;
+    return notificationPolicy(request);
+  };
+
   const worker = createDurableWorker({
     workerId: `web-automation:${harness.config.revision}`,
     queue,
     observability: harness.observability,
     environment: harness.config.environment,
     revision: harness.config.revision,
-    actionGate: createProductionWorkerActionGate({ ownerSecurityGateway: harness.ownerSecurityGateway }),
+    actionGate,
     executor: createProductionWorkerExecutor({ deliveryRouter }),
     leaseMs: Number(env.SG_WORKER_LEASE_MS ?? 30000),
     heartbeatMs: Number(env.SG_WORKER_HEARTBEAT_MS ?? 10000),

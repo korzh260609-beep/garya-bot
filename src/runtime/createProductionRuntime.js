@@ -123,6 +123,10 @@ export function createProductionRuntime({ config, semanticPipeline, actionGate, 
     if (requestInput.metadata?.workspaceRuntimePolicy?.workspaceMemoryEnabled === false && requestInput.scopeContext?.groupScope) {
       return Object.freeze({ status: 'suppressed', persisted: false, reason: 'workspace-memory-disabled' });
     }
+    const memoryCandidate = requestInput.metadata?.memoryCandidate ?? null;
+    if (!memoryCandidate?.key) {
+      return Object.freeze({ status: 'suppressed', persisted: false, reason: 'semantic-candidate-required' });
+    }
     try {
       return await memoryCaptureService.capture({
         text: requestInput.text,
@@ -134,7 +138,7 @@ export function createProductionRuntime({ config, semanticPipeline, actionGate, 
           transport: requestInput.metadata?.transport ?? 'unknown',
           conversationId: requestInput.metadata?.conversationContext?.conversationId ?? null,
           topicId: requestInput.metadata?.conversationContext?.topicId ?? null,
-          memoryCandidate: requestInput.metadata?.memoryCandidate ?? null,
+          memoryCandidate,
           workspaceRuntimePolicy: requestInput.metadata?.workspaceRuntimePolicy ?? null
         }
       });

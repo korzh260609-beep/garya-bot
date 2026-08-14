@@ -19,6 +19,15 @@ test('final response guard rejects exact user echoes for representative Russian 
   }
 });
 
+test('final response guard rejects internal conversational placeholders', () => {
+  const result = assessFinalResponse({
+    userText: 'Что ты знаешь обо мне?',
+    candidateText: 'SG could not produce a final conversational response.'
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.reason, 'internal-placeholder');
+});
+
 test('final response guard accepts a real conversational answer', () => {
   const result = assessFinalResponse({ userText: 'кто ты?', candidateText: 'Я — СГ, Советник GARYA.' });
   assert.equal(result.ok, true);

@@ -45,12 +45,18 @@ function parsePositiveInteger(value, fallback) {
 }
 
 export function createProductionAiPolicy(env = process.env) {
+  const maxOutputTokens = parsePositiveInteger(env.SG_AI_MAX_OUTPUT_TOKENS, 2000);
   return Object.freeze({
     enabled: parseBoolean(env.SG_AI_ENABLED, false),
     emergencyDisabled: parseBoolean(env.SG_AI_EMERGENCY_DISABLED, false),
     rejectSensitiveContext: parseBoolean(env.SG_AI_REJECT_SENSITIVE_CONTEXT, true),
     maxInputCharacters: parsePositiveInteger(env.SG_AI_MAX_INPUT_CHARACTERS, 24000),
-    maxOutputTokens: parsePositiveInteger(env.SG_AI_MAX_OUTPUT_TOKENS, 2000),
+    maxOutputTokens,
+    outputTokenBudgets: Object.freeze({
+      languageDetection: parsePositiveInteger(env.SG_AI_LANGUAGE_MAX_OUTPUT_TOKENS, Math.min(maxOutputTokens, 512)),
+      semanticInterpretation: parsePositiveInteger(env.SG_AI_SEMANTIC_MAX_OUTPUT_TOKENS, Math.max(maxOutputTokens, 3000)),
+      responseComposition: parsePositiveInteger(env.SG_AI_RESPONSE_MAX_OUTPUT_TOKENS, Math.max(maxOutputTokens, 8000)),
+    }),
     roleCostLimitsUsd: Object.freeze({
       guest: parseNonNegativeNumber(env.SG_AI_GUEST_MAX_COST_USD, DEFAULT_ROLE_LIMITS_USD.guest),
       citizen: parseNonNegativeNumber(env.SG_AI_CITIZEN_MAX_COST_USD, DEFAULT_ROLE_LIMITS_USD.citizen),

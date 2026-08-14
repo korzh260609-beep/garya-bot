@@ -1,5 +1,6 @@
 import { createAIRequest, createAIResult, assertAIProvider } from './contracts.js';
 import { AIProviderError, AITimeoutError } from './errors.js';
+import { redactSensitiveText } from '../secrets/redaction.js';
 import {
   ProductionAiPolicyError,
   assertActualAiCostAllowed,
@@ -38,15 +39,42 @@ async function withTimeout(operation, timeoutMs) {
   }
 }
 
+function defaultOutputBudget(input, policy) {
+  if (!policy) return null;
+  if (input.task === 'language-detection') return policy.outputTokenBudgets?.languageDetection ?? policy.maxOutputTokens;
+  if (input.task === 'semantic-interpretation') return policy.outputTokenBudgets?.semanticInterpretation ?? policy.maxOutputTokens;
+  if (input.task === 'response-composition') return policy.outputTokenBudgets?.responseComposition ?? policy.maxOutputTokens;
+  return policy.maxOutputTokens ?? null;
+}
+
 function retryRequestAfterFailure(request, error, policy) {
   if (error?.code !== 'AI_PROVIDER_INCOMPLETE_RESPONSE' || error?.metadata?.incompleteReason !== 'max_output_tokens') return request;
-  const current = Number(request.maxOutputTokens ?? policy?.maxOutputTokens ?? 0);
+  const current = Number(request.maxOutputTokens ?? 0);
   if (!Number.isInteger(current) || current <= 0) return request;
-  const policyBase = Number(policy?.maxOutputTokens ?? current);
-  const ceiling = Math.max(current, Number.isFinite(policyBase) && policyBase > 0 ? policyBase * 4 : current * 2);
-  const next = Math.min(ceiling, current * 2);
+  const configuredCeiling = Math.max(
+    Number(policy?.outputTokenBudgets?.responseComposition ?? 0),
+    Number(policy?.outputTokenBudgets?.semanticInterpretation ?? 0),
+    Number(policy?.maxOutputTokens ?? 0),
+    current * 2
+  );
+  const next = Math.min(configuredCeiling, current * 2);
   if (next <= current) return request;
   return createAIRequest({ ...request, maxOutputTokens: next });
+}
+
+function emitAiBoundaryFailure(request, error) {
+  try {
+    console.error(JSON.stringify({
+      status: 'sg-runtime-failure',
+      traceId: request?.traceContext?.traceId ?? null,
+      requestId: request?.traceContext?.requestId ?? null,
+      stage: 'ai-router',
+      code: error?.code ?? 'AI_PROVIDER_ERROR',
+      reason: redactSensitiveText(error?.message ?? 'AI provider failure'),
+      incompleteReason: error?.metadata?.incompleteReason ?? null,
+      retryable: Boolean(error?.retryable),
+    }));
+  } catch {}
 }
 
 export function createAIRouter({
@@ -151,6 +179,7 @@ export function createAIRouter({
         await sleep(retryDelayMs * attempt);
       }
     }
+    emitAiBoundaryFailure(activeRequest, lastError);
     throw lastError;
   }
 
@@ -158,7 +187,7 @@ export function createAIRouter({
     async route(input) {
       const request = createAIRequest({
         ...input,
-        maxOutputTokens: input.maxOutputTokens ?? policy?.maxOutputTokens ?? null,
+        maxOutputTokens: input.maxOutputTokens ?? defaultOutputBudget(input, policy),
       });
       const role = resolveAiRole(input);
       const primary = registry.select({ specialty: input.specialty ?? 'reasoning', preferredModelId: input.preferredModelId });

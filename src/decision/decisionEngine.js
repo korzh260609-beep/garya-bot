@@ -36,7 +36,8 @@ function classifyDecision({ interpretation, selected, uncertaintyThreshold }) {
   const hasClarificationQuestion = Boolean(interpretation.clarificationQuestion);
   if (hasClarificationQuestion && interpretation.missingInformation.length > 0) return 'clarification';
   if (hasClarificationQuestion && interpretation.uncertainty >= uncertaintyThreshold) return 'clarification';
-  if (selected.protectedIntent || selected.executableIntent || selected.action.type === 'prepare') return 'prepare';
+  if (selected.action.type === 'prepare') return 'prepare';
+  if (selected.protectedIntent || selected.executableIntent) return 'execute';
   return 'answer';
 }
 function answerFallback(locale) {
@@ -47,13 +48,15 @@ function answerFallback(locale) {
 }
 function buildMessage({ decisionType, interpretation, selectedAction, locale }) {
   if (decisionType === 'clarification') return interpretation.clarificationQuestion;
-  if (decisionType === 'prepare') return `Prepared action: ${selectedAction.name ?? selectedAction.type ?? 'requested action'}. Execution is disabled before Action Gate.`;
+  if (decisionType === 'prepare') return `Prepared action: ${selectedAction.name ?? selectedAction.type ?? 'requested action'}.`;
+  if (decisionType === 'execute') return `Action selected for Action Gate authorization: ${selectedAction.name ?? selectedAction.type ?? 'requested action'}.`;
   return answerFallback(locale);
 }
 function buildRationale({ decisionType, interpretation, selected, requiresEvidence }) {
   if (interpretation.rationale) return interpretation.rationale;
   if (decisionType === 'clarification') return 'Essential information or uncertainty requires clarification.';
-  if (decisionType === 'prepare') return 'The request contains executable, external or state-changing intent and is preparation-only.';
+  if (decisionType === 'prepare') return 'The request explicitly selects preparation without execution.';
+  if (decisionType === 'execute') return 'Executable intent is selected for Action Gate authorization; the Decision Engine does not authorize execution.';
   if (requiresEvidence) return 'The request can be answered, but evidence requirements remain explicit for later processing.';
   return `Selected deterministic candidate ${selected.action.name ?? selected.action.type}.`;
 }

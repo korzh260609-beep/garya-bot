@@ -62,6 +62,36 @@ const SEMANTIC_SCHEMA = Object.freeze({
 function buildUserPayload(canonicalInput) {
   return Object.freeze({ text: canonicalInput.text, locale: canonicalInput.locale, languageContext: canonicalInput.metadata?.languageContext ?? null, scope: canonicalInput.scopeContext, context: canonicalInput.metadata?.contextBundle ?? null, temporalContext: canonicalInput.metadata?.temporalContext ?? null, temporalResolution: canonicalInput.metadata?.temporalResolution ?? null });
 }
+function nonEmptyString(value) {
+  return typeof value === 'string' && value.trim() !== '';
+}
+function canonicalizeAutomationCandidate(action) {
+  if (!action || action.name !== 'task-create' || !action.payload || typeof action.payload !== 'object' || Array.isArray(action.payload)) return action;
+  const payload = action.payload;
+  if (payload.kind != null && payload.kind !== 'self-notification') return action;
+  const hasSchedule = nonEmptyString(payload.temporalExpression) || nonEmptyString(payload.recurrence);
+  const notificationMessage = nonEmptyString(payload.notificationMessage)
+    ? payload.notificationMessage.trim()
+    : nonEmptyString(payload.message)
+      ? payload.message.trim()
+      : null;
+  if (!hasSchedule || !notificationMessage) return action;
+  return Object.freeze({
+    ...action,
+    payload: Object.freeze({
+      ...payload,
+      kind: 'self-notification',
+      notificationMessage
+    })
+  });
+}
+function canonicalizeAutomationInterpretation(interpretation) {
+  if (!Array.isArray(interpretation?.candidateActions)) return interpretation;
+  return Object.freeze({
+    ...interpretation,
+    candidateActions: Object.freeze(interpretation.candidateActions.map(canonicalizeAutomationCandidate))
+  });
+}
 function createFallbackInterpretation(error, canonicalInput) {
   const fallback = deterministicAiFallback({ code: error?.code ?? 'AI_UNAVAILABLE', traceId: canonicalInput.traceContext?.traceId ?? null });
   return createSemanticInterpretation({ meaning: fallback.message, goal: 'report-ai-unavailable', intent: 'answer', entities: [], constraints: [], uncertainty: 1, missingInformation: [], clarificationQuestion: null, contextNeeds: [], evidenceNeeds: [], memoryQuery: null, conversationHistoryQuery: null, subsystemRequest: null, memoryCandidates: [], candidateActions: [{ type: 'answer', name: 'compose-answer', actionClass: 'analysis' }], rationale: `Deterministic fail-closed fallback: ${fallback.code}` });
@@ -79,7 +109,7 @@ export function createProductionMeaningInterpreter({ aiRouter, fallbackOnFailure
       });
       try {
         const result = await aiRouter.route({ task: 'semantic-interpretation', specialty: 'semantic-interpretation', reason: 'Interpret canonical user meaning for Semantic Kernel', traceContext: canonicalInput.traceContext, identityContext: canonicalInput.identityContext, role: canonicalInput.identityContext?.roles?.[0] ?? 'guest', messages: [{ role: 'system', content: boundary.system }, { role: 'user', content: boundary.user }], responseFormat: { name: 'semantic_interpretation', jsonSchema: SEMANTIC_SCHEMA, strict: false }, metadata: { locale: canonicalInput.locale, languageContext: canonicalInput.metadata?.languageContext ?? null, roles: canonicalInput.identityContext?.roles ?? [], context: userPayload } });
-        return createSemanticInterpretation(parseStructuredAIOutput(result));
+        return createSemanticInterpretation(canonicalizeAutomationInterpretation(parseStructuredAIOutput(result)));
       } catch (error) {
         if (!fallbackOnFailure) throw error;
         return createFallbackInterpretation(error, canonicalInput);

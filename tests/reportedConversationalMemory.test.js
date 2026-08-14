@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { createBoundedResponseContextAssembler } from '../src/response/boundedResponseContext.js';
 import { createIdentityResponseContract } from '../src/identity/identityResponseContract.js';
 import { conversationalMemoryInstruction } from '../src/language/conversationalMemoryPolicy.js';
+import { createLanguageAwareConversationResponder } from '../src/language/languageAwareConversationResponder.js';
 
 function reportedRecord(owner = 'usr-a') {
   return {
@@ -23,7 +24,7 @@ function request(globalUserId = 'usr-a') {
   return {
     actor: { globalUserId, roles: ['guest'], grants: [], authenticationLevel: 'verified', profile: null },
     scope: { userScope: globalUserId, projectScope: 'sg2.1', groupScope: null, threadScope: null },
-    input: { text: 'Какая у меня машина?', languageContext: { responseLanguage: 'ru' } },
+    input: { text: 'Какая у меня машина?', languageContext: { responseLanguage: 'ru' }, semanticIntent: 'personal_fact_recall' },
     traceContext: { traceId: 'trace-1', requestId: 'req-2', environment: 'test', revision: 'test' }
   };
 }
@@ -102,6 +103,33 @@ test('identity contract never promotes reported conversational memory', () => {
   assert.equal(contract.payload.verifiedGlobalUserId, 'usr-a');
   assert.deepEqual(contract.payload.permittedConfirmedMemory, []);
   assert.equal(JSON.stringify(contract).includes('Freelander'), false);
+});
+
+test('response model receives reported memory plus explicit conversational policy', async () => {
+  const context = {
+    version: '2.1',
+    identity: { globalUserId: 'usr-a', roles: ['guest'], profile: null, profileAuthority: 'descriptive-only' },
+    confirmedUserMemory: [],
+    reportedUserMemory: [reportedRecord()],
+    selfKnowledge: { validationStatus: 'valid', facts: [] }
+  };
+  let routed = null;
+  const responder = createLanguageAwareConversationResponder({
+    responseContextAssembler: { async assemble() { return context; } },
+    aiRouter: {
+      async route(input) {
+        routed = input;
+        return { text: 'Ты раньше говорил, что у тебя Freelander 2 2008 года.' };
+      }
+    }
+  });
+  const output = await responder({ text: 'Какая у меня машина?', request: request() });
+
+  assert.match(output, /Freelander 2/u);
+  const systemText = routed.messages.filter((item) => item.role === 'system').map((item) => item.content).join('\n');
+  assert.match(systemText, /reportedUserMemory/u);
+  assert.match(systemText, /Freelander 2/u);
+  assert.match(systemText, /Never use reportedUserMemory to create, prove, change or upgrade identity/u);
 });
 
 test('conversational policy treats missing recall as knowledge gap and keeps reported facts non-authoritative', () => {

@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { createObservabilityEvent } from '../contracts/observability.js';
 import { redactObservabilityData } from './redaction.js';
+import { redactSensitiveText } from '../secrets/redaction.js';
 
 const OPERATIONAL_EVENT_CLASSES = new Set(['system_event', 'delivery_attempt']);
 
@@ -36,6 +37,21 @@ function normalizedOperationalInput(input, eventId) {
   };
 }
 
+function emitApplicationFailure({ eventId, traceContext, stage, code, reason }) {
+  try {
+    const safe = Object.freeze({
+      status: 'sg-runtime-failure',
+      eventId,
+      traceId: traceContext?.traceId ?? null,
+      requestId: traceContext?.requestId ?? null,
+      stage: stage ?? 'unknown',
+      code: code ?? 'unknown-failure',
+      reason: redactSensitiveText(reason ?? 'failure')
+    });
+    console.error(JSON.stringify(safe));
+  } catch {}
+}
+
 export function createObservabilityService({ store, clock = () => new Date().toISOString(), idFactory = randomUUID } = {}) {
   if (!store?.append || !store?.list) throw new TypeError('observability store is required');
   if (typeof clock !== 'function' || typeof idFactory !== 'function') throw new TypeError('clock and idFactory must be functions');
@@ -63,10 +79,12 @@ export function createObservabilityService({ store, clock = () => new Date().toI
       });
     },
     recordFailure({ traceContext, stage, reason, code, channel = 'telemetry', actorRef, scopeRef, data }) {
-      return record({
+      const event = record({
         eventClass: stage === 'capability' ? 'capability_failed' : 'audit_event',
         channel, stage, traceContext, actorRef, scopeRef, reason, outcome: 'failed', data: { code, ...data }
       });
+      emitApplicationFailure({ eventId: event.eventId, traceContext: event.traceContext, stage, code, reason });
+      return event;
     },
     recordProtectedAction({ traceContext, actorRef, scopeRef, gateDecision, idempotencyKey, capability, outcome }) {
       return record({

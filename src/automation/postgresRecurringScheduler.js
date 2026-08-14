@@ -41,6 +41,7 @@ function normalizedSchedule(row) {
     misfirePolicy: row.misfire_policy,
     maxCatchup: Number(row.max_catchup),
     generatedCount: Number(row.generated_count),
+    firstOccurrenceAt: row.first_occurrence_at ? new Date(row.first_occurrence_at).toISOString() : (row.last_occurrence_at ? new Date(row.last_occurrence_at).toISOString() : null),
     lastOccurrenceAt: row.last_occurrence_at ? new Date(row.last_occurrence_at).toISOString() : null,
     nextOccurrenceAt: row.next_occurrence_at ? new Date(row.next_occurrence_at).toISOString() : null,
     state: row.state ?? {}
@@ -69,18 +70,24 @@ export function createPostgresRecurringScheduler({ database, recurrenceEngine, c
       const templateResult = await tx.query('SELECT * FROM tasks WHERE task_id=$1 FOR UPDATE', [required(taskId, 'taskId')]);
       const template = templateResult.rows[0];
       if (!template) throw new Error('recurring schedule template task not found');
-      const templateAt = template.available_at ? new Date(template.available_at).toISOString() : null;
-      if (templateAt !== first.utcInstant) throw new Error('template task runAt must equal the first recurrence occurrence');
+      const approval = template.approval_state ?? {};
+      const now = clock();
+      const firstStatus = approval.required === true && approval.approved !== true
+        ? 'waiting_approval'
+        : new Date(first.utcInstant) > now ? 'scheduled' : 'queued';
+      await tx.query(`UPDATE tasks SET available_at=$2,status=$3,updated_at=now()
+        WHERE task_id=$1 AND status IN ('queued','scheduled','waiting_approval')`, [template.task_id, first.utcInstant, firstStatus]);
 
       const next = await recurrenceEngine.next({ rule, dtstartLocal, timeZone, afterUtc: first.utcInstant });
       const completed = !next;
+      const scheduleState = { ...state, firstOccurrenceAt: first.utcInstant };
       const result = await tx.query(`INSERT INTO schedules(schedule_id,task_id,due_at,recurrence,state,timezone,dtstart_local,status,misfire_policy,max_catchup,generated_count,last_occurrence_at,next_occurrence_at,completed_at)
         VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7,$8,$9,$10,1,$11,$3,$12)
         ON CONFLICT(schedule_id) DO UPDATE SET recurrence=EXCLUDED.recurrence,state=EXCLUDED.state,timezone=EXCLUDED.timezone,dtstart_local=EXCLUDED.dtstart_local,status=EXCLUDED.status,misfire_policy=EXCLUDED.misfire_policy,max_catchup=EXCLUDED.max_catchup,generated_count=1,last_occurrence_at=EXCLUDED.last_occurrence_at,next_occurrence_at=EXCLUDED.next_occurrence_at,due_at=EXCLUDED.due_at,completed_at=EXCLUDED.completed_at,updated_at=now()
-        RETURNING *`, [scheduleId, taskId, next?.utcInstant ?? null, rule.canonical, JSON.stringify(state), timeZone, dtstartLocal, completed ? 'completed' : 'active', policy, catchup, first.utcInstant, completed ? new Date().toISOString() : null]);
+        RETURNING *`, [scheduleId, taskId, next?.utcInstant ?? null, rule.canonical, JSON.stringify(scheduleState), timeZone, dtstartLocal, completed ? 'completed' : 'active', policy, catchup, first.utcInstant, completed ? now.toISOString() : null]);
       await tx.query(`INSERT INTO schedule_occurrences(schedule_id,sequence,scheduled_for,local_datetime,timezone,task_id)
         VALUES ($1,1,$2,$3,$4,$5) ON CONFLICT DO NOTHING`, [scheduleId, first.utcInstant, first.localDateTime, timeZone, taskId]);
-      return normalizedSchedule(result.rows[0]);
+      return normalizedSchedule({ ...result.rows[0], first_occurrence_at: first.utcInstant });
     });
   }
 
@@ -88,7 +95,8 @@ export function createPostgresRecurringScheduler({ database, recurrenceEngine, c
     const [userScope, projectScope, groupScope, threadScope] = scopeValues(scope);
     const result = await database.query(`SELECT s.* FROM schedules s JOIN tasks t ON t.task_id=s.task_id
       WHERE s.schedule_id=$1 AND ${scopedWhere('t')}`, [required(scheduleId, 'scheduleId'), userScope, projectScope, groupScope, threadScope]);
-    return normalizedSchedule(result.rows[0]);
+    const row = result.rows[0];
+    return normalizedSchedule(row ? { ...row, first_occurrence_at: row.state?.firstOccurrenceAt ?? null } : null);
   }
 
   async function list({ scope, limit = 100 }) {
@@ -96,7 +104,7 @@ export function createPostgresRecurringScheduler({ database, recurrenceEngine, c
     const bounded = Number.isInteger(limit) && limit > 0 ? Math.min(limit, 100) : 100;
     const result = await database.query(`SELECT s.* FROM schedules s JOIN tasks t ON t.task_id=s.task_id
       WHERE ${scopedWhere('t')} ORDER BY s.created_at DESC,s.schedule_id DESC LIMIT $1`, [bounded, userScope, projectScope, groupScope, threadScope]);
-    return Object.freeze(result.rows.map(normalizedSchedule));
+    return Object.freeze(result.rows.map((row) => normalizedSchedule({ ...row, first_occurrence_at: row.state?.firstOccurrenceAt ?? null })));
   }
 
   async function transition({ scope, scheduleId, fromStatuses, sqlStatus }) {
@@ -104,7 +112,8 @@ export function createPostgresRecurringScheduler({ database, recurrenceEngine, c
     const result = await database.query(`UPDATE schedules s SET status=$6,paused_at=CASE WHEN $6='paused' THEN now() ELSE NULL END,updated_at=now()
       FROM tasks t WHERE s.task_id=t.task_id AND s.schedule_id=$1 AND ${scopedWhere('t')} AND s.status=ANY($7::text[]) RETURNING s.*`,
     [required(scheduleId, 'scheduleId'), userScope, projectScope, groupScope, threadScope, sqlStatus, fromStatuses]);
-    return normalizedSchedule(result.rows[0]);
+    const row = result.rows[0];
+    return normalizedSchedule(row ? { ...row, first_occurrence_at: row.state?.firstOccurrenceAt ?? null } : null);
   }
 
   const pause = ({ scope, scheduleId }) => transition({ scope, scheduleId, fromStatuses: ['active'], sqlStatus: 'paused' });

@@ -1,7 +1,17 @@
 import { createActionRequestFromDecision } from '../contracts/action.js';
 import { redactSensitiveText } from '../secrets/redaction.js';
 
-const DIRECT_USER_CONFIRMABLE_CAPABILITIES = new Set(['task-create', 'schedule-pause', 'schedule-resume', 'schedule-cancel']);
+function directUserConfirmation(selectedName, selectedPayload, requestInput, traceContext) {
+  if (selectedName !== 'task-create') return undefined;
+  if (selectedPayload?.kind !== 'self-notification') return undefined;
+  if (typeof selectedPayload?.notificationMessage !== 'string' || selectedPayload.notificationMessage.trim() === '') return undefined;
+  const hasSchedule = (typeof selectedPayload?.temporalExpression === 'string' && selectedPayload.temporalExpression.trim() !== '')
+    || (typeof selectedPayload?.recurrence === 'string' && selectedPayload.recurrence.trim() !== '');
+  if (!hasSchedule) return undefined;
+  const originTarget = requestInput.metadata?.originTarget;
+  if (!originTarget || typeof originTarget.transport !== 'string' || typeof originTarget.address !== 'string') return undefined;
+  return { confirmed: true, requestId: traceContext.requestId, source: 'canonical-user-self-notification' };
+}
 
 function requireMethod(value, method, name) {
   if (!value || typeof value[method] !== 'function') throw new TypeError(`${name}.${method} is required`);
@@ -189,13 +199,12 @@ export function createProductionRuntime({ config, semanticPipeline, actionGate, 
       const semantic = await semanticPipeline.process(requestInput);
       observability.record({ eventClass: 'semantic_decision_created', channel: 'telemetry', stage: 'decision-engine', traceContext, outcome: semantic.decisionEnvelope.decisionType, data: { intent: semantic.decisionEnvelope.intent } });
       const selectedName = semantic.decisionEnvelope.selectedAction?.name ?? semantic.decisionEnvelope.selectedAction?.type;
+      const selectedPayload = semantic.decisionEnvelope.selectedAction?.payload ?? {};
       const declaredCapability = capabilityRegistry?.get(selectedName) ?? null;
       const requirement = selectedResourceRequirement(semantic);
       const authority = await resolveResourceAuthority(requirement, requestInput, traceContext);
-      const directConfirmation = DIRECT_USER_CONFIRMABLE_CAPABILITIES.has(selectedName)
-        ? { confirmed: true, requestId: traceContext.requestId, source: 'canonical-user-request' }
-        : undefined;
-      const actionRequest = createActionRequestFromDecision({ decisionEnvelope: semantic.decisionEnvelope, identityContext: requestInput.identityContext, scopeContext: requestInput.scopeContext, overrides: { ...capabilityOverrides(declaredCapability), resourceRequirement: requirement, resourceAuthority: authority, confirmation: directConfirmation, payload: { ...(semantic.decisionEnvelope.selectedAction?.payload ?? {}), ...languagePayload(requestInput, semantic) } } });
+      const confirmation = directUserConfirmation(selectedName, selectedPayload, requestInput, traceContext);
+      const actionRequest = createActionRequestFromDecision({ decisionEnvelope: semantic.decisionEnvelope, identityContext: requestInput.identityContext, scopeContext: requestInput.scopeContext, overrides: { ...capabilityOverrides(declaredCapability), resourceRequirement: requirement, resourceAuthority: authority, confirmation, payload: { ...selectedPayload, ...languagePayload(requestInput, semantic) } } });
       const gateDecision = actionGate.evaluate(actionRequest, { policyContext });
       observability.record({ eventClass: 'action_gate_decision', channel: 'audit', stage: 'action-gate', traceContext, outcome: gateDecision.outcome, data: { capability: actionRequest.capability, authorized: gateDecision.authorized, resourceId: actionRequest.resourceRequirement?.resourceId ?? null, resourceAuthority: gateDecision.checks.resourceAuthority } });
       const gatedResponse = responseFromGate(gateDecision, semantic.responsePlan);

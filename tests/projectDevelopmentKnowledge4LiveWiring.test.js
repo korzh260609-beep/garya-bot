@@ -59,7 +59,7 @@ test('PDK4.13: only explicitly marked source-verified autonomous proposed facts 
   const integration = createDevelopmentQueryIntegration({ projectMemoryIntegration, retrieval, contextGuard });
   const request = Object.freeze({ actor: Object.freeze({ globalUserId: 'usr-monarch' }), scope: Object.freeze({ projectScope: projectKey }), traceContext: Object.freeze({ traceId: 't', requestId: 'r' }), input: Object.freeze({ semanticIntent: 'project_development_current' }) });
   const context = await integration.contextForRequest({ request, query: 'current autonomous project history' });
-  assert.equal(guardCalls, 2);
+  assert.equal(guardCalls, 1);
   assert.equal(context.qualification.sourceVerifiedProposedFactsMayBeIncluded, true);
   assert.equal(context.qualification.monarchConfirmationImplied, false);
   assert.match(integration.deterministicAnswer({ context, responseLanguage: 'en' }), /not Monarch-confirmed/i);

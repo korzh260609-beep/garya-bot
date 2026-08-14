@@ -30,14 +30,6 @@ function asksTimezoneChange(text) {
   return hasAny(text, ['timezone', 'time zone', 'часовой пояс', 'часовый пояс', 'часовий пояс']) ? timezoneFromText(text) : null;
 }
 
-function asksTemporalRecall(text) {
-  return hasAny(text, [
-    'what did we discuss', 'what did we talk about', 'what happened', 'remember from',
-    'что мы обсуждали', 'что обсуждали', 'о чем мы говорили', 'о чём мы говорили', 'что было', 'вспомни за',
-    'що ми обговорювали', 'що обговорювали', 'про що ми говорили', 'що було', 'згадай за'
-  ]);
-}
-
 function currentTimeInterpretation(canonicalInput) {
   const temporal = canonicalInput.metadata?.temporalContext ?? {};
   const asksUtcOnly = hasAny(canonicalInput.text, ['utc', 'всемирное время', 'всемирный час', 'світовий час', 'світового часу']);
@@ -70,23 +62,6 @@ function timezoneChangeInterpretation(timeZone) {
   });
 }
 
-function temporalRecallInterpretation(resolution) {
-  return createSemanticInterpretation({
-    meaning: `Read scoped memory for ${resolution.originalExpression}.`,
-    goal: 'recall-time-period',
-    intent: 'memory-time-read',
-    entities: [{ name: 'time-period', value: resolution.originalExpression }],
-    constraints: [], uncertainty: resolution.ambiguous ? 0.2 : 0,
-    missingInformation: [], clarificationQuestion: null,
-    contextNeeds: [], evidenceNeeds: [],
-    candidateActions: [{
-      type: 'memory-time-read', name: 'memory-time-read', actionClass: 'read-only',
-      payload: { temporalRange: resolution, layers: ['session', 'user-memory', 'project-memory'] }
-    }],
-    rationale: 'Temporal recall uses the same deterministic UTC range as the rest of SG Temporal Context.'
-  });
-}
-
 export function createTemporalAwareMeaningInterpreter({ baseInterpreter, temporalService } = {}) {
   if (!baseInterpreter?.interpret) throw new TypeError('baseInterpreter.interpret is required');
   if (!temporalService?.enrichInput || !temporalService?.resolveForUser) throw new TypeError('temporalService is required');
@@ -99,11 +74,13 @@ export function createTemporalAwareMeaningInterpreter({ baseInterpreter, tempora
       if (zone && temporalService.isValidTimeZone(zone)) return timezoneChangeInterpretation(zone);
       if (asksCurrentTime(enriched.text)) return currentTimeInterpretation(enriched);
 
+      // Temporal parsing is context enrichment only. It MUST NOT decide which
+      // subsystem owns a conversational recall request; that belongs to the
+      // semantic interpreter. This keeps temporal expressions language- and
+      // wording-independent at the routing layer.
       const resolution = await temporalService.resolveForUser(enriched.identityContext.globalUserId, enriched.text, {
         referenceInstant: enriched.metadata.temporalContext.referenceInstant
       });
-      if (resolution.status === 'resolved' && asksTemporalRecall(enriched.text)) return temporalRecallInterpretation(resolution);
-
       const input = Object.freeze({
         ...enriched,
         metadata: Object.freeze({ ...enriched.metadata, temporalResolution: resolution.status === 'resolved' ? resolution : null })

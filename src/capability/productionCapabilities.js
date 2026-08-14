@@ -51,6 +51,74 @@ function capability(input) {
   });
 }
 
+function safeOriginTarget(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const transport = typeof value.transport === 'string' ? value.transport.trim().toLowerCase() : '';
+  const address = value.address == null ? null : String(value.address).trim();
+  if (!transport || !address) return null;
+  return Object.freeze({
+    transport,
+    address,
+    threadId: value.threadId == null ? null : String(value.threadId),
+    resourceId: value.resourceId == null ? null : String(value.resourceId),
+    connectionId: value.connectionId == null ? null : String(value.connectionId)
+  });
+}
+
+function taskCreateInput(request) {
+  const input = request.input ?? {};
+  const kind = String(input.kind ?? '').trim();
+  if (kind !== 'self-notification') return input;
+
+  const originTarget = safeOriginTarget(input.originTarget);
+  if (!originTarget) {
+    const error = new Error('Self notification requires a verified transport origin target');
+    error.code = 'automation-origin-target-required';
+    throw error;
+  }
+  const notificationMessage = boundedText(input.notificationMessage, 'input.notificationMessage', 50000);
+  const temporalExpression = requiredText(input.temporalExpression, 'input.temporalExpression');
+  const recurrence = input.recurrence == null ? null : requiredText(input.recurrence, 'input.recurrence');
+
+  return Object.freeze({
+    taskId: input.taskId ?? undefined,
+    kind: 'self-notification',
+    temporalExpression,
+    recurrence,
+    scheduleId: input.scheduleId ?? undefined,
+    misfirePolicy: input.misfirePolicy ?? 'fire_once',
+    maxCatchup: input.maxCatchup ?? 1,
+    maxAttempts: Number.isInteger(input.maxAttempts) ? input.maxAttempts : 3,
+    idempotencyKey: input.idempotencyKey ?? `self-notification:${request.traceContext.requestId}`,
+    protectedAction: true,
+    approvalRequired: false,
+    payload: Object.freeze({
+      message: notificationMessage,
+      delivery: Object.freeze({
+        originTarget,
+        recipientGlobalUserId: request.actor.globalUserId,
+        projectScope: request.scope.projectScope,
+        locale: input.locale ?? null,
+        originBoundSelfNotification: true
+      }),
+      identityContext: Object.freeze({
+        globalUserId: request.actor.globalUserId,
+        roles: Object.freeze([...(request.actor.roles ?? [])]),
+        grants: Object.freeze([...(request.actor.grants ?? [])]),
+        authenticationLevel: request.actor.authenticationLevel ?? 'verified'
+      }),
+      scopeContext: Object.freeze({
+        userScope: request.scope.userScope,
+        projectScope: request.scope.projectScope,
+        groupScope: request.scope.groupScope ?? null,
+        threadScope: request.scope.threadScope ?? null
+      }),
+      traceContext: Object.freeze({ ...request.traceContext }),
+      automation: Object.freeze({ source: 'canonical-user-request', capability: 'task-create' })
+    })
+  });
+}
+
 export function createInMemoryProductionTaskStore() {
   const tasks = new Map();
   const sameScope = (task, scope) => task.scope.userScope === scope.userScope
@@ -138,11 +206,16 @@ export function createProductionCapabilities({
       }
     }),
     capability({
-      name: 'task-create', description: 'Create a scoped durable-compatible task.',
+      name: 'task-create', description: 'Create a scoped durable task, including one-shot or recurring origin-bound self notifications.',
       actionTypes: ['task-create'], actionClasses: ['state-changing'], confirmationRequired: true,
       execute: async (request) => {
-        const task = await taskStore.create({ scope: scopeFrom(request), input: request.input ?? {} });
-        return { status: 'success', data: { task, message: `Task ${task.taskId} created` } };
+        const input = taskCreateInput(request);
+        const task = await taskStore.create({ scope: scopeFrom(request), input });
+        const schedule = task.recurringSchedule ?? null;
+        const message = schedule
+          ? `Automation created. Schedule ${schedule.scheduleId}; next occurrence ${schedule.nextOccurrenceAt ?? 'none'}.`
+          : `Task ${task.taskId} created`;
+        return { status: 'success', data: { task, schedule, message } };
       }
     }),
     capability({

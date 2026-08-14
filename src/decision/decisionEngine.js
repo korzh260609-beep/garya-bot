@@ -22,6 +22,7 @@ function canonicalConversationAction(action, interpretation) {
   const interpretationCandidates = semanticMemoryCandidates(interpretation);
   const candidates = interpretationCandidates.length > 0 ? interpretationCandidates : legacyCandidates;
   return Object.freeze({
+    ...action,
     type: 'answer',
     name: 'compose-answer',
     actionClass: 'analysis',

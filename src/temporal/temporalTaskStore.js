@@ -84,7 +84,11 @@ function fixedIntervalResolution({ temporalService, recurrence }) {
 }
 
 async function cancelLinkedRecurringSchedule({ recurringScheduler, scope, taskId }) {
-  if (!recurringScheduler?.list || !recurringScheduler?.cancel) return null;
+  if (!recurringScheduler) return null;
+  if (typeof recurringScheduler.cancelByTaskId === 'function') {
+    return recurringScheduler.cancelByTaskId({ scope, taskId });
+  }
+  if (!recurringScheduler.list || !recurringScheduler.cancel) return null;
   const schedules = await recurringScheduler.list({ scope, limit: 100 });
   const linked = schedules.find((schedule) => schedule.taskId === taskId && ['active', 'paused', 'error'].includes(schedule.status));
   if (!linked) return null;

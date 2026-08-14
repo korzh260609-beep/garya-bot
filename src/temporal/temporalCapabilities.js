@@ -60,17 +60,19 @@ function semanticScheduleSelector(request) {
 }
 
 function scheduleLocalTime(schedule) {
-  return normalizedLocalTime(schedule.state?.localTime ?? String(schedule.dtstartLocal ?? '').slice(11, 16));
+  const value = schedule.state?.localTime ?? String(schedule.dtstartLocal ?? '').slice(11, 16);
+  return value ? normalizedLocalTime(value) : null;
 }
 
-function matchesSemanticSelector(schedule, selector) {
-  if (selector.recurrence && normalizedRecurrence(schedule.recurrence) !== selector.recurrence) return false;
-  if (selector.localTime && scheduleLocalTime(schedule) !== selector.localTime) return false;
+function selectorMatchQuality(schedule, selector) {
+  if (selector.recurrence && normalizedRecurrence(schedule.recurrence) !== selector.recurrence) return 'mismatch';
+  if (selector.localTime && scheduleLocalTime(schedule) !== selector.localTime) return 'mismatch';
   if (selector.notificationMessage) {
     const storedMessage = normalizedSemanticText(schedule.state?.notificationMessage ?? schedule.notificationMessage);
-    if (!storedMessage || storedMessage !== selector.notificationMessage) return false;
+    if (storedMessage && storedMessage !== selector.notificationMessage) return 'mismatch';
+    if (!storedMessage) return 'compatible-legacy';
   }
-  return true;
+  return 'exact';
 }
 
 async function resolveScheduleTarget({ recurringScheduler, request, statuses = null }) {
@@ -79,8 +81,18 @@ async function resolveScheduleTarget({ recurringScheduler, request, statuses = n
   const schedules = await recurringScheduler.list({ scope: scopeFrom(request), limit: 100 });
   let candidates = Array.isArray(statuses) ? schedules.filter((item) => statuses.includes(item.status)) : schedules;
   const selector = semanticScheduleSelector(request);
-  if (selector) candidates = candidates.filter((schedule) => matchesSemanticSelector(schedule, selector));
-  if (candidates.length === 1) return Object.freeze({ scheduleId: candidates[0].scheduleId, inferred: true, selectedBy: selector ? 'semantic-selector' : 'single-schedule' });
+  let selectedBy = selector ? 'semantic-selector' : 'single-schedule';
+  if (selector) {
+    const evaluated = candidates.map((schedule) => ({ schedule, quality: selectorMatchQuality(schedule, selector) }));
+    const exact = evaluated.filter((item) => item.quality === 'exact').map((item) => item.schedule);
+    if (exact.length > 0) {
+      candidates = exact;
+    } else {
+      candidates = evaluated.filter((item) => item.quality === 'compatible-legacy').map((item) => item.schedule);
+      selectedBy = 'semantic-selector-legacy-compatible';
+    }
+  }
+  if (candidates.length === 1) return Object.freeze({ scheduleId: candidates[0].scheduleId, inferred: true, selectedBy });
   if (candidates.length === 0) return Object.freeze({ error: scheduleSelectionError('schedule-not-found', 'No matching recurring schedule exists in the current scope.') });
   return Object.freeze({ error: scheduleSelectionError('schedule-selection-required', 'Multiple recurring schedules match the requested automation. Clarification is required to avoid guessing.', candidates) });
 }

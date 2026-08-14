@@ -73,13 +73,14 @@ test('protected actions retain their explicit capability identity', () => {
   assert.equal(result.decisionEnvelope.diagnostics.conversationalAnswerCanonicalized, false);
 });
 
-test('requests clarification when essential information is missing', () => {
+test('requests clarification when essential information is missing and a question is available', () => {
   const result = createDecisionEngine().decide({
     canonicalInput,
     interpretation: interpretation({ missingInformation: ['recipient'], clarificationQuestion: 'Which recipient should be used?' })
   });
   assert.equal(result.decisionEnvelope.decisionType, 'clarification');
   assert.equal(result.responsePlan.message, 'Which recipient should be used?');
+  assert.equal(result.decisionEnvelope.diagnostics.missingInformationWithoutClarification, false);
 });
 
 test('uses uncertainty threshold only when a clarification question exists', () => {
@@ -116,9 +117,18 @@ test('equivalent semantic inputs produce compatible decisions', () => {
   assert.deepEqual(first.responsePlan, second.responsePlan);
 });
 
-test('fails closed when missing information has no clarification question', () => {
-  assert.throws(
-    () => createDecisionEngine().decide({ canonicalInput, interpretation: interpretation({ missingInformation: ['document'] }) }),
-    /clarificationQuestion is required/
-  );
+test('missing contextual information without a clarification question remains answerable', () => {
+  const result = createDecisionEngine().decide({
+    canonicalInput,
+    interpretation: interpretation({
+      missingInformation: ['remembered personal fact'],
+      clarificationQuestion: null,
+      memoryQuery: 'current user vehicle'
+    })
+  });
+  assert.equal(result.decisionEnvelope.decisionType, 'answer');
+  assert.equal(result.decisionEnvelope.clarificationQuestion, null);
+  assert.equal(result.decisionEnvelope.diagnostics.missingInformationWithoutClarification, true);
+  assert.equal(result.decisionEnvelope.selectedAction.name, 'compose-answer');
+  assert.equal(result.decisionEnvelope.selectedAction.payload.memoryQuery, 'current user vehicle');
 });

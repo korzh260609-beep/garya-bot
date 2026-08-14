@@ -77,13 +77,25 @@ function taskCreateInput(request) {
     throw error;
   }
   const notificationMessage = boundedText(input.notificationMessage, 'input.notificationMessage', 50000);
-  const temporalExpression = requiredText(input.temporalExpression, 'input.temporalExpression');
   const recurrence = input.recurrence == null ? null : requiredText(input.recurrence, 'input.recurrence');
+  const temporalExpression = input.temporalExpression == null ? null : requiredText(input.temporalExpression, 'input.temporalExpression');
+  const localTime = input.localTime == null ? null : requiredText(input.localTime, 'input.localTime');
+  if (!recurrence && !temporalExpression) {
+    const error = new Error('One-shot self notification requires temporalExpression');
+    error.code = 'automation-time-required';
+    throw error;
+  }
+  if (recurrence && !temporalExpression && !localTime) {
+    const error = new Error('Recurring self notification requires localTime or temporalExpression');
+    error.code = 'automation-recurring-time-required';
+    throw error;
+  }
 
   return Object.freeze({
     taskId: input.taskId ?? undefined,
     kind: 'self-notification',
     temporalExpression,
+    localTime,
     recurrence,
     scheduleId: input.scheduleId ?? undefined,
     misfirePolicy: input.misfirePolicy ?? 'fire_once',
@@ -117,6 +129,14 @@ function taskCreateInput(request) {
       automation: Object.freeze({ source: 'canonical-user-request', capability: 'task-create' })
     })
   });
+}
+
+function automationCreatedMessage({ schedule, task, locale }) {
+  const language = String(locale ?? '').toLowerCase();
+  const next = schedule?.nextOccurrenceAt ?? schedule?.lastOccurrenceAt ?? task?.runAt ?? task?.availableAt ?? null;
+  if (language.startsWith('ru')) return schedule ? `Автоматизация создана. Следующее выполнение: ${next ?? 'не определено'}.` : `Задача создана. Выполнение: ${next ?? 'по расписанию'}.`;
+  if (language.startsWith('uk')) return schedule ? `Автоматизацію створено. Наступне виконання: ${next ?? 'не визначено'}.` : `Завдання створено. Виконання: ${next ?? 'за розкладом'}.`;
+  return schedule ? `Automation created. Next execution: ${next ?? 'not determined'}.` : `Task created. Execution: ${next ?? 'scheduled'}.`;
 }
 
 export function createInMemoryProductionTaskStore() {
@@ -212,10 +232,7 @@ export function createProductionCapabilities({
         const input = taskCreateInput(request);
         const task = await taskStore.create({ scope: scopeFrom(request), input });
         const schedule = task.recurringSchedule ?? null;
-        const message = schedule
-          ? `Automation created. Schedule ${schedule.scheduleId}; next occurrence ${schedule.nextOccurrenceAt ?? 'none'}.`
-          : `Task ${task.taskId} created`;
-        return { status: 'success', data: { task, schedule, message } };
+        return { status: 'success', data: { task, schedule, message: automationCreatedMessage({ schedule, task, locale: request.input?.locale }) } };
       }
     }),
     capability({

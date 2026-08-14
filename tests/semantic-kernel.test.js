@@ -71,13 +71,16 @@ test('asks at most one clarification when essential information is missing', asy
   assert.equal(Array.isArray(result.responsePlan.message), false);
 });
 
-test('fails closed when clarification text is absent', async () => {
+test('keeps missing contextual information answerable when clarification text is absent', async () => {
   const kernel = createSemanticKernel({
     meaningInterpreter: createFixtureMeaningInterpreter(() => interpretation({
-      missingInformation: ['target'], clarificationQuestion: null
+      missingInformation: ['remembered personal fact'], clarificationQuestion: null
     }))
   });
-  await assert.rejects(() => kernel.process(baseInput('Do it')), /clarificationQuestion is required/);
+  const result = await kernel.process(baseInput('What do you remember about me?'));
+  assert.equal(result.decisionEnvelope.decisionType, 'answer');
+  assert.equal(result.decisionEnvelope.clarificationQuestion, null);
+  assert.equal(result.decisionEnvelope.diagnostics.missingInformationWithoutClarification, true);
 });
 
 test('downgrades external or state-changing actions to prepare-only', async () => {

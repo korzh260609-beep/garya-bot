@@ -20,6 +20,11 @@ function positiveInteger(value, field) {
   if (!Number.isInteger(number) || number <= 0) throw new TypeError(`${field} must be a positive integer`);
   return number;
 }
+function structuredJsonText(value) {
+  const text = String(value ?? '').replace(/^\uFEFF/u, '').trim();
+  const fenced = text.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/iu);
+  return (fenced?.[1] ?? text).trim();
+}
 export function assertAIProvider(provider) {
   if (!provider || typeof provider.generate !== 'function') throw new TypeError('AI provider generate must be a function');
   return provider;
@@ -62,7 +67,7 @@ export function createAIResult(input) {
 }
 export function parseStructuredAIOutput(result) {
   try {
-    return object(JSON.parse(result.text), 'structured AI output');
+    return object(JSON.parse(structuredJsonText(result?.text)), 'structured AI output');
   } catch (cause) {
     if (cause instanceof AIOutputValidationError) throw cause;
     throw new AIOutputValidationError('AI provider returned invalid JSON', { cause });

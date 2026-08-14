@@ -63,14 +63,16 @@ test('semantic meaning and canonical user text never become the conversational r
   assert.equal(result.decisionEnvelope.diagnostics.semanticMeaningExposedAsResponse, false);
 });
 
-test('protected actions retain their explicit capability identity', () => {
+test('protected actions retain capability identity and are routed to Action Gate authorization', () => {
   const result = createDecisionEngine().decide({
     canonicalInput,
     interpretation: interpretation({ candidateActions: [{ type: 'execute', name: 'send-report', actionClass: 'external' }] })
   });
   assert.equal(result.decisionEnvelope.selectedAction.name, 'send-report');
-  assert.equal(result.decisionEnvelope.decisionType, 'prepare');
+  assert.equal(result.decisionEnvelope.decisionType, 'execute');
   assert.equal(result.decisionEnvelope.diagnostics.conversationalAnswerCanonicalized, false);
+  assert.equal(result.responsePlan.preparedAction, null);
+  assert.match(result.responsePlan.message, /Action Gate authorization/);
 });
 
 test('requests clarification when essential information is missing and a question is available', () => {
@@ -99,14 +101,26 @@ test('keeps evidence needs explicit without checking permissions', () => {
   assert.equal(result.decisionEnvelope.diagnostics.capabilityExecuted, false);
 });
 
-test('converts executable and protected intent into prepare-only decision', () => {
+test('routes executable protected intent to execute without authorizing it inside Decision Engine', () => {
   const external = createDecisionEngine().decide({
     canonicalInput,
     interpretation: interpretation({ candidateActions: [{ type: 'execute', name: 'send-report', actionClass: 'external' }] })
   });
-  assert.equal(external.decisionEnvelope.decisionType, 'prepare');
-  assert.equal(external.responsePlan.preparedAction.name, 'send-report');
+  assert.equal(external.decisionEnvelope.decisionType, 'execute');
+  assert.equal(external.responsePlan.preparedAction, null);
   assert.equal(external.responsePlan.requiresConfirmation, false);
+  assert.equal(external.decisionEnvelope.diagnostics.permissionChecked, false);
+  assert.equal(external.decisionEnvelope.diagnostics.capabilityExecuted, false);
+});
+
+test('keeps explicitly prepare-only actions prepare-only', () => {
+  const prepared = createDecisionEngine().decide({
+    canonicalInput,
+    interpretation: interpretation({ candidateActions: [{ type: 'prepare', name: 'code.prepare', actionClass: 'state-change' }] })
+  });
+  assert.equal(prepared.decisionEnvelope.decisionType, 'prepare');
+  assert.equal(prepared.responsePlan.preparedAction.name, 'code.prepare');
+  assert.match(prepared.responsePlan.message, /^Prepared action:/);
 });
 
 test('equivalent semantic inputs produce compatible decisions', () => {

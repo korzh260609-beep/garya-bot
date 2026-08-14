@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { createCapability } from '../contracts/capability.js';
+import { captureSemanticMemoryCandidates } from '../memory2/semanticMemoryCandidatePolicy.js';
 
 export const PRODUCTION_CAPABILITY_NAMES = Object.freeze([
   'compose-answer',
@@ -101,8 +102,9 @@ export function createProductionCapabilities({
       actionTypes: ['answer'], actionClasses: ['analysis-only'], timeoutMs: 300000,
       execute: async (request) => {
         const text = boundedText(request.input?.text ?? request.input?.message ?? 'Request completed.', 'input.text', 50000);
+        const semanticMemoryCapture = await captureSemanticMemoryCandidates({ memoryProvider, request, candidates: request.input?.memoryCandidates });
         const message = conversationResponder ? await conversationResponder({ text, request }) : `SG runtime ready: ${text}`;
-        return { status: 'success', data: { message: String(message) } };
+        return { status: 'success', data: { message: String(message), semanticMemoryCapture } };
       }
     }),
     capability({
@@ -200,7 +202,7 @@ export function createProductionCapabilities({
       actionTypes: ['repository-analyze'], actionClasses: ['read-only', 'prepare-only', 'analysis-only'],
       requiredSources: ['repository-read-source'], requiredTools: ['repository-analyzer'],
       execute: async (request) => {
-        if (!repositoryAnalyzer) return { status: 'unavailable', error: { code: 'repository-analyzer-unavailable', message: 'Repository analyzer is not configured', retryable: true } };
+        if (!repositoryAnalyzer) return { status: 'unavailable', error: { code: 'repository-analyzer-unavailable', message: 'Approved source retriever is not configured', retryable: true } };
         const result = await repositoryAnalyzer({ ...request.input, mode: request.input?.mode === 'prepare-only' ? 'prepare-only' : 'read-only', request });
         if (result?.mutated === true || result?.pushed === true || result?.published === true) throw new Error('prepare-only repository capability attempted mutation');
         return { status: result?.partial ? 'partial' : 'success', data: { ...result, mutated: false, message: result?.message ?? 'Repository analysis prepared' }, sources: result?.sources ?? ['repository-read-source'], tools: ['repository-analyzer'] };

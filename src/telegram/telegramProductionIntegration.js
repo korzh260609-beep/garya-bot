@@ -70,6 +70,7 @@ export function createTelegramProductionIntegration({
   runtime,
   workspaceRuntime = null,
   nativeUi = null,
+  semanticRouter = null,
   naturalLanguage = null,
   observability = null,
   botUserId = null,
@@ -89,6 +90,7 @@ export function createTelegramProductionIntegration({
   if (!runtime || typeof runtime.handle !== 'function') throw new TypeError('runtime.handle is required');
   if (workspaceRuntime !== null && (typeof workspaceRuntime?.handle !== 'function' || typeof workspaceRuntime?.evaluateInvocation !== 'function')) throw new TypeError('workspaceRuntime.handle and workspaceRuntime.evaluateInvocation are required');
   if (nativeUi !== null && typeof nativeUi?.handleUpdate !== 'function') throw new TypeError('nativeUi.handleUpdate is required');
+  if (semanticRouter !== null && typeof semanticRouter?.routeUpdate !== 'function') throw new TypeError('semanticRouter.routeUpdate is required');
   if (naturalLanguage !== null && typeof naturalLanguage?.handleUpdate !== 'function') throw new TypeError('naturalLanguage.handleUpdate is required');
 
   const pending = new Set();
@@ -252,26 +254,30 @@ export function createTelegramProductionIntegration({
     }
   }
 
-  async function processNaturalLanguageOrRuntime(body, claim, invocation) {
+  async function processSemanticallyRoutedUpdate(body, claim, invocation) {
+    let route;
     try {
-      const result = await naturalLanguage.handleUpdate(body);
-      if (result?.handled) {
-        await updateStore.complete(claim.updateId, 'completed');
-        recordDiagnosticSensor({ eventClass: 'telegram_workspace_nl_completed', channel: 'telemetry', stage: 'telegram-workspace-natural-language', outcome: result.outcome ?? 'handled', data: { updateId: claim.updateId, callback: false } });
-        return Object.freeze({ ok: true, naturalLanguage: true, result });
-      }
+      route = await semanticRouter.routeUpdate(body);
     } catch (error) {
-      try { observability?.recordFailure?.({ stage: 'telegram-workspace-natural-language-classification', reason: redactSensitiveText(error.message), code: error.code ?? 'twm19-classification-failed' }); } catch {}
+      try { observability?.recordFailure?.({ stage: 'telegram-semantic-subsystem-routing', reason: redactSensitiveText(error.message), code: error.code ?? 'telegram-semantic-routing-failed' }); } catch {}
+      return processClaimedUpdate(body, claim, invocation);
     }
-    return processClaimedUpdate(body, claim, invocation);
+    if (route?.destination !== 'telegram-workspace-manager') return processClaimedUpdate(body, claim, invocation);
+    try {
+      const result = await naturalLanguage.handleUpdate(body, { semanticRoute: route });
+      if (!result?.handled) throw Object.assign(new Error('TWM declined a semantically routed workspace request'), { code: 'twm19-semantic-route-declined' });
+      await updateStore.complete(claim.updateId, 'completed');
+      recordDiagnosticSensor({ eventClass: 'telegram_workspace_nl_completed', channel: 'telemetry', stage: 'telegram-workspace-natural-language', outcome: result.outcome ?? 'handled', data: { updateId: claim.updateId, callback: false, semanticRoute: true, workspaceOperation: route.workspaceOperation ?? null } });
+      return Object.freeze({ ok: true, naturalLanguage: true, result });
+    } catch (error) {
+      try { observability?.recordFailure?.({ stage: 'telegram-workspace-natural-language', reason: redactSensitiveText(error.message), code: error.code ?? 'twm19-semantic-route-failed' }); } catch {}
+      return Object.freeze({ ok: false, error });
+    }
   }
 
   function trackBackground(promise) {
     pending.add(promise);
-    promise.then(
-      () => pending.delete(promise),
-      () => pending.delete(promise)
-    );
+    promise.then(() => pending.delete(promise), () => pending.delete(promise));
   }
 
   async function handleWebhook({ headers = {}, body } = {}) {
@@ -321,9 +327,9 @@ export function createTelegramProductionIntegration({
       return Object.freeze({ statusCode: 200, body: { ok: true, ignored: true, reason: invocation.reason } });
     }
 
-    const naturalLanguageAllowed = naturalLanguage && invocation.workspaceRuntimePolicy?.aiEnabled !== false;
-    const work = naturalLanguageAllowed
-      ? processNaturalLanguageOrRuntime(body, claim, invocation)
+    const semanticRoutingAllowed = semanticRouter && naturalLanguage && invocation.workspaceRuntimePolicy?.aiEnabled !== false;
+    const work = semanticRoutingAllowed
+      ? processSemanticallyRoutedUpdate(body, claim, invocation)
       : processClaimedUpdate(body, claim, invocation);
 
     if (acknowledgeBeforeProcessing) {
@@ -332,9 +338,7 @@ export function createTelegramProductionIntegration({
     }
 
     const processed = await work;
-    if (processed.ok) {
-      return Object.freeze({ statusCode: 200, body: processed.naturalLanguage === true ? { ok: true, naturalLanguage: true } : { ok: true } });
-    }
+    if (processed.ok) return Object.freeze({ statusCode: 200, body: processed.naturalLanguage === true ? { ok: true, naturalLanguage: true } : { ok: true } });
     return Object.freeze({ statusCode: 503, body: { ok: false, code: processed.error.code ?? 'telegram-update-failed' } });
   }
 

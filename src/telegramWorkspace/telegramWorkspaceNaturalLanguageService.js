@@ -61,9 +61,9 @@ function outputSchema(workspaceIds) {
 function pathValue(object, path) { if (!path) return undefined; return path.split('.').reduce((value, key) => (value && typeof value === 'object' ? value[key] : undefined), object); }
 function same(left, right) { return JSON.stringify(left) === JSON.stringify(right); }
 function workspaceLabel(workspace) {
-  const title = workspace.title ?? workspace.username ?? workspace.workspaceId;
+  const title = workspace.title ?? workspace.username ?? 'Telegram workspace';
   const type = workspace.workspaceType ?? 'workspace';
-  return `${title} — ${type} — ${workspace.workspaceId}`;
+  return `${title} — ${type}`;
 }
 
 export function createTelegramWorkspaceNaturalLanguageService({

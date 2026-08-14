@@ -118,6 +118,20 @@ integration('PM3.12: production E2E proves trusted source -> durable memory -> r
 
   const harness = createLocalProductionHarness({
     env: { SG_PERSISTENCE_MODE: 'postgres', DATABASE_URL: connectionString, DATABASE_SSL: 'false', SG_PROJECT_SCOPE: projectKey, SG_REVISION: 'pm3.12-production-e2e' },
+    interpretationResolver: () => ({
+      meaning: 'Retrieve the current PM3.12 project-development status from authorized Project Memory.',
+      goal: 'answer-current-project-development-status',
+      intent: 'project_development_current',
+      entities: [],
+      constraints: [],
+      uncertainty: 0,
+      missingInformation: [],
+      clarificationQuestion: null,
+      contextNeeds: ['project-memory'],
+      evidenceNeeds: [],
+      candidateActions: [{ type: 'answer', name: 'compose-answer', actionClass: 'analysis' }],
+      rationale: 'PM3.12 production E2E semantic fixture.'
+    }),
     clock: () => new Date('2026-08-10T14:30:00Z')
   });
   await harness.runtime.start();

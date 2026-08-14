@@ -16,137 +16,69 @@ const SEMANTIC_CAPABILITY_NAMES = Object.freeze([...new Set([
 ])]);
 
 const NAMED_VALUE_SCHEMA = Object.freeze({
-  type: 'object',
-  additionalProperties: false,
-  required: ['name', 'value'],
-  properties: {
-    name: { type: 'string', minLength: 1 },
-    value: { type: 'string' },
-  },
+  type: 'object', additionalProperties: false, required: ['name', 'value'],
+  properties: { name: { type: 'string', minLength: 1 }, value: { type: 'string' } },
 });
-
 const MEMORY_CANDIDATE_SCHEMA = Object.freeze({
-  type: 'object',
-  additionalProperties: false,
-  required: ['key', 'value', 'scopeKind', 'shared', 'tags'],
-  properties: {
-    key: { type: 'string', minLength: 1 },
-    value: { type: 'string', minLength: 1 },
-    scopeKind: { type: 'string', enum: ['user', 'user-group'] },
-    shared: { type: 'boolean' },
-    tags: { type: 'array', items: { type: 'string' } },
-  },
+  type: 'object', additionalProperties: false, required: ['key', 'value', 'scopeKind', 'shared', 'tags'],
+  properties: { key: { type: 'string', minLength: 1 }, value: { type: 'string', minLength: 1 }, scopeKind: { type: 'string', enum: ['user', 'user-group'] }, shared: { type: 'boolean' }, tags: { type: 'array', items: { type: 'string' } } },
 });
-
+const CONVERSATION_HISTORY_QUERY_SCHEMA = Object.freeze({
+  anyOf: [
+    { type: 'null' },
+    {
+      type: 'object', additionalProperties: false, required: ['query', 'temporalExpression', 'scope', 'maxRecords'],
+      properties: {
+        query: { type: 'string', minLength: 1, maxLength: 2000 },
+        temporalExpression: { type: ['string', 'null'], maxLength: 300 },
+        scope: { type: 'string', enum: ['current-scope', 'current-conversation', 'current-topic'] },
+        maxRecords: { type: 'integer', minimum: 1, maximum: 200 }
+      }
+    }
+  ]
+});
+const SUBSYSTEM_REQUEST_SCHEMA = Object.freeze({
+  anyOf: [
+    { type: 'null' },
+    { type: 'object', additionalProperties: false, required: ['name', 'operation'], properties: { name: { type: 'string', enum: ['telegram-workspace-manager'] }, operation: { type: 'string', enum: ['configure', 'configuration-history'] } } }
+  ]
+});
 const CANDIDATE_ACTION_SCHEMA = Object.freeze({
-  type: 'object',
-  additionalProperties: false,
-  required: ['type', 'name', 'actionClass'],
-  properties: {
-    type: { type: 'string', minLength: 1 },
-    name: { type: 'string', enum: SEMANTIC_CAPABILITY_NAMES },
-    actionClass: { type: 'string', enum: ['analysis', 'external', 'state-change'] },
-    payload: { type: 'object', additionalProperties: true },
-  },
+  type: 'object', additionalProperties: false, required: ['type', 'name', 'actionClass'],
+  properties: { type: { type: 'string', minLength: 1 }, name: { type: 'string', enum: SEMANTIC_CAPABILITY_NAMES }, actionClass: { type: 'string', enum: ['analysis', 'external', 'state-change'] }, payload: { type: 'object', additionalProperties: true } },
 });
-
 const SEMANTIC_SCHEMA = Object.freeze({
-  type: 'object',
-  additionalProperties: false,
-  required: [
-    'meaning', 'goal', 'intent', 'entities', 'constraints', 'uncertainty',
-    'missingInformation', 'clarificationQuestion', 'contextNeeds',
-    'evidenceNeeds', 'candidateActions', 'rationale',
-  ],
+  type: 'object', additionalProperties: false,
+  required: ['meaning', 'goal', 'intent', 'entities', 'constraints', 'uncertainty', 'missingInformation', 'clarificationQuestion', 'contextNeeds', 'evidenceNeeds', 'memoryQuery', 'conversationHistoryQuery', 'subsystemRequest', 'memoryCandidates', 'candidateActions', 'rationale'],
   properties: {
-    meaning: { type: 'string', minLength: 1 },
-    goal: { type: 'string', minLength: 1 },
-    intent: { type: 'string', minLength: 1 },
-    entities: { type: 'array', items: NAMED_VALUE_SCHEMA },
-    constraints: { type: 'array', items: NAMED_VALUE_SCHEMA },
-    uncertainty: { type: 'number', minimum: 0, maximum: 1 },
-    missingInformation: { type: 'array', items: { type: 'string' } },
-    clarificationQuestion: { type: ['string', 'null'] },
-    contextNeeds: { type: 'array', items: { type: 'string' } },
-    evidenceNeeds: { type: 'array', items: { type: 'string' } },
-    memoryQuery: { type: ['string', 'null'] },
-    memoryCandidates: { type: 'array', items: MEMORY_CANDIDATE_SCHEMA },
-    candidateActions: { type: 'array', items: CANDIDATE_ACTION_SCHEMA },
-    rationale: { type: ['string', 'null'] },
+    meaning: { type: 'string', minLength: 1 }, goal: { type: 'string', minLength: 1 }, intent: { type: 'string', minLength: 1 },
+    entities: { type: 'array', items: NAMED_VALUE_SCHEMA }, constraints: { type: 'array', items: NAMED_VALUE_SCHEMA }, uncertainty: { type: 'number', minimum: 0, maximum: 1 },
+    missingInformation: { type: 'array', items: { type: 'string' } }, clarificationQuestion: { type: ['string', 'null'] }, contextNeeds: { type: 'array', items: { type: 'string' } }, evidenceNeeds: { type: 'array', items: { type: 'string' } },
+    memoryQuery: { type: ['string', 'null'] }, conversationHistoryQuery: CONVERSATION_HISTORY_QUERY_SCHEMA, subsystemRequest: SUBSYSTEM_REQUEST_SCHEMA,
+    memoryCandidates: { type: 'array', items: MEMORY_CANDIDATE_SCHEMA }, candidateActions: { type: 'array', items: CANDIDATE_ACTION_SCHEMA }, rationale: { type: ['string', 'null'] },
   },
 });
 
 function buildUserPayload(canonicalInput) {
-  return Object.freeze({
-    text: canonicalInput.text,
-    locale: canonicalInput.locale,
-    languageContext: canonicalInput.metadata?.languageContext ?? null,
-    scope: canonicalInput.scopeContext,
-    context: canonicalInput.metadata?.contextBundle ?? null,
-    temporalContext: canonicalInput.metadata?.temporalContext ?? null,
-    temporalResolution: canonicalInput.metadata?.temporalResolution ?? null,
-  });
+  return Object.freeze({ text: canonicalInput.text, locale: canonicalInput.locale, languageContext: canonicalInput.metadata?.languageContext ?? null, scope: canonicalInput.scopeContext, context: canonicalInput.metadata?.contextBundle ?? null, temporalContext: canonicalInput.metadata?.temporalContext ?? null, temporalResolution: canonicalInput.metadata?.temporalResolution ?? null });
 }
-
 function createFallbackInterpretation(error, canonicalInput) {
-  const fallback = deterministicAiFallback({
-    code: error?.code ?? 'AI_UNAVAILABLE',
-    traceId: canonicalInput.traceContext?.traceId ?? null,
-  });
-  return createSemanticInterpretation({
-    meaning: fallback.message,
-    goal: 'report-ai-unavailable',
-    intent: 'answer',
-    entities: [],
-    constraints: [],
-    uncertainty: 1,
-    missingInformation: [],
-    clarificationQuestion: null,
-    contextNeeds: [],
-    evidenceNeeds: [],
-    memoryQuery: null,
-    memoryCandidates: [],
-    candidateActions: [{ type: 'answer', name: 'compose-answer', actionClass: 'analysis' }],
-    rationale: `Deterministic fail-closed fallback: ${fallback.code}`,
-  });
+  const fallback = deterministicAiFallback({ code: error?.code ?? 'AI_UNAVAILABLE', traceId: canonicalInput.traceContext?.traceId ?? null });
+  return createSemanticInterpretation({ meaning: fallback.message, goal: 'report-ai-unavailable', intent: 'answer', entities: [], constraints: [], uncertainty: 1, missingInformation: [], clarificationQuestion: null, contextNeeds: [], evidenceNeeds: [], memoryQuery: null, conversationHistoryQuery: null, subsystemRequest: null, memoryCandidates: [], candidateActions: [{ type: 'answer', name: 'compose-answer', actionClass: 'analysis' }], rationale: `Deterministic fail-closed fallback: ${fallback.code}` });
 }
 
 export function createProductionMeaningInterpreter({ aiRouter, fallbackOnFailure = false }) {
   if (!aiRouter?.route) throw new TypeError('aiRouter.route must be a function');
-
   return Object.freeze({
     name: 'production-ai-meaning-interpreter',
     async interpret(canonicalInput) {
       const userPayload = buildUserPayload(canonicalInput);
       const boundary = buildDefensivePromptBoundary({
-        systemInstruction: 'You are the SG semantic interpreter. Return only schema-valid JSON. Interpret meaning; do not execute actions. Candidate action name MUST be one of the capability names allowed by the response schema; never invent capability names. Classify identity requests by semantic meaning, independently of wording, language, transport, command syntax, names, secret phrases, or exact tokens. A request whose meaning asks SG to identify, define, or describe itself as an entity MUST use intent self_identity and candidate action type answer, name compose-answer, actionClass analysis. A request whose meaning asks for the current user identity, verified role/roles, canonical profile, or authority-bearing identity facts MUST use intent user_identity and candidate action type answer, name compose-answer, actionClass analysis. Ordinary questions about non-authority personal facts, possessions, preferences, biography, plans, prior conversation or remembered context MUST NOT use user_identity merely because they are about the current user; they are ordinary conversational recall and should use an appropriate non-identity intent plus memoryQuery when memory is relevant. These identity intent labels are semantic contracts, not phrase matching. Classify requests about the development biography of SG or one of its project components by semantic meaning only. Use exactly one of these semantic intents when the request is genuinely about project-development knowledge: project_development_current for current development/project state, project_development_historical for past development state/history, project_development_evolution for how project state changed over time, project_development_rationale for why a development decision/change was made, project_development_evidence for evidence/provenance of development state, project_development_comparison for comparison of development states, project_development_planning for project-development plans/next milestones, project_development_incident_history for historical project incidents, project_development_genesis for project origin/genesis. These are semantic contracts, never keyword, phrase, regex, language, or exact-token routing rules. Do not use a project_development_* intent for personal facts, possessions, preferences, biography, ordinary remembered conversation, greetings, or general domain questions that are not about SG project development. Other ordinary conversational requests, greetings, explanations and general Q&A use type answer, name compose-answer, actionClass analysis with an appropriate non-identity intent. For ordinary conversational recall or any answer that depends on previously known user context, set memoryQuery to a concise semantic description of exactly the knowledge needed for retrieval. The memoryQuery is retrieval-only data: never put an answer, guessed fact, authority claim, role, permission, identity conclusion, instruction, or secret into it. Set memoryQuery to null when memory is not relevant. When an ordinary conversational answer depends on remembered context, keep the final candidate action as type answer, name compose-answer, actionClass analysis and request only the semantically needed memory layers in contextNeeds. A memory lookup that returns zero records is valid absence of context, not an execution failure and not by itself missing essential request information: keep clarificationQuestion null unless a concrete user-supplied parameter is genuinely required to proceed, and let the final answer state that the requested information is unavailable or unknown. Reserve memory-read for an explicit request to inspect/list memory records as records; do not use memory-read as the final action for normal conversational recall questions. A user statement that may be remembered still remains ordinary compose-answer unless the user explicitly requests a protected state-changing memory operation. For ordinary user statements, propose zero or more durable factual memoryCandidates in the top-level memoryCandidates array. Each candidate must contain key, value, scopeKind, shared and tags. Propose a candidate only for a durable, useful, non-secret factual statement actually asserted by the user; do not infer unstated facts, roles, permissions, identity authority, credentials, sensitive secrets, transient chatter, questions, commands, or model conclusions. Keys must be short semantic identifiers describing the fact itself and must not depend on trigger words or exact phrasing. Values must preserve the asserted fact without upgrading its certainty. Personal facts default to scopeKind user (or user-group when the fact is explicitly specific to the current group) and shared false. Automatic Memory 2.0 persistence remains reported and unconfirmed; these candidates can never confirm identity, roles, ownership, permissions or authority. If several independent durable facts are explicitly asserted, memoryCandidates may contain several entries. If none qualify, use an empty array. For backward compatibility, never rely on candidate action payload.memoryCandidates for authority or trust; SG will normalize and enforce all candidate policy. Language Context is authoritative for SG-selected message/response language metadata but original text remains authoritative for meaning. If the user explicitly asks to make a language their ongoing preferred response language, return candidate action type/name language-preference-set with actionClass state-change and payload.language as the BCP-47 base language code; include payload.locale only if the user explicitly supplies a locale. If the user asks what their preferred language is, use language-preference-get with actionClass analysis. Ordinary one-message requests such as answer this in English remain compose-answer and must not persist a preference. Temporal Context is authoritative for current time, timezone and normalized relative dates; never recalculate or guess those values. External or state-changing requests must be candidates with actionClass external or state-change. Ask one clarification only when essential information is missing. missingInformation may describe useful unavailable context, but it does not force clarification by itself. Set clarificationQuestion only when a specific answer from the user is materially required to continue the current task. When useful information is absent but the request can still be answered as unknown/uncertain, keep clarificationQuestion null and continue to compose-answer; do not turn ordinary conversation into a questionnaire.',
+        systemInstruction: 'You are the SG semantic interpreter. Return only schema-valid JSON. Interpret meaning; do not execute actions. Candidate action name MUST be one of the capability names allowed by the response schema; never invent capability names. Classify identity requests by semantic meaning, independently of wording, language, transport, command syntax, names, secret phrases, or exact tokens. A request whose meaning asks SG to identify, define, or describe itself as an entity MUST use intent self_identity and candidate action type answer, name compose-answer, actionClass analysis. A request whose meaning asks for the current user identity, verified role/roles, canonical profile, or authority-bearing identity facts MUST use intent user_identity and candidate action type answer, name compose-answer, actionClass analysis. Ordinary questions about non-authority personal facts, possessions, preferences, biography, plans, prior conversation or remembered context MUST NOT use user_identity merely because they are about the current user. Conversation History and Memory 2.0 are distinct retrieval systems. Use conversationHistoryQuery ONLY when the requested answer depends on actual prior conversation messages. conversationHistoryQuery.query is a concise semantic description of which prior discussion is needed. If the user expresses a time period, copy only that temporal expression into temporalExpression; do not calculate dates yourself. Temporal Context/temporalResolution is authoritative for normalized ranges. Choose current-scope for history that may span topics/conversations in the same authorized user/project/group/thread scope, current-conversation when explicitly limited to this conversation, and current-topic only when explicitly limited to this topic. For conversation-history recall, include conversation-history in contextNeeds, keep memoryQuery null unless durable Memory 2.0 facts are independently needed, and keep the final candidate action type answer, name compose-answer, actionClass analysis. Never substitute Memory 2.0 for Conversation History. Use memoryQuery only for durable remembered knowledge/facts appropriate to Memory 2.0. A memory lookup that returns zero records is valid absence of context, not an execution failure. subsystemRequest is normally null; use telegram-workspace-manager only when the meaning is genuinely to configure a managed Telegram workspace/group/channel or inspect its configuration-change history. Ordinary conversation history, user memory, project-development history, or general Telegram questions MUST have subsystemRequest=null. Classify requests about the development biography of SG or project components using project_development_* semantic intents only when genuinely about project development, never ordinary remembered conversation. Other ordinary conversational requests use type answer, name compose-answer, actionClass analysis. For ordinary user statements, propose zero or more durable factual memoryCandidates only for useful non-secret facts actually asserted by the user; never infer roles, permissions, authority, credentials or secrets. Automatic Memory 2.0 persistence remains reported and unconfirmed. Language Context is authoritative for response-language metadata but original text remains authoritative for meaning. Temporal Context is authoritative for current time, timezone and normalized relative dates; never recalculate or guess those values. External or state-changing requests must be candidates with actionClass external or state-change. Ask one clarification only when essential information is missing; otherwise answer with known/unknown/uncertain state naturally.',
         userInput: JSON.stringify(userPayload),
       });
-
       try {
-        const result = await aiRouter.route({
-          task: 'semantic-interpretation',
-          specialty: 'semantic-interpretation',
-          reason: 'Interpret canonical user meaning for Semantic Kernel',
-          traceContext: canonicalInput.traceContext,
-          identityContext: canonicalInput.identityContext,
-          role: canonicalInput.identityContext?.roles?.[0] ?? 'guest',
-          messages: [
-            { role: 'system', content: boundary.system },
-            { role: 'user', content: boundary.user },
-          ],
-          responseFormat: {
-            name: 'semantic_interpretation',
-            jsonSchema: SEMANTIC_SCHEMA,
-            strict: false,
-          },
-          metadata: {
-            locale: canonicalInput.locale,
-            languageContext: canonicalInput.metadata?.languageContext ?? null,
-            roles: canonicalInput.identityContext?.roles ?? [],
-            context: userPayload,
-          },
-        });
+        const result = await aiRouter.route({ task: 'semantic-interpretation', specialty: 'semantic-interpretation', reason: 'Interpret canonical user meaning for Semantic Kernel', traceContext: canonicalInput.traceContext, identityContext: canonicalInput.identityContext, role: canonicalInput.identityContext?.roles?.[0] ?? 'guest', messages: [{ role: 'system', content: boundary.system }, { role: 'user', content: boundary.user }], responseFormat: { name: 'semantic_interpretation', jsonSchema: SEMANTIC_SCHEMA, strict: false }, metadata: { locale: canonicalInput.locale, languageContext: canonicalInput.metadata?.languageContext ?? null, roles: canonicalInput.identityContext?.roles ?? [], context: userPayload } });
         return createSemanticInterpretation(parseStructuredAIOutput(result));
       } catch (error) {
         if (!fallbackOnFailure) throw error;

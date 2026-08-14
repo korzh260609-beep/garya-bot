@@ -43,10 +43,10 @@ test('task-create accepts a fixed sub-daily recurrence without inventing a wall-
   assert.equal(captured.input.kind, 'self-notification');
 });
 
-test('sub-daily recurrence without explicit start anchors first execution one interval after creation', async () => {
+test('sub-daily recurrence without explicit start or timezone anchors first execution one interval after creation', async () => {
   const now = new Date('2026-08-14T14:50:30.000Z');
   const temporalService = createTemporalContextService({ clock: () => now });
-  await temporalService.setUserTimezone('usr_test', 'Europe/Kyiv');
+  assert.equal(await temporalService.getUserTimezone('usr_test'), null);
 
   let createdInput = null;
   let registered = null;
@@ -73,9 +73,10 @@ test('sub-daily recurrence without explicit start anchors first execution one in
 
   assert.equal(createdInput.runAt, '2026-08-14T14:52:30.000Z');
   assert.equal(createdInput.temporalExpression, null);
-  assert.equal(createdInput.payload.temporal.localDateTime, '2026-08-14T17:52:30');
-  assert.equal(registered.timeZone, 'Europe/Kyiv');
-  assert.equal(registered.dtstartLocal, '2026-08-14T17:52:30');
+  assert.equal(createdInput.payload.temporal.localDateTime, '2026-08-14T14:52:30');
+  assert.equal(createdInput.payload.temporal.timeZone, 'UTC');
+  assert.equal(registered.timeZone, 'UTC');
+  assert.equal(registered.dtstartLocal, '2026-08-14T14:52:30');
   assert.equal(registered.recurrence, 'FREQ=MINUTELY;INTERVAL=2');
   assert.equal(task.runAt, '2026-08-14T14:52:30.000Z');
 });

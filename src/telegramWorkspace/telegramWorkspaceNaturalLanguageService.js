@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { parseStructuredAIOutput } from '../ai/contracts.js';
+import { createTelegramSemanticSubsystemRouter } from '../telegram/telegramSemanticSubsystemRouter.js';
 import { TELEGRAM_WORKSPACE_CONFIGURATION_NAMESPACES } from './workspaceConfigurationService.js';
 
 const CONFIG_NAMESPACES = Object.freeze([...TELEGRAM_WORKSPACE_CONFIGURATION_NAMESPACES]);
@@ -19,9 +20,7 @@ function plainObject(value) {
 }
 function deepMerge(base, patch) {
   const current = plainObject(base) ? structuredClone(base) : {};
-  for (const [key, value] of Object.entries(patch)) {
-    current[key] = plainObject(value) && plainObject(current[key]) ? deepMerge(current[key], value) : structuredClone(value);
-  }
+  for (const [key, value] of Object.entries(patch)) current[key] = plainObject(value) && plainObject(current[key]) ? deepMerge(current[key], value) : structuredClone(value);
   return current;
 }
 function messageFrom(update) { return update?.message ?? update?.edited_message ?? null; }
@@ -40,37 +39,17 @@ function actorFacts(update) {
   if (!source?.id) throw new TypeError('Telegram NL actor is required');
   const chat = update?.callback_query?.message?.chat ?? messageFrom(update)?.chat;
   return freeze({
-    telegramUserId: String(source.id),
-    locale: source.language_code ?? 'ru',
-    chatId: String(chat?.id ?? source.id),
-    chatType: chat?.type ?? 'private',
-    platformFacts: freeze({
-      platform: 'telegram',
-      platformUserId: String(source.id),
-      platformChatId: String(chat?.id ?? source.id),
-      profile: freeze({
-        displayName: [source.first_name, source.last_name].filter(Boolean).join(' ').trim() || source.username || null,
-        firstName: source.first_name ?? null,
-        lastName: source.last_name ?? null,
-        username: source.username ?? null,
-        languageCode: source.language_code ?? null,
-        source: 'telegram'
-      })
-    })
+    telegramUserId: String(source.id), locale: source.language_code ?? 'ru', chatId: String(chat?.id ?? source.id), chatType: chat?.type ?? 'private',
+    platformFacts: freeze({ platform: 'telegram', platformUserId: String(source.id), platformChatId: String(chat?.id ?? source.id), profile: freeze({ displayName: [source.first_name, source.last_name].filter(Boolean).join(' ').trim() || source.username || null, firstName: source.first_name ?? null, lastName: source.last_name ?? null, username: source.username ?? null, languageCode: source.language_code ?? null, source: 'telegram' }) })
   });
 }
-function compactWorkspace(workspace) {
-  return freeze({ workspaceId: workspace.workspaceId, title: workspace.title ?? null, username: workspace.username ?? null, type: workspace.workspaceType, telegramChatId: workspace.telegramChatId });
-}
+function compactWorkspace(workspace) { return freeze({ workspaceId: workspace.workspaceId, title: workspace.title ?? null, username: workspace.username ?? null, type: workspace.workspaceType, telegramChatId: workspace.telegramChatId }); }
 function outputSchema(workspaceIds) {
   return {
-    type: 'object',
-    additionalProperties: false,
+    type: 'object', additionalProperties: false,
     properties: {
       kind: { type: 'string', enum: ['configure', 'history-query', 'not-twm'] },
-      workspaceId: workspaceIds.length
-        ? { anyOf: [{ type: 'string', enum: workspaceIds }, { type: 'null' }] }
-        : { type: 'null' },
+      workspaceId: workspaceIds.length ? { anyOf: [{ type: 'string', enum: workspaceIds }, { type: 'null' }] } : { type: 'null' },
       namespace: { anyOf: [{ type: 'string', enum: CONFIG_NAMESPACES }, { type: 'null' }] },
       configPatchJson: { anyOf: [{ type: 'string', maxLength: 16384 }, { type: 'null' }] },
       historyPath: { anyOf: [{ type: 'string', maxLength: 128 }, { type: 'null' }] },
@@ -79,23 +58,12 @@ function outputSchema(workspaceIds) {
     required: ['kind', 'workspaceId', 'namespace', 'configPatchJson', 'historyPath', 'summary']
   };
 }
-function pathValue(object, path) {
-  if (!path) return undefined;
-  return path.split('.').reduce((value, key) => (value && typeof value === 'object' ? value[key] : undefined), object);
-}
+function pathValue(object, path) { if (!path) return undefined; return path.split('.').reduce((value, key) => (value && typeof value === 'object' ? value[key] : undefined), object); }
 function same(left, right) { return JSON.stringify(left) === JSON.stringify(right); }
 
 export function createTelegramWorkspaceNaturalLanguageService({
-  aiRouter,
-  botClient,
-  identityResolver,
-  workspaceRegistry,
-  authorityResolver,
-  configurationService,
-  pendingStore,
-  projectScope = 'sg2.1',
-  idFactory = () => randomUUID(),
-  audit = async () => {}
+  aiRouter, botClient, identityResolver, workspaceRegistry, authorityResolver, configurationService, pendingStore,
+  projectScope = 'sg2.1', idFactory = () => randomUUID(), audit = async () => {}
 } = {}) {
   if (typeof aiRouter?.route !== 'function') throw new TypeError('aiRouter.route is required');
   for (const method of ['sendMessage', 'editMessageText', 'answerCallbackQuery']) if (typeof botClient?.[method] !== 'function') throw new TypeError(`botClient.${method} is required`);
@@ -105,14 +73,11 @@ export function createTelegramWorkspaceNaturalLanguageService({
   for (const method of ['getConfig', 'proposeChange', 'applyProposal', 'history']) if (typeof configurationService?.[method] !== 'function') throw new TypeError(`configurationService.${method} is required`);
   for (const method of ['create', 'claim', 'complete', 'fail', 'cancel']) if (typeof pendingStore?.[method] !== 'function') throw new TypeError(`pendingStore.${method} is required`);
   const project = required(projectScope, 'projectScope');
+  const subsystemRouter = createTelegramSemanticSubsystemRouter({ aiRouter, idFactory });
 
   async function identify(update) {
     const facts = actorFacts(update);
-    const resolution = await identityResolver(freeze({
-      transport: 'telegram',
-      platformFacts: facts.platformFacts,
-      scopeFacts: freeze({ projectId: project, groupId: ['group', 'supergroup'].includes(facts.chatType) ? facts.chatId : null, threadId: null })
-    }));
+    const resolution = await identityResolver(freeze({ transport: 'telegram', platformFacts: facts.platformFacts, scopeFacts: freeze({ projectId: project, groupId: ['group', 'supergroup'].includes(facts.chatType) ? facts.chatId : null, threadId: null }) }));
     return freeze({ ...facts, actorGlobalUserId: required(resolution?.identityContext?.globalUserId, 'resolved globalUserId') });
   }
 
@@ -136,21 +101,18 @@ export function createTelegramWorkspaceNaturalLanguageService({
     return decision?.allowed ? workspace : null;
   }
 
-  async function interpret(text, candidates, forcedWorkspace) {
+  async function interpret(text, candidates, forcedWorkspace, semanticRoute = null) {
     const traceId = `twm19:${idFactory()}`;
     const requestId = `twm19:${idFactory()}`;
+    const expectedKind = semanticRoute?.workspaceOperation === 'configuration-history' ? 'history-query' : semanticRoute?.workspaceOperation === 'configure' ? 'configure' : null;
     const result = await aiRouter.route({
-      task: 'telegram-workspace-natural-language-configuration',
-      reason: 'twm1.9-natural-language-configuration',
-      specialty: 'semantic-interpretation',
+      task: 'telegram-workspace-natural-language-configuration', reason: 'twm1.9-natural-language-configuration', specialty: 'semantic-interpretation',
       messages: [
-        { role: 'system', content: 'Classify a Telegram message for SG Telegram Workspace Manager. Return only the requested JSON schema. Configuration requests may target only listed workspaces and managed namespaces. Never invent permissions, workspace ids, exact history, or config facts. If the message is ordinary conversation, kind=not-twm. If forcedWorkspaceId is set, use only that workspace. For configure, configPatchJson must be a JSON object string containing only fields explicitly requested by the user; omitted fields must not be changed. For history questions use kind=history-query, namespace and optional dot path; configPatchJson=null.' },
-        { role: 'user', content: JSON.stringify({ text, forcedWorkspaceId: forcedWorkspace?.workspaceId ?? null, authorizedWorkspaces: candidates.map(compactWorkspace), managedNamespaces: CONFIG_NAMESPACES }) }
+        { role: 'system', content: 'Interpret a message that has already been semantically routed to SG Telegram Workspace Manager. Return only requested JSON. Configuration requests may target only listed workspaces and managed namespaces. Never invent permissions, workspace ids, exact history, or config facts. If expectedKind is configure/history-query, preserve that routed operation unless the message cannot validly map to a managed workspace operation; only then use not-twm. If forcedWorkspaceId is set, use only that workspace. For configure, configPatchJson must contain only fields explicitly requested; omitted fields must not change. For history-query use namespace and optional dot path; configPatchJson=null.' },
+        { role: 'user', content: JSON.stringify({ text, expectedKind, forcedWorkspaceId: forcedWorkspace?.workspaceId ?? null, authorizedWorkspaces: candidates.map(compactWorkspace), managedNamespaces: CONFIG_NAMESPACES }) }
       ],
-      responseFormat: { name: 'twm19_intent', strict: true, jsonSchema: outputSchema(candidates.map((item) => item.workspaceId)) },
-      maxOutputTokens: 500,
-      traceContext: { traceId, requestId },
-      metadata: { context: { subsystem: 'telegram-workspace-manager', stage: 'twm1.9' } }
+      responseFormat: { name: 'twm19_intent', strict: true, jsonSchema: outputSchema(candidates.map((item) => item.workspaceId)) }, maxOutputTokens: 500,
+      traceContext: { traceId, requestId }, metadata: { context: { subsystem: 'telegram-workspace-manager', stage: 'twm1.9' } }
     });
     const parsed = parseStructuredAIOutput(result);
     return freeze({ ...parsed, traceId, requestId });
@@ -170,13 +132,14 @@ export function createTelegramWorkspaceNaturalLanguageService({
     return botClient.sendMessage({ chatId: message.chat.id, text, replyToMessageId: message.message_id, replyMarkup });
   }
 
-  async function handleText(update) {
+  async function handleText(update, { semanticRoute = null } = {}) {
     const message = messageFrom(update);
     if (!message || typeof message.text !== 'string' || message.text.trim() === '' || message.text.trim().startsWith('/')) return freeze({ handled: false });
+    if (semanticRoute && semanticRoute.destination !== 'telegram-workspace-manager') return freeze({ handled: false });
     const actor = await identify(update);
     const forced = await contextWorkspace(actor);
     const candidates = forced ? [forced] : await authorizedWorkspaces(actor);
-    const interpreted = await interpret(message.text, candidates, forced);
+    const interpreted = await interpret(message.text, candidates, forced, semanticRoute);
     if (interpreted.kind === 'not-twm') return freeze({ handled: false });
     const workspace = resolveWorkspace(interpreted, candidates, forced);
     if (!workspace) {
@@ -191,9 +154,7 @@ export function createTelegramWorkspaceNaturalLanguageService({
       let selected = rows;
       if (interpreted.historyPath) selected = rows.filter((row) => !same(pathValue(row.previous_config, interpreted.historyPath), pathValue(row.new_config, interpreted.historyPath)));
       const latest = selected[0];
-      await sendMessage(update, latest
-        ? `Последнее изменение ${interpreted.namespace}${interpreted.historyPath ? `.${interpreted.historyPath}` : ''}: версия ${latest.version}, actor ${latest.actor_global_user_id}, ${latest.created_at}.`
-        : 'Подходящего изменения в доступной истории не найдено.');
+      await sendMessage(update, latest ? `Последнее изменение ${interpreted.namespace}${interpreted.historyPath ? `.${interpreted.historyPath}` : ''}: версия ${latest.version}, actor ${latest.actor_global_user_id}, ${latest.created_at}.` : 'Подходящего изменения в доступной истории не найдено.');
       return freeze({ handled: true, outcome: 'history-query' });
     }
 
@@ -201,21 +162,9 @@ export function createTelegramWorkspaceNaturalLanguageService({
     const patch = parseConfigPatchJson(interpreted.configPatchJson);
     const current = await configurationService.getConfig({ workspaceId: workspace.workspaceId, namespace: interpreted.namespace, actorGlobalUserId: actor.actorGlobalUserId, telegramUserId: actor.telegramUserId });
     const nextConfig = deepMerge(current?.config ?? {}, patch);
-    const proposal = await configurationService.proposeChange({
-      workspaceId: workspace.workspaceId,
-      namespace: interpreted.namespace,
-      nextConfig,
-      actorGlobalUserId: actor.actorGlobalUserId,
-      telegramUserId: actor.telegramUserId,
-      traceId: interpreted.traceId,
-      requestId: interpreted.requestId,
-      reason: `twm1.9 natural language: ${interpreted.summary}`
-    });
+    const proposal = await configurationService.proposeChange({ workspaceId: workspace.workspaceId, namespace: interpreted.namespace, nextConfig, actorGlobalUserId: actor.actorGlobalUserId, telegramUserId: actor.telegramUserId, traceId: interpreted.traceId, requestId: interpreted.requestId, reason: `twm1.9 natural language: ${interpreted.summary}` });
     const pending = await pendingStore.create({ workspaceId: workspace.workspaceId, actorGlobalUserId: actor.actorGlobalUserId, telegramUserId: actor.telegramUserId, requestId: proposal.requestId, traceId: proposal.traceId, proposal });
-    await sendMessage(update, `Подтвердить изменение?\n\n${interpreted.summary}\nРаздел: ${proposal.namespace}\nРиск: ${proposal.risk}`, keyboard([
-      [button('✅ Подтвердить', 'confirm', pending.token)],
-      [button('❌ Отмена', 'cancel', pending.token)]
-    ]));
+    await sendMessage(update, `Подтвердить изменение?\n\n${interpreted.summary}\nРаздел: ${proposal.namespace}\nРиск: ${proposal.risk}`, keyboard([[button('✅ Подтвердить', 'confirm', pending.token)], [button('❌ Отмена', 'cancel', pending.token)]]));
     return freeze({ handled: true, outcome: 'proposal-pending', token: pending.token });
   }
 
@@ -241,17 +190,14 @@ export function createTelegramWorkspaceNaturalLanguageService({
       await botClient.editMessageText({ chatId: update.callback_query.message.chat.id, messageId: update.callback_query.message.message_id, text: `✅ Изменение сохранено. ${claimed.proposal.namespace}: версия ${applied.config.version}.` });
       await botClient.answerCallbackQuery({ callbackQueryId: update.callback_query.id, text: 'Сохранено' });
       return freeze({ handled: true, outcome: 'applied' });
-    } catch (error) {
-      await pendingStore.fail(token);
-      throw error;
-    }
+    } catch (error) { await pendingStore.fail(token); throw error; }
   }
 
-  async function handleUpdate(update) {
-    const result = callbackData(update)?.startsWith(CALLBACK_PREFIX) ? await handleCallback(update) : await handleText(update);
+  async function handleUpdate(update, options = {}) {
+    const result = callbackData(update)?.startsWith(CALLBACK_PREFIX) ? await handleCallback(update) : await handleText(update, options);
     try { await audit(freeze({ eventClass: 'telegram_workspace_natural_language', outcome: result.handled ? result.outcome ?? 'handled' : 'pass-through' })); } catch {}
     return result;
   }
 
-  return Object.freeze({ handleUpdate });
+  return Object.freeze({ handleUpdate, routeUpdate: (update) => subsystemRouter.routeUpdate(update) });
 }

@@ -97,3 +97,31 @@ test('Block 16.11 recent context is bounded independently from long-term memory'
   assert.deepEqual(current.recentTurns.map((turn) => turn.text), ['turn-3','turn-4','turn-5']);
   assert.equal(typeof service.writeMemory, 'undefined');
 });
+
+test('Conversation History retrieves scoped time ranges beyond the recent-turn window', async () => {
+  const { service } = fixture({ maxRecentTurns: 2 });
+  let first;
+  for (let index = 1; index <= 6; index += 1) {
+    const turn = await service.resolveTurn({ ...base, transportSessionId: 'same', platformMessageId: `h-${index}`, text: `history-${index}` });
+    if (!first) first = turn;
+  }
+  const history = await service.retrieveHistory({
+    globalUserId: 'user:1',
+    projectScope: 'sg2.1',
+    query: 'discussion in the selected time range',
+    temporalRange: { utcStart: '2026-08-08T16:00:00.000Z', utcEndExclusive: '2026-08-08T16:01:00.000Z' },
+    limit: 100
+  });
+  assert.equal(history.turns.length, 6);
+  assert.deepEqual(history.turns.map((turn) => turn.text), ['history-1','history-2','history-3','history-4','history-5','history-6']);
+  assert.equal(history.query, 'discussion in the selected time range');
+  assert.equal(first.recentTurns.length, 1);
+});
+
+test('Conversation History never broadens group/thread scope', async () => {
+  const { service } = fixture();
+  await service.resolveTurn({ ...base, groupScope: 'group:a', threadScope: 'thread:a', platformMessageId: 'ga', text: 'inside-a' });
+  await service.resolveTurn({ ...base, groupScope: 'group:b', threadScope: 'thread:b', platformMessageId: 'gb', text: 'inside-b' });
+  const history = await service.retrieveHistory({ globalUserId: 'user:1', projectScope: 'sg2.1', groupScope: 'group:a', threadScope: 'thread:a', query: 'scoped history', limit: 100 });
+  assert.deepEqual(history.turns.map((turn) => turn.text), ['inside-a']);
+});

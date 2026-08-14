@@ -106,7 +106,8 @@ export function createDurableWorker({
         });
       }, heartbeatMs);
 
-      if (task.protected_action) {
+      const requiresActionGate = task.protected_action || task.kind === 'self-notification';
+      if (requiresActionGate) {
         const gateDecision = await actionGate(Object.freeze({
           taskId: task.task_id,
           kind: task.kind,

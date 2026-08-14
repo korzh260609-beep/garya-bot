@@ -86,6 +86,59 @@ test('semantic contract and SG decision preserve memoryQuery and normalized cand
   assert.equal(result.decisionEnvelope.diagnostics.semanticMemoryCandidateCount, 1);
 });
 
+test('personal-fact semantic memory read is canonicalized to conversational compose-answer', () => {
+  const interpretation = semantic({
+    meaning: 'Recall a durable personal possession fact and answer the user',
+    memoryQuery: 'vehicle owned by current user',
+    candidateActions: [{
+      type: 'memory-read',
+      name: 'memory2-recall',
+      actionClass: 'read-only',
+      payload: { query: 'vehicle owned by current user' }
+    }]
+  });
+  const result = createDecisionEngine().decide({
+    canonicalInput: {
+      text: 'What vehicle do I have?',
+      locale: 'en',
+      traceContext: { traceId: 't-memory-route', requestId: 'r-memory-route' }
+    },
+    interpretation
+  });
+
+  assert.equal(result.decisionEnvelope.decisionType, 'answer');
+  assert.equal(result.decisionEnvelope.selectedAction.type, 'answer');
+  assert.equal(result.decisionEnvelope.selectedAction.name, 'compose-answer');
+  assert.equal(result.decisionEnvelope.selectedAction.actionClass, 'analysis');
+  assert.equal(result.decisionEnvelope.selectedAction.payload.memoryQuery, 'vehicle owned by current user');
+  assert.equal(result.decisionEnvelope.diagnostics.conversationalMemoryReadCanonicalized, true);
+});
+
+test('state-changing memory action is never rewritten by conversational memory recall guard', () => {
+  const interpretation = semantic({
+    memoryQuery: 'existing durable fact',
+    candidateActions: [{
+      type: 'memory-write',
+      name: 'memory2-write',
+      actionClass: 'state-change',
+      payload: { key: 'preference.sample', value: 'sample' }
+    }]
+  });
+  const result = createDecisionEngine().decide({
+    canonicalInput: {
+      text: 'Store this fact.',
+      locale: 'en',
+      traceContext: { traceId: 't-memory-write', requestId: 'r-memory-write' }
+    },
+    interpretation
+  });
+
+  assert.equal(result.decisionEnvelope.selectedAction.type, 'memory-write');
+  assert.equal(result.decisionEnvelope.selectedAction.name, 'memory2-write');
+  assert.equal(result.decisionEnvelope.selectedAction.actionClass, 'state-change');
+  assert.equal(result.decisionEnvelope.diagnostics.conversationalMemoryReadCanonicalized, false);
+});
+
 test('bounded conversational recall prefers semantic memoryQuery over raw user text', async () => {
   let recalledQuery = null;
   const memoryProvider = {

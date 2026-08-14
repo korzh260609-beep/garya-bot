@@ -60,6 +60,11 @@ function outputSchema(workspaceIds) {
 }
 function pathValue(object, path) { if (!path) return undefined; return path.split('.').reduce((value, key) => (value && typeof value === 'object' ? value[key] : undefined), object); }
 function same(left, right) { return JSON.stringify(left) === JSON.stringify(right); }
+function workspaceLabel(workspace) {
+  const title = workspace.title ?? workspace.username ?? workspace.workspaceId;
+  const type = workspace.workspaceType ?? 'workspace';
+  return `${title} — ${type} — ${workspace.workspaceId}`;
+}
 
 export function createTelegramWorkspaceNaturalLanguageService({
   aiRouter, botClient, identityResolver, workspaceRegistry, authorityResolver, configurationService, pendingStore,
@@ -139,6 +144,16 @@ export function createTelegramWorkspaceNaturalLanguageService({
     const actor = await identify(update);
     const forced = await contextWorkspace(actor);
     const candidates = forced ? [forced] : await authorizedWorkspaces(actor);
+
+    if (semanticRoute?.workspaceOperation === 'workspace-list') {
+      if (candidates.length === 0) {
+        await sendMessage(update, 'У тебя нет доступных Telegram workspace, подтверждённых текущими правами.');
+        return freeze({ handled: true, outcome: 'workspace-list-empty' });
+      }
+      await sendMessage(update, `Доступные Telegram workspace:\n${candidates.map((workspace, index) => `${index + 1}. ${workspaceLabel(workspace)}`).join('\n')}`);
+      return freeze({ handled: true, outcome: 'workspace-list', workspaceIds: freeze(candidates.map((workspace) => workspace.workspaceId)) });
+    }
+
     const interpreted = await interpret(message.text, candidates, forced, semanticRoute);
     if (interpreted.kind === 'not-twm') return freeze({ handled: false });
     const workspace = resolveWorkspace(interpreted, candidates, forced);

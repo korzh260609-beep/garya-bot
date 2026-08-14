@@ -59,8 +59,9 @@ function canonicalizeSelectedAction(action, interpretation) {
 }
 
 function classifyDecision({ interpretation, selected, uncertaintyThreshold }) {
-  if (interpretation.missingInformation.length > 0) return 'clarification';
-  if (interpretation.uncertainty >= uncertaintyThreshold && interpretation.clarificationQuestion) return 'clarification';
+  const hasClarificationQuestion = Boolean(interpretation.clarificationQuestion);
+  if (hasClarificationQuestion && interpretation.missingInformation.length > 0) return 'clarification';
+  if (hasClarificationQuestion && interpretation.uncertainty >= uncertaintyThreshold) return 'clarification';
   if (selected.protectedIntent || selected.executableIntent || selected.action.type === 'prepare') return 'prepare';
   return 'answer';
 }
@@ -99,9 +100,6 @@ export function createDecisionEngine({ uncertaintyThreshold = 0.65 } = {}) {
       if (!canonicalInput?.traceContext) throw new TypeError('canonicalInput.traceContext is required');
       if (typeof canonicalInput.text !== 'string' || canonicalInput.text.trim() === '') throw new TypeError('canonicalInput.text is required');
       if (!interpretation) throw new TypeError('interpretation is required');
-      if (interpretation.missingInformation.length > 0 && !interpretation.clarificationQuestion) {
-        throw new TypeError('clarificationQuestion is required when essential information is missing');
-      }
 
       const evaluations = evaluateCandidates(interpretation.candidateActions);
       const selected = selectCandidate(evaluations);
@@ -111,6 +109,8 @@ export function createDecisionEngine({ uncertaintyThreshold = 0.65 } = {}) {
       const rationale = buildRationale({ decisionType, interpretation, selected, requiresEvidence });
       const memoryCandidates = semanticMemoryCandidates(interpretation);
       const memoryQuery = semanticMemoryQuery(interpretation);
+      const missingInformationWithoutClarification = interpretation.missingInformation.length > 0
+        && !interpretation.clarificationQuestion;
 
       const decisionEnvelope = createDecisionEnvelope({
         traceId: canonicalInput.traceContext.traceId,
@@ -137,6 +137,7 @@ export function createDecisionEngine({ uncertaintyThreshold = 0.65 } = {}) {
           conversationalAnswerCanonicalized: selected.action.type === 'answer' && selected.action.actionClass === 'analysis' && selected.action.name !== 'compose-answer',
           semanticMemoryQueryAvailable: Boolean(memoryQuery),
           semanticMemoryCandidateCount: memoryCandidates.length,
+          missingInformationWithoutClarification,
           semanticMeaningExposedAsResponse: false,
           permissionChecked: false,
           capabilityExecuted: false

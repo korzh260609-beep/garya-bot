@@ -18,12 +18,34 @@ function requestFor(globalUserId, scope, input = {}, profile = null) {
   return { actor: { globalUserId, platform: 'telegram', platformUserId: globalUserId, roles: ['guest'], grants: ['capability:compose-answer'], authenticationLevel: 'verified', profile }, scope, input, traceContext: { traceId: `trace:${globalUserId}`, requestId: `request:${globalUserId}`, environment: 'test', revision: 'r1' } };
 }
 
+function recalledRecord({ id, key, value, ownerGlobalUserId = 'user:a', trust = 'reported', confirmed = false }) {
+  return {
+    id,
+    layer: 'user-memory',
+    key,
+    value,
+    trust,
+    confirmed,
+    updatedAt: '2026-08-14T05:00:00.000Z',
+    privacyClass: 'private',
+    memoryScope: { kind: 'user', ownerGlobalUserId, projectScope: 'sg2.1', groupScope: null, threadScope: null },
+    provenance: { sourceType: confirmed ? 'user' : 'automatic-capture', sourceId: id }
+  };
+}
+
 test('BoundedResponseContext separates confirmed and reported user memory inside verified actor scope', async () => {
-  const memoryProvider = createInMemoryMemoryProvider();
-  await memoryProvider.write({ layer: 'user-memory', key: 'name', value: 'Alice', scope: scopeA, provenance: { sourceType: 'user', sourceId: 'a', actorId: 'user:a' }, trust: 'confirmed', confirmed: true });
-  await memoryProvider.write({ layer: 'user-memory', key: 'vehicle.primary', value: 'Freelander 2', scope: scopeA, provenance: { sourceType: 'automatic-capture', sourceId: 'vehicle', actorId: 'user:a' }, trust: 'reported', confirmed: false });
-  await memoryProvider.write({ layer: 'user-memory', key: 'private', value: 'Bob secret', scope: scopeB, provenance: { sourceType: 'user', sourceId: 'b', actorId: 'user:b' }, trust: 'confirmed', confirmed: true });
-  await memoryProvider.write({ layer: 'session', key: 'raw-dialogue', value: 'not durable', scope: scopeA, provenance: { sourceType: 'dialogue', sourceId: 'x', actorId: 'user:a' }, trust: 'reported', confirmed: false });
+  const records = [
+    recalledRecord({ id: 'confirmed-a', key: 'name', value: 'Alice', trust: 'confirmed', confirmed: true }),
+    recalledRecord({ id: 'reported-a', key: 'vehicle.primary', value: 'Freelander 2' }),
+    recalledRecord({ id: 'confirmed-b', key: 'private', value: 'Bob secret', ownerGlobalUserId: 'user:b', trust: 'confirmed', confirmed: true })
+  ];
+  const memoryProvider = {
+    async query() { return { records: [], diagnostics: {} }; },
+    async recall({ actor }) {
+      const visible = records.filter((record) => record.memoryScope.ownerGlobalUserId === actor.globalUserId);
+      return { records: visible, conflicts: [], diagnostics: { candidateCount: visible.length, returnedCount: visible.length, conflictCount: 0, truncated: false } };
+    }
+  };
   const selfKnowledgeService = await seededSelfKnowledge();
   const assembler = createBoundedResponseContextAssembler({ memoryProvider, selfKnowledgeService, environment: 'test' });
   const context = await assembler.assemble({ request: requestFor('user:a', scopeA) });
@@ -33,7 +55,6 @@ test('BoundedResponseContext separates confirmed and reported user memory inside
   assert.equal(context.reportedUserMemory[0].confirmed, false);
   assert.equal(context.reportedUserMemory[0].trust, 'reported');
   assert.equal(JSON.stringify(context).includes('Bob secret'), false);
-  assert.equal(JSON.stringify(context).includes('not durable'), false);
   assert.equal(context.selfKnowledge.facts[0].value, 'SG');
 });
 

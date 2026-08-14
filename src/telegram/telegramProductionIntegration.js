@@ -220,12 +220,14 @@ export function createTelegramProductionIntegration({
     }
   }
 
-  async function processSemanticallyRoutedUpdate(body, claim, invocation) {
-    let route;
-    try { route = await effectiveSemanticRouter.routeUpdate(body); }
-    catch (error) {
-      try { observability?.recordFailure?.({ stage: 'telegram-semantic-subsystem-routing', reason: redactSensitiveText(error.message), code: error.code ?? 'telegram-semantic-routing-failed' }); } catch {}
-      return processClaimedUpdate(body, claim, invocation);
+  async function processSemanticallyRoutedUpdate(body, claim, invocation, precomputedRoute = null) {
+    let route = precomputedRoute;
+    if (!route) {
+      try { route = await effectiveSemanticRouter.routeUpdate(body); }
+      catch (error) {
+        try { observability?.recordFailure?.({ stage: 'telegram-semantic-subsystem-routing', reason: redactSensitiveText(error.message), code: error.code ?? 'telegram-semantic-routing-failed' }); } catch {}
+        return processClaimedUpdate(body, claim, invocation);
+      }
     }
     if (route?.destination !== 'telegram-workspace-manager') return processClaimedUpdate(body, claim, invocation);
     try {
@@ -281,14 +283,35 @@ export function createTelegramProductionIntegration({
     const groupChat = ['group', 'supergroup'].includes(message?.chat?.type);
     const invocationIdentity = groupChat ? await resolveBotInvocationIdentity() : resolvedBotIdentity;
     const baseInvocation = evaluateTelegramInvocation(body, invocationIdentity);
-    const invocation = workspaceRuntime ? await workspaceRuntime.evaluateInvocation({ update: body, baseInvocation }) : baseInvocation;
+    let invocation = workspaceRuntime ? await workspaceRuntime.evaluateInvocation({ update: body, baseInvocation }) : baseInvocation;
+    let semanticRoute = null;
+
+    const semanticDirectInvocationAllowed =
+      !invocation.accepted &&
+      groupChat &&
+      invocation.reason === 'group-not-invoked' &&
+      invocation.workspaceRuntimePolicy?.responseMode === 'mention_only' &&
+      invocation.workspaceRuntimePolicy?.aiEnabled !== false &&
+      effectiveSemanticRouter;
+
+    if (semanticDirectInvocationAllowed) {
+      try {
+        semanticRoute = await effectiveSemanticRouter.routeUpdate(body);
+        if (semanticRoute?.directInvocation === true) {
+          invocation = Object.freeze({ ...invocation, accepted: true, reason: 'group-semantic-invocation' });
+        }
+      } catch (error) {
+        try { observability?.recordFailure?.({ stage: 'telegram-semantic-direct-invocation', reason: redactSensitiveText(error.message), code: error.code ?? 'telegram-semantic-direct-invocation-failed' }); } catch {}
+      }
+    }
+
     if (!invocation.accepted) {
       await updateStore.complete(claim.updateId, 'ignored');
       return Object.freeze({ statusCode: 200, body: { ok: true, ignored: true, reason: invocation.reason } });
     }
 
     const semanticRoutingAllowed = effectiveSemanticRouter && naturalLanguage && invocation.workspaceRuntimePolicy?.aiEnabled !== false;
-    const work = semanticRoutingAllowed ? processSemanticallyRoutedUpdate(body, claim, invocation) : processClaimedUpdate(body, claim, invocation);
+    const work = semanticRoutingAllowed ? processSemanticallyRoutedUpdate(body, claim, invocation, semanticRoute) : processClaimedUpdate(body, claim, invocation);
 
     if (acknowledgeBeforeProcessing) { trackBackground(work); return Object.freeze({ statusCode: 200, body: { ok: true, accepted: true } }); }
     const processed = await work;

@@ -1,7 +1,7 @@
 import { createCapability } from '../contracts/capability.js';
 
 export const TEMPORAL_SAFE_CAPABILITY_NAMES = Object.freeze(['time-read', 'timezone-set', 'memory-time-read']);
-export const RECURRING_CAPABILITY_NAMES = Object.freeze(['schedule-list', 'schedule-status', 'schedule-pause', 'schedule-resume', 'schedule-cancel']);
+export const RECURRING_CAPABILITY_NAMES = Object.freeze(['schedule-list', 'schedule-status', 'schedule-update', 'schedule-pause', 'schedule-resume', 'schedule-cancel']);
 export const TEMPORAL_CAPABILITY_NAMES = Object.freeze([...TEMPORAL_SAFE_CAPABILITY_NAMES, ...RECURRING_CAPABILITY_NAMES]);
 
 function capability(input) {
@@ -25,6 +25,19 @@ function scheduleIdFrom(request) {
   const value = request.input?.scheduleId;
   if (typeof value !== 'string' || value.trim() === '') throw new TypeError('input.scheduleId is required');
   return value.trim();
+}
+
+function normalizedLocalTime(value) {
+  if (value == null) return null;
+  const match = String(value).trim().match(/^([01]\d|2[0-3]):([0-5]\d)$/);
+  if (!match) throw new TypeError('input.localTime must be HH:MM');
+  return `${match[1]}:${match[2]}`;
+}
+
+function dtstartAtLocalTime(dtstartLocal, localTime) {
+  const date = String(dtstartLocal ?? '').slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new TypeError('Existing schedule start is invalid');
+  return `${date}T${localTime}:00`;
 }
 
 export function createTemporalCapabilities({ temporalService, memoryProvider = null, recurringScheduler = null } = {}) {
@@ -73,7 +86,7 @@ export function createTemporalCapabilities({ temporalService, memoryProvider = n
     }));
   }
 
-  if (recurringScheduler?.list && recurringScheduler?.get && recurringScheduler?.pause && recurringScheduler?.resume && recurringScheduler?.cancel) {
+  if (recurringScheduler?.list && recurringScheduler?.get && recurringScheduler?.update && recurringScheduler?.pause && recurringScheduler?.resume && recurringScheduler?.cancel) {
     result.push(
       capability({
         name: 'schedule-list', description: 'List recurring schedules in the current identity/project/group/thread scope.',
@@ -90,6 +103,32 @@ export function createTemporalCapabilities({ temporalService, memoryProvider = n
           const scheduleId = scheduleIdFrom(request);
           const schedule = await recurringScheduler.get({ scope: scopeFrom(request), scheduleId });
           return schedule ? { status: 'success', data: { schedule, message: `Schedule ${scheduleId}: ${schedule.status}` } } : { status: 'failed', error: { code: 'schedule-not-found', message: 'Schedule not found in scope', retryable: false } };
+        }
+      }),
+      capability({
+        name: 'schedule-update', description: 'Update an existing recurring schedule in the current scope without creating a duplicate schedule.',
+        actionTypes: ['schedule-update'], actionClasses: ['state-changing'], confirmationRequired: true,
+        execute: async (request) => {
+          const scheduleId = scheduleIdFrom(request);
+          const existing = await recurringScheduler.get({ scope: scopeFrom(request), scheduleId });
+          if (!existing) return { status: 'failed', error: { code: 'schedule-not-found', message: 'Schedule not found in scope', retryable: false } };
+          const localTime = normalizedLocalTime(request.input?.localTime);
+          const recurrence = request.input?.recurrence == null ? null : String(request.input.recurrence).trim();
+          const timeZone = request.input?.timeZone == null ? null : String(request.input.timeZone).trim();
+          if (!localTime && !recurrence && !timeZone) return { status: 'failed', error: { code: 'schedule-update-empty', message: 'At least one schedule field must change', retryable: false } };
+          if (timeZone && !temporalService.isValidTimeZone(timeZone)) return { status: 'failed', error: { code: 'invalid-timezone', message: 'A valid IANA timezone is required', retryable: false } };
+          const dtstartLocal = localTime ? dtstartAtLocalTime(existing.dtstartLocal, localTime) : null;
+          const schedule = await recurringScheduler.update({
+            scope: scopeFrom(request),
+            scheduleId,
+            recurrence: recurrence || null,
+            timeZone: timeZone || null,
+            dtstartLocal,
+            state: localTime ? { localTime } : null
+          });
+          return schedule
+            ? { status: 'success', data: { schedule, message: `Schedule ${scheduleId}: updated. Next execution: ${schedule.nextOccurrenceAt ?? 'none'}` } }
+            : { status: 'failed', error: { code: 'schedule-not-updatable', message: 'Schedule is not updatable in its current state', retryable: false } };
         }
       }),
       capability({

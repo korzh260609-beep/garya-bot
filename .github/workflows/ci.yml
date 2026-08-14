@@ -1,12 +1,15 @@
 name: SG 2.1 CI
 
 on:
+  push:
+    branches:
+      - dev/sg2.1-semantic
   pull_request:
     branches:
       - main
 
 concurrency:
-  group: sg21-ci-${{ github.event.pull_request.head.ref }}
+  group: sg21-ci-${{ github.event.pull_request.head.ref || github.ref }}
   cancel-in-progress: true
 
 permissions:

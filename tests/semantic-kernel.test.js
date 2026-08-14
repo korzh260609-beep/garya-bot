@@ -83,7 +83,7 @@ test('keeps missing contextual information answerable when clarification text is
   assert.equal(result.decisionEnvelope.diagnostics.missingInformationWithoutClarification, true);
 });
 
-test('downgrades external or state-changing actions to prepare-only', async () => {
+test('preserves external or state-changing actions for Action Gate authorization', async () => {
   const kernel = createSemanticKernel({
     meaningInterpreter: createFixtureMeaningInterpreter(() => interpretation({
       goal: 'send message', intent: 'send',
@@ -91,9 +91,11 @@ test('downgrades external or state-changing actions to prepare-only', async () =
     }))
   });
   const result = await kernel.process(baseInput('Send the message'));
-  assert.equal(result.decisionEnvelope.decisionType, 'prepare');
+  assert.equal(result.decisionEnvelope.decisionType, 'execute');
   assert.equal(result.responsePlan.requiresConfirmation, false);
-  assert.equal(result.responsePlan.preparedAction.name, 'send-message');
+  assert.equal(result.responsePlan.preparedAction, null);
+  assert.equal(result.decisionEnvelope.diagnostics.permissionChecked, false);
+  assert.equal(result.decisionEnvelope.diagnostics.capabilityExecuted, false);
 });
 
 test('rejects invalid uncertainty and malformed contracts', async () => {

@@ -29,18 +29,29 @@ function selectCandidate(evaluations) {
   })[0];
 }
 
+function semanticMemoryCandidates(interpretation) {
+  return Array.isArray(interpretation?.memoryCandidates) ? interpretation.memoryCandidates : [];
+}
+
+function semanticMemoryQuery(interpretation) {
+  return typeof interpretation?.memoryQuery === 'string' && interpretation.memoryQuery.trim()
+    ? interpretation.memoryQuery.trim()
+    : null;
+}
+
 function canonicalizeSelectedAction(action, interpretation) {
   if (action?.type === 'answer' && action?.actionClass === 'analysis') {
     const legacyCandidates = Array.isArray(action.payload?.memoryCandidates) ? action.payload.memoryCandidates : [];
-    const semanticCandidates = interpretation.memoryCandidates.length > 0 ? interpretation.memoryCandidates : legacyCandidates;
+    const interpretationCandidates = semanticMemoryCandidates(interpretation);
+    const candidates = interpretationCandidates.length > 0 ? interpretationCandidates : legacyCandidates;
     return Object.freeze({
       ...action,
       name: 'compose-answer',
       payload: Object.freeze({
         ...(action.payload ?? {}),
         semanticIntent: interpretation.intent,
-        memoryQuery: interpretation.memoryQuery,
-        memoryCandidates: Object.freeze([...semanticCandidates])
+        memoryQuery: semanticMemoryQuery(interpretation),
+        memoryCandidates: Object.freeze([...candidates])
       })
     });
   }
@@ -66,9 +77,6 @@ function buildMessage({ decisionType, interpretation, selectedAction, locale }) 
   if (decisionType === 'prepare') {
     return `Prepared action: ${selectedAction.name ?? selectedAction.type ?? 'requested action'}. Execution is disabled before Action Gate.`;
   }
-  // Normal answer flow must execute compose-answer. This message exists only for
-  // fail-closed paths where execution is prevented, so it must always be safe
-  // for a user to see and must never expose an internal semantic placeholder.
   return answerFallback(locale);
 }
 
@@ -101,6 +109,8 @@ export function createDecisionEngine({ uncertaintyThreshold = 0.65 } = {}) {
       const requiresEvidence = interpretation.evidenceNeeds.length > 0;
       const decisionType = classifyDecision({ interpretation, selected, uncertaintyThreshold });
       const rationale = buildRationale({ decisionType, interpretation, selected, requiresEvidence });
+      const memoryCandidates = semanticMemoryCandidates(interpretation);
+      const memoryQuery = semanticMemoryQuery(interpretation);
 
       const decisionEnvelope = createDecisionEnvelope({
         traceId: canonicalInput.traceContext.traceId,
@@ -125,8 +135,8 @@ export function createDecisionEngine({ uncertaintyThreshold = 0.65 } = {}) {
           executableIntent: selected.executableIntent,
           protectedIntent: selected.protectedIntent,
           conversationalAnswerCanonicalized: selected.action.type === 'answer' && selected.action.actionClass === 'analysis' && selected.action.name !== 'compose-answer',
-          semanticMemoryQueryAvailable: Boolean(interpretation.memoryQuery),
-          semanticMemoryCandidateCount: interpretation.memoryCandidates.length,
+          semanticMemoryQueryAvailable: Boolean(memoryQuery),
+          semanticMemoryCandidateCount: memoryCandidates.length,
           semanticMeaningExposedAsResponse: false,
           permissionChecked: false,
           capabilityExecuted: false

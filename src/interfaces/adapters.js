@@ -37,6 +37,7 @@ export function createTelegramTransportAdapter(options = {}) {
     if (!message) throw new TypeError('telegram update must contain a message');
     const sender = message.from ?? {};
     const displayName = [sender.first_name, sender.last_name].filter(Boolean).join(' ').trim() || sender.username || null;
+    const chatId = identifier(message.chat?.id, 'telegram chat id');
     return {
       text: string(message.text ?? message.caption, 'telegram message text'),
       locale: sender.language_code ?? update.locale ?? 'ru',
@@ -46,10 +47,15 @@ export function createTelegramTransportAdapter(options = {}) {
       continueConversationId: update.continueConversationId ?? null,
       topicShift: update.topicShift === true,
       topicKey: update.topicKey ?? null,
+      originTarget: {
+        transport: 'telegram',
+        address: chatId,
+        threadId: message.message_thread_id == null ? null : String(message.message_thread_id)
+      },
       platformFacts: {
         platform: 'telegram',
         platformUserId: identifier(sender.id, 'telegram user id'),
-        platformChatId: identifier(message.chat?.id, 'telegram chat id'),
+        platformChatId: chatId,
         profile: {
           displayName,
           firstName: sender.first_name ?? null,
@@ -61,7 +67,7 @@ export function createTelegramTransportAdapter(options = {}) {
       },
       scopeFacts: {
         projectId: update.projectId ?? null,
-        groupId: ['group', 'supergroup'].includes(message.chat?.type) ? String(message.chat.id) : null,
+        groupId: ['group', 'supergroup'].includes(message.chat?.type) ? chatId : null,
         threadId: message.message_thread_id == null ? null : String(message.message_thread_id)
       },
       attachments: update.attachments ?? []

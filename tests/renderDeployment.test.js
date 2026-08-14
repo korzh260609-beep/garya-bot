@@ -50,6 +50,22 @@ function fakePersistence() {
   };
 }
 
+function fakeAutomationRuntime() {
+  return {
+    durableTaskQueue: {
+      async releaseDue() { return []; },
+      async recoverAbandoned() { return []; },
+      async claim() { return null; },
+      async heartbeat() { return null; },
+      async complete() { return null; },
+      async fail() { return { outcome: 'retry', task: null }; }
+    },
+    recurringScheduler: {
+      async materializeDue() { return []; }
+    }
+  };
+}
+
 test('Block 17 reuses the existing SG 2.0 Render service settings', async () => {
   const pkg = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
   const entrypoint = await readFile(new URL('../src/runtime/entrypoint.js', import.meta.url), 'utf8');
@@ -143,7 +159,8 @@ test('Render web application reuses SG 2.0-style environment and reports deploye
       credentialManager,
       credentialAccessContext,
       connectionRegistry,
-      connectionAccessContext
+      connectionAccessContext,
+      ...fakeAutomationRuntime()
     };
   };
   const app = await createRenderWebApplication({
@@ -204,7 +221,8 @@ test('Render startup rolls back runtime when validation fails after runtime star
     credentialManager: { async useCredential({ operation, connectionId }) { return operation(connectionId === 'telegram-webhook' ? 'secret' : 'token'); } },
     credentialAccessContext: { actor: { globalUserId: 'system:runtime', grants: ['credential:use:system'] }, scope: { projectScope: 'sg2.1' } },
     connectionRegistry: { async requireUsable() { return { status: 'connected', capabilities: ['telegram.bot-api'] }; } },
-    connectionAccessContext: { actor: { globalUserId: 'system:runtime', grants: ['connection:read'] }, projectScope: 'sg2.1' }
+    connectionAccessContext: { actor: { globalUserId: 'system:runtime', grants: ['connection:read'] }, projectScope: 'sg2.1' },
+    ...fakeAutomationRuntime()
   });
   const app = await createRenderWebApplication({
     env: { DATABASE_URL: 'postgres://example', TELEGRAM_BOT_TOKEN: 'test-token', BASE_URL: 'https://example.invalid', TELEGRAM_REGISTER_WEBHOOK: 'false', PORT: '0' },

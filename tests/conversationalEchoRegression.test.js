@@ -40,7 +40,8 @@ test('unknown semantic capability cannot leak the original user text through Act
     const result = await harness.transport.send({ text, userId: 'echo-gate-regression-user', projectId: 'sg2.1' });
     assert.equal(result.response.data.gateOutcome, 'downgrade-to-prepare');
     assert.notEqual(normalize(result.response.message), normalize(text));
-    assert.match(result.response.message, /could not produce a final conversational response/i);
+    assert.match(result.response.message, /could not compose a conversational answer/i);
+    assert.equal(result.response.message.includes('SG could not produce a final conversational response.'), false);
     const started = harness.observability.list({ traceId: result.canonicalInput.traceContext.traceId, eventClass: 'capability_started' });
     assert.equal(started.length, 0);
   } finally {

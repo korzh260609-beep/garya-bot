@@ -48,7 +48,7 @@ function telegramUpdate() {
   };
 }
 
-test('Telegram self-notification reaches Action Gate and executes task-create instead of legacy prepare-only response', async () => {
+test('Telegram self-notification reaches Action Gate and executes elapsed task-create without a stored timezone', async () => {
   const harness = createLocalProductionHarness({
     clock: () => fixedNow,
     interpretationResolver: () => automationInterpretation()
@@ -91,7 +91,7 @@ test('Telegram self-notification reaches Action Gate and executes task-create in
     idFactory: (() => { let sequence = 0; return () => `telegram-automation-${++sequence}`; })()
   });
 
-  await harness.temporalService.setUserTimezone(globalUserId, 'Europe/Kyiv', { source: 'test' });
+  assert.equal(await harness.temporalService.getUserTimezone(globalUserId), null);
   await harness.runtime.start();
   try {
     const webhook = await integration.handleWebhook({
@@ -101,7 +101,7 @@ test('Telegram self-notification reaches Action Gate and executes task-create in
 
     assert.equal(webhook.statusCode, 200);
     assert.equal(sent.length, 1);
-    assert.doesNotMatch(sent[0].text, /Prepared action|Execution is disabled before Action Gate/);
+    assert.doesNotMatch(sent[0].text, /Prepared action|Execution is disabled before Action Gate|Action selected for Action Gate authorization/);
     assert.match(sent[0].text, /Задача создана/);
 
     const tasks = await harness.taskStore.list({
@@ -109,6 +109,7 @@ test('Telegram self-notification reaches Action Gate and executes task-create in
     });
     assert.equal(tasks.length, 1);
     assert.equal(tasks[0].payload.message, 'привет');
+    assert.equal(tasks[0].payload.temporal.timeZone, 'UTC');
     assert.equal(tasks[0].runAt, '2026-08-14T15:02:00.000Z');
   } finally {
     await harness.runtime.stop();

@@ -55,7 +55,7 @@ function determineKnowledgeState({ records, reportedUserMemory, conflicts, diagn
   if ((conflicts?.length ?? 0) > 0 || numericDiagnostic(diagnostics, 'conflictCount') > 0) return 'CONFLICTED';
   if ((records ?? []).some((record) => record.confirmed === true)) return 'KNOWN';
   if ((reportedUserMemory?.length ?? 0) > 0) return 'UNCERTAIN';
-  if (numericDiagnostic(diagnostics, 'expiredCount', 'excludedExpired', 'staleCount', 'outdatedCount') > 0) return 'OUTDATED';
+  if (numericDiagnostic(diagnostics, 'expiredCount', 'excludedExpired', 'excludedLifecycle', 'staleCount', 'outdatedCount') > 0) return 'OUTDATED';
   return 'UNKNOWN';
 }
 

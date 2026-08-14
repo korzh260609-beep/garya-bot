@@ -14,11 +14,19 @@ function rowMessage(row) {
   if (!row) return null;
   return { messageId: row.message_id, conversationId: row.conversation_id, sessionId: row.session_id, topicId: row.topic_id, replyToMessageId: row.reply_to_message_id, transport: row.transport, externalMessageId: row.external_message_id, globalUserId: row.global_user_id, projectScope: row.project_scope, groupScope: row.group_scope, threadScope: row.thread_scope, direction: row.direction, content: row.content ?? {}, provenance: row.provenance ?? {}, createdAt: row.created_at?.toISOString?.() ?? row.created_at };
 }
-
 function boundedLimit(limit, fallback = 100) {
   const value = Number(limit ?? fallback);
   if (!Number.isInteger(value) || value < 1 || value > 200) throw new TypeError('message query limit must be 1..200');
   return value;
+}
+function normalizeCursor(afterCreatedAt, afterMessageId) {
+  const hasTime = afterCreatedAt != null && String(afterCreatedAt).trim() !== '';
+  const hasId = afterMessageId != null && String(afterMessageId).trim() !== '';
+  if (hasTime !== hasId) throw new TypeError('conversation history cursor requires afterCreatedAt and afterMessageId together');
+  if (!hasTime) return { afterCreatedAt: null, afterMessageId: null };
+  const instant = new Date(afterCreatedAt);
+  if (!Number.isFinite(instant.getTime())) throw new TypeError('afterCreatedAt must be a valid instant');
+  return { afterCreatedAt: instant.toISOString(), afterMessageId: String(afterMessageId) };
 }
 
 export function createPostgresConversationContextStore({ database } = {}) {
@@ -84,6 +92,20 @@ export function createPostgresConversationContextStore({ database } = {}) {
           AND ($7::timestamptz IS NULL OR created_at >= $7::timestamptz)
           AND ($8::timestamptz IS NULL OR created_at < $8::timestamptz)
         ORDER BY created_at,message_id LIMIT $9`, [globalUserId,projectScope,groupScope,threadScope,conversationId,topicId,utcStart,utcEndExclusive,bounded]);
+      return r.rows.map(rowMessage);
+    },
+    async listMessagesPage({ globalUserId, projectScope, groupScope = null, threadScope = null, conversationId = null, topicId = null, utcStart = null, utcEndExclusive = null, afterCreatedAt = null, afterMessageId = null, limit = 100 }) {
+      const bounded = boundedLimit(limit,100);
+      const cursor = normalizeCursor(afterCreatedAt, afterMessageId);
+      const r = await database.query(`SELECT * FROM messages
+        WHERE global_user_id=$1 AND project_scope=$2
+          AND group_scope IS NOT DISTINCT FROM $3 AND thread_scope IS NOT DISTINCT FROM $4
+          AND ($5::text IS NULL OR conversation_id=$5)
+          AND ($6::text IS NULL OR topic_id=$6)
+          AND ($7::timestamptz IS NULL OR created_at >= $7::timestamptz)
+          AND ($8::timestamptz IS NULL OR created_at < $8::timestamptz)
+          AND ($9::timestamptz IS NULL OR created_at > $9::timestamptz OR (created_at = $9::timestamptz AND message_id > $10::text))
+        ORDER BY created_at,message_id LIMIT $11`, [globalUserId,projectScope,groupScope,threadScope,conversationId,topicId,utcStart,utcEndExclusive,cursor.afterCreatedAt,cursor.afterMessageId,bounded]);
       return r.rows.map(rowMessage);
     }
   });

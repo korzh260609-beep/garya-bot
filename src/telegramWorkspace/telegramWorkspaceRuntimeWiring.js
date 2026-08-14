@@ -26,7 +26,7 @@ function enabled(config, fallback = true) {
 
 function responseMode(config) {
   if (config?.reply_enabled === false || config?.enabled === false) return 'off';
-  return RESPONSE_MODES.has(config?.mode) ? config.mode : 'mention_only';
+  return RESPONSE_MODES.has(config?.mode) ? config.mode : 'all';
 }
 
 function aiDisabledMessage(locale) {

@@ -25,15 +25,41 @@ function normalizeTask(task) {
   return task;
 }
 
+function normalizeLocalTime(value) {
+  if (typeof value !== 'string') return null;
+  const match = value.trim().match(/^([01]\d|2[0-3]):([0-5]\d)$/);
+  return match ? `${match[1]}:${match[2]}` : null;
+}
+
+function nextDate(date) {
+  const [year, month, day] = String(date).split('-').map(Number);
+  const shifted = new Date(Date.UTC(year, month - 1, day + 1));
+  return `${shifted.getUTCFullYear()}-${String(shifted.getUTCMonth() + 1).padStart(2, '0')}-${String(shifted.getUTCDate()).padStart(2, '0')}`;
+}
+
+async function expressionFromLocalTime({ temporalService, userScope, localTime }) {
+  const normalized = normalizeLocalTime(localTime);
+  if (!normalized) throw temporalError('task-local-time-invalid', 'Recurring localTime must be HH:MM');
+  if (typeof temporalService.contextForUser !== 'function') throw temporalError('task-time-context-unavailable', 'Temporal Context cannot resolve recurring local time');
+  const context = await temporalService.contextForUser(userScope);
+  if (!context.timezoneKnown || !context.localDate || !context.localDateTime) throw temporalError('task-timezone-required', 'User timezone is required to schedule recurring local time');
+  const currentClock = context.localDateTime.slice(11, 16);
+  const date = currentClock < normalized ? context.localDate : nextDate(context.localDate);
+  return `${date} at ${normalized}`;
+}
+
 export function createTemporalTaskStore({ taskStore, temporalService, recurringScheduler = null } = {}) {
   if (!taskStore?.create || !taskStore?.list || !taskStore?.get || !taskStore?.cancel) throw new TypeError('taskStore is required');
   if (!temporalService?.resolveForUser) throw new TypeError('temporalService is required');
 
   return Object.freeze({
     async create({ scope, input = {} }) {
-      const expression = input.temporalExpression ?? input.when ?? (typeof input.runAt === 'string' && !isExactIsoInstant(input.runAt) ? input.runAt : null);
+      let expression = input.temporalExpression ?? input.when ?? (typeof input.runAt === 'string' && !isExactIsoInstant(input.runAt) ? input.runAt : null);
+      if (!expression && input.recurrence && input.localTime) {
+        expression = await expressionFromLocalTime({ temporalService, userScope: scope.userScope, localTime: input.localTime });
+      }
       if (!expression) {
-        if (input.recurrence) throw temporalError('recurrence-start-required', 'A recurring task requires an explicit first local time');
+        if (input.recurrence) throw temporalError('recurrence-start-required', 'A recurring task requires localTime or an explicit first local time');
         return normalizeTask(await taskStore.create({ scope, input }));
       }
 
@@ -66,9 +92,9 @@ export function createTemporalTaskStore({ taskStore, temporalService, recurringS
         dtstartLocal: resolution.localStart,
         misfirePolicy: input.misfirePolicy ?? 'fire_once',
         maxCatchup: input.maxCatchup ?? 10,
-        state: { originalExpression: resolution.originalExpression, createdBy: scope.userScope }
+        state: { originalExpression: resolution.originalExpression, localTime: input.localTime ?? null, createdBy: scope.userScope }
       });
-      return Object.freeze({ ...created, recurringSchedule: schedule });
+      return Object.freeze({ ...created, runAt: schedule.firstOccurrenceAt ?? created.runAt ?? created.availableAt ?? null, recurringSchedule: schedule });
     },
     async list(request) { return Object.freeze((await taskStore.list(request)).map(normalizeTask)); },
     async get(request) { return normalizeTask(await taskStore.get(request)); },

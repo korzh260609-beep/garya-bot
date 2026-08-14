@@ -101,7 +101,7 @@ test('real source failure remains visible and cannot become fabricated success',
   const result = await executor.execute({ actionRequest, gateDecision: allowed(actionRequest) });
   assert.equal(result.status, 'failed');
   assert.equal(result.error.code, 'upstream-down');
-  assert.equal(result.data, null);
+  assert.match(result.data.message, /could not be completed/i);
 });
 
 test('document analysis never executes instructions embedded in content', async () => {

@@ -76,28 +76,41 @@ function scheduledSelfNotification(payload) {
   return scheduled;
 }
 
+function selfAutomationCapability(capability) {
+  return capability === 'task-create'
+    || SELF_AUTOMATION_READ_CAPABILITIES.includes(capability)
+    || SELF_AUTOMATION_MUTATION_CAPABILITIES.includes(capability);
+}
+
 function selfAutomationAuthorization(request) {
   const canonicalUserRequest = request.payload?.userInitiatedCanonicalRequest === true;
   const authenticated = request.actor.authenticationLevel !== 'unknown';
   const actorOwnsUserScope = request.scope.userScope === request.actor.globalUserId;
-  if (!canonicalUserRequest || !authenticated || !actorOwnsUserScope || !trustedOriginTarget(request.payload)) {
-    return Object.freeze({ allowed: false, directConfirmation: false });
+  const originTrusted = trustedOriginTarget(request.payload);
+  const scopeMismatch = canonicalUserRequest
+    && authenticated
+    && originTrusted
+    && selfAutomationCapability(request.capability)
+    && !actorOwnsUserScope;
+
+  if (!canonicalUserRequest || !authenticated || !actorOwnsUserScope || !originTrusted) {
+    return Object.freeze({ allowed: false, directConfirmation: false, scopeMismatch });
   }
 
   if (request.capability === 'task-create') {
     const allowed = scheduledSelfNotification(request.payload);
-    return Object.freeze({ allowed, directConfirmation: allowed });
+    return Object.freeze({ allowed, directConfirmation: allowed, scopeMismatch: false });
   }
 
   if (SELF_AUTOMATION_READ_CAPABILITIES.includes(request.capability)) {
-    return Object.freeze({ allowed: true, directConfirmation: false });
+    return Object.freeze({ allowed: true, directConfirmation: false, scopeMismatch: false });
   }
 
   if (SELF_AUTOMATION_MUTATION_CAPABILITIES.includes(request.capability)) {
-    return Object.freeze({ allowed: true, directConfirmation: true });
+    return Object.freeze({ allowed: true, directConfirmation: true, scopeMismatch: false });
   }
 
-  return Object.freeze({ allowed: false, directConfirmation: false });
+  return Object.freeze({ allowed: false, directConfirmation: false, scopeMismatch: false });
 }
 
 export function createActionGate({ policy = createActionPolicy(), availableSources = [], availableTools = [], idempotencyStore = createInMemoryIdempotencyStore(), clock = () => new Date().toISOString() } = {}) {
@@ -116,6 +129,7 @@ export function createActionGate({ policy = createActionPolicy(), availableSourc
         identity: !effectivePolicy.requireAuthenticatedActor || actionRequest.actor.authenticationLevel !== 'unknown',
         permission: !isProtected || selfAutomation.allowed || hasPermission(actionRequest, effectivePolicy),
         scope: scopeMatches(actionRequest),
+        selfAutomationScope: !selfAutomation.scopeMismatch,
         resourceAuthority: resourceAuthorityMatches(actionRequest),
         ownerSecurity: ownerSecurityMatches(actionRequest, ownerSecurityDecision),
         capability: selfAutomation.allowed || includesWildcard(actionRequest.scope.allowedCapabilities, actionRequest.capability),
@@ -132,10 +146,10 @@ export function createActionGate({ policy = createActionPolicy(), availableSourc
 
       const reasons = [];
       let outcome = 'allow';
-      if (!checks.identity || !checks.scope || !checks.audit || !checks.resourceAuthority || !checks.ownerSecurity) {
+      if (!checks.identity || !checks.scope || !checks.selfAutomationScope || !checks.audit || !checks.resourceAuthority || !checks.ownerSecurity) {
         outcome = 'deny';
         if (!checks.identity) reasons.push('identity-not-authenticated');
-        if (!checks.scope) reasons.push('scope-mismatch');
+        if (!checks.scope || !checks.selfAutomationScope) reasons.push('scope-mismatch');
         if (!checks.audit) reasons.push('audit-context-missing');
         if (!checks.resourceAuthority) reasons.push(actionRequest.resourceAuthority?.reason ?? 'resource-authority-denied');
         if (!checks.ownerSecurity) reasons.push(ownerSecurityDecision?.reason ?? 'owner-security-denied');

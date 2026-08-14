@@ -24,6 +24,19 @@ function boundedProviderField(value, maxLength = 160) {
   return text.length <= maxLength ? text : `${text.slice(0, maxLength - 1)}…`;
 }
 
+function assertCompletedResponse(payload) {
+  if (payload?.status !== 'incomplete' && !payload?.incomplete_details) return;
+  const reason = boundedProviderField(payload?.incomplete_details?.reason) ?? 'unknown';
+  throw new AIProviderError(`OpenAI response was incomplete: ${reason}`, {
+    retryable: true,
+    code: 'AI_PROVIDER_INCOMPLETE_RESPONSE',
+    metadata: {
+      responseId: boundedProviderField(payload?.id),
+      incompleteReason: reason,
+    },
+  });
+}
+
 export function createOpenAIResponsesProvider({
   apiKey = null,
   credentialManager = null,
@@ -91,10 +104,12 @@ export function createOpenAIResponsesProvider({
       });
     }
 
+    assertCompletedResponse(payload);
+
     return {
       text: extractText(payload), latencyMs: Date.now() - startedAt,
       usage: { inputTokens: payload.usage?.input_tokens ?? null, outputTokens: payload.usage?.output_tokens ?? null, totalTokens: payload.usage?.total_tokens ?? null },
-      rawMetadata: { responseId: payload.id ?? null },
+      rawMetadata: { responseId: payload.id ?? null, responseStatus: payload.status ?? null },
     };
   }
 

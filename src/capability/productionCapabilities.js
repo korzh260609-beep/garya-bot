@@ -85,11 +85,6 @@ function taskCreateInput(request) {
     error.code = 'automation-time-required';
     throw error;
   }
-  if (recurrence && !temporalExpression && !localTime) {
-    const error = new Error('Recurring self notification requires localTime or temporalExpression');
-    error.code = 'automation-recurring-time-required';
-    throw error;
-  }
 
   return Object.freeze({
     taskId: input.taskId ?? undefined,

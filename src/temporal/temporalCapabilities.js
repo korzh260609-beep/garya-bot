@@ -58,7 +58,8 @@ function dtstartAtLocalTime(dtstartLocal, localTime) {
 function scheduleListMessage(schedules) {
   if (schedules.length === 0) return 'Recurring schedules: 0';
   const lines = schedules.map((schedule, index) => {
-    const localTime = schedule.state?.localTime ?? String(schedule.dtstartLocal ?? '').slice(11, 16) || 'time-unavailable';
+    const storedLocalTime = schedule.state?.localTime ?? String(schedule.dtstartLocal ?? '').slice(11, 16);
+    const localTime = storedLocalTime || 'time-unavailable';
     return `${index + 1}. ${schedule.scheduleId} | ${schedule.status} | ${schedule.recurrence} | ${localTime} (${schedule.timeZone ?? 'timezone-unavailable'}) | next: ${schedule.nextOccurrenceAt ?? 'none'}`;
   });
   return `Recurring schedules: ${schedules.length}\n${lines.join('\n')}`;

@@ -29,9 +29,11 @@ function scheduleIdFrom(request) {
 
 function normalizedLocalTime(value) {
   if (value == null) return null;
-  const match = String(value).trim().match(/^([01]\d|2[0-3]):([0-5]\d)$/);
+  const match = String(value).trim().match(/^(\d{1,2}):([0-5]\d)$/);
   if (!match) throw new TypeError('input.localTime must be HH:MM');
-  return `${match[1]}:${match[2]}`;
+  const hour = Number(match[1]);
+  if (!Number.isInteger(hour) || hour < 0 || hour > 23) throw new TypeError('input.localTime must be HH:MM');
+  return `${String(hour).padStart(2, '0')}:${match[2]}`;
 }
 
 function dtstartAtLocalTime(dtstartLocal, localTime) {

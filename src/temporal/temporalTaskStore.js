@@ -138,6 +138,7 @@ export function createTemporalTaskStore({ taskStore, temporalService, recurringS
 
       if (!input.recurrence) return created;
       if (!recurringScheduler?.register) throw temporalError('recurrence-unavailable', 'Recurring scheduler is not available in this runtime');
+      const notificationMessage = typeof payload.message === 'string' && payload.message.trim() !== '' ? payload.message.trim() : null;
       const schedule = await recurringScheduler.register({
         scheduleId: input.scheduleId,
         taskId: created.taskId,
@@ -146,7 +147,7 @@ export function createTemporalTaskStore({ taskStore, temporalService, recurringS
         dtstartLocal: resolution.localStart,
         misfirePolicy: input.misfirePolicy ?? 'fire_once',
         maxCatchup: input.maxCatchup ?? 10,
-        state: { originalExpression: resolution.originalExpression, localTime: input.localTime ?? null, createdBy: scope.userScope }
+        state: { originalExpression: resolution.originalExpression, localTime: input.localTime ?? null, notificationMessage, createdBy: scope.userScope }
       });
       return Object.freeze({ ...created, runAt: schedule.firstOccurrenceAt ?? created.runAt ?? created.availableAt ?? null, recurringSchedule: schedule });
     },

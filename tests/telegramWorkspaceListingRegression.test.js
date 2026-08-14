@@ -44,7 +44,7 @@ function fixture({ allowed = true } = {}) {
   return { service, deliveries, aiCalls };
 }
 
-test('private-chat workspace-list returns only authority-verified registered workspaces without second AI call', async () => {
+test('private-chat workspace-list returns only authority-verified registered workspaces without exposing internal IDs', async () => {
   const fx = fixture();
   const result = await fx.service.handleUpdate(privateUpdate(), {
     semanticRoute: Object.freeze({ destination: 'telegram-workspace-manager', workspaceOperation: 'workspace-list', reason: 'workspace inventory' })
@@ -55,8 +55,9 @@ test('private-chat workspace-list returns only authority-verified registered wor
   assert.equal(fx.aiCalls.length, 0);
   assert.equal(fx.deliveries.length, 1);
   assert.match(fx.deliveries[0].text, /Alpha/);
-  assert.match(fx.deliveries[0].text, /tgw_group_alpha/);
   assert.match(fx.deliveries[0].text, /Beta/);
+  assert.doesNotMatch(fx.deliveries[0].text, /tgw_group_alpha/);
+  assert.doesNotMatch(fx.deliveries[0].text, /tgw_group_beta/);
 });
 
 test('workspace-list does not expose registered workspaces when current authority verification denies access', async () => {

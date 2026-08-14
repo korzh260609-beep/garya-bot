@@ -86,17 +86,17 @@ export function createDeliveryRouter({ store = createInMemoryDeliveryStore(), tr
       if (isQuietHour(settings?.settings, clock())) { const record = { ...request, status: 'deferred', attempts: 0, failureCode: 'quiet-hours', retryable: true }; await store.put(record); await recordEvent(request, 'deferred', { reason: record.failureCode }); return publicResult(record); }
     }
     const targets = pickTargets(request, settings); if (targets.length === 0) { const record = { ...request, status: 'failed', attempts: 0, failureCode: 'delivery-target-unavailable', retryable: false }; await store.put(record); await recordEvent(request, 'failed', { reason: record.failureCode }); return publicResult(record); }
-    let totalAttempts = 0; let lastError = null;
+    let totalAttempts = 0; let lastError = null; let lastFailureCode = null;
     for (const target of targets) {
-      const auth = await authorizeTarget(request, target); if (!auth.allowed) { lastError = Object.assign(new Error(auth.reason), { code: auth.reason, retryable: false }); await recordEvent(request, 'denied', { transport: target.transport, reason: auth.reason }); continue; }
-      const provider = transportRegistry.get(target.transport); if (!provider) { lastError = Object.assign(new Error('delivery transport unavailable'), { code: 'delivery-transport-unavailable', retryable: false }); continue; }
+      const auth = await authorizeTarget(request, target); if (!auth.allowed) { lastFailureCode = auth.reason; lastError = Object.assign(new Error(auth.reason), { code: auth.reason, retryable: false }); await recordEvent(request, 'denied', { transport: target.transport, reason: auth.reason }); continue; }
+      const provider = transportRegistry.get(target.transport); if (!provider) { lastFailureCode = 'delivery-transport-unavailable'; lastError = Object.assign(new Error('delivery transport unavailable'), { code: lastFailureCode, retryable: false }); continue; }
       for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
         totalAttempts += 1;
         try { const result = await withTimeout(() => provider.deliver(Object.freeze({ request, target, attempt, locale: request.locale ?? settings?.settings?.locale ?? null })), timeoutMs); const record = { ...request, target, transport: target.transport, status: 'delivered', attempts: totalAttempts, failureCode: null, retryable: false, deliveredAt: clock().toISOString(), providerResult: clone(result ?? null) }; await store.put(record); await recordEvent(request, 'delivered', { transport: target.transport, attempts: totalAttempts }); return publicResult(record); }
-        catch (error) { lastError = error; const retryable = isRetryable(error); await recordEvent(request, 'attempt-failed', { transport: target.transport, attempt, code: error?.code ?? 'delivery-failed', retryable }); if (!retryable) break; }
+        catch (error) { lastError = error; lastFailureCode = error?.code ?? 'delivery-failed'; const retryable = isRetryable(error); await recordEvent(request, 'attempt-failed', { transport: target.transport, attempt, code: lastFailureCode, retryable }); if (!retryable) break; }
       }
     }
-    const record = { ...request, target: targets.at(-1), transport: targets.at(-1)?.transport ?? null, status: 'failed', attempts: totalAttempts, failureCode: lastError?.code ?? 'delivery-failed', retryable: isRetryable(lastError) }; await store.put(record); await recordEvent(request, 'failed', { transport: record.transport, attempts: totalAttempts, reason: record.failureCode }); return publicResult(record);
+    const record = { ...request, target: targets.at(-1), transport: targets.at(-1)?.transport ?? null, status: 'failed', attempts: totalAttempts, failureCode: lastFailureCode ?? lastError?.code ?? 'delivery-failed', retryable: isRetryable(lastError) }; await store.put(record); await recordEvent(request, 'failed', { transport: record.transport, attempts: totalAttempts, reason: record.failureCode }); return publicResult(record);
   }
   return Object.freeze({ route, normalizeRequest: (input) => normalizeRequest(input, idFactory) });
 }

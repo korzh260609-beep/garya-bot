@@ -38,6 +38,17 @@ async function withTimeout(operation, timeoutMs) {
   }
 }
 
+function retryRequestAfterFailure(request, error, policy) {
+  if (error?.code !== 'AI_PROVIDER_INCOMPLETE_RESPONSE' || error?.metadata?.incompleteReason !== 'max_output_tokens') return request;
+  const current = Number(request.maxOutputTokens ?? policy?.maxOutputTokens ?? 0);
+  if (!Number.isInteger(current) || current <= 0) return request;
+  const policyBase = Number(policy?.maxOutputTokens ?? current);
+  const ceiling = Math.max(current, Number.isFinite(policyBase) && policyBase > 0 ? policyBase * 4 : current * 2);
+  const next = Math.min(ceiling, current * 2);
+  if (next <= current) return request;
+  return createAIRequest({ ...request, maxOutputTokens: next });
+}
+
 export function createAIRouter({
   registry,
   providers,
@@ -75,6 +86,7 @@ export function createAIRouter({
       reason: request.reason,
       estimatedCostUsd,
       limitUsd: evidence.limitUsd,
+      maxOutputTokens: request.maxOutputTokens,
     });
     return evidence;
   }
@@ -82,32 +94,34 @@ export function createAIRouter({
   async function callModel(model, request, fallbackUsed, role) {
     const provider = providerMap.get(model.provider);
     if (!provider) throw new AIProviderError(`AI provider is not registered: ${model.provider}`, { code: 'AI_PROVIDER_NOT_REGISTERED' });
-    enforcePolicy({ model, request, role });
     let lastError;
+    let activeRequest = request;
 
     for (let attempt = 1; attempt <= maxRetries + 1; attempt += 1) {
+      enforcePolicy({ model, request: activeRequest, role });
       const startedAt = Date.now();
       telemetry?.record?.({
         type: 'ai.call.started',
-        traceId: request.traceContext.traceId,
-        requestId: request.traceContext.requestId,
+        traceId: activeRequest.traceContext.traceId,
+        requestId: activeRequest.traceContext.requestId,
         provider: model.provider,
         model: model.model,
         role,
-        reason: request.reason,
+        reason: activeRequest.reason,
         attempt,
+        maxOutputTokens: activeRequest.maxOutputTokens,
       });
       try {
-        const raw = await withTimeout((signal) => provider.generate({ request, model, signal }), timeoutMs);
+        const raw = await withTimeout((signal) => provider.generate({ request: activeRequest, model, signal }), timeoutMs);
         const result = createAIResult({
           ...raw,
           provider: model.provider,
           model: model.model,
           latencyMs: raw.latencyMs ?? Date.now() - startedAt,
           costUsd: raw.costUsd ?? estimateCost(model, raw.usage),
-          traceId: request.traceContext.traceId,
-          requestId: request.traceContext.requestId,
-          reason: request.reason,
+          traceId: activeRequest.traceContext.traceId,
+          requestId: activeRequest.traceContext.requestId,
+          reason: activeRequest.reason,
           attempts: attempt,
           fallbackUsed,
         });
@@ -120,17 +134,20 @@ export function createAIRouter({
         lastError = cause instanceof Error ? cause : new AIProviderError('Unknown AI provider failure');
         telemetry?.record?.({
           type: 'ai.call.failed',
-          traceId: request.traceContext.traceId,
-          requestId: request.traceContext.requestId,
+          traceId: activeRequest.traceContext.traceId,
+          requestId: activeRequest.traceContext.requestId,
           provider: model.provider,
           model: model.model,
           role,
-          reason: request.reason,
+          reason: activeRequest.reason,
           attempt,
           code: lastError.code ?? 'AI_PROVIDER_ERROR',
           retryable: Boolean(lastError.retryable),
+          incompleteReason: lastError.metadata?.incompleteReason ?? null,
+          maxOutputTokens: activeRequest.maxOutputTokens,
         });
         if (!lastError.retryable || attempt > maxRetries) break;
+        activeRequest = retryRequestAfterFailure(activeRequest, lastError, policy);
         await sleep(retryDelayMs * attempt);
       }
     }

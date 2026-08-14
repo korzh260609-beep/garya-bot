@@ -32,6 +32,32 @@ function selfFactView(fact) {
   return Object.freeze({ category: fact.category, key: fact.key, value: clone(fact.value), status: fact.status, confidence: fact.confidence, provenance: { sourceType: fact.provenance.sourceType, sourceId: fact.provenance.sourceId, sourceRevision: fact.provenance.sourceRevision } });
 }
 function jsonLength(value) { return JSON.stringify(value).length; }
+function memoryQueryForRequest(request, semanticMessage) {
+  const candidates = [
+    request?.input?.memoryQuery,
+    request?.input?.semanticMessage,
+    semanticMessage,
+    request?.input?.text
+  ];
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim()) return boundedString(candidate.trim(), 2000);
+  }
+  return '';
+}
+function numericDiagnostic(diagnostics, ...keys) {
+  for (const key of keys) {
+    const value = Number(diagnostics?.[key]);
+    if (Number.isFinite(value) && value > 0) return value;
+  }
+  return 0;
+}
+function determineKnowledgeState({ records, reportedUserMemory, conflicts, diagnostics }) {
+  if ((conflicts?.length ?? 0) > 0 || numericDiagnostic(diagnostics, 'conflictCount') > 0) return 'CONFLICTED';
+  if ((records ?? []).some((record) => record.confirmed === true)) return 'KNOWN';
+  if ((reportedUserMemory?.length ?? 0) > 0) return 'UNCERTAIN';
+  if (numericDiagnostic(diagnostics, 'expiredCount', 'excludedExpired', 'staleCount', 'outdatedCount') > 0) return 'OUTDATED';
+  return 'UNKNOWN';
+}
 
 export function createBoundedResponseContextAssembler({
   memoryProvider,
@@ -68,8 +94,9 @@ export function createBoundedResponseContextAssembler({
       const layers = workspaceMemoryEnabled
         ? ['user-memory','user-group-memory','group-memory','thread-memory','project-memory']
         : ['user-memory','user-group-memory','project-memory'];
+      const memoryQuery = memoryQueryForRequest(request, semanticMessage);
       const queried = typeof memoryProvider.recall === 'function'
-        ? await memoryProvider.recall({ scope, actor: identity, query: semanticMessage ?? request.input?.text ?? '', layers, maxRecords: Math.max(1, maxUserMemory * 2 + maxProjectMemory + maxSharedMemory), maxCharacters: Math.max(2000, Math.floor(maxCharacters * 0.6)) })
+        ? await memoryProvider.recall({ scope, actor: identity, query: memoryQuery, layers, maxRecords: Math.max(1, maxUserMemory * 2 + maxProjectMemory + maxSharedMemory), maxCharacters: Math.max(2000, Math.floor(maxCharacters * 0.6)) })
         : await memoryProvider.query({ scope, layers: ['user-memory','project-memory'], keys: [], now, actor: identity });
       const confirmed = queried.records.filter((record) => record.confirmed === true);
       const reported = queried.records.filter((record) => record.confirmed !== true && record.trust === 'reported');
@@ -81,6 +108,9 @@ export function createBoundedResponseContextAssembler({
       const reportedUserMemory = allReportedUserMemory.slice(0, maxUserMemory).map(memoryView);
       const projectMemory = allProjectMemory.slice(0, maxProjectMemory).map(memoryView);
       const sharedMemory = allSharedMemory.slice(0, maxSharedMemory).map(memoryView);
+      const conflicts = clone(queried.conflicts ?? []);
+      const diagnostics = clone(queried.diagnostics ?? {});
+      const knowledgeState = determineKnowledgeState({ records: queried.records, reportedUserMemory, conflicts, diagnostics });
 
       let recentTurns = [];
       const conversationRef = request.input?.conversationContext ?? null;
@@ -91,10 +121,10 @@ export function createBoundedResponseContextAssembler({
       const selfKnowledge = await selfKnowledgeService.query({ environment: env, maxFacts: Math.max(1, maxSelfKnowledgeFacts || 1) });
       let temporalContext = request.input?.temporalContext ?? null;
       if (!temporalContext && temporalService?.contextForUser) temporalContext = await temporalService.contextForUser(identity.globalUserId);
-      const runtimeEvidence = runtimeEvidenceProvider ? await runtimeEvidenceProvider({ request, semanticMessage }) : null;
+      const runtimeEvidence = runtimeEvidenceProvider ? await runtimeEvidenceProvider({ request, semanticMessage: memoryQuery }) : null;
 
       const context = {
-        version: '2.1',
+        version: '2.2',
         identity: {
           globalUserId: identity.globalUserId,
           platform: identity.platform ?? null,
@@ -110,7 +140,14 @@ export function createBoundedResponseContextAssembler({
         reportedUserMemory,
         confirmedProjectMemory: projectMemory,
         confirmedSharedMemory: sharedMemory,
-        memoryRecall: { workspaceMemoryEnabled, diagnostics: clone(queried.diagnostics ?? {}), conflicts: clone(queried.conflicts ?? []) },
+        memoryRecall: {
+          workspaceMemoryEnabled,
+          query: memoryQuery,
+          querySource: request.input?.memoryQuery ? 'semantic-memory-query' : request.input?.semanticMessage ? 'semantic-interpretation' : semanticMessage ? 'caller-semantic-message' : 'canonical-message',
+          knowledgeState,
+          diagnostics,
+          conflicts
+        },
         conversationContext: { conversationId: conversationRef?.conversationId ?? null, topicId: conversationRef?.topicId ?? null, recentTurns: conversation },
         selfKnowledge: { snapshotVersion: selfKnowledge.snapshot?.version ?? null, sourceRevision: selfKnowledge.snapshot?.sourceRevision ?? null, validationStatus: selfKnowledge.snapshot?.validationStatus ?? 'invalid', facts: selfKnowledge.facts.slice(0, maxSelfKnowledgeFacts).map(selfFactView) },
         userSettings: clone(request.input?.userPreferences ?? null),
@@ -150,7 +187,7 @@ export function createBoundedResponseContextAssembler({
       observability?.record?.({
         eventClass: 'audit_event', channel: 'telemetry', stage: 'response-context', outcome: 'assembled', traceContext: telemetryTrace,
         actorRef: identity.globalUserId,
-        data: { responseContextEventClass: 'response_context_assembled', userMemoryCount: safe.confirmedUserMemory.length, reportedUserMemoryCount: safe.reportedUserMemory.length, projectMemoryCount: safe.confirmedProjectMemory.length, sharedMemoryCount: safe.confirmedSharedMemory.length, workspaceMemoryEnabled: safe.memoryRecall.workspaceMemoryEnabled, memoryConflictCount: safe.provenance.memoryConflictCount, conversationTurnCount: safe.conversationContext.recentTurns.length, selfKnowledgeFactCount: safe.selfKnowledge.facts.length, selfKnowledgeVersion: safe.selfKnowledge.snapshotVersion, selfKnowledgeValidationStatus: safe.selfKnowledge.validationStatus, truncated: safe.truncationEvidence }
+        data: { responseContextEventClass: 'response_context_assembled', knowledgeState: safe.memoryRecall.knowledgeState, memoryQuerySource: safe.memoryRecall.querySource, userMemoryCount: safe.confirmedUserMemory.length, reportedUserMemoryCount: safe.reportedUserMemory.length, projectMemoryCount: safe.confirmedProjectMemory.length, sharedMemoryCount: safe.confirmedSharedMemory.length, workspaceMemoryEnabled: safe.memoryRecall.workspaceMemoryEnabled, memoryConflictCount: safe.provenance.memoryConflictCount, conversationTurnCount: safe.conversationContext.recentTurns.length, selfKnowledgeFactCount: safe.selfKnowledge.facts.length, selfKnowledgeVersion: safe.selfKnowledge.snapshotVersion, selfKnowledgeValidationStatus: safe.selfKnowledge.validationStatus, truncated: safe.truncationEvidence }
       });
       return Object.freeze(clone(safe));
     }

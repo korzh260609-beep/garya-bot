@@ -9,7 +9,7 @@ import { createIdentityContext, createScopeContext, createTraceContext } from '.
 
 const fixedNow = new Date('2026-08-06T08:00:00.000Z');
 const clock = () => fixedNow;
-const SAFE_RESPONSE_PLACEHOLDER = 'SG could not produce a final conversational response.';
+const SAFE_RESPONSE_FALLBACK = 'SG could not compose a conversational answer. Please try the request again.';
 
 function scope(user = 'user:1', project = 'sg2.1', groupScope = null, threadScope = null) {
   return { userScope: user, projectScope: project, groupScope, threadScope };
@@ -146,7 +146,7 @@ test('semantic pipeline receives resolved context while response plan never expo
   assert.equal(calls, 2);
   assert.equal(result.contextBundle.records.length, 1);
   assert.equal(finalMeaning, 'Answer with memory');
-  assert.equal(result.responsePlan.message, SAFE_RESPONSE_PLACEHOLDER);
+  assert.equal(result.responsePlan.message, SAFE_RESPONSE_FALLBACK);
   assert.notEqual(result.responsePlan.message, 'Continue');
   assert.notEqual(result.responsePlan.message, finalMeaning);
 });

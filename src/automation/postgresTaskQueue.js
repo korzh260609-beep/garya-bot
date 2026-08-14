@@ -20,6 +20,13 @@ function boundedEvidence(value) {
   return { truncated: true, preview: serialized.slice(0, 8000) };
 }
 
+function validFutureDate(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime()) || date <= new Date()) return null;
+  return date.toISOString();
+}
+
 export function createPostgresTaskQueue({ database, idFactory = randomUUID } = {}) {
   if (!database?.query || !database?.transaction) throw new TypeError('database is required');
   if (typeof idFactory !== 'function') throw new TypeError('idFactory must be a function');
@@ -98,8 +105,14 @@ export function createPostgresTaskQueue({ database, idFactory = randomUUID } = {
       const current = await tx.query('SELECT * FROM tasks WHERE task_id=$1 FOR UPDATE', [taskId]);
       const task = current.rows[0];
       if (!task || task.status !== 'running' || task.lease_owner !== workerId) throw new Error('task lease is not owned');
-      const errorPayload = boundedEvidence({ message: error instanceof Error ? error.message : String(error), code: error?.code ?? null });
-      if (task.attempt < task.max_attempts) {
+      const errorPayload = boundedEvidence({ message: error instanceof Error ? error.message : String(error), code: error?.code ?? null, retryable: error?.retryable !== false });
+      const deferUntil = validFutureDate(error?.deferUntil);
+      if (deferUntil) {
+        const deferred = await tx.query(`UPDATE tasks SET status='scheduled',available_at=$3::timestamptz,attempt=GREATEST(attempt-1,0),last_error=$4::jsonb,lease_owner=NULL,lease_expires_at=NULL,heartbeat_at=NULL,updated_at=now()
+          WHERE task_id=$1 AND lease_owner=$2 RETURNING *`, [taskId, workerId, deferUntil, JSON.stringify(errorPayload)]);
+        return { outcome: 'deferred', task: deferred.rows[0], deferUntil };
+      }
+      if (error?.retryable !== false && task.attempt < task.max_attempts) {
         const delay = Math.min(maxDelayMs, baseDelayMs * (2 ** Math.max(0, task.attempt - 1)));
         const retried = await tx.query(`UPDATE tasks SET status='queued',available_at=now()+($3::text||' milliseconds')::interval,last_error=$4::jsonb,lease_owner=NULL,lease_expires_at=NULL,heartbeat_at=NULL,updated_at=now()
           WHERE task_id=$1 AND lease_owner=$2 RETURNING *`, [taskId, workerId, delay, JSON.stringify(errorPayload)]);

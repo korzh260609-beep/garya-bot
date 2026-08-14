@@ -102,7 +102,7 @@ export function createTemporalTaskStore({ taskStore, temporalService, recurringS
         return normalizeTask(await taskStore.create({ scope, input }));
       }
 
-      if (!resolution && expression) {
+      if (!resolution && expression && typeof temporalService.now === 'function') {
         resolution = resolveElapsedInterval(expression, { referenceInstant: temporalService.now() });
       }
       if (!resolution) resolution = await temporalService.resolveForUser(scope.userScope, expression);

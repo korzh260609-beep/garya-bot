@@ -13,14 +13,33 @@ function fallbackMessage(responseLanguage, code) {
   return `SG AI is currently unavailable (${code}). The request was not executed through the model.`;
 }
 
+function recordAiResponseFailure(observability, request, error) {
+  if (!observability?.recordFailure) return;
+  observability.recordFailure({
+    traceContext: request.traceContext,
+    stage: 'ai-response-composition',
+    code: error?.code ?? 'AI_REQUEST_FAILED',
+    reason: error?.message ?? 'AI response composition failed',
+    actorRef: request.actor?.globalUserId ?? null,
+    data: {
+      retryable: Boolean(error?.retryable),
+      incompleteReason: error?.metadata?.incompleteReason ?? null,
+      providerStatus: error?.metadata?.status ?? null,
+      providerCode: error?.metadata?.providerCode ?? null,
+    }
+  });
+}
+
 export function createLanguageAwareConversationResponder({
   aiRouter = null,
   allowDeterministicFallback = false,
   responseContextAssembler = null,
   projectMemoryIntegration = null,
-  developmentQueryIntegration = null
+  developmentQueryIntegration = null,
+  observability = null
 } = {}) {
   if (responseContextAssembler && typeof responseContextAssembler.assemble !== 'function') throw new TypeError('responseContextAssembler.assemble is required');
+  if (observability && typeof observability.recordFailure !== 'function') throw new TypeError('observability.recordFailure is required');
   if (projectMemoryIntegration && (
     typeof projectMemoryIntegration.contextForRequest !== 'function'
     || typeof projectMemoryIntegration.prepareModelContext !== 'function'
@@ -157,6 +176,7 @@ export function createLanguageAwareConversationResponder({
       if (!identityAssessment.ok) return renderIdentityResponseFallback({ contract: identityResponseContract, responseLanguage });
       return candidate;
     } catch (error) {
+      recordAiResponseFailure(observability, request, error);
       if (identityResponseContract.active) return renderIdentityResponseFallback({ contract: identityResponseContract, responseLanguage });
       const deterministic = deterministicProjectAnswer();
       if (deterministic) return deterministic;

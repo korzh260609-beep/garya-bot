@@ -37,6 +37,14 @@ function assertCompletedResponse(payload) {
   });
 }
 
+function taskReasoningEffort(request, configuredEffort) {
+  const explicit = request?.metadata?.reasoningEffort;
+  if (typeof explicit === 'string' && explicit.trim()) return explicit.trim();
+  if (request?.task === 'language-detection' || request?.task === 'semantic-interpretation') return 'low';
+  if (request?.task === 'response-composition') return 'low';
+  return configuredEffort;
+}
+
 export function createOpenAIResponsesProvider({
   apiKey = null,
   credentialManager = null,
@@ -61,7 +69,7 @@ export function createOpenAIResponsesProvider({
     const body = {
       model: model.model,
       input: request.messages.map((message) => ({ role: message.role, content: message.content })),
-      reasoning: { effort: reasoningEffort },
+      reasoning: { effort: taskReasoningEffort(request, reasoningEffort) },
       store: false,
     };
     if (request.maxOutputTokens != null) body.max_output_tokens = request.maxOutputTokens;

@@ -76,7 +76,7 @@ test('production worker rejects self notification with altered recipient', async
   assert.equal(decision.reason, 'self-notification-recipient-mismatch');
 });
 
-test('TemporalTaskStore derives next local recurring anchor from HH:MM without model UTC calculation', async () => {
+test('TemporalTaskStore canonicalizes single-digit recurring local hour before deterministic resolution', async () => {
   const createdInputs = [];
   const taskStore = {
     async create({ input }) { createdInputs.push(input); return { taskId: 'template-1', payload: input.payload, availableAt: input.runAt, status: 'scheduled' }; },
@@ -99,7 +99,7 @@ test('TemporalTaskStore derives next local recurring anchor from HH:MM without m
   const store = createTemporalTaskStore({ taskStore, temporalService, recurringScheduler });
   const task = await store.create({
     scope: { userScope: 'usr_owner', projectScope: 'sg2.1', groupScope: null, threadScope: null },
-    input: { kind: 'self-notification', recurrence: 'FREQ=DAILY', localTime: '07:00', payload: { message: 'hello' } }
+    input: { kind: 'self-notification', recurrence: 'FREQ=DAILY', localTime: '7:00', payload: { message: 'hello' } }
   });
   assert.equal(createdInputs[0].runAt, '2026-08-15T04:00:00.000Z');
   assert.equal(task.recurringSchedule.scheduleId, 'schedule-1');

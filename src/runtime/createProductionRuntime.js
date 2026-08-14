@@ -1,6 +1,8 @@
 import { createActionRequestFromDecision } from '../contracts/action.js';
 import { redactSensitiveText } from '../secrets/redaction.js';
 
+const DIRECT_USER_CONFIRMABLE_CAPABILITIES = new Set(['task-create', 'schedule-pause', 'schedule-resume', 'schedule-cancel']);
+
 function requireMethod(value, method, name) {
   if (!value || typeof value[method] !== 'function') throw new TypeError(`${name}.${method} is required`);
   return value;
@@ -25,7 +27,7 @@ function presentationPreferences(canonicalInput) {
   return Object.freeze({ response: settings.response ?? null, units: settings.units ?? null, formatting: settings.formatting ?? null, accessibility: settings.accessibility ?? null });
 }
 function languagePayload(canonicalInput, semantic) {
-  return Object.freeze({ text: canonicalInput.text, message: semantic.responsePlan.message, semanticMessage: semantic.responsePlan.message, languageContext: canonicalInput.metadata?.languageContext ?? null, conversationContext: publicConversationReference(canonicalInput), userPreferences: presentationPreferences(canonicalInput), workspaceRuntimePolicy: canonicalInput.metadata?.workspaceRuntimePolicy ?? null, locale: canonicalInput.locale });
+  return Object.freeze({ text: canonicalInput.text, message: semantic.responsePlan.message, semanticMessage: semantic.responsePlan.message, languageContext: canonicalInput.metadata?.languageContext ?? null, conversationContext: publicConversationReference(canonicalInput), userPreferences: presentationPreferences(canonicalInput), workspaceRuntimePolicy: canonicalInput.metadata?.workspaceRuntimePolicy ?? null, originTarget: canonicalInput.metadata?.originTarget ?? null, userInitiatedCanonicalRequest: true, locale: canonicalInput.locale });
 }
 function conversationKey(input) {
   const contextId = input.metadata?.conversationContext?.conversationId;
@@ -190,7 +192,10 @@ export function createProductionRuntime({ config, semanticPipeline, actionGate, 
       const declaredCapability = capabilityRegistry?.get(selectedName) ?? null;
       const requirement = selectedResourceRequirement(semantic);
       const authority = await resolveResourceAuthority(requirement, requestInput, traceContext);
-      const actionRequest = createActionRequestFromDecision({ decisionEnvelope: semantic.decisionEnvelope, identityContext: requestInput.identityContext, scopeContext: requestInput.scopeContext, overrides: { ...capabilityOverrides(declaredCapability), resourceRequirement: requirement, resourceAuthority: authority, payload: { ...(semantic.decisionEnvelope.selectedAction?.payload ?? {}), ...languagePayload(requestInput, semantic) } } });
+      const directConfirmation = DIRECT_USER_CONFIRMABLE_CAPABILITIES.has(selectedName)
+        ? { confirmed: true, requestId: traceContext.requestId, source: 'canonical-user-request' }
+        : undefined;
+      const actionRequest = createActionRequestFromDecision({ decisionEnvelope: semantic.decisionEnvelope, identityContext: requestInput.identityContext, scopeContext: requestInput.scopeContext, overrides: { ...capabilityOverrides(declaredCapability), resourceRequirement: requirement, resourceAuthority: authority, confirmation: directConfirmation, payload: { ...(semantic.decisionEnvelope.selectedAction?.payload ?? {}), ...languagePayload(requestInput, semantic) } } });
       const gateDecision = actionGate.evaluate(actionRequest, { policyContext });
       observability.record({ eventClass: 'action_gate_decision', channel: 'audit', stage: 'action-gate', traceContext, outcome: gateDecision.outcome, data: { capability: actionRequest.capability, authorized: gateDecision.authorized, resourceId: actionRequest.resourceRequirement?.resourceId ?? null, resourceAuthority: gateDecision.checks.resourceAuthority } });
       const gatedResponse = responseFromGate(gateDecision, semantic.responsePlan);

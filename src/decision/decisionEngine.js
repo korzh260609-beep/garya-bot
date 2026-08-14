@@ -1,6 +1,7 @@
 import { createDecisionEnvelope, createResponsePlan } from '../contracts/semantic.js';
 
 const DEFAULT_ACTION = Object.freeze({ type: 'answer', name: 'compose-answer', actionClass: 'analysis' });
+const CONVERSATIONAL_MEMORY_READ_CAPABILITIES = new Set(['memory-read', 'memory2-recall']);
 
 function finitePriority(value) { const priority = Number(value ?? 0); return Number.isFinite(priority) ? priority : 0; }
 function evaluateCandidates(candidateActions) {
@@ -13,8 +14,10 @@ function selectCandidate(evaluations) {
 function semanticMemoryCandidates(interpretation) { return Array.isArray(interpretation?.memoryCandidates) ? interpretation.memoryCandidates : []; }
 function semanticMemoryQuery(interpretation) { return typeof interpretation?.memoryQuery === 'string' && interpretation.memoryQuery.trim() ? interpretation.memoryQuery.trim() : null; }
 function conversationalMemoryRead(action, interpretation) {
+  const retrievalCapability = action?.type === 'memory-read'
+    || CONVERSATIONAL_MEMORY_READ_CAPABILITIES.has(action?.name);
   return Boolean(semanticMemoryQuery(interpretation))
-    && action?.type === 'memory-read'
+    && retrievalCapability
     && action?.actionClass === 'read-only';
 }
 function canonicalConversationAction(action, interpretation) {

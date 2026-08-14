@@ -13,6 +13,22 @@ function fakePersistence() {
   };
 }
 
+function fakeAutomationRuntime() {
+  return {
+    durableTaskQueue: {
+      async releaseDue() { return []; },
+      async recoverAbandoned() { return []; },
+      async claim() { return null; },
+      async heartbeat() { return null; },
+      async complete() { return null; },
+      async fail() { return { outcome: 'retry', task: null }; }
+    },
+    recurringScheduler: {
+      async materializeDue() { return []; }
+    }
+  };
+}
+
 test('audit regression: Render startup rolls back HTTP/runtime when webhook registration fails', async () => {
   const persistence = fakePersistence();
   let started = 0;
@@ -44,7 +60,8 @@ test('audit regression: Render startup rolls back HTTP/runtime when webhook regi
     credentialManager,
     credentialAccessContext,
     connectionRegistry,
-    connectionAccessContext
+    connectionAccessContext,
+    ...fakeAutomationRuntime()
   });
 
   const app = await createRenderWebApplication({

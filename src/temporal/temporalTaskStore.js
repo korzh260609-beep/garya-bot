@@ -27,8 +27,11 @@ function normalizeTask(task) {
 
 function normalizeLocalTime(value) {
   if (typeof value !== 'string') return null;
-  const match = value.trim().match(/^([01]\d|2[0-3]):([0-5]\d)$/);
-  return match ? `${match[1]}:${match[2]}` : null;
+  const match = value.trim().match(/^(\d{1,2}):([0-5]\d)$/);
+  if (!match) return null;
+  const hour = Number(match[1]);
+  if (!Number.isInteger(hour) || hour < 0 || hour > 23) return null;
+  return `${String(hour).padStart(2, '0')}:${match[2]}`;
 }
 
 function nextDate(date) {

@@ -52,6 +52,8 @@ export function createSemanticInterpretation(input) {
     clarificationQuestion: optionalString(input.clarificationQuestion, 'clarificationQuestion'),
     contextNeeds: Object.freeze([...(input.contextNeeds ?? [])].map((item) => requireNonEmptyString(item, 'contextNeeds item'))),
     evidenceNeeds: Object.freeze([...(input.evidenceNeeds ?? [])].map((item) => requireNonEmptyString(item, 'evidenceNeeds item'))),
+    memoryQuery: optionalString(input.memoryQuery, 'memoryQuery'),
+    memoryCandidates: freezeArray(input.memoryCandidates ?? [], 'memoryCandidates'),
     candidateActions: freezeArray(input.candidateActions ?? [], 'candidateActions'),
     rationale: optionalString(input.rationale, 'rationale')
   });

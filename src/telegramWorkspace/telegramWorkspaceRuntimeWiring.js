@@ -1,5 +1,6 @@
 const RUNTIME_POLICY_VERSION = 'twm1.10';
 const RESPONSE_MODES = new Set(['mention_only', 'all', 'off']);
+const AMBIENT_GROUP_REASONS = new Set(['group-not-invoked', 'ambient-group-message']);
 
 function freeze(value) {
   if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;
@@ -93,7 +94,7 @@ export function createTelegramWorkspaceRuntimeWiring({ runtime, workspaceRegistr
     if (
       policy.responseMode === 'all' &&
       baseInvocation.accepted === false &&
-      baseInvocation.reason === 'ambient-group-message' &&
+      AMBIENT_GROUP_REASONS.has(baseInvocation.reason) &&
       ['group', 'supergroup'].includes(chat?.type)
     ) {
       return freeze({ accepted: true, reason: 'workspace-response-mode-all', workspaceRuntimePolicy: policy });

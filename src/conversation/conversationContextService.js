@@ -17,6 +17,7 @@ function normalizeScope({ globalUserId, projectScope, groupScope = null, threadS
 }
 function sameScope(a, b) { return a.globalUserId === b.globalUserId && a.projectScope === b.projectScope && a.groupScope === b.groupScope && a.threadScope === b.threadScope; }
 function publicTurn(turn) { return Object.freeze({ ...clone(turn), recentTurns: Object.freeze((turn.recentTurns ?? []).map((item) => Object.freeze(clone(item)))) }); }
+function boundedLimit(limit, fallback = 100) { const value = Number(limit ?? fallback); if (!Number.isInteger(value) || value < 1 || value > 200) throw new TypeError('message query limit must be 1..200'); return value; }
 
 export class ConversationContextError extends Error {
   constructor(message, { code = 'conversation-context-error' } = {}) { super(message); this.name = 'ConversationContextError'; this.code = code; }
@@ -40,12 +41,26 @@ export function createInMemoryConversationContextStore() {
     async getTopic(id) { const value = topics.get(id); return value ? clone(value) : null; },
     async putMessage(record) { if (record.transport && record.externalMessageId) { const duplicate = [...messages.values()].find((m) => m.transport === record.transport && m.externalMessageId === record.externalMessageId && sameScope(m, record)); if (duplicate) return clone(duplicate); } messages.set(record.messageId, clone(record)); return clone(record); },
     async getMessageByExternal({ transport, externalMessageId, scope }) { const value = [...messages.values()].find((m) => m.transport === transport && m.externalMessageId === externalMessageId && sameScope(m, scope)); return value ? clone(value) : null; },
-    async listRecentMessages({ conversationId, topicId = null, limit = 12 }) { return [...messages.values()].filter((m) => m.conversationId === conversationId && (!topicId || m.topicId === topicId)).sort((a,b) => String(b.createdAt).localeCompare(String(a.createdAt)) || String(b.messageId).localeCompare(String(a.messageId))).slice(0, limit).reverse().map(clone); }
+    async listRecentMessages({ conversationId, topicId = null, limit = 12 }) { return [...messages.values()].filter((m) => m.conversationId === conversationId && (!topicId || m.topicId === topicId)).sort((a,b) => String(b.createdAt).localeCompare(String(a.createdAt)) || String(b.messageId).localeCompare(String(a.messageId))).slice(0, boundedLimit(limit,12)).reverse().map(clone); },
+    async listMessagesByRange({ globalUserId, projectScope, groupScope = null, threadScope = null, conversationId = null, topicId = null, utcStart = null, utcEndExclusive = null, limit = 100 }) {
+      const scope = { globalUserId, projectScope, groupScope, threadScope };
+      const start = utcStart ? new Date(utcStart).getTime() : null;
+      const end = utcEndExclusive ? new Date(utcEndExclusive).getTime() : null;
+      if ((start !== null && !Number.isFinite(start)) || (end !== null && !Number.isFinite(end))) throw new TypeError('history range must contain valid instants');
+      return [...messages.values()]
+        .filter((m) => sameScope(m, scope))
+        .filter((m) => !conversationId || m.conversationId === conversationId)
+        .filter((m) => !topicId || m.topicId === topicId)
+        .filter((m) => start === null || new Date(m.createdAt).getTime() >= start)
+        .filter((m) => end === null || new Date(m.createdAt).getTime() < end)
+        .sort((a,b) => String(a.createdAt).localeCompare(String(b.createdAt)) || String(a.messageId).localeCompare(String(b.messageId)))
+        .slice(0, boundedLimit(limit,100)).map(clone);
+    }
   });
 }
 
 export function createConversationContextService({ store, clock = () => new Date(), idFactory = randomUUID, maxRecentTurns = 12, audit = () => {} } = {}) {
-  if (!store?.putConversation || !store?.getConversation || !store?.findActiveConversation || !store?.putSession || !store?.findActiveSession || !store?.putTopic || !store?.getTopic || !store?.putMessage || !store?.getMessageByExternal || !store?.listRecentMessages) throw new TypeError('conversation context store is required');
+  if (!store?.putConversation || !store?.getConversation || !store?.findActiveConversation || !store?.putSession || !store?.findActiveSession || !store?.putTopic || !store?.getTopic || !store?.putMessage || !store?.getMessageByExternal || !store?.listRecentMessages || !store?.listMessagesByRange) throw new TypeError('conversation context store is required');
   if (typeof clock !== 'function' || typeof idFactory !== 'function' || typeof audit !== 'function') throw new TypeError('invalid conversation context dependency');
   if (!Number.isInteger(maxRecentTurns) || maxRecentTurns < 1 || maxRecentTurns > 100) throw new TypeError('maxRecentTurns must be 1..100');
 
@@ -128,6 +143,24 @@ export function createConversationContextService({ store, clock = () => new Date
     return publicTurn({ conversationId: conversation.conversationId, sessionId: session.sessionId, topicId, transition, inboundMessageId: inbound.messageId, recentTurns: recent.map((m) => ({ messageId: m.messageId, direction: m.direction, text: m.content?.text ?? null, createdAt: m.createdAt, replyToMessageId: m.replyToMessageId ?? null })) });
   }
 
+  async function retrieveHistory({ globalUserId, projectScope, groupScope = null, threadScope = null, conversationId = null, topicId = null, query, temporalRange = null, limit = 100 } = {}) {
+    const scope = normalizeScope({ globalUserId, projectScope, groupScope, threadScope });
+    const semanticQuery = required(query, 'query');
+    const rows = await store.listMessagesByRange({
+      ...scope,
+      conversationId: optional(conversationId),
+      topicId: optional(topicId),
+      utcStart: temporalRange?.utcStart ?? null,
+      utcEndExclusive: temporalRange?.utcEndExclusive ?? null,
+      limit: boundedLimit(limit,100)
+    });
+    return Object.freeze({
+      query: semanticQuery,
+      temporalRange: temporalRange ? Object.freeze(clone(temporalRange)) : null,
+      turns: Object.freeze(rows.map((m) => Object.freeze({ messageId: m.messageId, conversationId: m.conversationId, topicId: m.topicId, direction: m.direction, text: m.content?.text ?? null, createdAt: m.createdAt, replyToMessageId: m.replyToMessageId ?? null })))
+    });
+  }
+
   async function recordOutbound({ conversationContext, globalUserId, projectScope, groupScope = null, threadScope = null, transport, platformMessageId = null, text, metadata = {} } = {}) {
     const scope = normalizeScope({ globalUserId, projectScope, groupScope, threadScope });
     const conversation = await store.getConversation(required(conversationContext?.conversationId, 'conversationContext.conversationId'));
@@ -155,5 +188,5 @@ export function createConversationContextService({ store, clock = () => new Date
     return Object.freeze(clone(await store.putConversation({ ...conversation, continuationPolicy: 'approved-cross-transport', updatedAt: clock().toISOString() })));
   }
 
-  return Object.freeze({ resolveTurn, recordOutbound, closeConversation, approveCrossTransportContinuation });
+  return Object.freeze({ resolveTurn, retrieveHistory, recordOutbound, closeConversation, approveCrossTransportContinuation });
 }

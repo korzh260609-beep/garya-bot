@@ -59,9 +59,9 @@ jobs:
           status=$?
           cat /tmp/sg-check.log
           if [ "$status" -ne 0 ]; then
-            grep -n -E 'not ok|failureType:|error:|AssertionError|ERR_ASSERTION|TypeError' /tmp/sg-check.log > /tmp/sg-check-failures.log || true
-            detail=$(tail -n 240 /tmp/sg-check-failures.log | tr '\n' ' ' | sed 's/%/%25/g; s/\r/%0D/g; s/\n/%0A/g')
-            echo "::error title=SG exact failing tests::$detail"
+            grep -n -B 2 -A 18 'not ok' /tmp/sg-check.log > /tmp/sg-check-failures.log || true
+            detail=$(tail -n 420 /tmp/sg-check-failures.log | tr '\n' ' ' | sed 's/%/%25/g; s/\r/%0D/g; s/\n/%0A/g')
+            echo "::error title=SG assertion context::$detail"
             exit "$status"
           fi
       - run: npm start

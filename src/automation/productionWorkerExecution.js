@@ -46,9 +46,32 @@ function ownerSecurityActionRequest(request) {
   });
 }
 
+function validateSelfNotification(request) {
+  const payload = request?.payload;
+  const delivery = payload?.delivery;
+  const target = delivery?.originTarget;
+  const actorGlobalUserId = String(request?.actorGlobalUserId ?? '').trim();
+  const projectScope = String(request?.projectScope ?? '').trim();
+  if (payload?.automation?.source !== 'canonical-user-request' || payload?.automation?.capability !== 'task-create') return 'automation-provenance-invalid';
+  if (!actorGlobalUserId || delivery?.recipientGlobalUserId !== actorGlobalUserId) return 'self-notification-recipient-mismatch';
+  if (!projectScope || delivery?.projectScope !== projectScope) return 'self-notification-project-mismatch';
+  if (delivery?.originBoundSelfNotification !== true) return 'self-notification-origin-binding-missing';
+  if (!target || typeof target.transport !== 'string' || typeof target.address !== 'string' || !target.transport.trim() || !target.address.trim()) return 'self-notification-target-invalid';
+  if (typeof payload?.message !== 'string' || payload.message.trim() === '') return 'self-notification-message-invalid';
+  return null;
+}
+
 export function createProductionWorkerActionGate({ verifyMode = false, ownerSecurityGateway = null } = {}) {
   return async function productionWorkerActionGate(request) {
     if (verifyMode) return Object.freeze({ outcome: 'allow', allowed: true, reason: 'worker-verification' });
+
+    const normalizedKind = taskKind(request?.kind);
+    if (normalizedKind === 'self-notification') {
+      const reason = validateSelfNotification(request);
+      return reason
+        ? Object.freeze({ outcome: 'deny', allowed: false, reason })
+        : Object.freeze({ outcome: 'allow', allowed: true, reason: 'registered-origin-bound-self-notification' });
+    }
 
     const isOwnerSensitive = request?.payload?.ownerOnly === true
       || request?.payload?.securityClass === 'owner-only'
@@ -69,24 +92,66 @@ export function createProductionWorkerActionGate({ verifyMode = false, ownerSecu
     return Object.freeze({
       outcome: 'deny',
       allowed: false,
-      reason: `Protected automated execution is not registered for task kind: ${taskKind(request?.kind)}`
+      reason: `Protected automated execution is not registered for task kind: ${normalizedKind}`
     });
   };
 }
 
-export function createProductionWorkerExecutor({ verifyMode = false } = {}) {
-  return async function productionWorkerExecutor({ taskId, kind, payload, attempt } = {}) {
+export function createProductionWorkerExecutor({ verifyMode = false, deliveryRouter = null } = {}) {
+  if (deliveryRouter !== null && typeof deliveryRouter?.route !== 'function') throw new TypeError('deliveryRouter.route is required');
+  return async function productionWorkerExecutor({ taskId, kind, payload, attempt, idempotencyKey, traceContext, scope } = {}) {
     const normalizedKind = taskKind(kind);
     if (verifyMode) return Object.freeze({ verified: true, taskId, kind: normalizedKind, attempt, payload });
 
-    if (normalizedKind === 'user-task') {
-      return Object.freeze({
-        status: 'completed',
-        taskId,
+    if (normalizedKind === 'self-notification') {
+      if (!deliveryRouter?.route) {
+        const error = new Error('Delivery Router is unavailable for self notification');
+        error.code = 'automation-delivery-router-unavailable';
+        error.retryable = true;
+        throw error;
+      }
+      const reason = validateSelfNotification({
         kind: normalizedKind,
-        attempt,
-        acknowledged: true
+        payload,
+        actorGlobalUserId: scope?.globalUserId,
+        projectScope: scope?.projectScope
       });
+      if (reason) {
+        const error = new Error(reason);
+        error.code = reason;
+        error.retryable = false;
+        throw error;
+      }
+      const result = await deliveryRouter.route({
+        kind: 'notification',
+        actorGlobalUserId: scope.globalUserId,
+        recipientGlobalUserId: payload.delivery.recipientGlobalUserId,
+        projectScope: scope.projectScope,
+        message: payload.message,
+        originTarget: payload.delivery.originTarget,
+        explicitTarget: false,
+        idempotencyKey: `automation-delivery:${taskId}`,
+        locale: payload.delivery.locale ?? null,
+        traceContext,
+        metadata: {
+          originBoundSelfNotification: true,
+          automationTaskId: taskId,
+          automationAttempt: attempt,
+          taskIdempotencyKey: idempotencyKey ?? null,
+          recurrence: payload.recurrence ?? null
+        }
+      });
+      if (result.status !== 'delivered') {
+        const error = new Error(`Automated notification delivery did not complete: ${result.failureCode ?? result.status}`);
+        error.code = result.failureCode ?? `automation-delivery-${result.status}`;
+        error.retryable = result.retryable === true;
+        throw error;
+      }
+      return Object.freeze({ status: 'completed', taskId, kind: normalizedKind, attempt, delivery: result });
+    }
+
+    if (normalizedKind === 'user-task') {
+      return Object.freeze({ status: 'completed', taskId, kind: normalizedKind, attempt, acknowledged: true });
     }
 
     const error = new Error(`No production executor registered for task kind: ${normalizedKind}`);

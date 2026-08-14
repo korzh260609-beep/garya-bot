@@ -71,6 +71,7 @@ export function createTransportAdapter({
         channel: metadata.channel ?? null,
         platformMessageId: metadata.platformMessageId ?? null,
         replyToMessageId: metadata.replyToMessageId ?? null,
+        originTarget: metadata.originTarget ? Object.freeze({ ...metadata.originTarget }) : null,
         transportSessionId: metadata.transportSessionId ?? metadata.platformFacts?.sessionId ?? null,
         continueConversationId: metadata.continueConversationId ?? null,
         topicShift: metadata.topicShift === true,

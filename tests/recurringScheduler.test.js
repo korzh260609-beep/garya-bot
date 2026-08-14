@@ -22,6 +22,48 @@ test('recurrence parser normalizes complex RRULE fields', () => {
   assert.equal(rule.count, 8);
 });
 
+test('minutely recurrence supports fixed intervals with absolute sequence', async () => {
+  const recurrence = engine();
+  const rule = parseRecurrenceRule('FREQ=MINUTELY;INTERVAL=2;COUNT=4');
+  assert.equal(rule.canonical, 'FREQ=MINUTELY;INTERVAL=2;COUNT=4');
+  const items = await recurrence.occurrences({
+    rule,
+    dtstartLocal: '2026-08-10T17:25:00',
+    timeZone: 'Europe/Kyiv',
+    limit: 4
+  });
+  assert.deepEqual(items.map((item) => item.localDateTime), [
+    '2026-08-10T17:25:00', '2026-08-10T17:27:00', '2026-08-10T17:29:00', '2026-08-10T17:31:00'
+  ]);
+  assert.deepEqual(items.map((item) => item.sequence), [1, 2, 3, 4]);
+  const rest = await recurrence.occurrences({
+    rule,
+    dtstartLocal: '2026-08-10T17:25:00',
+    timeZone: 'Europe/Kyiv',
+    afterUtc: items[1].utcInstant,
+    limit: 5
+  });
+  assert.deepEqual(rest.map((item) => item.sequence), [3, 4]);
+});
+
+test('hourly recurrence uses elapsed absolute intervals across DST offset changes', async () => {
+  const recurrence = engine();
+  const items = await recurrence.occurrences({
+    rule: 'FREQ=HOURLY;INTERVAL=2;COUNT=4',
+    dtstartLocal: '2026-10-31T22:30:00',
+    timeZone: 'America/New_York',
+    limit: 4
+  });
+  assert.deepEqual(items.map((item) => item.utcInstant), [
+    '2026-11-01T02:30:00.000Z', '2026-11-01T04:30:00.000Z', '2026-11-01T06:30:00.000Z', '2026-11-01T08:30:00.000Z'
+  ]);
+});
+
+test('sub-daily recurrence rejects unsupported calendar filters instead of guessing', () => {
+  assert.throws(() => parseRecurrenceRule('FREQ=MINUTELY;INTERVAL=2;BYDAY=MO'), /fixed INTERVAL/);
+  assert.throws(() => parseRecurrenceRule('FREQ=HOURLY;BYMINUTE=15'), /fixed INTERVAL/);
+});
+
 test('weekly recurrence supports multiple weekdays at one local wall clock', async () => {
   const recurrence = engine();
   const items = await recurrence.occurrences({

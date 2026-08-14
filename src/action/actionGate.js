@@ -2,6 +2,18 @@ import { createGateDecision } from '../contracts/action.js';
 import { compareRisk, createActionPolicy } from './actionPolicy.js';
 import { createInMemoryIdempotencyStore } from './inMemoryIdempotencyStore.js';
 
+const SELF_AUTOMATION_READ_CAPABILITIES = Object.freeze([
+  'schedule-list',
+  'schedule-status'
+]);
+
+const SELF_AUTOMATION_MUTATION_CAPABILITIES = Object.freeze([
+  'schedule-update',
+  'schedule-pause',
+  'schedule-resume',
+  'schedule-cancel'
+]);
+
 function includesWildcard(values, expected) { return values.includes('*') || values.includes(expected); }
 function hasPermission(request, policy) {
   if (policy.allowMonarchWildcard && request.actor.roles.includes('monarch')) return true;
@@ -45,6 +57,49 @@ function resolvedActionPolicy(basePolicy, policyContext) {
   });
 }
 
+function trustedOriginTarget(payload) {
+  const target = payload?.originTarget;
+  return Boolean(target
+    && typeof target === 'object'
+    && !Array.isArray(target)
+    && typeof target.transport === 'string'
+    && target.transport.trim() !== ''
+    && typeof target.address === 'string'
+    && target.address.trim() !== '');
+}
+
+function scheduledSelfNotification(payload) {
+  if (payload?.kind !== 'self-notification') return false;
+  if (typeof payload.notificationMessage !== 'string' || payload.notificationMessage.trim() === '') return false;
+  const scheduled = (typeof payload.temporalExpression === 'string' && payload.temporalExpression.trim() !== '')
+    || (typeof payload.recurrence === 'string' && payload.recurrence.trim() !== '');
+  return scheduled;
+}
+
+function selfAutomationAuthorization(request) {
+  const canonicalUserRequest = request.payload?.userInitiatedCanonicalRequest === true;
+  const authenticated = request.actor.authenticationLevel !== 'unknown';
+  const actorOwnsUserScope = request.scope.userScope === request.actor.globalUserId;
+  if (!canonicalUserRequest || !authenticated || !actorOwnsUserScope || !trustedOriginTarget(request.payload)) {
+    return Object.freeze({ allowed: false, directConfirmation: false });
+  }
+
+  if (request.capability === 'task-create') {
+    const allowed = scheduledSelfNotification(request.payload);
+    return Object.freeze({ allowed, directConfirmation: allowed });
+  }
+
+  if (SELF_AUTOMATION_READ_CAPABILITIES.includes(request.capability)) {
+    return Object.freeze({ allowed: true, directConfirmation: false });
+  }
+
+  if (SELF_AUTOMATION_MUTATION_CAPABILITIES.includes(request.capability)) {
+    return Object.freeze({ allowed: true, directConfirmation: true });
+  }
+
+  return Object.freeze({ allowed: false, directConfirmation: false });
+}
+
 export function createActionGate({ policy = createActionPolicy(), availableSources = [], availableTools = [], idempotencyStore = createInMemoryIdempotencyStore(), clock = () => new Date().toISOString() } = {}) {
   if (!idempotencyStore?.has || !idempotencyStore?.reserve) throw new TypeError('idempotencyStore must implement has and reserve');
   if (typeof clock !== 'function') throw new TypeError('clock must be a function');
@@ -56,21 +111,23 @@ export function createActionGate({ policy = createActionPolicy(), availableSourc
       const effectivePolicy = resolvedActionPolicy(policy, policyContext);
       const sourcePolicy = policyContext?.policy?.source ?? null;
       const isProtected = effectivePolicy.protectedClasses.includes(actionRequest.actionClass);
+      const selfAutomation = selfAutomationAuthorization(actionRequest);
       const checks = {
         identity: !effectivePolicy.requireAuthenticatedActor || actionRequest.actor.authenticationLevel !== 'unknown',
-        permission: !isProtected || hasPermission(actionRequest, effectivePolicy),
+        permission: !isProtected || selfAutomation.allowed || hasPermission(actionRequest, effectivePolicy),
         scope: scopeMatches(actionRequest),
         resourceAuthority: resourceAuthorityMatches(actionRequest),
         ownerSecurity: ownerSecurityMatches(actionRequest, ownerSecurityDecision),
-        capability: includesWildcard(actionRequest.scope.allowedCapabilities, actionRequest.capability),
+        capability: selfAutomation.allowed || includesWildcard(actionRequest.scope.allowedCapabilities, actionRequest.capability),
         sources: availabilityCheck(actionRequest.requiredSources, availableSources),
         sourceLimit: !sourcePolicy?.maxSourcesPerRequest || actionRequest.requiredSources.length <= sourcePolicy.maxSourcesPerRequest,
         tools: availabilityCheck(actionRequest.requiredTools, availableTools),
         risk: compareRisk(actionRequest.risk, effectivePolicy.maxAutoRisk) <= 0,
         cost: actionRequest.estimatedCostUsd <= effectivePolicy.maxAutoCostUsd,
-        confirmation: hasValidConfirmation(actionRequest),
+        confirmation: selfAutomation.directConfirmation || hasValidConfirmation(actionRequest),
         idempotency: !actionRequest.idempotencyKey || !idempotencyStore.has(actionRequest.idempotencyKey),
-        audit: Boolean(actionRequest.traceContext.traceId && actionRequest.traceContext.requestId)
+        audit: Boolean(actionRequest.traceContext.traceId && actionRequest.traceContext.requestId),
+        selfAutomation: selfAutomation.allowed
       };
 
       const reasons = [];

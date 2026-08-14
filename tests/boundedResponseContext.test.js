@@ -13,39 +13,16 @@ async function seededSelfKnowledge() {
   await builder.rebuild({ sourceRevision: 'r1', environment: 'test' });
   return createSelfKnowledgeService({ store });
 }
-
 function requestFor(globalUserId, scope, input = {}, profile = null) {
   return { actor: { globalUserId, platform: 'telegram', platformUserId: globalUserId, roles: ['guest'], grants: ['capability:compose-answer'], authenticationLevel: 'verified', profile }, scope, input, traceContext: { traceId: `trace:${globalUserId}`, requestId: `request:${globalUserId}`, environment: 'test', revision: 'r1' } };
 }
-
 function recalledRecord({ id, key, value, ownerGlobalUserId = 'user:a', trust = 'reported', confirmed = false }) {
-  return {
-    id,
-    layer: 'user-memory',
-    key,
-    value,
-    trust,
-    confirmed,
-    updatedAt: '2026-08-14T05:00:00.000Z',
-    privacyClass: 'private',
-    memoryScope: { kind: 'user', ownerGlobalUserId, projectScope: 'sg2.1', groupScope: null, threadScope: null },
-    provenance: { sourceType: confirmed ? 'user' : 'automatic-capture', sourceId: id }
-  };
+  return { id, layer: 'user-memory', key, value, trust, confirmed, updatedAt: '2026-08-14T05:00:00.000Z', privacyClass: 'private', memoryScope: { kind: 'user', ownerGlobalUserId, projectScope: 'sg2.1', groupScope: null, threadScope: null }, provenance: { sourceType: confirmed ? 'user' : 'automatic-capture', sourceId: id } };
 }
 
 test('BoundedResponseContext separates confirmed and reported user memory inside verified actor scope', async () => {
-  const records = [
-    recalledRecord({ id: 'confirmed-a', key: 'name', value: 'Alice', trust: 'confirmed', confirmed: true }),
-    recalledRecord({ id: 'reported-a', key: 'vehicle.primary', value: 'Freelander 2' }),
-    recalledRecord({ id: 'confirmed-b', key: 'private', value: 'Bob secret', ownerGlobalUserId: 'user:b', trust: 'confirmed', confirmed: true })
-  ];
-  const memoryProvider = {
-    async query() { return { records: [], diagnostics: {} }; },
-    async recall({ actor }) {
-      const visible = records.filter((record) => record.memoryScope.ownerGlobalUserId === actor.globalUserId);
-      return { records: visible, conflicts: [], diagnostics: { candidateCount: visible.length, returnedCount: visible.length, conflictCount: 0, truncated: false } };
-    }
-  };
+  const records = [recalledRecord({ id: 'confirmed-a', key: 'name', value: 'Alice', trust: 'confirmed', confirmed: true }), recalledRecord({ id: 'reported-a', key: 'vehicle.primary', value: 'Freelander 2' }), recalledRecord({ id: 'confirmed-b', key: 'private', value: 'Bob secret', ownerGlobalUserId: 'user:b', trust: 'confirmed', confirmed: true })];
+  const memoryProvider = { async query() { return { records: [], diagnostics: {} }; }, async recall({ actor }) { const visible = records.filter((record) => record.memoryScope.ownerGlobalUserId === actor.globalUserId); return { records: visible, conflicts: [], diagnostics: { candidateCount: visible.length, returnedCount: visible.length, conflictCount: 0, truncated: false } }; } };
   const selfKnowledgeService = await seededSelfKnowledge();
   const assembler = createBoundedResponseContextAssembler({ memoryProvider, selfKnowledgeService, environment: 'test' });
   const context = await assembler.assemble({ request: requestFor('user:a', scopeA) });
@@ -85,13 +62,35 @@ test('BoundedResponseContext preserves project/group/thread isolation and redact
 
 test('BoundedResponseContext enforces deterministic budget instead of dumping whole stores', async () => {
   const memoryProvider = createInMemoryMemoryProvider();
-  for (let index = 0; index < 20; index += 1) {
-    await memoryProvider.write({ layer: 'user-memory', key: `k${index}`, value: 'x'.repeat(500), scope: scopeA, provenance: { sourceType: 'user', sourceId: String(index), actorId: 'user:a' }, trust: 'confirmed', confirmed: true });
-  }
+  for (let index = 0; index < 20; index += 1) await memoryProvider.write({ layer: 'user-memory', key: `k${index}`, value: 'x'.repeat(500), scope: scopeA, provenance: { sourceType: 'user', sourceId: String(index), actorId: 'user:a' }, trust: 'confirmed', confirmed: true });
   const selfKnowledgeService = await seededSelfKnowledge();
   const assembler = createBoundedResponseContextAssembler({ memoryProvider, selfKnowledgeService, environment: 'test', maxUserMemory: 8, maxCharacters: 4000 });
   const context = await assembler.assemble({ request: requestFor('user:a', scopeA) });
   assert.ok(JSON.stringify(context).length <= 4000);
   assert.equal(context.truncationEvidence.userMemory, true);
   assert.ok(context.confirmedUserMemory.length <= 8);
+});
+
+test('BoundedResponseContext keeps Conversation History separate from Memory 2.0', async () => {
+  const memoryProvider = createInMemoryMemoryProvider();
+  const selfKnowledgeService = await seededSelfKnowledge();
+  const historyCalls = [];
+  const conversationContextStore = {
+    async listRecentMessages() { return []; },
+    async retrieveHistory(input) {
+      historyCalls.push(input);
+      return { query: input.query, temporalRange: input.temporalRange, turns: [
+        { direction: 'inbound', text: 'старое сообщение', createdAt: '2026-08-13T08:00:00.000Z' },
+        { direction: 'outbound', text: 'старый ответ', createdAt: '2026-08-13T08:00:01.000Z' }
+      ] };
+    }
+  };
+  const temporalService = { async resolveForUser(_id, expression) { return { status: 'resolved', originalExpression: expression, utcStart: '2026-08-13T00:00:00.000Z', utcEndExclusive: '2026-08-14T00:00:00.000Z' }; } };
+  const assembler = createBoundedResponseContextAssembler({ memoryProvider, selfKnowledgeService, environment: 'test', conversationContextStore, temporalService });
+  const context = await assembler.assemble({ request: requestFor('user:a', scopeA, { conversationHistoryQuery: { query: 'prior discussion', temporalExpression: 'previous day', scope: 'current-scope', maxRecords: 100 } }) });
+  assert.equal(historyCalls.length, 1);
+  assert.equal(context.conversationHistory.query, 'prior discussion');
+  assert.deepEqual(context.conversationHistory.turns.map((turn) => turn.text), ['старое сообщение', 'старый ответ']);
+  assert.deepEqual(context.confirmedUserMemory, []);
+  assert.equal(context.provenance.conversationHistoryReturned, 2);
 });

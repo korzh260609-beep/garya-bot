@@ -115,6 +115,12 @@ export function createPostgresRecurringScheduler({ database, recurrenceEngine, c
     return Object.freeze(result.rows.map((row) => normalizedSchedule({ ...row, first_occurrence_at: row.state?.firstOccurrenceAt ?? null })));
   }
 
+  async function cancelPendingOccurrences(tx, scheduleId) {
+    await tx.query(`UPDATE tasks SET status='cancelled',cancellation_reason='recurring_schedule_cancelled',lease_owner=NULL,lease_expires_at=NULL,heartbeat_at=NULL,updated_at=now()
+      WHERE task_id IN (SELECT task_id FROM schedule_occurrences WHERE schedule_id=$1)
+        AND status IN ('queued','scheduled','waiting_approval','schedule_paused')`, [scheduleId]);
+  }
+
   async function transition({ scope, scheduleId, fromStatuses, sqlStatus }) {
     const [userScope, projectScope, groupScope, threadScope] = scopeValues(scope);
     return database.transaction(async (tx) => {
@@ -137,9 +143,12 @@ export function createPostgresRecurringScheduler({ database, recurrenceEngine, c
           : availableAt > clock() ? 'scheduled' : 'queued';
         await tx.query(`UPDATE tasks SET status=$2,updated_at=now() WHERE task_id=$1 AND status='schedule_paused'`, [schedule.task_id, restoredStatus]);
       }
-      if (sqlStatus === 'cancelled' && pendingTemplateStatus(schedule.template_status)) {
-        await tx.query(`UPDATE tasks SET status='cancelled',cancellation_reason='recurring_schedule_cancelled',lease_owner=NULL,lease_expires_at=NULL,heartbeat_at=NULL,updated_at=now()
-          WHERE task_id=$1 AND status IN ('queued','scheduled','waiting_approval','schedule_paused')`, [schedule.task_id]);
+      if (sqlStatus === 'cancelled') {
+        if (pendingTemplateStatus(schedule.template_status)) {
+          await tx.query(`UPDATE tasks SET status='cancelled',cancellation_reason='recurring_schedule_cancelled',lease_owner=NULL,lease_expires_at=NULL,heartbeat_at=NULL,updated_at=now()
+            WHERE task_id=$1 AND status IN ('queued','scheduled','waiting_approval','schedule_paused')`, [schedule.task_id]);
+        }
+        await cancelPendingOccurrences(tx, schedule.schedule_id);
       }
 
       const result = await tx.query(`UPDATE schedules SET status=$2,paused_at=CASE WHEN $2='paused' THEN now() ELSE NULL END,updated_at=now()
@@ -152,6 +161,15 @@ export function createPostgresRecurringScheduler({ database, recurrenceEngine, c
   const pause = ({ scope, scheduleId }) => transition({ scope, scheduleId, fromStatuses: ['active'], sqlStatus: 'paused' });
   const resume = ({ scope, scheduleId }) => transition({ scope, scheduleId, fromStatuses: ['paused'], sqlStatus: 'active' });
   const cancel = ({ scope, scheduleId }) => transition({ scope, scheduleId, fromStatuses: ['active', 'paused', 'error'], sqlStatus: 'cancelled' });
+
+  async function cancelByTaskId({ scope, taskId }) {
+    const [userScope, projectScope, groupScope, threadScope] = scopeValues(scope);
+    const result = await database.query(`SELECT s.schedule_id FROM schedules s JOIN tasks t ON t.task_id=s.task_id
+      WHERE s.task_id=$1 AND ${scopedWhere('t')} AND s.status IN ('active','paused','error')
+      ORDER BY s.created_at DESC LIMIT 1`, [required(taskId, 'taskId'), userScope, projectScope, groupScope, threadScope]);
+    const scheduleId = result.rows[0]?.schedule_id ?? null;
+    return scheduleId ? cancel({ scope, scheduleId }) : null;
+  }
 
   async function update({ scope, scheduleId, recurrence = null, timeZone = null, dtstartLocal = null, state = null }) {
     const [userScope, projectScope, groupScope, threadScope] = scopeValues(scope);
@@ -280,5 +298,5 @@ export function createPostgresRecurringScheduler({ database, recurrenceEngine, c
     });
   }
 
-  return Object.freeze({ register, get, list, pause, resume, cancel, update, materializeDue });
+  return Object.freeze({ register, get, list, pause, resume, cancel, cancelByTaskId, update, materializeDue });
 }

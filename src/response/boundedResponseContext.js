@@ -33,15 +33,8 @@ function selfFactView(fact) {
 }
 function jsonLength(value) { return JSON.stringify(value).length; }
 function memoryQueryForRequest(request, semanticMessage) {
-  const candidates = [
-    request?.input?.memoryQuery,
-    request?.input?.semanticMessage,
-    semanticMessage,
-    request?.input?.text
-  ];
-  for (const candidate of candidates) {
-    if (typeof candidate === 'string' && candidate.trim()) return boundedString(candidate.trim(), 2000);
-  }
+  const candidates = [request?.input?.memoryQuery, request?.input?.semanticMessage, semanticMessage, request?.input?.text];
+  for (const candidate of candidates) if (typeof candidate === 'string' && candidate.trim()) return boundedString(candidate.trim(), 2000);
   return '';
 }
 function numericDiagnostic(diagnostics, ...keys) {
@@ -58,6 +51,38 @@ function determineKnowledgeState({ records, reportedUserMemory, conflicts, diagn
   if (numericDiagnostic(diagnostics, 'expiredCount', 'excludedExpired', 'excludedLifecycle', 'staleCount', 'outdatedCount') > 0) return 'OUTDATED';
   return 'UNKNOWN';
 }
+async function resolveConversationHistory({ request, conversationContextService, temporalService, maxConversationTurns }) {
+  const query = request.input?.conversationHistoryQuery ?? null;
+  if (!query || !conversationContextService?.retrieveHistory) return null;
+  let temporalRange = request.input?.temporalResolution ?? null;
+  if (query.temporalExpression && temporalService?.resolveForUser) {
+    const resolved = await temporalService.resolveForUser(request.actor.globalUserId, query.temporalExpression, {
+      referenceInstant: request.input?.temporalContext?.referenceInstant ?? undefined
+    });
+    temporalRange = resolved.status === 'resolved' ? resolved : null;
+  }
+  const conversationRef = request.input?.conversationContext ?? null;
+  const useConversation = query.scope === 'current-conversation' || query.scope === 'current-topic';
+  const useTopic = query.scope === 'current-topic';
+  const history = await conversationContextService.retrieveHistory({
+    globalUserId: request.actor.globalUserId,
+    projectScope: request.scope.projectScope,
+    groupScope: request.scope.groupScope ?? null,
+    threadScope: request.scope.threadScope ?? null,
+    conversationId: useConversation ? conversationRef?.conversationId ?? null : null,
+    topicId: useTopic ? conversationRef?.topicId ?? null : null,
+    query: query.query,
+    temporalRange,
+    limit: Math.min(query.maxRecords ?? 100, Math.max(maxConversationTurns, 1) * 10, 200)
+  });
+  return Object.freeze({
+    query: boundedString(history.query, 2000),
+    scope: query.scope,
+    temporalExpression: query.temporalExpression ?? null,
+    temporalRange: clone(history.temporalRange),
+    turns: Object.freeze(history.turns.map(conversationView))
+  });
+}
 
 export function createBoundedResponseContextAssembler({
   memoryProvider,
@@ -65,6 +90,7 @@ export function createBoundedResponseContextAssembler({
   environment,
   revision = 'unknown',
   conversationContextStore = null,
+  conversationContextService = null,
   temporalService = null,
   runtimeEvidenceProvider = null,
   observability = null,
@@ -118,13 +144,14 @@ export function createBoundedResponseContextAssembler({
         recentTurns = await conversationContextStore.listRecentMessages({ conversationId: conversationRef.conversationId, topicId: conversationRef.topicId ?? null, limit: maxConversationTurns });
       }
       const conversation = recentTurns.slice(-maxConversationTurns).map(conversationView);
+      const conversationHistory = await resolveConversationHistory({ request, conversationContextService, temporalService, maxConversationTurns });
       const selfKnowledge = await selfKnowledgeService.query({ environment: env, maxFacts: Math.max(1, maxSelfKnowledgeFacts || 1) });
       let temporalContext = request.input?.temporalContext ?? null;
       if (!temporalContext && temporalService?.contextForUser) temporalContext = await temporalService.contextForUser(identity.globalUserId);
       const runtimeEvidence = runtimeEvidenceProvider ? await runtimeEvidenceProvider({ request, semanticMessage: memoryQuery }) : null;
 
       const context = {
-        version: '2.2',
+        version: '2.3',
         identity: {
           globalUserId: identity.globalUserId,
           platform: identity.platform ?? null,
@@ -149,16 +176,18 @@ export function createBoundedResponseContextAssembler({
           conflicts
         },
         conversationContext: { conversationId: conversationRef?.conversationId ?? null, topicId: conversationRef?.topicId ?? null, recentTurns: conversation },
+        conversationHistory,
         selfKnowledge: { snapshotVersion: selfKnowledge.snapshot?.version ?? null, sourceRevision: selfKnowledge.snapshot?.sourceRevision ?? null, validationStatus: selfKnowledge.snapshot?.validationStatus ?? 'invalid', facts: selfKnowledge.facts.slice(0, maxSelfKnowledgeFacts).map(selfFactView) },
         userSettings: clone(request.input?.userPreferences ?? null),
         languageContext: clone(request.input?.languageContext ?? null),
         temporalContext: clone(temporalContext),
         runtimeEvidence: clone(runtimeEvidence),
-        provenance: { memoryReturned: confirmed.length + reportedUserMemory.length, reportedUserMemoryReturned: reportedUserMemory.length, memoryCandidateCount: queried.diagnostics?.candidateCount ?? queried.records.length, memoryConflictCount: queried.diagnostics?.conflictCount ?? 0, selfKnowledgeConflictCount: selfKnowledge.diagnostics.conflictCount ?? 0 },
-        truncationEvidence: { userMemory: allUserMemory.length > userMemory.length, reportedUserMemory: allReportedUserMemory.length > reportedUserMemory.length, projectMemory: allProjectMemory.length > projectMemory.length, sharedMemory: allSharedMemory.length > sharedMemory.length, recall: Boolean(queried.diagnostics?.truncated), conversation: recentTurns.length > conversation.length, selfKnowledge: selfKnowledge.diagnostics.truncated, totalBudget: false }
+        provenance: { memoryReturned: confirmed.length + reportedUserMemory.length, reportedUserMemoryReturned: reportedUserMemory.length, memoryCandidateCount: queried.diagnostics?.candidateCount ?? queried.records.length, memoryConflictCount: queried.diagnostics?.conflictCount ?? 0, conversationHistoryReturned: conversationHistory?.turns?.length ?? 0, selfKnowledgeConflictCount: selfKnowledge.diagnostics.conflictCount ?? 0 },
+        truncationEvidence: { userMemory: allUserMemory.length > userMemory.length, reportedUserMemory: allReportedUserMemory.length > reportedUserMemory.length, projectMemory: allProjectMemory.length > projectMemory.length, sharedMemory: allSharedMemory.length > sharedMemory.length, recall: Boolean(queried.diagnostics?.truncated), conversation: recentTurns.length > conversation.length, conversationHistory: false, selfKnowledge: selfKnowledge.diagnostics.truncated, totalBudget: false }
       };
       const safe = redactSensitiveData(context);
       const trimOrder = [
+        () => safe.conversationHistory?.turns?.pop(),
         () => safe.conversationContext.recentTurns.pop(),
         () => safe.confirmedSharedMemory.pop(),
         () => safe.confirmedProjectMemory.pop(),
@@ -173,7 +202,7 @@ export function createBoundedResponseContextAssembler({
         for (const trim of trimOrder) {
           const before = jsonLength(safe);
           trim();
-          if (jsonLength(safe) < before) { changed = true; safe.truncationEvidence.totalBudget = true; break; }
+          if (jsonLength(safe) < before) { changed = true; safe.truncationEvidence.totalBudget = true; if (safe.conversationHistory) safe.truncationEvidence.conversationHistory = true; break; }
         }
         if (!changed) break;
       }
@@ -187,7 +216,7 @@ export function createBoundedResponseContextAssembler({
       observability?.record?.({
         eventClass: 'audit_event', channel: 'telemetry', stage: 'response-context', outcome: 'assembled', traceContext: telemetryTrace,
         actorRef: identity.globalUserId,
-        data: { responseContextEventClass: 'response_context_assembled', knowledgeState: safe.memoryRecall.knowledgeState, memoryQuerySource: safe.memoryRecall.querySource, userMemoryCount: safe.confirmedUserMemory.length, reportedUserMemoryCount: safe.reportedUserMemory.length, projectMemoryCount: safe.confirmedProjectMemory.length, sharedMemoryCount: safe.confirmedSharedMemory.length, workspaceMemoryEnabled: safe.memoryRecall.workspaceMemoryEnabled, memoryConflictCount: safe.provenance.memoryConflictCount, conversationTurnCount: safe.conversationContext.recentTurns.length, selfKnowledgeFactCount: safe.selfKnowledge.facts.length, selfKnowledgeVersion: safe.selfKnowledge.snapshotVersion, selfKnowledgeValidationStatus: safe.selfKnowledge.validationStatus, truncated: safe.truncationEvidence }
+        data: { responseContextEventClass: 'response_context_assembled', knowledgeState: safe.memoryRecall.knowledgeState, memoryQuerySource: safe.memoryRecall.querySource, userMemoryCount: safe.confirmedUserMemory.length, reportedUserMemoryCount: safe.reportedUserMemory.length, projectMemoryCount: safe.confirmedProjectMemory.length, sharedMemoryCount: safe.confirmedSharedMemory.length, workspaceMemoryEnabled: safe.memoryRecall.workspaceMemoryEnabled, memoryConflictCount: safe.provenance.memoryConflictCount, conversationTurnCount: safe.conversationContext.recentTurns.length, conversationHistoryTurnCount: safe.conversationHistory?.turns?.length ?? 0, selfKnowledgeFactCount: safe.selfKnowledge.facts.length, selfKnowledgeVersion: safe.selfKnowledge.snapshotVersion, selfKnowledgeValidationStatus: safe.selfKnowledge.validationStatus, truncated: safe.truncationEvidence }
       });
       return Object.freeze(clone(safe));
     }

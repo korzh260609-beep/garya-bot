@@ -1,4 +1,5 @@
 import { createCapability } from '../contracts/capability.js';
+import { parseRecurrenceRule } from './recurrenceEngine.js';
 
 export const TEMPORAL_SAFE_CAPABILITY_NAMES = Object.freeze(['time-read', 'timezone-set', 'memory-time-read']);
 export const RECURRING_CAPABILITY_NAMES = Object.freeze(['schedule-list', 'schedule-status', 'schedule-update', 'schedule-pause', 'schedule-resume', 'schedule-cancel']);
@@ -30,16 +31,6 @@ function scheduleSelectionError(code, message, schedules = []) {
   return Object.freeze({ status: 'failed', error: { code, message, retryable: false }, data: { schedules } });
 }
 
-async function resolveScheduleTarget({ recurringScheduler, request, statuses = null }) {
-  const explicit = providedScheduleId(request);
-  if (explicit) return Object.freeze({ scheduleId: explicit, inferred: false });
-  const schedules = await recurringScheduler.list({ scope: scopeFrom(request), limit: 100 });
-  const candidates = Array.isArray(statuses) ? schedules.filter((item) => statuses.includes(item.status)) : schedules;
-  if (candidates.length === 1) return Object.freeze({ scheduleId: candidates[0].scheduleId, inferred: true });
-  if (candidates.length === 0) return Object.freeze({ error: scheduleSelectionError('schedule-not-found', 'No matching recurring schedule exists in the current scope.') });
-  return Object.freeze({ error: scheduleSelectionError('schedule-selection-required', 'Multiple recurring schedules match. Specify the scheduleId to avoid guessing.', candidates) });
-}
-
 function normalizedLocalTime(value) {
   if (value == null) return null;
   const match = String(value).trim().match(/^(\d{1,2}):([0-5]\d)$/);
@@ -47,6 +38,51 @@ function normalizedLocalTime(value) {
   const hour = Number(match[1]);
   if (!Number.isInteger(hour) || hour < 0 || hour > 23) throw new TypeError('input.localTime must be HH:MM');
   return `${String(hour).padStart(2, '0')}:${match[2]}`;
+}
+
+function normalizedSemanticText(value) {
+  return typeof value === 'string' && value.trim() !== '' ? value.trim().toLocaleLowerCase('und') : null;
+}
+
+function normalizedRecurrence(value) {
+  if (typeof value !== 'string' || value.trim() === '') return null;
+  return parseRecurrenceRule(value.trim()).canonical;
+}
+
+function semanticScheduleSelector(request) {
+  const raw = request.input?.selector;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const recurrence = normalizedRecurrence(raw.recurrence);
+  const notificationMessage = normalizedSemanticText(raw.notificationMessage);
+  const localTime = raw.localTime == null ? null : normalizedLocalTime(raw.localTime);
+  if (!recurrence && !notificationMessage && !localTime) return null;
+  return Object.freeze({ recurrence, notificationMessage, localTime });
+}
+
+function scheduleLocalTime(schedule) {
+  return normalizedLocalTime(schedule.state?.localTime ?? String(schedule.dtstartLocal ?? '').slice(11, 16));
+}
+
+function matchesSemanticSelector(schedule, selector) {
+  if (selector.recurrence && normalizedRecurrence(schedule.recurrence) !== selector.recurrence) return false;
+  if (selector.localTime && scheduleLocalTime(schedule) !== selector.localTime) return false;
+  if (selector.notificationMessage) {
+    const storedMessage = normalizedSemanticText(schedule.state?.notificationMessage ?? schedule.notificationMessage);
+    if (!storedMessage || storedMessage !== selector.notificationMessage) return false;
+  }
+  return true;
+}
+
+async function resolveScheduleTarget({ recurringScheduler, request, statuses = null }) {
+  const explicit = providedScheduleId(request);
+  if (explicit) return Object.freeze({ scheduleId: explicit, inferred: false, selectedBy: 'schedule-id' });
+  const schedules = await recurringScheduler.list({ scope: scopeFrom(request), limit: 100 });
+  let candidates = Array.isArray(statuses) ? schedules.filter((item) => statuses.includes(item.status)) : schedules;
+  const selector = semanticScheduleSelector(request);
+  if (selector) candidates = candidates.filter((schedule) => matchesSemanticSelector(schedule, selector));
+  if (candidates.length === 1) return Object.freeze({ scheduleId: candidates[0].scheduleId, inferred: true, selectedBy: selector ? 'semantic-selector' : 'single-schedule' });
+  if (candidates.length === 0) return Object.freeze({ error: scheduleSelectionError('schedule-not-found', 'No matching recurring schedule exists in the current scope.') });
+  return Object.freeze({ error: scheduleSelectionError('schedule-selection-required', 'Multiple recurring schedules match the requested automation. Clarification is required to avoid guessing.', candidates) });
 }
 
 function dtstartAtLocalTime(dtstartLocal, localTime) {
@@ -128,7 +164,7 @@ export function createTemporalCapabilities({ temporalService, memoryProvider = n
           const target = await resolveScheduleTarget({ recurringScheduler, request });
           if (target.error) return target.error;
           const schedule = await recurringScheduler.get({ scope: scopeFrom(request), scheduleId: target.scheduleId });
-          return schedule ? { status: 'success', data: { schedule, inferredScheduleId: target.inferred, message: `Schedule ${target.scheduleId}: ${schedule.status}` } } : { status: 'failed', error: { code: 'schedule-not-found', message: 'Schedule not found in scope', retryable: false } };
+          return schedule ? { status: 'success', data: { schedule, inferredScheduleId: target.inferred, selectedBy: target.selectedBy, message: `Schedule ${target.scheduleId}: ${schedule.status}` } } : { status: 'failed', error: { code: 'schedule-not-found', message: 'Schedule not found in scope', retryable: false } };
         }
       }),
       capability({
@@ -154,7 +190,7 @@ export function createTemporalCapabilities({ temporalService, memoryProvider = n
             state: localTime ? { localTime } : null
           });
           return schedule
-            ? { status: 'success', data: { schedule, inferredScheduleId: target.inferred, message: `Schedule ${target.scheduleId}: updated. Next execution: ${schedule.nextOccurrenceAt ?? 'none'}` } }
+            ? { status: 'success', data: { schedule, inferredScheduleId: target.inferred, selectedBy: target.selectedBy, message: `Schedule ${target.scheduleId}: updated. Next execution: ${schedule.nextOccurrenceAt ?? 'none'}` } }
             : { status: 'failed', error: { code: 'schedule-not-updatable', message: 'Schedule is not updatable in its current state', retryable: false } };
         }
       }),
@@ -165,7 +201,7 @@ export function createTemporalCapabilities({ temporalService, memoryProvider = n
           const target = await resolveScheduleTarget({ recurringScheduler, request, statuses: ['active'] });
           if (target.error) return target.error;
           const schedule = await recurringScheduler.pause({ scope: scopeFrom(request), scheduleId: target.scheduleId });
-          return schedule ? { status: 'success', data: { schedule, inferredScheduleId: target.inferred, message: `Schedule ${target.scheduleId}: paused` } } : { status: 'failed', error: { code: 'schedule-not-active', message: 'Active schedule not found in scope', retryable: false } };
+          return schedule ? { status: 'success', data: { schedule, inferredScheduleId: target.inferred, selectedBy: target.selectedBy, message: `Schedule ${target.scheduleId}: paused` } } : { status: 'failed', error: { code: 'schedule-not-active', message: 'Active schedule not found in scope', retryable: false } };
         }
       }),
       capability({
@@ -175,7 +211,7 @@ export function createTemporalCapabilities({ temporalService, memoryProvider = n
           const target = await resolveScheduleTarget({ recurringScheduler, request, statuses: ['paused'] });
           if (target.error) return target.error;
           const schedule = await recurringScheduler.resume({ scope: scopeFrom(request), scheduleId: target.scheduleId });
-          return schedule ? { status: 'success', data: { schedule, inferredScheduleId: target.inferred, message: `Schedule ${target.scheduleId}: active` } } : { status: 'failed', error: { code: 'schedule-not-paused', message: 'Paused schedule not found in scope', retryable: false } };
+          return schedule ? { status: 'success', data: { schedule, inferredScheduleId: target.inferred, selectedBy: target.selectedBy, message: `Schedule ${target.scheduleId}: active` } } : { status: 'failed', error: { code: 'schedule-not-paused', message: 'Paused schedule not found in scope', retryable: false } };
         }
       }),
       capability({
@@ -185,7 +221,7 @@ export function createTemporalCapabilities({ temporalService, memoryProvider = n
           const target = await resolveScheduleTarget({ recurringScheduler, request, statuses: ['active', 'paused', 'error'] });
           if (target.error) return target.error;
           const schedule = await recurringScheduler.cancel({ scope: scopeFrom(request), scheduleId: target.scheduleId });
-          return schedule ? { status: 'success', data: { schedule, inferredScheduleId: target.inferred, message: `Schedule ${target.scheduleId}: cancelled` } } : { status: 'failed', error: { code: 'schedule-not-cancellable', message: 'Cancellable schedule not found in scope', retryable: false } };
+          return schedule ? { status: 'success', data: { schedule, inferredScheduleId: target.inferred, selectedBy: target.selectedBy, message: `Schedule ${target.scheduleId}: cancelled` } } : { status: 'failed', error: { code: 'schedule-not-cancellable', message: 'Cancellable schedule not found in scope', retryable: false } };
         }
       })
     );

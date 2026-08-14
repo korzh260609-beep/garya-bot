@@ -29,12 +29,19 @@ function selectCandidate(evaluations) {
   })[0];
 }
 
-function canonicalizeSelectedAction(action, semanticIntent) {
+function canonicalizeSelectedAction(action, interpretation) {
   if (action?.type === 'answer' && action?.actionClass === 'analysis') {
+    const legacyCandidates = Array.isArray(action.payload?.memoryCandidates) ? action.payload.memoryCandidates : [];
+    const semanticCandidates = interpretation.memoryCandidates.length > 0 ? interpretation.memoryCandidates : legacyCandidates;
     return Object.freeze({
       ...action,
       name: 'compose-answer',
-      payload: Object.freeze({ ...(action.payload ?? {}), semanticIntent })
+      payload: Object.freeze({
+        ...(action.payload ?? {}),
+        semanticIntent: interpretation.intent,
+        memoryQuery: interpretation.memoryQuery,
+        memoryCandidates: Object.freeze([...semanticCandidates])
+      })
     });
   }
   return Object.freeze({ ...action });
@@ -90,7 +97,7 @@ export function createDecisionEngine({ uncertaintyThreshold = 0.65 } = {}) {
 
       const evaluations = evaluateCandidates(interpretation.candidateActions);
       const selected = selectCandidate(evaluations);
-      const selectedAction = canonicalizeSelectedAction(selected.action, interpretation.intent);
+      const selectedAction = canonicalizeSelectedAction(selected.action, interpretation);
       const requiresEvidence = interpretation.evidenceNeeds.length > 0;
       const decisionType = classifyDecision({ interpretation, selected, uncertaintyThreshold });
       const rationale = buildRationale({ decisionType, interpretation, selected, requiresEvidence });
@@ -118,6 +125,8 @@ export function createDecisionEngine({ uncertaintyThreshold = 0.65 } = {}) {
           executableIntent: selected.executableIntent,
           protectedIntent: selected.protectedIntent,
           conversationalAnswerCanonicalized: selected.action.type === 'answer' && selected.action.actionClass === 'analysis' && selected.action.name !== 'compose-answer',
+          semanticMemoryQueryAvailable: Boolean(interpretation.memoryQuery),
+          semanticMemoryCandidateCount: interpretation.memoryCandidates.length,
           semanticMeaningExposedAsResponse: false,
           permissionChecked: false,
           capabilityExecuted: false

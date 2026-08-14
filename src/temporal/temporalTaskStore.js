@@ -1,3 +1,7 @@
+import { parseRecurrenceRule } from './recurrenceEngine.js';
+
+const SUB_DAILY_INTERVAL_MS = Object.freeze({ MINUTELY: 60_000, HOURLY: 3_600_000 });
+
 function isExactIsoInstant(value) {
   if (typeof value !== 'string' || value.trim() === '') return false;
   if (!/[zZ]|[+-]\d{2}:?\d{2}$/.test(value.trim())) return false;
@@ -51,6 +55,33 @@ async function expressionFromLocalTime({ temporalService, userScope, localTime }
   return `${date} at ${normalized}`;
 }
 
+async function fixedIntervalResolution({ temporalService, userScope, recurrence }) {
+  const rule = parseRecurrenceRule(recurrence);
+  const unitMs = SUB_DAILY_INTERVAL_MS[rule.freq] ?? null;
+  if (!unitMs) return null;
+  if (typeof temporalService.now !== 'function' || typeof temporalService.contextForUser !== 'function') {
+    throw temporalError('task-time-context-unavailable', 'Temporal Context cannot resolve fixed interval recurrence');
+  }
+  const reference = temporalService.now();
+  const firstInstant = new Date(reference.getTime() + unitMs * rule.interval);
+  const context = await temporalService.contextForUser(userScope, firstInstant);
+  if (!context.timezoneKnown || !context.timeZone || !context.localDateTime) {
+    throw temporalError('task-timezone-required', 'User timezone is required to schedule recurring local time');
+  }
+  return Object.freeze({
+    status: 'resolved',
+    originalExpression: null,
+    referenceInstant: reference.toISOString(),
+    timeZone: context.timeZone,
+    localStart: context.localDateTime,
+    utcStart: firstInstant.toISOString(),
+    utcEndExclusive: null,
+    precision: rule.freq === 'MINUTELY' ? 'minute' : 'hour',
+    ambiguous: false,
+    source: 'deterministic-fixed-interval-recurrence'
+  });
+}
+
 export function createTemporalTaskStore({ taskStore, temporalService, recurringScheduler = null } = {}) {
   if (!taskStore?.create || !taskStore?.list || !taskStore?.get || !taskStore?.cancel) throw new TypeError('taskStore is required');
   if (!temporalService?.resolveForUser) throw new TypeError('temporalService is required');
@@ -58,15 +89,19 @@ export function createTemporalTaskStore({ taskStore, temporalService, recurringS
   return Object.freeze({
     async create({ scope, input = {} }) {
       let expression = input.temporalExpression ?? input.when ?? (typeof input.runAt === 'string' && !isExactIsoInstant(input.runAt) ? input.runAt : null);
+      let resolution = null;
       if (!expression && input.recurrence && input.localTime) {
         expression = await expressionFromLocalTime({ temporalService, userScope: scope.userScope, localTime: input.localTime });
       }
-      if (!expression) {
-        if (input.recurrence) throw temporalError('recurrence-start-required', 'A recurring task requires localTime or an explicit first local time');
+      if (!expression && input.recurrence) {
+        resolution = await fixedIntervalResolution({ temporalService, userScope: scope.userScope, recurrence: input.recurrence });
+      }
+      if (!expression && !resolution) {
+        if (input.recurrence) throw temporalError('recurrence-start-required', 'A calendar recurring task requires localTime or an explicit first local time');
         return normalizeTask(await taskStore.create({ scope, input }));
       }
 
-      const resolution = await temporalService.resolveForUser(scope.userScope, expression);
+      if (!resolution) resolution = await temporalService.resolveForUser(scope.userScope, expression);
       if (resolution.status === 'timezone-required') throw temporalError('task-timezone-required', 'User timezone is required to schedule relative local time');
       if (resolution.status !== 'resolved') throw temporalError('task-time-unresolved', 'Temporal expression could not be resolved deterministically');
       if (resolution.ambiguous || !resolution.utcStart || resolution.utcEndExclusive) throw temporalError('task-time-ambiguous', 'Task time is a range or ambiguous; a precise time is required');

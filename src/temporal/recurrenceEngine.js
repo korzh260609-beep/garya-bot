@@ -1,5 +1,6 @@
 const WEEKDAYS = Object.freeze({ SU: 0, MO: 1, TU: 2, WE: 3, TH: 4, FR: 5, SA: 6 });
-const SUPPORTED_FREQ = Object.freeze(['DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY']);
+const SUPPORTED_FREQ = Object.freeze(['MINUTELY', 'HOURLY', 'DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY']);
+const SUB_DAILY_FREQ = Object.freeze({ MINUTELY: 60_000, HOURLY: 3_600_000 });
 
 function requiredString(value, field) {
   if (typeof value !== 'string' || value.trim() === '') throw new TypeError(`${field} is required`);
@@ -73,6 +74,9 @@ export function parseRecurrenceRule(input) {
   const byHour = parseIntList(fields.BYHOUR, 'BYHOUR', 0, 23);
   const byMinute = parseIntList(fields.BYMINUTE, 'BYMINUTE', 0, 59);
   if (freq === 'WEEKLY' && byDay.some((item) => item.ordinal != null)) throw new TypeError('Ordinal BYDAY is not supported for WEEKLY');
+  if ((freq === 'MINUTELY' || freq === 'HOURLY') && (byDay.length || byMonthDay.length || byMonth.length || byHour.length || byMinute.length)) {
+    throw new TypeError(`${freq} recurrence currently supports fixed INTERVAL with COUNT/UNTIL only`);
+  }
 
   return Object.freeze({
     freq, interval, count, until,
@@ -192,8 +196,32 @@ async function localToUtc(temporalService, timeZone, local) {
   return Object.freeze({ status: 'resolved', localDateTime: formatLocal(local), utcInstant: result.utcStart });
 }
 
+async function subDailyOccurrences({ temporalService, rule, start, timeZone, after, limit, horizonDays }) {
+  const first = await localToUtc(temporalService, timeZone, start);
+  if (first.status !== 'resolved') return Object.freeze([{ ...first, sequence: 1 }]);
+  const startMs = new Date(first.utcInstant).getTime();
+  const stepMs = SUB_DAILY_FREQ[rule.freq] * rule.interval;
+  const afterMs = after ? after.getTime() : null;
+  const untilMs = rule.until ? new Date(rule.until).getTime() : null;
+  const horizonMs = startMs + positiveInteger(horizonDays, 'horizonDays') * 86_400_000;
+  let index = afterMs != null && afterMs >= startMs ? Math.floor((afterMs - startMs) / stepMs) + 1 : 0;
+  const output = [];
+
+  while (output.length < limit) {
+    const sequence = index + 1;
+    if (rule.count != null && sequence > rule.count) break;
+    const instantMs = startMs + index * stepMs;
+    if (instantMs > horizonMs || (untilMs != null && instantMs > untilMs)) break;
+    const instant = new Date(instantMs);
+    const localContext = temporalService.contextForTimeZone(timeZone, instant);
+    output.push(Object.freeze({ status: 'resolved', localDateTime: localContext.localDateTime, utcInstant: instant.toISOString(), sequence }));
+    index += 1;
+  }
+  return Object.freeze(output);
+}
+
 export function createRecurrenceEngine({ temporalService } = {}) {
-  if (!temporalService?.resolveExpression) throw new TypeError('temporalService is required');
+  if (!temporalService?.resolveExpression || !temporalService?.contextForTimeZone) throw new TypeError('temporalService is required');
 
   async function occurrences({ rule: ruleInput, dtstartLocal, timeZone, afterUtc = null, limit = 1, generatedCount = 0, horizonDays = 3660 }) {
     const rule = ruleInput?.freq ? ruleInput : parseRecurrenceRule(ruleInput);
@@ -202,6 +230,8 @@ export function createRecurrenceEngine({ temporalService } = {}) {
     positiveInteger(limit, 'limit');
     const after = afterUtc ? new Date(afterUtc) : null;
     if (after && !Number.isFinite(after.getTime())) throw new TypeError('afterUtc must be a valid instant');
+    if (SUB_DAILY_FREQ[rule.freq]) return subDailyOccurrences({ temporalService, rule, start, timeZone, after, limit, horizonDays });
+
     const until = rule.until ? new Date(rule.until) : null;
     const output = [];
     const times = timeVariants(rule, start);

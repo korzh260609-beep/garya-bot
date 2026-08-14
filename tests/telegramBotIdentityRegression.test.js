@@ -106,4 +106,4 @@ test('getMe failure fails open only for bot addressing metadata and does not cra
   assert.equal(result.body.ignored, true);
   assert.equal(result.body.reason, 'group-not-invoked');
   assert.equal(failures[0].stage, 'telegram-bot-identity');
-}
+});

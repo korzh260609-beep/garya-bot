@@ -21,10 +21,23 @@ function scopeFrom(request) {
   });
 }
 
-function scheduleIdFrom(request) {
+function providedScheduleId(request) {
   const value = request.input?.scheduleId;
-  if (typeof value !== 'string' || value.trim() === '') throw new TypeError('input.scheduleId is required');
-  return value.trim();
+  return typeof value === 'string' && value.trim() !== '' ? value.trim() : null;
+}
+
+function scheduleSelectionError(code, message, schedules = []) {
+  return Object.freeze({ status: 'failed', error: { code, message, retryable: false }, data: { schedules } });
+}
+
+async function resolveScheduleTarget({ recurringScheduler, request, statuses = null }) {
+  const explicit = providedScheduleId(request);
+  if (explicit) return Object.freeze({ scheduleId: explicit, inferred: false });
+  const schedules = await recurringScheduler.list({ scope: scopeFrom(request), limit: 100 });
+  const candidates = Array.isArray(statuses) ? schedules.filter((item) => statuses.includes(item.status)) : schedules;
+  if (candidates.length === 1) return Object.freeze({ scheduleId: candidates[0].scheduleId, inferred: true });
+  if (candidates.length === 0) return Object.freeze({ error: scheduleSelectionError('schedule-not-found', 'No matching recurring schedule exists in the current scope.') });
+  return Object.freeze({ error: scheduleSelectionError('schedule-selection-required', 'Multiple recurring schedules match. Specify the scheduleId to avoid guessing.', candidates) });
 }
 
 function normalizedLocalTime(value) {
@@ -40,6 +53,15 @@ function dtstartAtLocalTime(dtstartLocal, localTime) {
   const date = String(dtstartLocal ?? '').slice(0, 10);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new TypeError('Existing schedule start is invalid');
   return `${date}T${localTime}:00`;
+}
+
+function scheduleListMessage(schedules) {
+  if (schedules.length === 0) return 'Recurring schedules: 0';
+  const lines = schedules.map((schedule, index) => {
+    const localTime = schedule.state?.localTime ?? String(schedule.dtstartLocal ?? '').slice(11, 16) || 'time-unavailable';
+    return `${index + 1}. ${schedule.scheduleId} | ${schedule.status} | ${schedule.recurrence} | ${localTime} (${schedule.timeZone ?? 'timezone-unavailable'}) | next: ${schedule.nextOccurrenceAt ?? 'none'}`;
+  });
+  return `Recurring schedules: ${schedules.length}\n${lines.join('\n')}`;
 }
 
 export function createTemporalCapabilities({ temporalService, memoryProvider = null, recurringScheduler = null } = {}) {
@@ -95,24 +117,26 @@ export function createTemporalCapabilities({ temporalService, memoryProvider = n
         actionTypes: ['schedule-list'], actionClasses: ['read-only'],
         execute: async (request) => {
           const schedules = await recurringScheduler.list({ scope: scopeFrom(request), limit: request.input?.limit ?? 100 });
-          return { status: 'success', data: { schedules, message: `Recurring schedules: ${schedules.length}` } };
+          return { status: 'success', data: { schedules, message: scheduleListMessage(schedules) } };
         }
       }),
       capability({
         name: 'schedule-status', description: 'Read one recurring schedule in the current scope.',
         actionTypes: ['schedule-status'], actionClasses: ['read-only'],
         execute: async (request) => {
-          const scheduleId = scheduleIdFrom(request);
-          const schedule = await recurringScheduler.get({ scope: scopeFrom(request), scheduleId });
-          return schedule ? { status: 'success', data: { schedule, message: `Schedule ${scheduleId}: ${schedule.status}` } } : { status: 'failed', error: { code: 'schedule-not-found', message: 'Schedule not found in scope', retryable: false } };
+          const target = await resolveScheduleTarget({ recurringScheduler, request });
+          if (target.error) return target.error;
+          const schedule = await recurringScheduler.get({ scope: scopeFrom(request), scheduleId: target.scheduleId });
+          return schedule ? { status: 'success', data: { schedule, inferredScheduleId: target.inferred, message: `Schedule ${target.scheduleId}: ${schedule.status}` } } : { status: 'failed', error: { code: 'schedule-not-found', message: 'Schedule not found in scope', retryable: false } };
         }
       }),
       capability({
         name: 'schedule-update', description: 'Update an existing recurring schedule in the current scope without creating a duplicate schedule.',
         actionTypes: ['schedule-update'], actionClasses: ['state-changing'], confirmationRequired: true,
         execute: async (request) => {
-          const scheduleId = scheduleIdFrom(request);
-          const existing = await recurringScheduler.get({ scope: scopeFrom(request), scheduleId });
+          const target = await resolveScheduleTarget({ recurringScheduler, request, statuses: ['active', 'paused', 'error'] });
+          if (target.error) return target.error;
+          const existing = await recurringScheduler.get({ scope: scopeFrom(request), scheduleId: target.scheduleId });
           if (!existing) return { status: 'failed', error: { code: 'schedule-not-found', message: 'Schedule not found in scope', retryable: false } };
           const localTime = normalizedLocalTime(request.input?.localTime);
           const recurrence = request.input?.recurrence == null ? null : String(request.input.recurrence).trim();
@@ -122,14 +146,14 @@ export function createTemporalCapabilities({ temporalService, memoryProvider = n
           const dtstartLocal = localTime ? dtstartAtLocalTime(existing.dtstartLocal, localTime) : null;
           const schedule = await recurringScheduler.update({
             scope: scopeFrom(request),
-            scheduleId,
+            scheduleId: target.scheduleId,
             recurrence: recurrence || null,
             timeZone: timeZone || null,
             dtstartLocal,
             state: localTime ? { localTime } : null
           });
           return schedule
-            ? { status: 'success', data: { schedule, message: `Schedule ${scheduleId}: updated. Next execution: ${schedule.nextOccurrenceAt ?? 'none'}` } }
+            ? { status: 'success', data: { schedule, inferredScheduleId: target.inferred, message: `Schedule ${target.scheduleId}: updated. Next execution: ${schedule.nextOccurrenceAt ?? 'none'}` } }
             : { status: 'failed', error: { code: 'schedule-not-updatable', message: 'Schedule is not updatable in its current state', retryable: false } };
         }
       }),
@@ -137,27 +161,30 @@ export function createTemporalCapabilities({ temporalService, memoryProvider = n
         name: 'schedule-pause', description: 'Pause a recurring schedule in the current scope.',
         actionTypes: ['schedule-pause'], actionClasses: ['state-changing'], confirmationRequired: true,
         execute: async (request) => {
-          const scheduleId = scheduleIdFrom(request);
-          const schedule = await recurringScheduler.pause({ scope: scopeFrom(request), scheduleId });
-          return schedule ? { status: 'success', data: { schedule, message: `Schedule ${scheduleId}: paused` } } : { status: 'failed', error: { code: 'schedule-not-active', message: 'Active schedule not found in scope', retryable: false } };
+          const target = await resolveScheduleTarget({ recurringScheduler, request, statuses: ['active'] });
+          if (target.error) return target.error;
+          const schedule = await recurringScheduler.pause({ scope: scopeFrom(request), scheduleId: target.scheduleId });
+          return schedule ? { status: 'success', data: { schedule, inferredScheduleId: target.inferred, message: `Schedule ${target.scheduleId}: paused` } } : { status: 'failed', error: { code: 'schedule-not-active', message: 'Active schedule not found in scope', retryable: false } };
         }
       }),
       capability({
         name: 'schedule-resume', description: 'Resume a paused recurring schedule in the current scope.',
         actionTypes: ['schedule-resume'], actionClasses: ['state-changing'], confirmationRequired: true,
         execute: async (request) => {
-          const scheduleId = scheduleIdFrom(request);
-          const schedule = await recurringScheduler.resume({ scope: scopeFrom(request), scheduleId });
-          return schedule ? { status: 'success', data: { schedule, message: `Schedule ${scheduleId}: active` } } : { status: 'failed', error: { code: 'schedule-not-paused', message: 'Paused schedule not found in scope', retryable: false } };
+          const target = await resolveScheduleTarget({ recurringScheduler, request, statuses: ['paused'] });
+          if (target.error) return target.error;
+          const schedule = await recurringScheduler.resume({ scope: scopeFrom(request), scheduleId: target.scheduleId });
+          return schedule ? { status: 'success', data: { schedule, inferredScheduleId: target.inferred, message: `Schedule ${target.scheduleId}: active` } } : { status: 'failed', error: { code: 'schedule-not-paused', message: 'Paused schedule not found in scope', retryable: false } };
         }
       }),
       capability({
         name: 'schedule-cancel', description: 'Cancel a recurring schedule in the current scope.',
         actionTypes: ['schedule-cancel'], actionClasses: ['state-changing'], confirmationRequired: true,
         execute: async (request) => {
-          const scheduleId = scheduleIdFrom(request);
-          const schedule = await recurringScheduler.cancel({ scope: scopeFrom(request), scheduleId });
-          return schedule ? { status: 'success', data: { schedule, message: `Schedule ${scheduleId}: cancelled` } } : { status: 'failed', error: { code: 'schedule-not-cancellable', message: 'Cancellable schedule not found in scope', retryable: false } };
+          const target = await resolveScheduleTarget({ recurringScheduler, request, statuses: ['active', 'paused', 'error'] });
+          if (target.error) return target.error;
+          const schedule = await recurringScheduler.cancel({ scope: scopeFrom(request), scheduleId: target.scheduleId });
+          return schedule ? { status: 'success', data: { schedule, inferredScheduleId: target.inferred, message: `Schedule ${target.scheduleId}: cancelled` } } : { status: 'failed', error: { code: 'schedule-not-cancellable', message: 'Cancellable schedule not found in scope', retryable: false } };
         }
       })
     );

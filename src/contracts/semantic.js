@@ -22,6 +22,31 @@ function freezeArray(value, field) {
   return Object.freeze(value.map((item) => Object.freeze({ ...requireObject(item, `${field} item`) })));
 }
 
+function conversationHistoryQuery(value) {
+  if (value == null) return null;
+  const input = requireObject(value, 'conversationHistoryQuery');
+  const scope = input.scope ?? 'current-scope';
+  if (!['current-scope', 'current-conversation', 'current-topic'].includes(scope)) throw new TypeError('conversationHistoryQuery.scope is invalid');
+  const maxRecords = Number(input.maxRecords ?? 100);
+  if (!Number.isInteger(maxRecords) || maxRecords < 1 || maxRecords > 200) throw new TypeError('conversationHistoryQuery.maxRecords must be 1..200');
+  return Object.freeze({
+    query: requireNonEmptyString(input.query, 'conversationHistoryQuery.query'),
+    temporalExpression: optionalString(input.temporalExpression, 'conversationHistoryQuery.temporalExpression'),
+    scope,
+    maxRecords
+  });
+}
+
+function subsystemRequest(value) {
+  if (value == null) return null;
+  const input = requireObject(value, 'subsystemRequest');
+  const name = requireNonEmptyString(input.name, 'subsystemRequest.name');
+  if (name !== 'telegram-workspace-manager') throw new TypeError(`unsupported subsystemRequest.name: ${name}`);
+  const operation = requireNonEmptyString(input.operation, 'subsystemRequest.operation');
+  if (!['configure', 'configuration-history'].includes(operation)) throw new TypeError(`unsupported subsystemRequest.operation: ${operation}`);
+  return Object.freeze({ name, operation });
+}
+
 export function createCanonicalInput(input) {
   requireObject(input, 'canonical input');
   return Object.freeze({
@@ -53,6 +78,8 @@ export function createSemanticInterpretation(input) {
     contextNeeds: Object.freeze([...(input.contextNeeds ?? [])].map((item) => requireNonEmptyString(item, 'contextNeeds item'))),
     evidenceNeeds: Object.freeze([...(input.evidenceNeeds ?? [])].map((item) => requireNonEmptyString(item, 'evidenceNeeds item'))),
     memoryQuery: optionalString(input.memoryQuery, 'memoryQuery'),
+    conversationHistoryQuery: conversationHistoryQuery(input.conversationHistoryQuery),
+    subsystemRequest: subsystemRequest(input.subsystemRequest),
     memoryCandidates: freezeArray(input.memoryCandidates ?? [], 'memoryCandidates'),
     candidateActions: freezeArray(input.candidateActions ?? [], 'candidateActions'),
     rationale: optionalString(input.rationale, 'rationale')

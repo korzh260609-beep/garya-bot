@@ -122,6 +122,17 @@ test('TWM1.10 response mode all admits the real group-not-invoked result from Te
   assert.equal(unrelated.reason, 'unsupported-update');
 });
 
+test('TWM1.10 invalid persisted response mode fails closed instead of silently enabling ambient replies', async () => {
+  const fx = fixture([row('responses', { mode: 'asked_only' })]);
+  const update = ordinaryGroupUpdate();
+  const baseInvocation = evaluateTelegramInvocation(update, { botUserId: 999, botUsername: 'garya_bot' });
+  assert.equal(baseInvocation.accepted, false);
+  const decision = await fx.wiring.evaluateInvocation({ update, baseInvocation });
+  assert.equal(decision.accepted, false);
+  assert.equal(decision.reason, 'workspace-responses-off');
+  assert.equal(decision.workspaceRuntimePolicy.responseMode, 'off');
+});
+
 test('TWM1.10 AI disabled fails closed before the underlying SG runtime', async () => {
   const fx = fixture([row('ai', { enabled: false })]);
   const result = await fx.wiring.handle(canonicalInput());

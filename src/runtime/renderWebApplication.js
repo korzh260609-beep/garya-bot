@@ -18,6 +18,7 @@ import {
 import { createDeploymentDeliveryRouter } from '../delivery/deploymentDeliveryRouter.js';
 import { createTelegramDeliveryTransport } from '../delivery/telegramDeliveryTransport.js';
 import { createDiscordDeliveryTransport } from '../delivery/discordDeliveryTransport.js';
+import { createDeploymentAutomationWorker } from '../automation/deploymentAutomationWorker.js';
 import { createProductionTelegramIdentityResolver } from '../identity/productionTelegramIdentityResolver.js';
 import { createProductionDiscordIdentityResolver } from '../identity/productionDiscordIdentityResolver.js';
 import { loadDiscordConfig } from '../discord/discordConfig.js';
@@ -125,6 +126,7 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
   });
   deliveryDeployment.transportRegistry.register(createTelegramDeliveryTransport({ botClient }));
   if (discordRestClient) deliveryDeployment.transportRegistry.register(createDiscordDeliveryTransport({ restClient: discordRestClient }));
+  const automationWorker = createDeploymentAutomationWorker({ harness, deliveryRouter: deliveryDeployment.router, env: effectiveEnv });
 
   const identityResolver = createProductionTelegramIdentityResolver({
     persistence: harness.persistence,
@@ -367,21 +369,29 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
     return discordGateway ? discordGateway.status() : Object.freeze({ phase: 'disabled', connected: false });
   }
 
+  function automationHealth() {
+    return automationWorker.health();
+  }
+
   const requestHandler = async (request, response) => {
     const url = new URL(request.url ?? '/', 'http://localhost');
     if (url.pathname === '/health') {
       const runtimeHealth = harness.runtime.health();
       const discord = discordHealth();
-      json(response, runtimeHealth.ok ? 200 : 503, { ok: runtimeHealth.ok, service: 'sg-2-1-web', runtime: runtimeHealth, discord: { enabled: discordConfig.enabled, ...discord }, revision: harness.config.revision });
+      const automation = automationHealth();
+      const ok = runtimeHealth.ok && automation.ok;
+      json(response, ok ? 200 : 503, { ok, service: 'sg-2-1-web', runtime: runtimeHealth, automation, discord: { enabled: discordConfig.enabled, ...discord }, revision: harness.config.revision });
       return;
     }
     if (url.pathname === '/ready') {
       const runtimeReadiness = harness.runtime.readiness();
       const databaseHealth = harness.persistence.health();
       const discord = discordHealth();
+      const automation = automationHealth();
       const discordReady = !discordConfig.enabled || discord.connected === true;
-      const ready = runtimeReadiness.ready && databaseHealth.started && discordReady;
-      json(response, ready ? 200 : 503, { ok: ready, service: 'sg-2-1-web', runtime: runtimeReadiness, database: { started: databaseHealth.started }, ai: { enabled: effectiveEnv.SG_AI_ENABLED === 'true', initialized: Boolean(harness.productionAI) }, discord: { enabled: discordConfig.enabled, ready: discordReady, ...discord }, revision: harness.config.revision });
+      const automationReady = !automationWorker.enabled || (automation.phase === 'ready' && automation.accepting === true);
+      const ready = runtimeReadiness.ready && databaseHealth.started && discordReady && automationReady;
+      json(response, ready ? 200 : 503, { ok: ready, service: 'sg-2-1-web', runtime: runtimeReadiness, database: { started: databaseHealth.started }, ai: { enabled: effectiveEnv.SG_AI_ENABLED === 'true', initialized: Boolean(harness.productionAI) }, automation: { enabled: automationWorker.enabled, ready: automationReady, ...automation }, discord: { enabled: discordConfig.enabled, ready: discordReady, ...discord }, revision: harness.config.revision });
       return;
     }
     if (await telegramHandler(request, response)) return;
@@ -399,6 +409,7 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
   async function start() {
     let runtimeStarted = false;
     let discordStarted = false;
+    let automationStarted = false;
     try {
       await harness.runtime.start();
       runtimeStarted = true;
@@ -428,12 +439,17 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
           operation: (webhookSecret) => botClient.setWebhook({ url: telegramConfig.webhookUrl, secretToken: webhookSecret })
         });
       }
+      await automationWorker.start();
+      automationStarted = automationWorker.enabled;
       if (discordGateway) {
         await discordGateway.start();
         discordStarted = true;
       }
-      return Object.freeze({ port, health: harness.runtime.health(), readiness: harness.runtime.readiness(), discord: discordHealth(), revision: harness.config.revision });
+      return Object.freeze({ port, health: harness.runtime.health(), readiness: harness.runtime.readiness(), automation: automationHealth(), discord: discordHealth(), revision: harness.config.revision });
     } catch (error) {
+      if (automationStarted) {
+        try { await automationWorker.stop(); } catch {}
+      }
       if (discordStarted || discordGateway) {
         try { await discordGateway?.stop?.(); } catch {}
       }
@@ -446,6 +462,7 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
   }
 
   async function stop() {
+    await automationWorker.stop();
     await discordIntegration?.drainPending?.();
     await discordGateway?.stop?.();
     await integration.drainPending();
@@ -465,6 +482,7 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
     telegramWorkspaceNativeUi,
     telegramWorkspaceNaturalLanguage,
     telegramWorkspaceRuntime,
+    automationWorker,
     discordIntegration,
     discordGateway,
     discordRestClient,

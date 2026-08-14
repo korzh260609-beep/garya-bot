@@ -10,17 +10,12 @@ function requiredString(value, name) {
   if (typeof value !== 'string' || value.trim() === '') throw new TypeError(`${name} is required`);
   return value.trim();
 }
-
 function secureEqual(actual, expected) {
   const left = Buffer.from(String(actual ?? ''), 'utf8');
   const right = Buffer.from(expected, 'utf8');
   return left.length === right.length && timingSafeEqual(left, right);
 }
-
-function messageFromUpdate(update) {
-  return update?.message ?? update?.edited_message ?? update?.channel_post ?? null;
-}
-
+function messageFromUpdate(update) { return update?.message ?? update?.edited_message ?? update?.channel_post ?? null; }
 function isNativeWorkspaceUiUpdate(update) {
   const callbackData = update?.callback_query?.data;
   if (typeof callbackData === 'string' && callbackData.startsWith('twm|')) return true;
@@ -29,12 +24,10 @@ function isNativeWorkspaceUiUpdate(update) {
   const command = message.text.trim().split(/\s+/, 1)[0]?.split('@', 1)[0]?.toLowerCase();
   return TWM_NATIVE_COMMANDS.has(command);
 }
-
 function isNaturalLanguageWorkspaceCallback(update) {
   const callbackData = update?.callback_query?.data;
   return typeof callbackData === 'string' && callbackData.startsWith('twm19|');
 }
-
 function visibleFailureText(update) {
   const language = String(messageFromUpdate(update)?.from?.language_code ?? update?.locale ?? 'ru').toLowerCase();
   if (language.startsWith('uk')) return 'Не вдалося обробити повідомлення. Спробуй ще раз трохи пізніше.';
@@ -93,6 +86,7 @@ export function createTelegramProductionIntegration({
   if (semanticRouter !== null && typeof semanticRouter?.routeUpdate !== 'function') throw new TypeError('semanticRouter.routeUpdate is required');
   if (naturalLanguage !== null && typeof naturalLanguage?.handleUpdate !== 'function') throw new TypeError('naturalLanguage.handleUpdate is required');
 
+  const effectiveSemanticRouter = semanticRouter ?? (typeof naturalLanguage?.routeUpdate === 'function' ? naturalLanguage : null);
   const pending = new Set();
   const runtimeHandler = workspaceRuntime?.handle ?? ((canonicalInput) => runtime.handle(canonicalInput));
 
@@ -109,19 +103,9 @@ export function createTelegramProductionIntegration({
   }
 
   function recordDiagnosticSensor(event) {
-    try {
-      observability?.record?.(event);
-      return true;
-    } catch (error) {
-      try {
-        observability?.recordFailure?.({
-          traceContext: event.traceContext,
-          stage: 'diagnostic-sensor',
-          reason: redactSensitiveText(error?.message ?? 'diagnostic sensor failed'),
-          code: error?.code ?? 'diagnostic-sensor-failed',
-          data: { sensorEventClass: event.eventClass }
-        });
-      } catch {}
+    try { observability?.record?.(event); return true; }
+    catch (error) {
+      try { observability?.recordFailure?.({ traceContext: event.traceContext, stage: 'diagnostic-sensor', reason: redactSensitiveText(error?.message ?? 'diagnostic sensor failed'), code: error?.code ?? 'diagnostic-sensor-failed', data: { sensorEventClass: event.eventClass } }); } catch {}
       return false;
     }
   }
@@ -134,45 +118,14 @@ export function createTelegramProductionIntegration({
       const traceContext = canonicalInput.traceContext;
       const responseAssessment = assessFinalResponse({ userText: canonicalInput.text, candidateText: response.message });
       const fingerprintSalt = traceContext?.traceId ?? traceContext?.requestId ?? '';
-      recordDiagnosticSensor({
-        eventClass: 'final_response_observed',
-        channel: 'telemetry',
-        stage: 'response',
-        traceContext,
-        outcome: responseAssessment.ok ? 'accepted' : 'rejected',
-        actorRef: canonicalInput.identityContext.globalUserId,
-        data: {
-          responseEventClass: 'final_response_observed',
-          reason: responseAssessment.reason,
-          exactEcho: responseAssessment.reason === 'exact-user-echo',
-          inputHash: fingerprintFinalResponse(canonicalInput.text, { salt: fingerprintSalt }),
-          outputHash: fingerprintFinalResponse(response.message, { salt: fingerprintSalt }),
-          responseStatus: response.status ?? null,
-          transport: 'telegram'
-        }
-      });
+      recordDiagnosticSensor({ eventClass: 'final_response_observed', channel: 'telemetry', stage: 'response', traceContext, outcome: responseAssessment.ok ? 'accepted' : 'rejected', actorRef: canonicalInput.identityContext.globalUserId, data: { responseEventClass: 'final_response_observed', reason: responseAssessment.reason, exactEcho: responseAssessment.reason === 'exact-user-echo', inputHash: fingerprintFinalResponse(canonicalInput.text, { salt: fingerprintSalt }), outputHash: fingerprintFinalResponse(response.message, { salt: fingerprintSalt }), responseStatus: response.status ?? null, transport: 'telegram' } });
       recordDiagnosticSensor({ eventClass: 'delivery_attempt', channel: 'telemetry', stage: 'telegram-delivery', traceContext, outcome: 'started', actorRef: canonicalInput.identityContext.globalUserId, data: { transport: 'telegram', routed: Boolean(deliveryRouter) } });
       try {
         if (!deliveryRouter) {
           await botClient.sendMessage({ chatId: message.chat.id, text: response.message, messageThreadId: message.message_thread_id ?? null, replyToMessageId: message.message_id });
         } else {
-          const result = await deliveryRouter.route({
-            kind: 'current-response',
-            actorGlobalUserId: canonicalInput.identityContext.globalUserId,
-            recipientGlobalUserId: canonicalInput.identityContext.globalUserId,
-            projectScope: canonicalInput.scopeContext.projectScope,
-            message: response.message,
-            originTarget: { transport: 'telegram', address: String(message.chat.id), threadId: message.message_thread_id == null ? null : String(message.message_thread_id), replyToMessageId: String(message.message_id) },
-            idempotencyKey: `telegram-response:${platformInput.update_id}`,
-            locale: canonicalInput.locale,
-            traceContext,
-            metadata: { responseStatus: response.status }
-          });
-          if (result.status !== 'delivered') {
-            const error = new Error(`Telegram delivery failed: ${result.failureCode ?? result.status}`);
-            error.code = result.failureCode ?? 'telegram-delivery-failed';
-            throw error;
-          }
+          const result = await deliveryRouter.route({ kind: 'current-response', actorGlobalUserId: canonicalInput.identityContext.globalUserId, recipientGlobalUserId: canonicalInput.identityContext.globalUserId, projectScope: canonicalInput.scopeContext.projectScope, message: response.message, originTarget: { transport: 'telegram', address: String(message.chat.id), threadId: message.message_thread_id == null ? null : String(message.message_thread_id), replyToMessageId: String(message.message_id) }, idempotencyKey: `telegram-response:${platformInput.update_id}`, locale: canonicalInput.locale, traceContext, metadata: { responseStatus: response.status } });
+          if (result.status !== 'delivered') { const error = new Error(`Telegram delivery failed: ${result.failureCode ?? result.status}`); error.code = result.failureCode ?? 'telegram-delivery-failed'; throw error; }
         }
         recordDiagnosticSensor({ eventClass: 'delivery_completed', channel: 'telemetry', stage: 'telegram-delivery', traceContext, outcome: 'delivered', actorRef: canonicalInput.identityContext.globalUserId, data: { transport: 'telegram', routed: Boolean(deliveryRouter) } });
       } catch (error) {
@@ -189,22 +142,10 @@ export function createTelegramProductionIntegration({
     const message = messageFromUpdate(body);
     if (!message?.chat?.id || !message?.message_id) return false;
     try {
-      await botClient.sendMessage({
-        chatId: message.chat.id,
-        text: visibleFailureText(body),
-        messageThreadId: message.message_thread_id ?? null,
-        replyToMessageId: message.message_id
-      });
+      await botClient.sendMessage({ chatId: message.chat.id, text: visibleFailureText(body), messageThreadId: message.message_thread_id ?? null, replyToMessageId: message.message_id });
       return true;
     } catch (fallbackError) {
-      try {
-        observability?.recordFailure?.({
-          stage: 'telegram-webhook-fallback',
-          reason: redactSensitiveText(fallbackError?.message ?? 'fallback delivery failed'),
-          code: fallbackError?.code ?? 'telegram-fallback-delivery-failed',
-          data: { originalFailureCode: originalError?.code ?? 'telegram-update-failed' }
-        });
-      } catch {}
+      try { observability?.recordFailure?.({ stage: 'telegram-webhook-fallback', reason: redactSensitiveText(fallbackError?.message ?? 'fallback delivery failed'), code: fallbackError?.code ?? 'telegram-fallback-delivery-failed', data: { originalFailureCode: originalError?.code ?? 'telegram-update-failed' } }); } catch {}
       return false;
     }
   }
@@ -231,9 +172,7 @@ export function createTelegramProductionIntegration({
       return Object.freeze({ ok: true, result });
     } catch (error) {
       try { await updateStore.fail(claim.updateId, error.code ?? 'telegram-update-failed'); }
-      catch (storeError) {
-        try { observability?.recordFailure?.({ stage: 'telegram-webhook', reason: redactSensitiveText(storeError?.message ?? 'update failure persistence failed'), code: 'telegram-update-failure-persist-failed' }); } catch {}
-      }
+      catch (storeError) { try { observability?.recordFailure?.({ stage: 'telegram-webhook', reason: redactSensitiveText(storeError?.message ?? 'update failure persistence failed'), code: 'telegram-update-failure-persist-failed' }); } catch {} }
       try { observability?.recordFailure?.({ stage: 'telegram-webhook', reason: redactSensitiveText(error.message), code: error.code ?? 'telegram-update-failed' }); } catch {}
       await deliverVisibleFailure(body, error);
       return Object.freeze({ ok: false, error });
@@ -256,9 +195,8 @@ export function createTelegramProductionIntegration({
 
   async function processSemanticallyRoutedUpdate(body, claim, invocation) {
     let route;
-    try {
-      route = await semanticRouter.routeUpdate(body);
-    } catch (error) {
+    try { route = await effectiveSemanticRouter.routeUpdate(body); }
+    catch (error) {
       try { observability?.recordFailure?.({ stage: 'telegram-semantic-subsystem-routing', reason: redactSensitiveText(error.message), code: error.code ?? 'telegram-semantic-routing-failed' }); } catch {}
       return processClaimedUpdate(body, claim, invocation);
     }
@@ -299,52 +237,35 @@ export function createTelegramProductionIntegration({
     if (!claim.claimed) return Object.freeze({ statusCode: 200, body: { ok: true, duplicate: true } });
 
     if (naturalLanguage && isNaturalLanguageWorkspaceCallback(body)) {
-      if (acknowledgeBeforeProcessing) {
-        trackBackground(processNaturalLanguageCallback(body, claim));
-        return Object.freeze({ statusCode: 200, body: { ok: true, accepted: true, naturalLanguage: true } });
-      }
+      if (acknowledgeBeforeProcessing) { trackBackground(processNaturalLanguageCallback(body, claim)); return Object.freeze({ statusCode: 200, body: { ok: true, accepted: true, naturalLanguage: true } }); }
       const processed = await processNaturalLanguageCallback(body, claim);
       if (processed.ok) return Object.freeze({ statusCode: 200, body: { ok: true, naturalLanguage: true } });
       return Object.freeze({ statusCode: 503, body: { ok: false, code: processed.error.code ?? 'twm19-callback-failed' } });
     }
 
     if (nativeUi && isNativeWorkspaceUiUpdate(body)) {
-      if (acknowledgeBeforeProcessing) {
-        trackBackground(processNativeUiUpdate(body, claim));
-        return Object.freeze({ statusCode: 200, body: { ok: true, accepted: true, nativeUi: true } });
-      }
+      if (acknowledgeBeforeProcessing) { trackBackground(processNativeUiUpdate(body, claim)); return Object.freeze({ statusCode: 200, body: { ok: true, accepted: true, nativeUi: true } }); }
       const processed = await processNativeUiUpdate(body, claim);
       if (processed.ok) return Object.freeze({ statusCode: 200, body: { ok: true, nativeUi: true } });
       return Object.freeze({ statusCode: 503, body: { ok: false, code: processed.error.code ?? 'twm-native-ui-failed' } });
     }
 
     const baseInvocation = evaluateTelegramInvocation(body, { botUserId, botUsername });
-    const invocation = workspaceRuntime
-      ? await workspaceRuntime.evaluateInvocation({ update: body, baseInvocation })
-      : baseInvocation;
+    const invocation = workspaceRuntime ? await workspaceRuntime.evaluateInvocation({ update: body, baseInvocation }) : baseInvocation;
     if (!invocation.accepted) {
       await updateStore.complete(claim.updateId, 'ignored');
       return Object.freeze({ statusCode: 200, body: { ok: true, ignored: true, reason: invocation.reason } });
     }
 
-    const semanticRoutingAllowed = semanticRouter && naturalLanguage && invocation.workspaceRuntimePolicy?.aiEnabled !== false;
-    const work = semanticRoutingAllowed
-      ? processSemanticallyRoutedUpdate(body, claim, invocation)
-      : processClaimedUpdate(body, claim, invocation);
+    const semanticRoutingAllowed = effectiveSemanticRouter && naturalLanguage && invocation.workspaceRuntimePolicy?.aiEnabled !== false;
+    const work = semanticRoutingAllowed ? processSemanticallyRoutedUpdate(body, claim, invocation) : processClaimedUpdate(body, claim, invocation);
 
-    if (acknowledgeBeforeProcessing) {
-      trackBackground(work);
-      return Object.freeze({ statusCode: 200, body: { ok: true, accepted: true } });
-    }
-
+    if (acknowledgeBeforeProcessing) { trackBackground(work); return Object.freeze({ statusCode: 200, body: { ok: true, accepted: true } }); }
     const processed = await work;
     if (processed.ok) return Object.freeze({ statusCode: 200, body: processed.naturalLanguage === true ? { ok: true, naturalLanguage: true } : { ok: true } });
     return Object.freeze({ statusCode: 503, body: { ok: false, code: processed.error.code ?? 'telegram-update-failed' } });
   }
 
-  async function drainPending() {
-    while (pending.size > 0) await Promise.allSettled([...pending]);
-  }
-
+  async function drainPending() { while (pending.size > 0) await Promise.allSettled([...pending]); }
   return Object.freeze({ handleWebhook, adapter, drainPending });
 }

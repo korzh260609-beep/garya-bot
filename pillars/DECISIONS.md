@@ -1,665 +1,211 @@
-# DECISIONS.md — ЕДИНЫЕ РЕШЕНИЯ ПРОЕКТА СГ
+# DECISIONS.md — SG 2.1 CANONICAL DECISIONS
 
-Дата обновления: 2026-05-02  
-Статус: CANONICAL  
-Владелец: Монарх Gary
+Status: CANONICAL
+Owner: Monarch Gary
 
-Этот файл фиксирует новую философскую и архитектурную основу проекта СГ.
+This file contains only accepted global decisions for SG 2.1.
 
-СГ в этой версии понимается не как текущий технический бот и не как набор старых команд, а как проектная система Советника: оболочка, правила, память, источники, инструменты, порядок работы, политики и выбранные ИИ-модели.
-
-Ключевое уточнение: СГ сам по себе не является самостоятельным интеллектом. Интеллектуальную способность на текущем этапе даёт выбранная ИИ-модель, сейчас GPT. Код СГ не должен дублировать мышление модели; код СГ должен организовывать доступ, контекст, источники, память, порядок работы, права, риски и ограничения.
-
-Если старые pillars, workflow, module docs или runtime-поведение описывают СГ как самостоятельный интеллект без уточнения роли выбранной ИИ-модели, они должны быть пересмотрены и приведены в соответствие с этим файлом и `pillars/AI_MODEL_PRINCIPLE.md`.
-
----
-
-# 0. Верховная философия СГ
-
-## D-000: СГ — проектная система Советника с управляемыми действиями
-
-Статус: ПРИНЯТО  
-Область: ядро / философия / сущность / действия
-
-СГ — не бот, не команда, не один агент, не Telegram, не repository, не workflow и не один интерфейс.
-
-СГ — это проектная система Советника: правила, память, источники, инструменты, интерфейсы, модули, политики, порядок работы и подключённые ИИ-модели.
-
-СГ помогает человеку думать, анализировать, создавать, помнить контекст, вести проекты, искать ошибки, видеть риски, строить решения и выполнять задачи потому, что использует выбранную ИИ-модель и правильно организованные источники/инструменты вокруг неё.
-
-Главная формула:
+## Authority
 
 ```text
-ИИ-модель свободна в мышлении.
-СГ управляем в действиях.
-Код СГ не заменяет интеллект модели, а организует её работу.
+DECISIONS → ARCHITECTURE → ROADMAP → WORKFLOW → CODE → TEST/RUNTIME EVIDENCE
 ```
 
-СГ через выбранную ИИ-модель может свободно:
-- думать;
-- анализировать;
-- предлагать;
-- проектировать;
-- критиковать слабую логику;
-- искать риски;
-- готовить планы;
-- готовить тексты;
-- готовить архитектуру;
-- готовить код, diff или patch как предложение.
+## D-001 — SG is one transport-independent project system
+SG is not Telegram, Discord, one bot, one model, one agent, one router, one repository or one interface. These are replaceable components, channels or tools.
 
-СГ не может без явного разрешения пользователя:
-- менять файлы;
-- менять repository;
-- менять базу данных;
-- менять pillars;
-- менять конфиги;
-- делать commit;
-- делать PR;
-- делать deploy;
-- удалять данные;
-- отправлять внешние сообщения от имени пользователя;
-- выполнять любые state-changing действия.
+## D-002 — The connected AI model provides reasoning
+The selected reasoning model interprets meaning, analyzes and plans. SG code must not attempt to replace trained reasoning with keyword, phrase, regex or template logic.
 
-Фундаментальные ограничения:
-1. СГ не принимает финальное решение вместо пользователя.
-2. СГ не выполняет внешние или изменяющие действия без разрешения.
-3. Код СГ не должен пытаться обучать или заменить уже обученную reasoning-модель phrase-router, keyword-router или шаблонным ответчиком.
+## D-003 — SG code organizes controlled work
+SG code owns context access, memory boundaries, source/tool access, capability contracts, permissions, risk, cost, confirmation, idempotency, audit and execution control.
 
-Остальное должно регулироваться через roles, capabilities, permissions, modes, policies, confirmations и user/project context.
+## D-004 — Natural language is the primary interface
+Commands are diagnostic or administrative shortcuts. A capability must exist independently from any command that invokes it.
 
----
+## D-005 — Semantic Kernel precedes transports and storage
+The first core is platform-independent. Telegram, Discord, Web/API, email and voice are added later as thin adapters.
 
-## D-000A: Выбранная ИИ-модель является reasoning/intelligence layer
+## D-006 — Controllers protect actions; they do not become SG brain
+The reasoning layer understands meaning. Action Gate validates identity, permission, scope, source/tool availability, risk, cost, confirmation, idempotency and audit requirements.
 
-Статус: ПРИНЯТО  
-Область: AI model / reasoning / architecture / implementation
+## D-007 — SG is free in analysis and controlled in actions
+Analysis, explanation, criticism, planning, simulation and prepare-only output are allowed within policy. State-changing, external, private-data and expensive actions require the applicable gates and confirmation.
 
-На текущем этапе выбранная ИИ-модель — GPT.
+## D-008 — global_user_id is the root of personal identity
+Platform IDs are links only. Personal memory, projects, settings, permissions and sources are isolated by global identity and scope.
 
-GPT уже является обученной reasoning-моделью. Её не нужно учить думать, разговаривать или анализировать через большое количество кода, phrase-router, keyword-router, шаблоны ответов или ручное программирование мышления.
+## D-009 — Memory and Self Knowledge layers are distinct
+Session context, confirmed user memory, user×group memory, shared group memory, thread/topic memory, confirmed project memory, System Self Knowledge, dialogue archive, topic digest, external evidence and runtime state must not be mixed. Raw dialogue never becomes confirmed memory automatically. System Self Knowledge is SG-owned structured knowledge about SG itself and is not user/group/project memory.
 
-Правильная модель:
+## D-010 — Sources and AI are not automatically truth
+Factual claims requiring verification must use available sources or clearly disclose uncertainty. AI output, chat history and summaries are not verified evidence by themselves.
+
+## D-011 — Capabilities are contract-driven and replaceable
+Every capability declares input, output, action class, permissions, source/tool needs, risk, cost, confirmation, timeout, retry, observability and fallback behavior.
+
+## D-012 — Transports are thin adapters
+Transports receive input, resolve channel metadata and identity links, create CanonicalRequest and deliver responses. They do not own semantics, durable memory, permissions, capability selection, domain logic or final response-language policy.
+
+## D-013 — Domain modules cannot redefine the core
+Crypto, psychology support, repository analysis, documents, billing and other domains consume platform contracts. They cannot change SG identity or core execution flow.
+
+## D-014 — Architecture changes require explicit monarch approval
+Global architecture changes must be accepted here before implementation. Implementation convenience cannot silently change SG principles.
+
+## D-015 — Completion comes from evidence
+Pillars contain no manual done/status markers. Completion is derived from code, tests and verified runtime evidence.
+
+## D-016 — Development order is fixed by the active roadmap
+The canonical order is:
 
 ```text
-СГ = проектная оболочка + правила + память + источники + инструменты + порядок работы + выбранная ИИ-модель
+Constitution
+→ Semantic Kernel
+→ Context and Memory
+→ AI Routing Foundation
+→ Decision Engine
+→ Action Gate
+→ Capability System
+→ Identity and Scope
+→ Observability
+→ Interfaces
+→ Automation and Agents
+→ Domain Modules
+→ Runtime Composition
+→ PostgreSQL Persistence
+→ Durable Automation and Workers
+→ Telegram Production Integration
+→ Production AI Integration
+→ Production Capabilities
+→ Temporal Context
+→ Language & Locale Context
+→ Configuration & Policy Layer
+→ Secrets & Credentials Management
+→ External Connections Registry
+→ Resource Ownership & Authority Model
+→ Session & Conversation Context
+→ User Settings & Preferences
+→ Notification & Delivery Router
+→ Internal Event Bus
+→ Schema & Contract Versioning
+→ Feature Flags & Controlled Rollout
+→ Self Knowledge / System Self-Awareness
+→ Monarch Control / Owner Security
+→ Memory 2.0 (M1–M9)
+→ Render Deployment
+→ End-to-End Verification
+→ Security and Operations
+→ Pilot Launch
 ```
 
-```text
-ИИ-модель обеспечивает reasoning/intelligence.
-Код СГ обеспечивает доступ, память, источники, порядок, безопасность, права, подтверждения и действия.
-```
+Blocks 0–10 form the platform-core program. Blocks 11–19, intermediate Blocks 16.5–16.18, the Memory 2.0 M1–M9 program and Pilot Launch form the production continuation. Production roadmap details remain in `pillars/roadmap/PRODUCTION_ROADMAP.md`; Memory 2.0 details are canonical in `pillars/roadmap/MEMORY_2_0_ROADMAP.md`.
 
-Запрещено:
-- строить код так, будто GPT глупая и её нужно учить разговаривать готовыми фразами;
-- создавать phrase-router как основной интеллект;
-- создавать keyword-router как основной интеллект;
-- создавать шаблонный ответчик вместо доступа к источникам;
-- программировать разговор вместо организации работы;
-- подменять работу с repo красивыми fallback-фразами;
-- превращать source-state/debug output в нормальный пользовательский ответ;
-- писать код, который пытается заменить reasoning-модель.
+## D-017 — Development procedure is fixed by workflow
+Every implementation block follows: scope → contracts → skeleton → config → minimal logic → tests → observability → safety → architecture verification → reversible commit → evidence.
 
-Правильная задача кода СГ:
-- дать модели реальные источники данных;
-- дать модели актуальный контекст;
-- дать модели память;
-- дать модели правила проекта;
-- дать модели порядок работы;
-- дать модели инструменты;
-- проверить права доступа;
-- проверить риск действия;
-- запросить подтверждение для state-changing действий;
-- не позволить модели выдумывать факты без источника;
-- не позволить опасные действия без разрешения монарха/пользователя.
+## D-018 — Historical SG 2.0 documentation is not active truth
+Old runtime notes, command architecture, Human/Technical Mode documents, RepoStateAgent-specific architecture, old module contracts and old stage numbering must not be restored into active pillars.
 
----
+## D-019 — Identity resolution is centralized and scoped
+Identity links, actor resolution and scope construction belong to the Identity layer. Transports provide platform facts but cannot grant roles, merge identities or broaden scope.
 
-# 1. Сущность СГ
+## D-020 — Observability is mandatory and privacy-bounded
+Every important request, model call, capability execution, gate decision and failure carries trace context. Audit, telemetry and debug data are separated, secrets are redacted, and private content is minimized.
 
-## D-001: СГ — глобальная проектная сущность
+## D-021 — Production AI access is introduced through Block 2.5
+After Semantic Kernel and Context and Memory are stable, the first production reasoning provider is connected only through AI Router. Direct provider calls from SG modules are forbidden. Decision Engine development begins only after the routed reasoning path is validated by tests and CI evidence.
 
-Статус: ПРИНЯТО  
-Область: entity / architecture / identity
+## D-022 — Productionization preserves the approved core architecture
+The production continuation may compose modules, replace reference providers with durable implementations, connect real transports and AI providers, deploy services and add operational controls. It must not bypass or relocate Semantic Kernel, Identity and Scope, Decision Engine, Action Gate, Capability contracts, AI Router, memory boundaries, trust order or observability responsibilities.
 
-СГ является целостной проектной сущностью.
+Production readiness requires real runtime evidence. Unit tests or a successful process start alone cannot prove Telegram delivery, persistence, worker recovery, deployment safety or pilot readiness.
 
-Компоненты СГ:
-- Telegram bot;
-- будущий web/client UI;
-- API;
-- Human Mode;
-- Technical Mode;
-- agents;
-- tools;
-- memory;
-- sources;
-- repo modules;
-- task engine;
-- AI operators;
-- diagnostics;
-- external services.
+## D-023 — SG is multilingual by one shared core
+SG must not have separate language-specific versions. Users may communicate in any natural language that the connected reasoning model can understand. SG resolves message language, preferred language, conversation language, locale and response language through one transport-independent Language & Locale Context.
 
-Эти компоненты не являются отдельными СГ.
-Они являются органами, инструментами, интерфейсами и подсистемами СГ.
+The original user text remains available to Semantic Kernel; ordinary multilingual communication must not require mandatory pre-translation. Language commands, keywords or phrase bindings are not required interaction mechanisms. Preferred language belongs to `global_user_id`, not to a single platform account. Transports may provide locale/language hints but cannot own final response-language policy. AI providers may execute within SG-selected language context but do not become the owner of that policy.
 
-Запрещено считать:
-- отдельный bot = СГ;
-- отдельного агента = СГ;
-- GPT / Codex / DeepSeek / Gemini = СГ;
-- repo / workflow = СГ;
-- интерфейс = СГ;
-- один mode = СГ.
+Language handling must preserve existing identity, scope, memory, Decision Engine, Action Gate, Capability System, AI Router, Temporal Context and observability boundaries.
 
-Внешние ИИ-операторы помогают СГ, но не владеют его решениями, памятью, архитектурой или идентичностью.
+## D-024 — Foundational control layers precede Render deployment
+Before Block 17 deployment is treated as the next mandatory production stage, SG must explicitly implement and verify Blocks 16.7–16.18: Configuration & Policy, Secrets & Credentials, External Connections Registry, Resource Ownership & Authority, Session & Conversation Context, User Settings & Preferences, Notification & Delivery Router, Internal Event Bus, Schema & Contract Versioning, Feature Flags & Controlled Rollout, Self Knowledge / System Self-Awareness, and Monarch Control / Owner Security.
 
-Уточнение: выражения вроде “интеллект СГ”, “СГ думает”, “СГ анализирует” должны пониматься как сокращение: СГ как проектная система организует работу выбранной ИИ-модели, а не является самостоятельным интеллектом без модели.
+These layers are transport-independent and must preserve all existing core authority boundaries. In particular:
 
----
+- Identity answers who the actor is.
+- Scope answers where the request is bounded.
+- Access/capability policy answers what kind of action is permitted.
+- Resource Ownership & Authority answers over which specific resource the actor may act.
+- A connection is not identity and does not itself prove resource ownership.
+- Raw secrets are never ordinary memory, Self Knowledge, prompt context or telemetry.
+- Conversation state is not confirmed long-term memory.
+- User preferences cannot weaken mandatory safety or authorization policy.
+- Delivery cannot target unauthorized users or resources.
+- Internal events cannot bypass Decision Engine, Action Gate or Capability execution boundaries.
+- Contract-version adapters cannot broaden trust, scope or permissions.
+- Feature flags may restrict or disable availability but cannot grant permissions, ownership or authority.
+- System Self Knowledge cannot grant authority and cannot be rewritten by ordinary user/model text.
+- Identity, ownership or authority must never depend on secret words, commands, phrases or keyword hacks.
 
-# 2. Личные СГ пользователей
+Canonical architecture for these layers is defined in `pillars/architecture/FOUNDATIONAL_CONTROL_LAYERS.md`, `pillars/architecture/SELF_KNOWLEDGE.md` and `pillars/architecture/MONARCH_OWNER_SECURITY.md`.
 
-## D-002: СГ — мультиюзерная система персональных сущностей
+## D-025 — SG maintains a dedicated System Self Knowledge layer
+SG must maintain a structured, versioned and provenance-aware model of itself that is separate from user memory and project memory.
 
-Статус: ПРИНЯТО  
-Область: multiuser / isolation / personal SG
+System Self Knowledge may describe SG identity, purpose, architecture, capabilities, modules, integrations, development status and limitations, but it must distinguish `implemented`, `partial`, `planned`, `disabled`, `broken` and `unknown` states.
 
-СГ Core — общая основа системы.
-Личный СГ пользователя — персональная сущность, работающая через `global_user_id`.
+Roadmap text alone does not prove implementation. User text and AI output cannot redefine canonical SG identity, owner or architecture truth. Raw secrets never enter Self Knowledge. Live operational claims still require diagnostics/runtime evidence when current state matters.
 
-Правильная модель:
+The canonical architecture is `pillars/architecture/SELF_KNOWLEDGE.md`; implementation is Block 16.17.
 
-```text
-User A -> Personal SG A -> memory A -> projects A -> sources A -> settings A
-User B -> Personal SG B -> memory B -> projects B -> sources B -> settings B
-```
+## D-026 — Memory 2.0 is the canonical completion program for SG memory
+SG must complete memory through the M1–M9 program defined in `pillars/architecture/MEMORY_2_0.md`, `pillars/roadmap/MEMORY_2_0_ROADMAP.md` and `pillars/workflow/MEMORY_2_0_WORKFLOW.md`.
 
-Каждый пользователь получает своего личного СГ.
+Memory 2.0 extends the existing memory/context foundation; it does not replace `global_user_id`, Conversation Context, trust/provenance, PostgreSQL durability, Action Gate or Resource Authority.
 
-Личные СГ пользователей не должны смешивать память, проекты, источники, настройки, repositories, историю взаимодействия и приватный контекст.
+Shared group memory is a first-class group/resource scope and must not be represented as a fake personal owner. Personal memory follows a verified `global_user_id` across transports, while group/resource memory remains local to its authorized resource scope.
 
----
+Private memory cannot become shared memory implicitly. Scope/privacy authorization must occur before recall content reaches semantic processing. Automatic capture cannot turn raw dialogue into confirmed truth. Consolidation preserves provenance/history and cannot silently increase trust. Expired/superseded memory is excluded from ordinary recall.
 
-# 3. Монарх и границы власти
+Memory cannot grant identity, roles, permissions, ownership or resource authority, and raw secrets never become ordinary memory.
 
-## D-003: Монарх управляет системой, но приватность пользователей защищена
+## D-027 — Universal Diagnostics is an independent observer program
+SG 2.1 must have a universal diagnostic system capable of determining where execution first diverged from the expected path, separating primary root cause from downstream symptoms, and grounding conclusions in explicit evidence.
 
-Статус: ПРИНЯТО  
-Область: governance / privacy / ownership
+Universal Diagnostics is a separate cross-cutting program and independent application, not a new SG core reasoning layer and not a mandatory hop in ordinary request execution. SG-side responsibility is limited to versioned, privacy-bounded diagnostic facts and approved read-only observation surfaces. The external Diagnostics application owns collection, trace reconstruction, expected-path/invariant checking, first-divergence analysis, deterministic root-cause analysis, deployment/runtime diagnostics, isolated live diagnostic tests, replay/regression evidence and diagnostic reporting.
 
-Монарх Gary является владельцем системы СГ.
+The following boundaries are mandatory:
 
-Монарх контролирует архитектуру, repository проекта СГ, роли, capabilities, доступы, конфиги, модули, источники, billing, system diagnostics, безопасность и развитие проекта.
+- SG must continue operating when Diagnostics is unavailable;
+- Diagnostics is read-only by default and cannot silently edit code/configuration, deploy, mutate production state, grant roles/permissions/ownership/authority, or repair SG automatically;
+- Diagnostics cannot bypass Identity, Scope, Action Gate, Resource Authority or Monarch/Owner Security;
+- synthetic diagnostic traffic must be explicitly marked and isolated from ordinary confirmed memory, user settings, profile/psychological adaptation and ordinary persistent tasks;
+- diagnostic conclusions require evidence, and missing evidence lowers confidence instead of being guessed;
+- historical incidents/signatures may guide investigation but cannot prove the current cause;
+- deterministic diagnostic findings are authoritative; AI may explain findings but cannot independently promote a cause to `CONFIRMED`;
+- full diagnostic evidence is privileged and must be owner-secured and secret-safe;
+- the Diagnostics application must be independently deployable/reversible, with least-privilege read-only credentials and no hard runtime dependency from SG.
 
-Но контроль системы не означает автоматический свободный просмотр приватной памяти пользователей.
+The canonical architecture is `pillars/architecture/UNIVERSAL_DIAGNOSTICS.md`; implementation program is `pillars/roadmap/UNIVERSAL_DIAGNOSTICS_PROGRAM.md`; implementation/verification procedure is `pillars/workflow/UNIVERSAL_DIAGNOSTICS_WORKFLOW.md`.
 
-По умолчанию защищены:
-- личная память пользователя;
-- приватные разговоры;
-- документы;
-- пользовательские проекты;
-- пользовательские repositories;
-- личные настройки.
+## D-028 — SG maintains Project Development Knowledge as an evidence-backed project biography
+SG must maintain structured knowledge of how SG itself is conceived, designed, implemented, reworked, tested, deployed, verified and planned over time.
 
-Исключительный доступ возможен только через явную, ограниченную, аудируемую и policy-controlled процедуру.
+Project Development Knowledge 4.0 is a cross-cutting development-history/project-evolution program built on the completed Project Memory 3.0 foundation. It is not a new memory database or independent source of identity, authority or truth. Project Memory 3.0 remains responsible for durable project facts, provenance, trust, confirmation, deduplication/conflicts, temporal supersession, retrieval and Context Guard.
 
----
+PDK4 must reconstruct relevant historical development from earliest verified evidence and then maintain it incrementally from new verified source events. It must preserve origin, requirements, proposals, accepted decisions and rationale, alternatives, implementation, refactors/rework, bugs/incidents/fixes, test/CI evidence, deployment/runtime evidence, supersession, current state and next plans.
 
-# 4. Identity
+The following boundaries are mandatory:
 
-## D-004: global_user_id — корень личности
-
-Статус: ПРИНЯТО  
-Область: identity / multi-transport
-
-Все персональные данные и права должны идти от `global_user_id`.
-
-Не являются корнем личности:
-- Telegram ID;
-- Discord ID;
-- GitHub ID;
-- chat_id;
-- platform-specific ID.
-
-Они являются только связями с каналами.
-
-Правильная модель:
-
-```text
-platform_user_id -> user_identities -> global_user_id -> Personal SG
-```
-
-Если `global_user_id` отсутствует, пользователь работает как guest и не получает чужой project context.
-
----
-
-# 5. Проекты и рабочие пространства
-
-## D-005: Проект Гарика не является default для всех
-
-Статус: ПРИНЯТО  
-Область: multi-project / isolation
-
-`garya-bot` — это проект монарха и внутренний проект разработки СГ.
-
-Он может быть default только для Гарика в приватной работе над СГ.
-
-Обычные пользователи не должны автоматически получать repo Гарика, workflow Гарика, project memory Гарика или development context Гарика.
-
-Если у пользователя нет активного проекта, СГ работает как универсальный помощник.
-
----
-
-# 6. Workflow как источник смысла
-
-## D-006: Workflow — это не файл и не папка
-
-Статус: ПРИНЯТО  
-Область: workflow / sources / provider model
-
-Workflow — это источник смысла о процессе работы.
-
-Он может быть файлом, папкой, базой данных, GitHub source, Notion, Obsidian, внутренним UI, API или любым будущим provider.
-
-Правильная модель:
-
-```text
-meaning request -> SourceResolver -> Provider/Adapter -> normalized result
-```
-
-СГ не должен жёстко знать, где именно лежит workflow.
-Он должен уметь получать workflow через provider/source layer.
-
----
-
-# 7. Capabilities вместо вечных запретов
-
-## D-007: СГ управляется через capabilities, modes, permissions и confirmations
-
-Статус: ПРИНЯТО  
-Область: permissions / actions / control
-
-Capability = способность СГ.  
-Mode = уровень свободы.  
-Permission = можно ли сейчас.  
-Confirmation = нужно ли подтверждение.
-
-Примеры:
-- `think` = всегда можно;
-- `analyze` = всегда можно;
-- `suggest` = всегда можно;
-- `prepare_code` = можно как предложение;
-- `modify_repo` = только после разрешения;
-- `deploy` = только после разрешения;
-- `delete_data` = только после разрешения.
-
-Запреты не должны становиться вечными костылями.
-Они должны быть выражены через политики, роли, capabilities, confirmations и контекст.
-
----
-
-# 8. Команды — не сущность СГ
-
-## D-008: Команды — это интерфейсные ярлыки
-
-Статус: ПРИНЯТО  
-Область: UX / commands / intent
-
-Команды типа `/pm_set`, `/repo_status`, `/workflow_check`, `/tasks` — это shortcuts.
-
-СГ не должен мыслить так:
-
-```text
-нет команды = нет способности
-```
-
-Правильная модель:
-
-```text
-пользователь говорит естественно
--> выбранная ИИ-модель понимает intent
--> СГ выбирает capability
--> СГ выбирает source/tool
--> СГ проверяет permission
--> СГ предупреждает о рисках
--> СГ спрашивает разрешение, если действие меняет состояние
--> СГ выполняет разрешённое действие
-```
-
----
-
-# 9. Meaning-first
-
-## D-009: СГ не должен быть trapped by regex
-
-Статус: ПРИНЯТО  
-Область: meaning / intent / intelligence
-
-СГ не должен работать по схеме:
-
-```text
-keyword -> reflex response
-```
-
-Правильная схема:
-
-```text
-reasoning model -> meaning -> intent -> context -> permission -> source/tool -> action/answer
-```
-
-Regex, keywords и phrase signals могут быть только вспомогательными сигналами.
-Они не являются интеллектом СГ.
-
----
-
-# 10. Human Mode, Technical Mode и минимальный semantic routing
-
-## D-010: Semantic routing должен быть минимальным управляющим слоем, а не заменой мышления модели
-
-Статус: ПРИНЯТО  
-Область: Human Mode / Technical Mode / semantic routing / AI control
-
-СГ не должен строить тяжёлый Global SemanticRouter как отдельный искусственный мозг, если reasoning model уже способна понимать смысл запроса.
-
-Правильная модель:
-
-```text
-reasoning model понимает смысл
--> minimal routing layer проверяет scope / permissions / capability / source / risk
--> СГ выполняет разрешённое действие или отвечает
-```
-
-Semantic routing в СГ должен быть минимальным, управляемым и конфигурируемым слоем.
-
-Он нужен не для замены интеллекта модели, а для:
-- выбора capability;
-- проверки прав;
-- выбора источника;
-- определения read-only или state-changing действия;
-- запроса подтверждения;
-- логирования;
-- защиты от неправильного действия.
-
-Human Mode — это нормальное естественное общение с СГ по смыслу.
-Technical Mode — это команды, диагностика, тесты, legacy routes и debug tools.
-
-Запрещено:
-- строить тяжёлый router раньше необходимости;
-- дублировать мышление GPT большим количеством кода;
-- превращать routing layer в отдельную сущность СГ;
-- подменять reasoning model keyword/regex-логикой;
-- смешивать Human Mode и Technical Mode;
-- выдавать старые regex/phrase routes за Human Mode;
-- подключать Human Mode runtime без gate.
-
-Разрешено:
-- использовать модель для понимания смысла;
-- использовать минимальные structured outputs;
-- держать routing layer маленьким;
-- управлять поведением через policies, prompts, configs и gates;
-- начинать с простого контроллера: user -> meaning -> permission -> capability -> source/action -> response.
-
-Gate обязателен для действий, которые могут менять состояние, трогать repo, писать в память, обращаться к приватным данным, запускать дорогие AI-вызовы или выполнять внешние действия.
-
-Минимальная схема:
-
-```text
-User message
--> reasoning model / meaning provider
--> minimal controller
-   -> user/scope check
-   -> capability check
-   -> source/tool check
-   -> risk/action type check
-   -> confirmation if needed
--> response/action
-```
-
-Цель: не заменить GPT кодом, а безопасно направлять способности СГ.
-
----
-
-# 11. Память
-
-## D-011: Chat History, Memory и Project Memory — разные слои
-
-Статус: ПРИНЯТО  
-Область: memory / recall / project context
-
-Chat History = архив сообщений.  
-Memory = подтверждённая долговременная семантическая память.  
-Project Memory = рабочий контекст конкретного проекта.  
-Pillars = каноническая правда проекта.
-
-Запрещено:
-- сырой чат считать confirmed memory;
-- Project Memory использовать вместо pillars;
-- raw repo code хранить как memory;
-- смешивать память разных пользователей.
-
----
-
-# 12. Source-first
-
-## D-012: ИИ не является источником истины
-
-Статус: ПРИНЯТО  
-Область: sources / factuality / analysis
-
-СГ должен опираться на реальные источники:
-- repo/runtime;
-- API;
-- RSS;
-- web;
-- документы;
-- базы данных;
-- пользовательские источники.
-
-ИИ используется для анализа, объяснения, синтеза, проверки логики и формулирования результата.
-
-ИИ не заменяет источник данных.
-
----
-
-# 13. AI Routing
-
-## D-013: Все AI-вызовы идут через централизованный router/wrapper
-
-Статус: ПРИНЯТО  
-Область: AI calls / cost / observability
-
-Прямые вызовы моделей запрещены.
-
-Каждый AI-вызов должен иметь:
-- модель;
-- причину;
-- cost level;
-- токены;
-- user/project scope;
-- логирование.
-
-AI operator не является СГ.
-AI operator — инструмент СГ.
-
-Уточнение: AI operator/model является reasoning/intelligence layer, но не является владельцем проекта, памяти, governance или архитектурных решений.
-
----
-
-# 14. Repo и код
-
-## D-014: Repo/code AI работает в режиме анализа и предложения
-
-Статус: ПРИНЯТО  
-Область: repo / code / safety
-
-СГ может читать repo, анализировать код, искать ошибки, готовить план, готовить diff/patch как предложение.
-
-СГ не может без разрешения менять repo, применять patch, делать commit, делать PR, делать deploy или удалять код.
-
----
-
-# 15. RepoStateAgent
-
-## D-015: RepoStateAgent — источник фактов о repo, но не СГ
-
-Статус: ПРИНЯТО  
-Область: repo facts / diagnostics / project state
-
-RepoStateAgent — компонент СГ для наблюдения за состоянием repository.
-
-Он может давать карту проекта, структуру, архитектурное состояние, next action и риски.
-
-Но RepoStateAgent не является СГ, не принимает финальных решений, не меняет код и не заменяет монарха.
-
----
-
-## D-015A: Living SG использует только RepoStateAgent для текущих repo/project facts
-
-Статус: ПРИНЯТО  
-Область: Living SG / repo facts / project map / semantic map / legacy boundary
-
-Для живого слоя СГ текущие факты о repository, карте проекта, смысловой карте, группировке модулей, архитектурном состоянии и next action должны идти только через новый путь:
-
-```text
-RepoStateAgent
--> RepoStateCollector
--> RepoStateProjectMapBuilder
--> RepoStateSemanticMapBuilder / projectMap.semanticMap
--> verified repo/project facts
--> reasoning model receives facts
--> SG response
-```
-
-Старый путь `RepoIndex`, старые snapshot-команды, старые repo maps, hardcoded maps и legacy projectIntent repo outputs переводятся в Technical Mode / legacy fallback и не являются источником текущей правды для Living SG.
-
-Разрешённое использование старого пути:
-- техническая диагностика;
-- legacy compatibility;
-- временный fallback с явной пометкой `legacy / not current factual truth`;
-- миграционная справка для разработки.
-
-Запрещено:
-- объединять старый `RepoIndex` и новый `RepoStateAgent` как равные источники истины;
-- использовать старый snapshot как текущую карту проекта;
-- использовать старый snapshot как текущую смысловую карту;
-- строить Living SG repo/project ответы на старом `RepoIndex`, если доступен проверенный `RepoStateAgent` result;
-- развивать старый repo snapshot путь как основной Living SG путь;
-- подключать старый Technical Mode как живой слой под новым названием.
-
-Если `RepoStateAgent` недоступен, Living SG должен честно сказать, что текущая проверенная repo/project карта недоступна, а не подменять её старым snapshot как правдой.
-
----
-
-# 16. Agents
-
-## D-016: Агенты — инструменты СГ
-
-Статус: ПРИНЯТО  
-Область: agents / orchestration / identity
-
-Агенты могут выполнять отдельные задачи: repo analysis, diagnostics, sources, memory, code proposals, documents, research, automation.
-
-Но агент не является отдельным СГ.
-Агент не владеет решениями, памятью, архитектурой или идентичностью СГ.
-
----
-
-# 17. Privacy и user isolation
-
-## D-017: Изоляция пользователей важнее удобства
-
-Статус: ПРИНЯТО  
-Область: privacy / multiuser / memory isolation
-
-Память, проекты, repositories, источники и настройки пользователей не смешиваются.
-
-По умолчанию:
-- User A не видит User B;
-- User A не получает память User B;
-- User A не получает project context User B;
-- User A не получает repo User B.
-
-Любой cross-user доступ должен быть явным, ограниченным, разрешённым и логируемым.
-
----
-
-# 18. Группы
-
-## D-018: В группе СГ наблюдает, но не вмешивается без причины
-
-Статус: ПРИНЯТО  
-Область: groups / moderation / memory
-
-Режимы группы:
-- observer;
-- assistant;
-- moderator;
-- sandbox.
-
-По умолчанию:
-- СГ читает контекст;
-- отвечает только при обращении, reply, команде или разрешённом nudge;
-- не смешивает персональные памяти участников;
-- group memory отделена от personal memory.
-
----
-
-# 19. Governance
-
-## D-019: Архитектура меняется только после решения монарха
-
-Статус: ПРИНЯТО  
-Область: governance / architecture / decisions
-
-Любое изменение сущности СГ, pillars, accepted decisions, governance, permissions, Human/Technical boundary, source-of-truth policy, memory policy или repo/code authority требует явного решения монарха.
-
----
-
-# 20. Stage gates
-
-## D-020: Stage gates ограничивают внедрение, но не мышление
-
-Статус: ПРИНЯТО  
-Область: roadmap / implementation order
-
-СГ может думать о будущих этапах, предлагать будущую архитектуру и предупреждать о рисках через выбранную ИИ-модель.
-
-Но внедрять будущие функции раньше stage gate нельзя без решения монарха.
-
----
-
-# 21. Миграция старых решений и остальных pillars
-
-## D-021: Остальные pillars должны быть приведены к DECISIONS.md
-
-Статус: ПРИНЯТО  
-Область: migration / docs governance / source hierarchy
-
-Этот файл является новой верхней философской и архитектурной основой СГ.
-
-Все остальные files under `pillars/` должны быть пересмотрены и приведены в соответствие с этим `DECISIONS.md` и `pillars/AI_MODEL_PRINCIPLE.md`.
-
-Особенно пересмотру подлежат:
-- `pillars/SG_ENTITY.md`;
-- `pillars/PROJECT.md`;
-- `pillars/SG_BEHAVIOR.md`;
-- `pillars/README.md`;
-- `pillars/DOCS_GOVERNANCE.md`;
-- `pillars/architecture/SEMANTIC_ROUTING.md`;
-- `pillars/architecture/SG_INTERFACE_LAYERS.md`;
-- `pillars/architecture/HUMAN_MODE_REPOSTATEAGENT_SKELETON.md`;
-- `pillars/architecture/SG_CAPABILITY_ACCESS.md`;
-- `pillars/architecture/MODULE_MAP.md`;
-- `pillars/architecture/DATA_FLOW.md`;
-- `pillars/architecture/PERMISSIONS_MAP.md`;
-- `pillars/workflow/*`;
-- `pillars/modules/*`.
-
-Миграция должна идти по порядку:
-1. сначала root-философия;
-2. затем architecture boundaries;
-3. затем workflow;
-4. затем module docs;
-5. затем code/runtime при необходимости.
-
-Нельзя менять всё хаотично.
-Нельзя сохранять старые pillar-формулировки, если они противоречат новой философии СГ.
+- `implemented`, `ci-verified`, `deployed` and `live-verified` are distinct evidence states and cannot be silently promoted into one another;
+- raw chat and model output cannot self-confirm as project truth;
+- AI may assist classification, extraction, clustering and summarization only through AI Router and cannot grant trust or mutate Project Memory directly;
+- historical/superseded facts remain queryable but cannot override current-state truth;
+- source replay is idempotent and historical scanning is bounded, resumable and checkpointed durably;
+- the system must prefer significant product/architecture changes over trivial repository churn;
+- missing or contradictory evidence becomes an explicit gap/conflict rather than an invented conclusion;
+- no raw secrets, private user data, roles, permissions, ownership or authority grants may be stored or inferred by PDK4;
+- live operational diagnosis remains the responsibility of current runtime/diagnostic evidence rather than historical similarity.
+
+The canonical architecture is `pillars/architecture/PROJECT_DEVELOPMENT_KNOWLEDGE_4_0.md`; implementation program is `pillars/roadmap/PROJECT_DEVELOPMENT_KNOWLEDGE_4_0_PROGRAM.md`; implementation/verification procedure is `pillars/workflow/PROJECT_DEVELOPMENT_KNOWLEDGE_4_0_WORKFLOW.md`.

@@ -1,315 +1,132 @@
-# pillars/architecture — Architecture Index
+# SG 2.1 — ARCHITECTURE INDEX
 
-This folder contains active architecture documents for SG.
+This directory defines how SG 2.1 is structured. Architecture does not contain roadmap order, implementation status, deployment history or runtime reports.
 
-Architecture documents must be interpreted together with the core pillars:
-
-- `pillars/DECISIONS.md`
-- `pillars/SG_ENTITY.md`
-- `pillars/SG_BEHAVIOR.md`
-- `pillars/PROJECT.md`
-
-Important:
-- `pillars/DECISIONS.md` is the single root decisions file.
-- `pillars/DECISIONS.md` is the upper philosophical and architectural foundation for SG.
-- `pillars/decisions/` is not an active root decisions folder unless a future accepted rule reactivates it.
-- Deleted decision-extension files must not be referenced as active architecture truth.
-
----
-
-## Core architectural principle
-
-SG is the global project entity and global intellectual system.
-
-Current runtime, Telegram bot, commands, agents, routes, tools, and repository helpers are not SG itself.
-They are implementation components and access layers.
-
-All architecture must preserve this relation:
+## Authority
 
 ```text
-SG = global project entity / global intellectual system
-components = organs / channels / instruments / subsystems of SG
-external AI operators = temporary helpers, not SG itself
-minimal controller/gate = action protection layer, not SG brain
+DECISIONS → ARCHITECTURE → ROADMAP → WORKFLOW → CODE → TEST/RUNTIME EVIDENCE
 ```
 
-No architecture document may redefine a component, mode, agent, transport, model, capability, route, controller, or tool as an independent SG.
+## Canonical definition
+SG 2.1 is one global transport-independent project system whose reasoning layer is provided by connected AI models. SG code organizes context, memory, sources, capabilities, identity, safety, execution and evidence.
 
----
+## Canonical documents
+1. `SG21_SYSTEM.md`
+2. `SEMANTIC_KERNEL.md`
+3. `CONTEXT_AND_MEMORY.md`
+4. `MEMORY_2_0.md`
+5. `PROJECT_MEMORY_3_0.md`
+6. `PROJECT_DEVELOPMENT_KNOWLEDGE_4_0.md`
+7. `PROJECT_DEVELOPMENT_KNOWLEDGE_4_13_LIVE_PRODUCTION_WIRING.md`
+8. `TELEGRAM_WORKSPACE_MANAGER_1_0.md`
+9. `TELEGRAM_WORKSPACE_MANAGER_1_15_COMMUNITY_OPERATIONS.md`
+10. `DECISION_AND_ACTION_GATE.md`
+11. `CAPABILITY_SYSTEM.md`
+12. `IDENTITY_AND_SCOPE.md`
+13. `OBSERVABILITY.md`
+14. `TRANSPORTS_AND_AI_ROUTING.md`
+15. `LANGUAGE_AND_LOCALE_CONTEXT.md`
+16. `FOUNDATIONAL_CONTROL_LAYERS.md`
+17. `SELF_KNOWLEDGE.md`
+18. `MONARCH_OWNER_SECURITY.md`
+19. `RUNTIME_COMPOSITION.md`
+20. `POSTGRESQL_PERSISTENCE.md`
+21. `UNIVERSAL_DIAGNOSTICS.md`
 
-## Active architecture documents
-
-### SG_INTERFACE_LAYERS.md
-
-Defines SG interface modes:
+## Core flow
 
 ```text
-Human Mode = normal SG conversation by meaning
-Technical Mode = explicit commands/tests/debug/legacy routes
+Input
+→ Identity and Scope Resolution
+→ Language & Locale Context
+→ Session & Conversation Context
+→ Semantic Kernel
+→ Context Resolution
+→ Decision Envelope
+→ Capability Selection
+→ Resource/Connection Authority Context where required
+→ Owner Security Policy where SG-wide privileged state is targeted
+→ Action Classification
+→ Action Gate
+→ Execution or Answer
+→ Delivery Routing where required
+→ Response
+→ Observability / Internal Events
 ```
 
-Hard rule:
-
-```text
-No identity mixing.
-```
-
-Human Mode and Technical Mode are interfaces/components of SG.
-They are not separate SG entities.
-
-### SEMANTIC_ROUTING.md
-
-Defines the meaning-first routing/control principle for SG.
-
-Current guardrail:
-
-```text
-Semantic routing must be a minimal controller/gate layer.
-It must not replace reasoning model intelligence.
-It must not become a separate SG brain.
-Old phrase/keyword/regex logic remains Technical Mode unless replaced by verified meaning-first behavior.
-```
-
-Correct role:
-
-```text
-reasoning model understands meaning
--> minimal controller checks scope / permissions / capability / source / risk
--> SG answers or performs only the permitted action
-```
-
-### HUMAN_MODE_REPOSTATEAGENT_SKELETON.md
-
-Defines the safe Human Mode repository/project-work skeleton:
-
-```text
-HumanEntry
--> Permissions
--> Meaning
--> RepoFacts
--> CapabilitySelector
--> ResponseBuilder
-```
-
-Current status must be interpreted through `DECISIONS.md`:
-
-```text
-Human Mode runtime must remain gated.
-Raw text classification must not bypass permissions/scope checks.
-Heavy Global SemanticRouter is not the goal.
-Gated meaning provider exists or may exist as a controlled helper.
-Gated RepoStateAgent runner exists or may exist as a factual helper.
-Smoke-checks must cover contracts when they exist.
-```
-
-### REPO_MAP_SOURCE_POLICY.md
-
-Defines the factual source policy for current repository state.
-
-Hard rule:
-
-```text
-RepoStateAgent is the factual source for current repository state, project map, semantic map, module grouping, architecture health, and project status claims when available and verified.
-```
-
-RepoStateAgent is a factual observation subsystem of SG, not a separate SG.
-
-### AGENT_DIRECTORY_STRUCTURE.md
-
-Defines the future canonical directory structure for SG agents.
-
-Hard rule:
-
-```text
-agents must be grouped by meaning/responsibility
-one agent must not be hidden inside another agent folder
-agents are SG components, not separate SG entities
-```
-
-Current future groups:
-
-```text
-src/agents/repo-intelligence/repo-state-agent/
-src/agents/repo-maintenance/repo-maintenance-agent/
-src/agents/runtime-diagnostics/diagnostics-render-agent/
-src/agents/user-product/
-src/agents/shared/bridges/
-```
-
-### REPO_MAINTENANCE_AGENT_SKELETON.md
-
-Defines the future RepoMaintenanceAgent skeleton.
-
-Purpose:
-
-```text
-After repository changes, detect what else must be checked, synchronized, updated, tested, or snapshotted.
-```
-
-Hard rule:
-
-```text
-RepoMaintenanceAgent starts as a read-only auditor/planner.
-It must not replace RepoStateAgent.
-It must not become DiagnosticsRenderAgent.
-It must not auto-edit code or pillars by default.
-```
-
-### SG_CAPABILITY_ACCESS.md
-
-Defines how useful capabilities become accessible through SG.
-
-Hard rule:
-
-```text
-capability access != authority to redefine SG.
-external helper != final user interface.
-```
-
-Capabilities must be exposed through Human Mode and/or Technical Mode according to permissions, gates, stage rules, and the controlled-action philosophy in `DECISIONS.md`.
-
-### MODULE_MAP.md
-
-Defines logical SG modules and their responsibility domains.
-
-Hard rule:
-
-```text
-modules = components of SG, not separate SG entities.
-```
-
-### DATA_FLOW.md
-
-Defines canonical high-level data flows between SG components.
-
-Hard rule:
-
-```text
-data flow connects SG components; it must not create separate SG identities.
-```
-
-### PERMISSIONS_MAP.md
-
-Defines high-level permissions and access-control architecture.
-
-Hard rule:
-
-```text
-component access != authority over SG identity/governance.
-permissions protect actions; they do not limit SG thinking.
-```
-
-### CODE_OWNERSHIP_MAP.md
-
-Defines high-level code ownership boundaries.
-
-Hard rule:
-
-```text
-code ownership = responsibility boundary, not SG identity ownership.
-```
-
----
-
-## Cross-pillar alignment
-
-Architecture must follow:
-
-### From DECISIONS.md
-
-```text
-SG is free in thinking.
-SG is controlled in actions.
-SG is a global intellectual system, not the current bot/runtime.
-Semantic routing is a minimal controller/gate, not a replacement for model reasoning.
-Agents are tools/components of SG, not SG itself.
-```
-
-Relevant decisions:
-
-- D-000: SG is a free-thinking system with controlled actions
-- D-001: SG is the global project entity
-- D-002: SG is a multiuser system of personal entities
-- D-003: monarch control does not mean unrestricted default access to private user memory
-- D-004: `global_user_id` is the root of personal logic
-- D-005: Gary's project is not default for ordinary users
-- D-006: workflow and sources are meaning providers, not fixed paths
-- D-007: capabilities replace permanent hardcoded allowlists/blacklists
-- D-008: commands are interface shortcuts, not SG essence
-- D-009: SG must not be trapped by regex
-- D-010: semantic routing must remain a minimal controller/gate layer
-- D-011: Chat History, Memory, and Project Memory are different layers
-- D-012: AI is not a source of truth
-- D-013: AI calls go through centralized router/wrapper
-- D-014: Repo/code AI works in analysis/suggestion mode
-- D-015: RepoStateAgent is a repo facts component, not SG
-- D-016: agents are SG tools, not SG itself
-- D-017: user isolation is more important than convenience
-- D-020: stage gates limit implementation, not thinking
-
-### From SG_ENTITY.md
-
-```text
-SG is the global project entity.
-Components do not replace SG.
-SG accumulates its own project experience.
-```
-
-### From SG_BEHAVIOR.md
-
-```text
-meaning -> intent -> context -> capability -> permission -> source/tool -> action/answer
-```
-
-Forbidden:
-
-```text
-keyword -> reflex response
-```
-
-### From PROJECT.md
-
-```text
-Meaning -> Intent -> Context -> Capability -> Source/Tool -> Processing -> Result/Action -> Delivery
-```
-
-SG is platform-independent, source-first, personal-SG ready, and not reducible to the current Telegram/runtime implementation.
-
----
-
-## Current implementation guardrails
-
-Current Human Mode / architecture work must keep these guardrails:
-
-1. Do not connect Human Mode runtime without explicit approval and gates.
-2. Do not build a heavy router that replaces reasoning model intelligence.
-3. Do not treat a routing/controller layer as a separate SG brain.
-4. Do not add phrase/keyword/regex routes to Human Mode as if they were meaning-first intelligence.
-5. Do not use old RepoIndex as current factual truth.
-6. Do not treat RepoStateAgent as a separate SG.
-7. Do not let external AI operators own SG decisions, identity, memory, or project experience.
-8. Do not treat capability access as governance authority.
-9. Do not hide one agent inside another agent folder.
-10. Do not make RepoMaintenanceAgent auto-edit code or pillars by default.
-11. Keep smoke-checks green after every contract change.
-12. Create snapshots after verified green states.
-
----
-
-## Practical reading order
-
-For architecture work, read in this order:
-
-1. `pillars/DECISIONS.md`
-2. `pillars/SG_ENTITY.md`
-3. `pillars/SG_BEHAVIOR.md`
-4. `pillars/PROJECT.md`
-5. `pillars/architecture/README.md`
-6. `pillars/architecture/SG_INTERFACE_LAYERS.md`
-7. `pillars/architecture/SEMANTIC_ROUTING.md`
-8. `pillars/architecture/REPO_MAP_SOURCE_POLICY.md`
-9. `pillars/architecture/HUMAN_MODE_REPOSTATEAGENT_SKELETON.md`
-10. `pillars/architecture/AGENT_DIRECTORY_STRUCTURE.md`
-11. `pillars/architecture/REPO_MAINTENANCE_AGENT_SKELETON.md`
-12. `pillars/architecture/SG_CAPABILITY_ACCESS.md`
-13. relevant architecture maps: `MODULE_MAP.md`, `DATA_FLOW.md`, `PERMISSIONS_MAP.md`, `CODE_OWNERSHIP_MAP.md`
+Memory 2.0 is the canonical durable memory subsystem layered behind Context Resolution and response-context assembly. It preserves user/group/thread/project isolation, privacy-first recall, lifecycle, provenance and verified `global_user_id` continuity without replacing Conversation Context or System Self Knowledge.
+
+Project Memory 3.0 is the specialized project-knowledge program inside the Memory 2.0 Project Memory domain. It adds evidence-backed project facts, trusted-source ingestion, candidate/confirmation, duplicate/conflict handling, temporal supersession, bounded relations, hybrid semantic/metadata retrieval and a Project Memory Context Guard. It does not replace System Self Knowledge or live diagnostics and cannot treat Render as a live source until a real Render Connector exists.
+
+Project Development Knowledge 4.0 is the development-history and project-evolution layer built on Project Memory 3.0. It reconstructs and continuously maintains SG's evidence-backed product biography: origin, requirements, proposals, decisions and rationale, implementation, rework, incidents/fixes, CI/deployment/runtime verification, supersession, current state and next plan. It reuses PM3 storage/trust/provenance/temporal/retrieval boundaries and must not become a parallel memory, authority, identity or diagnostics system.
+
+PDK4.13 Live Production Wiring & Autonomous Project History is the production-composition extension of the completed PDK4.1–PDK4.12 software baseline. It wires historical bootstrap/resume, incremental reconciliation, bounded polling, PostgreSQL single-flight protection, protected diagnostics and live acceptance into the real SG production runtime. It reuses the existing PDK4 engine and PM3 substrate rather than creating a new memory path.
+
+Telegram Workspace Manager 1.0 is a cross-cutting management layer over the existing Telegram production transport/runtime. It lets any authorized SG user manage SG behavior for their own Telegram groups, supergroups and channels through native Telegram UI and natural language. TWM1 reuses canonical `global_user_id`, Identity/Scope, Resource Authority, Action Gate, PostgreSQL, Memory 2.0 isolation, AI Router, Durable Automation and Observability. TWM1.14 extends this same workspace-scoped backend with text/media publication, polls, quiz/test sessions, scheduled content, deterministic result collection/statistics and optional AI Router interpretation. Telegram administrator status remains workspace-scoped evidence only and never SG-global owner/Monarch authority. AI/model output may propose configuration/content or analyze a computed result snapshot, but cannot write state directly, grant authority or invent numeric poll/test results.
+
+TWM1.15 Community Operations, Engagement & Analytics extends the same workspace backend with five bounded functional packages: `TWM Content`, `TWM Engagement`, `TWM Community`, `TWM Operations` and `TWM Analytics`. It adds multi-step forms/questionnaires, feedback, event/RSVP/waitlist flows, contests/challenges with auditable deterministic mechanics, FAQ and newcomer onboarding, unanswered-question and moderation workflows, request/case queues, task/reminder/decision workflows, content planning/recurring rubrics, bounded discussion summaries, deterministic workspace analytics, owner briefs and authorized exports. It MUST reuse Memory 2.0, Conversation Context, existing task/capability and Durable Automation systems rather than creating parallel stores or schedulers.
+
+Self Knowledge is a shared system-context layer used for evidence-aware descriptions of SG itself. It does not sit as a mandatory reasoning hop in every request and does not replace live diagnostics.
+
+Universal Diagnostics is an independent observer application outside the mandatory SG request path. SG emits bounded diagnostic facts through Observability and approved read-only surfaces; the separate Diagnostics application reconstructs traces, compares expected vs actual paths, finds first divergence, performs deterministic root-cause analysis, runs isolated synthetic checks, and produces evidence-backed reports. SG must continue operating if Diagnostics is unavailable.
+
+## Non-negotiable boundaries
+- Connected AI models provide reasoning and may also execute specialized tasks.
+- SG code does not imitate reasoning with keyword routing.
+- Gates protect actions and do not become a second brain.
+- Memory supplies bounded context and does not own SG identity.
+- Memory 2.0 cannot broaden scope, privacy, authority or trust during capture/recall/consolidation.
+- Project Memory 3.0 reuses Memory 2.0 scope/privacy/trust/provenance/lifecycle boundaries and cannot become a parallel authority or identity system.
+- Project Memory facts require bounded provenance; raw chat/model output cannot become verified project truth automatically.
+- Project Memory live-state claims prefer current authoritative evidence when an approved connector exists; unavailable connectors must produce uncertainty rather than invented current state.
+- Project Development Knowledge 4.0 reuses Project Memory 3.0 as its durable fact/trust/history/retrieval substrate and cannot create a second project-memory store.
+- PDK4 must distinguish `implemented`, `ci-verified`, `deployed` and `live-verified`; evidence from one state cannot silently promote another.
+- PDK4 historical/superseded facts remain available for history but cannot override current-state retrieval.
+- PDK4 raw chat/model output cannot self-confirm, and AI summaries/classifications are not primary evidence.
+- PDK4.13 production wiring must be resumable, bounded, idempotent and single-flight per project/repository; concurrent triggers cannot duplicate history processing.
+- PDK4.13 GitHub/provider degradation must degrade the project-history subsystem rather than take normal SG transports offline by default.
+- PDK4.13 credentials/secrets never enter PM3/PDK4 facts, AI context, ordinary diagnostics or observability payloads.
+- TWM1 cannot create a second Telegram transport, identity root, authorization system or direct AI→configuration/content/result path.
+- TWM1 workspace configuration, members, memory, automation, media, drafts, publications, poll/test results and audit are isolated per canonical workspace scope.
+- TWM1 Telegram administrator evidence cannot grant SG-global ownership/Monarch authority.
+- TWM1 must re-verify revocable Telegram authority according to action sensitivity and fail closed when required bot permissions are absent.
+- TWM1 scheduled external actions must reuse durable automation and must not rely indefinitely on creation-time authority.
+- TWM1 exact poll/test totals, percentages and scores must come from deterministic structured evidence, not model output.
+- TWM1 must preserve anonymous Telegram poll semantics and cannot claim participant identity for anonymous votes.
+- TWM1 configuration/content behavior cannot weaken mandatory security, owner security, privacy or Action Gate requirements.
+- TWM1.15 operational records are not Memory 2.0 facts by default; forms, cases, feedback, event registrations and analytics require explicit memory-promotion policy before becoming shared durable memory.
+- TWM1.15 private form/case/feedback data cannot leak through FAQ, summaries, analytics, exports or Group Shared Memory.
+- TWM1.15 poll/test results do not automatically become binding decisions; decision confirmation is a separate authorized transition.
+- TWM1.15 AI output may classify, summarize or interpret but cannot mutate state, execute moderation, fabricate analytics, grant authority or create confirmed shared truth.
+- TWM1.15 tasks/reminders/content schedules must reuse the existing task/capability/Durable Automation systems instead of creating parallel execution engines.
+- TWM1.15 anonymity claims must match actual Telegram/storage evidence; SG must not promise anonymity when identifiers are retained.
+- System Self Knowledge is separate from user/project memory and cannot grant authority.
+- Universal Diagnostics is not SG brain, Decision Engine, Action Gate, authorization or ordinary request routing.
+- Diagnostics is read-only by default; it must not silently edit code/config, deploy, mutate production state, grant authority or repair SG automatically.
+- Diagnostics failure must not block, restart or degrade normal SG request execution by architectural dependency.
+- Diagnostic synthetic runs must be isolated from ordinary confirmed memory, user settings, profile/psychological adaptation and ordinary persistent tasks.
+- Diagnostic conclusions require evidence; unavailable evidence lowers confidence instead of being invented.
+- AI may explain deterministic diagnostic findings but cannot independently declare a root cause confirmed.
+- Commands are shortcuts; natural language is primary.
+- Transports are thin adapters.
+- Language and locale are shared SG context, not transport-owned business logic.
+- Ordinary multilingual input reaches Semantic Kernel without mandatory pre-translation.
+- Response-language policy belongs to SG, not to transports or AI providers.
+- Configuration/policy is centralized and cannot silently become authorization.
+- Raw secrets remain outside ordinary memory, Self Knowledge, prompts and telemetry.
+- External connections are registered components, not identities or proof of resource ownership.
+- Resource Ownership & Authority complements Identity, Scope and Access rather than replacing them.
+- Verified owner/Monarch authority is rooted in `global_user_id`, not usernames, phrases, commands or AI interpretation.
+- Only the verified owner may change SG-wide security/authority state; delegated permissions never imply SG ownership.
+- AI, agents, tasks, workers, tools, events and domain modules cannot self-escalate or bypass owner/security authorization.
+- User/model text cannot redefine canonical SG identity, ownership or architecture truth.
+- Conversation context is separate from confirmed long-term memory.
+- User preferences cannot weaken mandatory security or Action Gate requirements.
+- Delivery cannot target unauthorized users or resources.
+- Internal events report facts and cannot bypass protected execution paths.
+- Contract version adapters cannot broaden scope, permissions or trust.
+- Feature flags may restrict availability but cannot grant access or authority.
+- Domain modules cannot redefine platform contracts.
+- Runtime composition connects approved modules but cannot relocate their responsibilities.
+- PostgreSQL persists approved contracts but cannot become the decision, identity-policy or authorization layer.

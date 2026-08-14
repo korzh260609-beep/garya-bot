@@ -1,515 +1,135 @@
-# README.md — Pillars Entry Point
+# PILLARS — SG 2.1 CANONICAL INDEX
+
+`pillars/` contains only active documentation required to build and operationalize SG 2.1.
+
+## Authority
+
+```text
+DECISIONS
+→ ARCHITECTURE
+→ ROADMAP
+→ WORKFLOW
+→ CODE
+→ TEST / RUNTIME EVIDENCE
+```
+
+## Root files
+- `DECISIONS.md` — accepted global decisions
+- `SG_ENTITY.md` — system identity and boundaries
+- `SG_BEHAVIOR.md` — behavior and action-control rules
+- `PROJECT.md` — project purpose and success criteria
+- `README.md` — this index
+
+## Architecture
+Entry: `architecture/README.md`
+
+Active files:
+- `SG21_SYSTEM.md`
+- `SEMANTIC_KERNEL.md`
+- `CONTEXT_AND_MEMORY.md`
+- `MEMORY_2_0.md`
+- `PROJECT_MEMORY_3_0.md` — specialized evidence-backed Project Memory architecture inside Memory 2.0
+- `PROJECT_DEVELOPMENT_KNOWLEDGE_4_0.md` — development-history/project-evolution architecture built on Project Memory 3.0
+- `PROJECT_DEVELOPMENT_KNOWLEDGE_4_13_LIVE_PRODUCTION_WIRING.md` — planned live production wiring for PDK4.13
+- `TELEGRAM_WORKSPACE_MANAGER_1_0.md` — active TWM1 architecture; TWM1.1–TWM1.9 CLOSED / CI-verified and TWM1.10 next, including later content/polls/quizzes/media/statistics and bounded AI analysis
+- `TELEGRAM_WORKSPACE_MANAGER_1_15_COMMUNITY_OPERATIONS.md` — planned TWM1.15 community operations, engagement and analytics architecture
+- `DECISION_AND_ACTION_GATE.md`
+- `CAPABILITY_SYSTEM.md`
+- `IDENTITY_AND_SCOPE.md`
+- `OBSERVABILITY.md`
+- `TRANSPORTS_AND_AI_ROUTING.md`
+- `LANGUAGE_AND_LOCALE_CONTEXT.md`
+- `FOUNDATIONAL_CONTROL_LAYERS.md`
+- `SELF_KNOWLEDGE.md`
+- `MONARCH_OWNER_SECURITY.md`
+- `RUNTIME_COMPOSITION.md`
+- `POSTGRESQL_PERSISTENCE.md`
+- `UNIVERSAL_DIAGNOSTICS.md` — architecture for the independent SG Diagnostics application and SG-side observation boundary
+
+## Roadmap
+Entry: `roadmap/README.md`
+
+Active files:
+- `00_ENGINEERING_FOUNDATION.md`
+- `00_PRINCIPLES_AND_GATES.md`
+- `01_SEMANTIC_KERNEL.md`
+- `02_CONTEXT_AND_MEMORY.md`
+- `02_5_AI_ROUTING_FOUNDATION.md`
+- `03_DECISION_ENGINE.md`
+- `04_ACTION_GATE.md`
+- `05_CAPABILITY_SYSTEM.md`
+- `06_IDENTITY_AND_SCOPE.md`
+- `07_OBSERVABILITY.md`
+- `08_INTERFACES.md`
+- `08_1_DISCORD_TRANSPORT_INTEGRATION.md` — Block 8.1 production Discord extension of Interfaces
+- `09_AUTOMATION_AND_AGENTS.md`
+- `10_DOMAIN_MODULES.md`
+- `11_RUNTIME_COMPOSITION.md` — Block 11 implementation and acceptance evidence
+- `12_POSTGRESQL_PERSISTENCE.md` — Block 12 implementation and acceptance evidence
+- `13_DURABLE_AUTOMATION_AND_WORKERS.md` — Block 13 implementation and acceptance evidence
+- `14_TELEGRAM_PRODUCTION_INTEGRATION.md` — Block 14 implementation and acceptance evidence
+- `15_PRODUCTION_AI_INTEGRATION.md` — Block 15 implementation and acceptance evidence
+- `16_PRODUCTION_CAPABILITIES.md` — Block 16 implementation and acceptance evidence
+- `16_5_TEMPORAL_CONTEXT.md` — Block 16.5 implementation and acceptance evidence
+- `16_6_LANGUAGE_AND_LOCALE_CONTEXT.md` — Block 16.6 implementation and acceptance evidence
+- `16_7_CONFIGURATION_AND_POLICY_LAYER.md` — Block 16.7 implementation and acceptance evidence
+- `16_8_SECRETS_AND_CREDENTIALS_MANAGEMENT.md` — Block 16.8 implementation and acceptance evidence
+- `16_9_EXTERNAL_CONNECTIONS_REGISTRY.md` — Block 16.9 implementation and acceptance evidence
+- `16_10_RESOURCE_OWNERSHIP_AND_AUTHORITY_MODEL.md` — Block 16.10 implementation and acceptance evidence
+- `16_11_SESSION_AND_CONVERSATION_CONTEXT.md` — Block 16.11 implementation and acceptance evidence
+- `16_12_USER_SETTINGS_AND_PREFERENCES.md` — Block 16.12 implementation and acceptance evidence
+- `16_13_NOTIFICATION_AND_DELIVERY_ROUTER.md` — Block 16.13 implementation and acceptance evidence
+- `16_14_INTERNAL_EVENT_BUS.md` — Block 16.14 implementation and acceptance evidence
+- `16_15_SCHEMA_AND_CONTRACT_VERSIONING.md` — Block 16.15 implementation and acceptance evidence
+- `16_16_FEATURE_FLAGS_AND_CONTROLLED_ROLLOUT.md` — Block 16.16 implementation and acceptance evidence
+- `16_17_SELF_KNOWLEDGE_SYSTEM_SELF_AWARENESS.md` — completed Block 16.17 implementation and acceptance evidence
+- `16_18_MONARCH_CONTROL_OWNER_SECURITY.md` — planned Block 16.18 specification
+- `MEMORY_2_0_ROADMAP.md` — completed canonical Memory 2.0 M1–M9 program and acceptance evidence
+- `PROJECT_MEMORY_3_0_PROGRAM.md` — completed specialized Project Memory PM3.1–PM3.12 program
+- `PROJECT_DEVELOPMENT_KNOWLEDGE_4_0_PROGRAM.md` — completed PDK4.1–PDK4.12 development-history/project-evolution baseline
+- `PROJECT_DEVELOPMENT_KNOWLEDGE_4_13_LIVE_PRODUCTION_WIRING.md` — planned PDK4.13 live production wiring extension
+- `TELEGRAM_WORKSPACE_MANAGER_1_0_PROGRAM.md` — active TWM1 program; TWM1.1–TWM1.9 CLOSED / CI-verified and TWM1.10 next, with later TWM1.14 Content, Polls, Quizzes & Media Management
+- `TELEGRAM_WORKSPACE_MANAGER_1_15_COMMUNITY_OPERATIONS_PROGRAM.md` — planned TWM1.15 forms/events/FAQ/onboarding/feedback/cases/tasks/decisions/content planning/summaries/analytics/briefs/exports program
+- `UNIVERSAL_DIAGNOSTICS_PROGRAM.md` — canonical Universal Diagnostics D1–D12 cross-cutting program
+- `PRODUCTION_ROADMAP.md` — canonical continuation covering Blocks 11–19, intermediate Blocks 16.5–16.18 and Pilot Launch
+
+## Workflow
+Entry: `workflow/README.md`
+
+Active files:
+- `DEVELOPMENT_PROTOCOL.md`
+- `CHANGE_SPECIFICATION.md`
+- `TEST_AND_EVIDENCE_PROTOCOL.md`
+- `RELEASE_AND_ROLLBACK_PROTOCOL.md`
+- `ARCHITECTURE_DECISION_PROTOCOL.md`
+- `MEMORY_2_0_WORKFLOW.md` — Memory 2.0 implementation/verification sequence
+- `PROJECT_MEMORY_3_0_WORKFLOW.md` — Project Memory 3.0 implementation/verification sequence
+- `PROJECT_DEVELOPMENT_KNOWLEDGE_4_0_WORKFLOW.md` — PDK4 baseline implementation/verification sequence
+- `PROJECT_DEVELOPMENT_KNOWLEDGE_4_13_LIVE_PRODUCTION_WIRING_WORKFLOW.md` — PDK4.13 production wiring workflow
+- `TELEGRAM_WORKSPACE_MANAGER_1_0_WORKFLOW.md` — active TWM1 implementation/verification sequence; TWM1.1–TWM1.9 CLOSED / CI-verified and TWM1.10 next
+- `TELEGRAM_WORKSPACE_MANAGER_1_15_COMMUNITY_OPERATIONS_WORKFLOW.md` — TWM1.15 community operations/engagement/analytics implementation and live-acceptance sequence
+- `UNIVERSAL_DIAGNOSTICS_WORKFLOW.md` — Universal Diagnostics D1–D12 implementation/verification sequence
 
-Purpose:
-- Provide one canonical entry point into the `pillars/` system.
-- Explain what `pillars/` is, what to read first, and where different kinds of truth live.
-- Reduce confusion for humans and AI tools entering the project.
+Workflow defines implementation procedure and does not store per-block runtime history. Therefore `workflow/changes/` and `workflow/changes/BLOCK_11_RUNTIME_COMPOSITION.md` are not canonical paths.
 
-Status: CANONICAL
-Scope: all documentation under `pillars/`
+## Cross-cutting programs and extensions
 
-Current root rule:
-- `pillars/DECISIONS.md` is the upper philosophical and architectural foundation for SG.
-- All other pillar files must be interpreted through the new SG philosophy fixed in `DECISIONS.md`.
-- If another pillar contradicts `DECISIONS.md`, that pillar must be corrected.
+Memory 2.0, Project Memory 3.0, Project Development Knowledge 4.0, Telegram Workspace Manager 1.0 and Universal Diagnostics are cross-cutting programs and do not renumber the canonical Blocks 0–19.
 
----
+Project Memory 3.0 is not a replacement for Memory 2.0. It specializes the `Project Memory` domain using trusted-source ingestion, candidate/confirmation policy, deduplication, conflict handling, temporal supersession, relations, hybrid retrieval and guarded project-context injection. It remains separate from System Self Knowledge and live diagnostics. Render must not be treated as a live Project Memory source until a real Render Connector is implemented and verified.
 
-## 0) What `pillars/` is
+Project Development Knowledge 4.0 is not a new memory store. It builds on Project Memory 3.0 to reconstruct and continuously maintain SG development knowledge across origin, requirements, proposals, decisions/rationale, implementation/rework, incidents/fixes, CI/deployment/runtime evidence, historical supersession, current state and next plan. It must keep `implemented`, `ci-verified`, `deployed` and `live-verified` distinct, preserve provenance and history, and route all model assistance through AI Router. PDK4.1–PDK4.12 are CLOSED / CI-verified; PDK4.13 remains PLANNED / NOT IMPLEMENTED.
 
-`pillars/` is the canonical project documentation system for SG.
+Telegram Workspace Manager 1.0 is not a second Telegram transport or a second identity/authorization stack. TWM1.1–TWM1.9 are implemented, CLOSED and CI-verified; TWM1.10 Workspace Runtime Wiring is the next canonical TWM stage. TWM1 lets any authorized SG user configure and operate SG for their own Telegram groups, supergroups and channels through native Telegram UI and natural language while reusing canonical `global_user_id`, Identity/Scope, Resource Authority, Action Gate, PostgreSQL, Memory 2.0 isolation, AI Router and existing Telegram production integration. TWM1.14 extends that same scoped backend with content creation/publication, polls, quizzes/tests, user-supplied photo/video/document publication, deterministic result collection/statistics and optional AI Router interpretation. TWM1.15 extends it with five bounded packages — Content, Engagement, Community, Operations and Analytics — covering forms, events, FAQ/onboarding, feedback, cases, tasks/reminders/decisions, content planning, discussion summaries, deterministic analytics, owner briefs and authorized exports. Telegram administrator status is workspace-scoped evidence only and never SG-global owner/Monarch authority.
 
-It is not:
-- an archive
-- a random notes folder
-- a dump of ideas
-- a substitute for the repository
-- a replacement for SG itself
+TWM1.15 MUST reuse existing Memory 2.0, Session/Conversation Context, task/capability, Durable Automation, Delivery Router, AI Router and Observability foundations. Operational data does not become shared confirmed memory automatically; private user data cannot leak into FAQ/analytics/exports; AI cannot mutate state or fabricate exact metrics; and poll/test outcomes require a separate authorized decision transition before they can become binding workspace decisions.
 
-It is:
-- the documented control system of the project
-- the place where rules, boundaries, flows, and accepted decisions are fixed
-- the main anti-guessing layer for future work
-- the alignment layer that keeps implementation close to the intended SG philosophy
+Block 8.1 is not a new independent core layer. It is the production Discord transport extension of Block 8 Interfaces and does not renumber Blocks 9–19. Its implementation must reuse the existing Identity/Scope, canonical `global_user_id`, Memory 2.0, Resource Authority, Delivery Router, Observability and security boundaries.
 
----
+Universal Diagnostics is explicitly an independent observer application. SG provides bounded observable facts; the external Diagnostics program reconstructs execution, verifies expected paths/invariants, finds first divergence/root cause and reports evidence. Diagnostics must not become a required SG runtime dependency or a bypass around identity, permissions, Action Gate, resource authority or owner security.
 
-## 1) Why `pillars/` exists
+## Modules
+`modules/` starts empty except for its README. Module documentation is created only when the corresponding SG 2.1 module is introduced through the active roadmap. TWM1 is now introduced and actively implemented at architecture/roadmap/workflow/code/evidence level; implementation-specific detail remains canonical in those sources unless a separate module document adds non-duplicative architectural value.
 
-The project evolves.
-
-Without a canonical doc system, the same problems appear repeatedly:
-
-- architecture drifts
-- modules blur together
-- old assumptions survive too long
-- AI tools guess instead of following boundaries
-- humans forget why earlier decisions were made
-- the current bot implementation starts being mistaken for the full SG vision
-
-`pillars/` exists to reduce that.
-
-Main goal:
-- make future work cheaper
-- make mistakes earlier
-- reduce wrong changes
-- preserve architecture and governance
-- keep SG aligned with the monarch's intended philosophy
-
----
-
-## 2) Source hierarchy
-
-When information conflicts, the hierarchy is:
-
-1. verified repository/runtime reality for factual implementation state
-2. `pillars/DECISIONS.md` as the upper philosophical and architectural root
-3. canonical pillars interpreted through `DECISIONS.md`
-4. project memory / bounded working context
-5. ordinary memory / chat-derived supporting context
-6. temporary chat discussion
-
-Important rule:
-- lower layers must not silently override higher layers
-- runtime reality shows what currently exists, but it does not redefine what SG is meant to become
-
-Examples:
-- chat does not override pillars
-- project memory does not override canonical architecture rules
-- convenience does not override documented governance
-- deprecated repo maps do not override RepoStateAgent/source policy
-- old command-based behavior does not override the new SG philosophy in `DECISIONS.md`
-
----
-
-## 3) What belongs in `pillars/`
-
-`pillars/` should contain:
-
-- accepted rules
-- accepted decisions
-- workflow order
-- repository structure map
-- module boundaries
-- contracts
-- risks
-- data-flow map
-- permissions map
-- documentation governance rules
-- philosophy and implementation boundaries that future work depends on
-
-`pillars/` should NOT contain:
-
-- speculative idea dumps in canonical files
-- random one-off notes without ownership
-- duplicated truth across many files without reason
-- implementation trivia that belongs only in code/comments
-- uncontrolled temporary drafts mixed with canonical docs
-- old assumptions preserved as truth after `DECISIONS.md` has replaced them
-
----
-
-## 4) Main file groups
-
-### 4.1 Root-level canonical files
-
-#### `pillars/DECISIONS.md`
-Use for:
-- final accepted architectural/system decisions
-- non-negotiable rules
-- explicit fixation of important choices
-- the single root decisions file for global SG decisions
-- the upper SG philosophy that all other pillars must follow
-
-Important:
-- `pillars/DECISIONS.md` is the first conceptual source to check after factual repo/runtime reality.
-- `pillars/decisions/` is not an active root decisions folder.
-- Deleted decision-extension files must not be referenced as current truth.
-- New global decisions are discussed first, then added to `pillars/DECISIONS.md` only after explicit monarch approval.
-
-#### `pillars/SG_ENTITY.md`
-Use for:
-- what SG is as a system entity
-- SG as the global project entity
-- relation between SG and components/tools/interfaces
-- SG project experience and continuity
-
-#### `pillars/PROJECT.md`
-Use for:
-- high-level project identity
-- project framing
-- broad strategic context
-- relationship between SG, Kingdom GARYA, users, sources, memory, and scaling
-
-#### `pillars/SG_BEHAVIOR.md`
-Use for:
-- SG behavior rules
-- interaction style constraints
-- assistant-side behavior boundaries
-- meaning-first / source-first behavior
-- entity-aware behavior rules
-
-#### Workflow files under `pillars/`
-Use for:
-- active development order
-- stage gates
-- allowed/forbidden-by-stage rules
-- factual notes about what is already verified
-
-Important:
-- Do not assume an old flat `WORKFLOW.md` is the active workflow source.
-- If workflow is split into folder/files, use the active workflow structure, not archived files.
-- Archived workflow files must not be treated as current stage truth.
-- Workflow must describe the path toward the intended SG, not freeze the project inside the current bot implementation.
-
-#### `pillars/REPOINDEX.md`
-Use for:
-- legacy/supportive repository map only if marked current
-- responsibility zones
-- core boundaries
-- repository structure understanding
-
-Important:
-- If `REPOINDEX.md` is marked legacy/deprecated, it must not be used as factual current repo state.
-- Current repo/project factual state must follow `pillars/architecture/REPO_MAP_SOURCE_POLICY.md`.
-
-#### `pillars/CODE_OUTPUT.md`
-Use for:
-- code-output policy
-- output formatting/delivery rules
-- code-related response behavior
-
-#### `pillars/DOCS_GOVERNANCE.md`
-Use for:
-- how pillars must be maintained
-- when docs must be updated
-- how stale docs are treated
-- living-documentation rules
-
----
-
-### 4.2 Architecture files
-
-Located under:
-
-`pillars/architecture/`
-
-Entry file:
-
-#### `pillars/architecture/README.md`
-Use for:
-- architecture reading order
-- cross-pillar alignment
-- active architecture map
-- Human Mode / Technical Mode / capability / source guardrails
-
-Current architecture-level files include:
-
-#### `SG_INTERFACE_LAYERS.md`
-Use for:
-- Human Mode vs Technical Mode separation
-- no mixing rule
-- interface modes as components of SG
-
-#### `SEMANTIC_ROUTING.md`
-Use for:
-- meaning-first routing principle
-- semantic routing as a minimal controller/gate layer
-- explicit rule that routing must not replace reasoning model intelligence
-- Technical Mode legacy/command boundary
-
-#### `HUMAN_MODE_REPOSTATEAGENT_SKELETON.md`
-Use for:
-- Human Mode repo/project-work skeleton
-- gated meaning provider contract
-- gated RepoStateAgent runner contract
-- HumanEntry pipeline contract
-- current runtime connection rules
-
-#### `REPO_MAP_SOURCE_POLICY.md`
-Use for:
-- factual source of current repository state
-- RepoStateAgent as factual repo observation subsystem
-- old RepoIndex / old maps / old snapshots as legacy only
-
-#### `AGENT_DIRECTORY_STRUCTURE.md`
-Use for:
-- future canonical SG agent directory structure
-- agent grouping by meaning/responsibility
-- rule that one agent must not be hidden inside another agent folder
-- relation between RepoStateAgent, RepoMaintenanceAgent, DiagnosticsRenderAgent, and SG
-
-#### `REPO_MAINTENANCE_AGENT_SKELETON.md`
-Use for:
-- future RepoMaintenanceAgent skeleton
-- read-only repository maintenance/audit responsibility
-- post-change docs/tests/snapshot planning
-- separation from RepoStateAgent and DiagnosticsRenderAgent
-
-#### `SG_CAPABILITY_ACCESS.md`
-Use for:
-- capability exposure through SG
-- difference between capability access and SG governance authority
-- Human Mode / Technical Mode capability access flows
-
-#### `MODULE_MAP.md`
-Use for:
-- canonical module list
-- responsibility ownership
-- what each module owns / does not own
-
-#### `DATA_FLOW.md`
-Use for:
-- canonical high-level data-flow paths
-- module handoffs
-- shortcut/bypass patterns treated as risk
-
-#### `PERMISSIONS_MAP.md`
-Use for:
-- high-level access-control map
-- where permission decisions belong
-- permission categories and protected surfaces
-
-#### `CODE_OWNERSHIP_MAP.md`
-Use for:
-- mapping logical modules to real code areas
-- ownership boundaries
-- legacy/shared/future code areas
-
----
-
-### 4.3 Module documentation
-
-Located under:
-
-`pillars/modules/`
-
-Purpose:
-- local module-level documentation
-- boundaries
-- contracts
-- risks
-- meaningful local evolution
-
-Entry file:
-- `pillars/modules/MODULE_INDEX.md`
-
-Standard per-module file set:
-- `README.md`
-- `CONTRACTS.md`
-- `RISKS.md`
-- `CHANGELOG.md`
-
-Current documented modules include:
-- memory
-- transport
-- users
-- repo
-- sources
-- bot
-- tasks
-- logging
-- project_memory
-- file_intake
-- ai_routing
-
----
-
-## 5) What to read first
-
-### 5.1 If you are entering the project cold
-Read in this order:
-
-1. `pillars/README.md`
-2. `pillars/DECISIONS.md`
-3. `pillars/SG_ENTITY.md`
-4. `pillars/SG_BEHAVIOR.md`
-5. `pillars/PROJECT.md`
-6. active workflow files under `pillars/`
-7. `pillars/architecture/README.md`
-8. `pillars/modules/MODULE_INDEX.md`
-
-This gives:
-- what is already decided
-- what SG is
-- who/what SG is not
-- how SG behaves
-- what the project is
-- what the active work order is
-- how architecture files connect
-- what modules exist
-
----
-
-### 5.2 If you are changing a specific module
-Read in this order:
-
-1. `pillars/modules/<module>/README.md`
-2. `pillars/modules/<module>/CONTRACTS.md`
-3. `pillars/modules/<module>/RISKS.md`
-4. `pillars/modules/<module>/CHANGELOG.md`
-5. then relevant root/architecture files if the change affects global rules
-
----
-
-### 5.3 If you are changing architecture boundaries
-Read in this order:
-
-1. `pillars/DECISIONS.md`
-2. `pillars/SG_ENTITY.md`
-3. active workflow files under `pillars/`
-4. `pillars/architecture/README.md`
-5. `pillars/architecture/SG_INTERFACE_LAYERS.md`
-6. `pillars/architecture/SEMANTIC_ROUTING.md`
-7. `pillars/architecture/REPO_MAP_SOURCE_POLICY.md`
-8. `pillars/architecture/HUMAN_MODE_REPOSTATEAGENT_SKELETON.md`
-9. `pillars/architecture/AGENT_DIRECTORY_STRUCTURE.md`
-10. `pillars/architecture/REPO_MAINTENANCE_AGENT_SKELETON.md`
-11. `pillars/architecture/SG_CAPABILITY_ACCESS.md`
-12. affected module docs
-
----
-
-### 5.4 If you are debugging fragile behavior
-Read in this order:
-
-1. relevant module `RISKS.md`
-2. relevant module `README.md`
-3. relevant module `CONTRACTS.md`
-4. `pillars/DECISIONS.md`
-5. `pillars/SG_BEHAVIOR.md`
-6. `pillars/architecture/DATA_FLOW.md`
-7. diagnostics/logging-related docs if needed
-
----
-
-## 6) Canonical vs supportive docs
-
-Important distinction:
-
-### Canonical docs
-These define accepted truth and boundaries.
-
-Examples:
-- `DECISIONS.md`
-- `SG_ENTITY.md`
-- `SG_BEHAVIOR.md`
-- `PROJECT.md`
-- active workflow files
-- `DOCS_GOVERNANCE.md`
-- architecture files
-- module `README.md` / `CONTRACTS.md` / `RISKS.md` / `CHANGELOG.md`
-
-### Supportive docs/context
-These help future work but do not override canonical truth.
-
-Examples:
-- project memory
-- bounded working summaries
-- task-specific notes outside canonical docs
-- chat explanations
-- archived workflow files
-- deprecated repo maps
-
-Rule:
-- supportive docs help
-- canonical docs govern
-- `DECISIONS.md` governs the philosophy and global boundaries of all canonical docs
-
----
-
-## 7) Anti-chaos rules
-
-The following patterns are dangerous:
-
-- adding new pillar files without clear ownership
-- documenting the same truth in many places
-- creating module folders for tiny temporary ideas
-- mixing global rules with local module details
-- leaving canonical docs stale after meaningful changes
-- using chat as if it were a source of truth
-- treating archived workflow files as current workflow truth
-- treating old RepoIndex / old maps as current repo facts
-- treating a component/tool/mode/agent as SG itself
-- treating capability access as authority to redefine SG
-- building a heavy router that duplicates reasoning model intelligence
-- treating semantic routing as a separate SG brain instead of a minimal controller/gate layer
-- preserving old command/regex logic as if it were Human Mode intelligence
-- referencing deleted `pillars/decisions/` files as active truth
-
-If a file does not clearly belong somewhere,
-do not add it blindly.
-
----
-
-## 8) Update rule
-
-`pillars/` is a living documentation system.
-
-That means:
-
-- meaningful code/architecture/module changes require doc updates
-- stale docs are a real project issue
-- module docs must evolve with the module
-- root docs must evolve when global rules or structure change
-- old pillar wording must be corrected when it contradicts `DECISIONS.md`
-
-Primary reference for documentation maintenance:
-- `pillars/DOCS_GOVERNANCE.md`
-
----
-
-## 9) What not to overdo
-
-More docs is not automatically better.
-
-The point is not to document everything.
-
-The point is to document what future work depends on:
-
-- boundaries
-- invariants
-- contracts
-- risks
-- ownership
-- accepted decisions
-- flow shape
-- permission shape
-- SG philosophy and component identity
-
-When docs grow without discipline,
-they become another source of confusion.
-
----
-
-## 10) Recommended working discipline
-
-Before meaningful work:
-
-1. read `pillars/DECISIONS.md` and the relevant pillars first
-2. check whether docs still match repo/runtime reality
-3. do the work
-4. update docs in the same work block if needed
-
-Preferred mindset:
-- first understand the SG philosophy and boundaries
-- then change code/docs
-- then re-check consistency
-
----
-
-## 11) Final rule
-
-`pillars/` exists so SG does not depend on memory, guesswork, or accidental continuity.
-
-If this folder remains:
-- current
-- bounded
-- structured
-- canonical
-- aligned with `DECISIONS.md`
-
-then future humans and AI tools can work with the project much more safely.
-
-If it becomes stale or chaotic,
-it will turn from protection into a liability.
+## Hard rule
+Any file not listed by this index is not active SG 2.1 truth and must not be added under `pillars/` without explicit architectural purpose.

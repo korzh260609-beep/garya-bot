@@ -83,6 +83,14 @@ function fixedIntervalResolution({ temporalService, recurrence }) {
   });
 }
 
+async function cancelLinkedRecurringSchedule({ recurringScheduler, scope, taskId }) {
+  if (!recurringScheduler?.list || !recurringScheduler?.cancel) return null;
+  const schedules = await recurringScheduler.list({ scope, limit: 100 });
+  const linked = schedules.find((schedule) => schedule.taskId === taskId && ['active', 'paused', 'error'].includes(schedule.status));
+  if (!linked) return null;
+  return recurringScheduler.cancel({ scope, scheduleId: linked.scheduleId });
+}
+
 export function createTemporalTaskStore({ taskStore, temporalService, recurringScheduler = null } = {}) {
   if (!taskStore?.create || !taskStore?.list || !taskStore?.get || !taskStore?.cancel) throw new TypeError('taskStore is required');
   if (!temporalService?.resolveForUser) throw new TypeError('temporalService is required');
@@ -140,6 +148,11 @@ export function createTemporalTaskStore({ taskStore, temporalService, recurringS
     },
     async list(request) { return Object.freeze((await taskStore.list(request)).map(normalizeTask)); },
     async get(request) { return normalizeTask(await taskStore.get(request)); },
-    async cancel(request) { return normalizeTask(await taskStore.cancel(request)); }
+    async cancel(request) {
+      const schedule = await cancelLinkedRecurringSchedule({ recurringScheduler, scope: request.scope, taskId: request.taskId });
+      const task = normalizeTask(await taskStore.cancel(request));
+      if (!task) return null;
+      return schedule ? Object.freeze({ ...task, recurringSchedule: schedule }) : task;
+    }
   });
 }

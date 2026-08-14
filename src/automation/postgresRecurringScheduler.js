@@ -53,7 +53,11 @@ function scopedWhere(alias = 't') {
 }
 
 function pendingTemplateStatus(status) {
-  return ['queued', 'scheduled', 'waiting_approval'].includes(status);
+  return ['queued', 'scheduled', 'waiting_approval', 'schedule_paused'].includes(status);
+}
+
+function fixedIntervalFrequency(freq) {
+  return freq === 'MINUTELY' || freq === 'HOURLY';
 }
 
 export function createPostgresRecurringScheduler({ database, recurrenceEngine, clock = () => new Date(), idFactory = randomUUID } = {}) {
@@ -113,11 +117,36 @@ export function createPostgresRecurringScheduler({ database, recurrenceEngine, c
 
   async function transition({ scope, scheduleId, fromStatuses, sqlStatus }) {
     const [userScope, projectScope, groupScope, threadScope] = scopeValues(scope);
-    const result = await database.query(`UPDATE schedules s SET status=$6,paused_at=CASE WHEN $6='paused' THEN now() ELSE NULL END,updated_at=now()
-      FROM tasks t WHERE s.task_id=t.task_id AND s.schedule_id=$1 AND ${scopedWhere('t')} AND s.status=ANY($7::text[]) RETURNING s.*`,
-    [required(scheduleId, 'scheduleId'), userScope, projectScope, groupScope, threadScope, sqlStatus, fromStatuses]);
-    const row = result.rows[0];
-    return normalizedSchedule(row ? { ...row, first_occurrence_at: row.state?.firstOccurrenceAt ?? null } : null);
+    return database.transaction(async (tx) => {
+      const locked = await tx.query(`SELECT s.*,t.status AS template_status,t.available_at AS template_available_at,t.approval_state AS template_approval
+        FROM schedules s JOIN tasks t ON t.task_id=s.task_id
+        WHERE s.schedule_id=$1 AND ${scopedWhere('t')} FOR UPDATE OF s,t`,
+      [required(scheduleId, 'scheduleId'), userScope, projectScope, groupScope, threadScope]);
+      const schedule = locked.rows[0];
+      if (!schedule || !fromStatuses.includes(schedule.status)) return null;
+
+      if (sqlStatus === 'paused' && pendingTemplateStatus(schedule.template_status) && schedule.template_status !== 'schedule_paused') {
+        await tx.query(`UPDATE tasks SET status='schedule_paused',lease_owner=NULL,lease_expires_at=NULL,heartbeat_at=NULL,updated_at=now()
+          WHERE task_id=$1 AND status IN ('queued','scheduled','waiting_approval')`, [schedule.task_id]);
+      }
+      if (sqlStatus === 'active' && schedule.template_status === 'schedule_paused') {
+        const approval = schedule.template_approval ?? {};
+        const availableAt = schedule.template_available_at ? new Date(schedule.template_available_at) : clock();
+        const restoredStatus = approval.required === true && approval.approved !== true
+          ? 'waiting_approval'
+          : availableAt > clock() ? 'scheduled' : 'queued';
+        await tx.query(`UPDATE tasks SET status=$2,updated_at=now() WHERE task_id=$1 AND status='schedule_paused'`, [schedule.task_id, restoredStatus]);
+      }
+      if (sqlStatus === 'cancelled' && pendingTemplateStatus(schedule.template_status)) {
+        await tx.query(`UPDATE tasks SET status='cancelled',cancellation_reason='recurring_schedule_cancelled',lease_owner=NULL,lease_expires_at=NULL,heartbeat_at=NULL,updated_at=now()
+          WHERE task_id=$1 AND status IN ('queued','scheduled','waiting_approval','schedule_paused')`, [schedule.task_id]);
+      }
+
+      const result = await tx.query(`UPDATE schedules SET status=$2,paused_at=CASE WHEN $2='paused' THEN now() ELSE NULL END,updated_at=now()
+        WHERE schedule_id=$1 RETURNING *`, [schedule.schedule_id, sqlStatus]);
+      const row = result.rows[0];
+      return normalizedSchedule(row ? { ...row, first_occurrence_at: row.state?.firstOccurrenceAt ?? null } : null);
+    });
   }
 
   const pause = ({ scope, scheduleId }) => transition({ scope, scheduleId, fromStatuses: ['active'], sqlStatus: 'paused' });
@@ -147,14 +176,16 @@ export function createPostgresRecurringScheduler({ database, recurrenceEngine, c
         if (!first || first.status !== 'resolved') throw new Error(`Unable to resolve updated first recurring occurrence: ${first?.reason ?? 'none'}`);
         const approval = schedule.template_approval ?? {};
         const now = clock();
-        const taskStatus = approval.required === true && approval.approved !== true
-          ? 'waiting_approval'
-          : new Date(first.utcInstant) > now ? 'scheduled' : 'queued';
+        const taskStatus = schedule.status === 'paused'
+          ? 'schedule_paused'
+          : approval.required === true && approval.approved !== true
+            ? 'waiting_approval'
+            : new Date(first.utcInstant) > now ? 'scheduled' : 'queued';
         const following = await recurrenceEngine.next({ rule: nextRule, dtstartLocal: nextStart, timeZone: nextZone, afterUtc: first.utcInstant });
         const completed = !following;
         const updatedState = { ...mergedState, firstOccurrenceAt: first.utcInstant };
         await tx.query(`UPDATE tasks SET available_at=$2,status=$3,updated_at=now()
-          WHERE task_id=$1 AND status IN ('queued','scheduled','waiting_approval')`, [schedule.task_id, first.utcInstant, taskStatus]);
+          WHERE task_id=$1 AND status IN ('queued','scheduled','waiting_approval','schedule_paused')`, [schedule.task_id, first.utcInstant, taskStatus]);
         await tx.query(`UPDATE schedule_occurrences SET scheduled_for=$2,local_datetime=$3,timezone=$4
           WHERE schedule_id=$1 AND sequence=1`, [schedule.schedule_id, first.utcInstant, first.localDateTime, nextZone]);
         const result = await tx.query(`UPDATE schedules SET recurrence=$2,timezone=$3,dtstart_local=$4,state=$5::jsonb,
@@ -168,7 +199,7 @@ export function createPostgresRecurringScheduler({ database, recurrenceEngine, c
         WHERE schedule_id=$1 ORDER BY sequence DESC LIMIT 1`, [schedule.schedule_id]);
       const lastLocalDate = lastOccurrence.rows[0]?.local_datetime?.slice(0, 10) ?? null;
       let next = await recurrenceEngine.next({ rule: nextRule, dtstartLocal: nextStart, timeZone: nextZone, afterUtc: schedule.last_occurrence_at ?? null });
-      if (next?.status === 'resolved' && lastLocalDate && next.localDateTime.slice(0, 10) === lastLocalDate) {
+      if (!fixedIntervalFrequency(nextRule.freq) && next?.status === 'resolved' && lastLocalDate && next.localDateTime.slice(0, 10) === lastLocalDate) {
         next = await recurrenceEngine.next({ rule: nextRule, dtstartLocal: nextStart, timeZone: nextZone, afterUtc: next.utcInstant });
       }
       if (next && next.status !== 'resolved') throw new Error(`Unable to resolve updated recurring occurrence: ${next.reason ?? 'unknown'}`);

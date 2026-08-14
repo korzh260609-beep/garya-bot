@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { evaluateTelegramInvocation } from '../src/telegram/telegramInvocation.js';
 import { createTelegramWorkspaceRuntimeWiring } from '../src/telegramWorkspace/telegramWorkspaceRuntimeWiring.js';
 
 function fixture(initialRows = []) {
@@ -47,6 +48,18 @@ function canonicalInput(overrides = {}) {
   });
 }
 
+function ordinaryGroupUpdate() {
+  return {
+    update_id: 1,
+    message: {
+      message_id: 1,
+      from: { id: 7, is_bot: false },
+      chat: { id: -100123, type: 'group' },
+      text: 'ordinary group text'
+    }
+  };
+}
+
 test('TWM1.10 resolves persisted workspace policy and propagates bounded namespaces', async () => {
   const fx = fixture([
     row('responses', { mode: 'all', reply_enabled: true }),
@@ -73,6 +86,12 @@ test('TWM1.10 resolves persisted workspace policy and propagates bounded namespa
   assert.deepEqual(fx.listCalls, ['tgw_runtime10']);
 });
 
+test('TWM1.10 managed workspace defaults to all so users do not need @mention', async () => {
+  const fx = fixture([]);
+  const policy = await fx.wiring.resolvePolicyByTelegramChatId('-100123');
+  assert.equal(policy.responseMode, 'all');
+});
+
 test('TWM1.10 response mode off rejects an otherwise accepted Telegram invocation', async () => {
   const fx = fixture([row('responses', { mode: 'off' })]);
   const decision = await fx.wiring.evaluateInvocation({
@@ -84,17 +103,19 @@ test('TWM1.10 response mode off rejects an otherwise accepted Telegram invocatio
   assert.equal(decision.workspaceRuntimePolicy.workspaceId, 'tgw_runtime10');
 });
 
-test('TWM1.10 response mode all admits only ordinary ambient group traffic rejected by base invocation', async () => {
+test('TWM1.10 response mode all admits the real group-not-invoked result from Telegram invocation', async () => {
   const fx = fixture([row('responses', { mode: 'all' })]);
-  const admitted = await fx.wiring.evaluateInvocation({
-    update: { message: { chat: { id: -100123, type: 'group' } } },
-    baseInvocation: Object.freeze({ accepted: false, reason: 'ambient-group-message' })
-  });
+  const update = ordinaryGroupUpdate();
+  const baseInvocation = evaluateTelegramInvocation(update, { botUserId: 999, botUsername: 'garya_bot' });
+  assert.equal(baseInvocation.accepted, false);
+  assert.equal(baseInvocation.reason, 'group-not-invoked');
+
+  const admitted = await fx.wiring.evaluateInvocation({ update, baseInvocation });
   assert.equal(admitted.accepted, true);
   assert.equal(admitted.reason, 'workspace-response-mode-all');
 
   const unrelated = await fx.wiring.evaluateInvocation({
-    update: { message: { chat: { id: -100123, type: 'group' } } },
+    update,
     baseInvocation: Object.freeze({ accepted: false, reason: 'unsupported-update' })
   });
   assert.equal(unrelated.accepted, false);

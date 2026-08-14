@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { parseStructuredAIOutput } from '../ai/contracts.js';
 
 const ROUTE_SCHEMA = Object.freeze({
@@ -15,7 +16,7 @@ function messageFrom(update) {
   return update?.message ?? update?.edited_message ?? null;
 }
 
-export function createTelegramSemanticSubsystemRouter({ aiRouter, idFactory = () => crypto.randomUUID() } = {}) {
+export function createTelegramSemanticSubsystemRouter({ aiRouter, idFactory = randomUUID } = {}) {
   if (typeof aiRouter?.route !== 'function') throw new TypeError('aiRouter.route is required');
   if (typeof idFactory !== 'function') throw new TypeError('idFactory must be a function');
 

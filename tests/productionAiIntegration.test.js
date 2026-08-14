@@ -158,6 +158,49 @@ test('defensive boundary preserves canonical user text and production failure re
   assert.match(fallback.meaning, /No protected action was authorized or executed/);
 });
 
+test('semantic interpreter receives bounded conversational turns for follow-up meaning without internal ids', async () => {
+  let routed;
+  const interpreter = createProductionMeaningInterpreter({
+    fallbackOnFailure: true,
+    aiRouter: {
+      async route(input) {
+        routed = input;
+        throw new AIProviderError('provider unavailable', { retryable: false, code: 'AI_PROVIDER_DOWN' });
+      },
+    },
+  });
+  const canonicalInput = {
+    text: 'А ещё есть другая?',
+    locale: 'ru',
+    identityContext: { roles: ['monarch'] },
+    scopeContext: { userScope: 'usr-a', projectScope: 'sg2.1', groupScope: null, threadScope: null },
+    traceContext,
+    metadata: {
+      conversationContext: {
+        conversationId: 'conversation:secret-internal-id',
+        recentTurns: [
+          { messageId: 'message:1', direction: 'inbound', text: 'Какая у меня машина?', createdAt: '2026-08-14T20:25:00.000Z' },
+          { messageId: 'message:2', direction: 'outbound', text: 'У тебя Land Rover Freelander 2.', createdAt: '2026-08-14T20:25:01.000Z' },
+          { messageId: 'message:3', direction: 'inbound', text: 'А ещё есть другая?', createdAt: '2026-08-14T20:25:02.000Z', replyToMessageId: 'message:2' },
+        ],
+      },
+    },
+  };
+
+  await interpreter.interpret(canonicalInput);
+  const payload = JSON.parse(routed.messages[1].content);
+  assert.deepEqual(payload.conversationContext.recentTurns, [
+    { direction: 'user', text: 'Какая у меня машина?' },
+    { direction: 'assistant', text: 'У тебя Land Rover Freelander 2.' },
+    { direction: 'user', text: 'А ещё есть другая?' },
+  ]);
+  const serialized = JSON.stringify(payload.conversationContext);
+  assert.equal(serialized.includes('conversation:secret-internal-id'), false);
+  assert.equal(serialized.includes('message:1'), false);
+  assert.equal(serialized.includes('replyToMessageId'), false);
+  assert.match(routed.messages[0].content, /durable.*Memory 2\.0/i);
+});
+
 test('production composition is explicit and deterministic mode remains the default', () => {
   const deterministic = createLocalProductionHarness({ env: {} });
   assert.equal(deterministic.productionAI, null);

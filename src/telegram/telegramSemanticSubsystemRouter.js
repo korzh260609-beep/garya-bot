@@ -7,7 +7,7 @@ const ROUTE_SCHEMA = Object.freeze({
   required: ['destination', 'workspaceOperation', 'reason'],
   properties: {
     destination: { type: 'string', enum: ['runtime', 'telegram-workspace-manager'] },
-    workspaceOperation: { anyOf: [{ type: 'string', enum: ['configure', 'configuration-history'] }, { type: 'null' }] },
+    workspaceOperation: { anyOf: [{ type: 'string', enum: ['configure', 'configuration-history', 'workspace-list'] }, { type: 'null' }] },
     reason: { type: 'string', minLength: 1, maxLength: 300 }
   }
 });
@@ -35,7 +35,7 @@ export function createTelegramSemanticSubsystemRouter({ aiRouter, idFactory = ra
         messages: [
           {
             role: 'system',
-            content: 'Route the user message by semantic meaning, not by words, phrases, regex, language, or superficial topic overlap. destination=telegram-workspace-manager ONLY when the user is genuinely asking to configure a Telegram workspace/group/channel managed by SG or to inspect the configuration-change history of such a workspace. Personal automation and task lifecycle requests belong to the general SG runtime: creating, listing, inspecting, changing, pausing, resuming, stopping or cancelling the user own reminders, scheduled messages or recurring automations MUST use destination=runtime, even when they are received through Telegram. Ordinary conversation, prior-conversation recall, questions about what was discussed at a time, Memory 2.0 recall, user facts, project-development history, general Telegram questions, personal automation lifecycle, and all other requests MUST use destination=runtime. When destination=telegram-workspace-manager set workspaceOperation=configure or configuration-history. Otherwise workspaceOperation=null. Return only schema-valid JSON.'
+            content: 'Route the user message by semantic meaning, not by words, phrases, regex, language, or superficial topic overlap. destination=telegram-workspace-manager ONLY when the user is genuinely asking to configure a Telegram workspace/group/channel managed by SG, inspect configuration-change history of such a workspace, or list/inspect which Telegram workspaces are available to the current user. For a request to list or show the user managed/available Telegram groups, channels, or workspaces, set workspaceOperation=workspace-list. Personal automation and task lifecycle requests belong to the general SG runtime: creating, listing, inspecting, changing, pausing, resuming, stopping or cancelling the user own reminders, scheduled messages or recurring automations MUST use destination=runtime, even when they are received through Telegram. Ordinary conversation, prior-conversation recall, questions about what was discussed at a time, Memory 2.0 recall, user facts, project-development history, general Telegram questions, personal automation lifecycle, and all other requests MUST use destination=runtime. When destination=telegram-workspace-manager set workspaceOperation=configure, configuration-history, or workspace-list. Otherwise workspaceOperation=null. Return only schema-valid JSON.'
           },
           { role: 'user', content: JSON.stringify({ text: message.text, chatType: message.chat?.type ?? null }) }
         ],

@@ -13,6 +13,7 @@ const EVENT_CLASS_MAP = Object.freeze({
   worker_action_gate_decision: 'action_gate_decision',
   worker_task_completed: 'capability_completed',
   worker_task_retry_scheduled: 'capability_failed',
+  worker_task_deferred: 'audit_event',
   worker_task_dead_lettered: 'capability_failed',
   worker_task_recovered: 'audit_event'
 });
@@ -121,10 +122,12 @@ export function createDurableWorker({
           idempotencyKey: task.idempotency_key
         }));
         const allowed = gateDecision?.allowed === true || gateDecision?.outcome === 'allow';
-        event('worker_action_gate_decision', task, allowed ? 'allow' : 'deny', { gateOutcome: gateDecision?.outcome ?? null, gateReason: gateDecision?.reason ?? null });
+        event('worker_action_gate_decision', task, allowed ? 'allow' : gateDecision?.outcome ?? 'deny', { gateOutcome: gateDecision?.outcome ?? null, gateReason: gateDecision?.reason ?? null, deferUntil: gateDecision?.deferUntil ?? null });
         if (!allowed) {
           const error = new Error(gateDecision?.reason ?? 'action_gate_denied');
-          error.code = 'action_gate_denied';
+          error.code = gateDecision?.outcome === 'defer' ? 'action_gate_deferred' : 'action_gate_denied';
+          if (gateDecision?.outcome === 'defer' && gateDecision?.deferUntil) error.deferUntil = gateDecision.deferUntil;
+          else error.retryable = false;
           throw error;
         }
       }
@@ -151,7 +154,12 @@ export function createDurableWorker({
       failed += 1;
       lastError = error;
       const failure = await queue.fail({ taskId: task.task_id, workerId, error, baseDelayMs: retryBaseDelayMs, maxDelayMs: retryMaxDelayMs });
-      event(failure.outcome === 'dead_letter' ? 'worker_task_dead_lettered' : 'worker_task_retry_scheduled', failure.task, failure.outcome, { error: error.message, delayMs: failure.delayMs ?? null });
+      const workerEvent = failure.outcome === 'dead_letter'
+        ? 'worker_task_dead_lettered'
+        : failure.outcome === 'deferred'
+          ? 'worker_task_deferred'
+          : 'worker_task_retry_scheduled';
+      event(workerEvent, failure.task, failure.outcome, { error: error.message, delayMs: failure.delayMs ?? null, deferUntil: failure.deferUntil ?? null });
       return failure.task;
     } finally {
       if (heartbeatTimer) clearInterval(heartbeatTimer);

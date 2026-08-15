@@ -94,6 +94,10 @@ function label(row) {
 function keyboard(token) {
   return { inline_keyboard: [[{ text: '✅ Подтвердить', callback_data: `${CALLBACK_PREFIX}confirm|${token}` }],[{ text: '❌ Отмена', callback_data: `${CALLBACK_PREFIX}cancel|${token}` }]] };
 }
+function safeFailureCode(error) {
+  const value = typeof error?.code === 'string' && error.code.trim() ? error.code.trim() : 'twm-operation-failed';
+  return /^[a-z0-9._:-]{1,80}$/i.test(value) ? value : 'twm-operation-failed';
+}
 
 export function createTelegramWorkspaceOperationsNaturalLanguageService({
   aiRouter, botClient, identityResolver, workspaceRegistry, authorityResolver, operationsService, pendingStore,
@@ -190,10 +194,13 @@ export function createTelegramWorkspaceOperationsNaturalLanguageService({
     if (interpreted.operation === 'media.save' || interpreted.operation === 'media.publish') {
       if (!interpreted.media?.fileId) throw Object.assign(new Error('Telegram media is required'), { code: 'twm-media-required' });
       const media = interpreted.media;
-      const draft = await operationsService.createDraft(ctx, { kind: media.mediaType, text: '', caption: args.caption ?? media.caption ?? '' });
-      const attached = await operationsService.attachMedia(ctx, { contentId: draft.recordId, mediaType: media.mediaType, fileId: media.fileId, fileUniqueId: media.fileUniqueId, fileName: media.fileName, mimeType: media.mimeType, provenance: { source: 'telegram-update', updateId: media.updateId } });
-      if (interpreted.operation === 'media.publish') return operationsService.publishContent(ctx, { contentId: attached.recordId });
-      return attached;
+      const mediaArgs = { mediaType: media.mediaType, fileId: media.fileId, fileUniqueId: media.fileUniqueId, fileName: media.fileName, mimeType: media.mimeType, caption: args.caption ?? media.caption ?? '', provenance: { source: 'telegram-update', updateId: media.updateId } };
+      if (interpreted.operation === 'media.publish') {
+        if (typeof operationsService.publishMedia !== 'function') throw Object.assign(new Error('protected media publication operation unavailable'), { code: 'twm-media-publication-unavailable' });
+        return operationsService.publishMedia(ctx, mediaArgs);
+      }
+      const draft = await operationsService.createDraft(ctx, { kind: media.mediaType, text: '', caption: mediaArgs.caption });
+      return operationsService.attachMedia(ctx, { contentId: draft.recordId, mediaType: media.mediaType, fileId: media.fileId, fileUniqueId: media.fileUniqueId, fileName: media.fileName, mimeType: media.mimeType, provenance: mediaArgs.provenance });
     }
     const method = METHOD[interpreted.operation];
     if (!method || typeof operationsService[method] !== 'function') throw Object.assign(new Error('unsupported workspace operation'), { code: 'twm-operation-unsupported' });
@@ -281,8 +288,11 @@ export function createTelegramWorkspaceOperationsNaturalLanguageService({
       try { await audit({ eventClass: 'telegram_workspace_operation_nl', outcome: 'success', operation: interpreted.operation, actorGlobalUserId: actor.actorGlobalUserId, workspaceId: workspace.workspaceId, traceId: interpreted.traceId, requestId: interpreted.requestId }); } catch {}
       return freeze({ handled: true, outcome: 'operation-executed', operation: interpreted.operation, result });
     } catch (error) {
-      await pendingStore.fail(token);
-      await botClient.answerCallbackQuery({ callbackQueryId: update.callback_query.id, text: 'Действие отклонено текущими правами или состоянием', showAlert: true });
+      const code = safeFailureCode(error);
+      try { await pendingStore.fail(token); } catch {}
+      try { await botClient.answerCallbackQuery({ callbackQueryId: update.callback_query.id, text: `Не выполнено: ${code}`, showAlert: true }); } catch {}
+      try { await botClient.editMessageText({ chatId: update.callback_query.message.chat.id, messageId: update.callback_query.message.message_id, text: `Не выполнено: ${code}. Действие не подтверждено как успешно выполненное.` }); } catch {}
+      try { await audit({ eventClass: 'telegram_workspace_operation_nl', outcome: 'failure', operation: interpreted.operation, actorGlobalUserId: actor.actorGlobalUserId, workspaceId: workspace.workspaceId, traceId: interpreted.traceId, requestId: interpreted.requestId, code }); } catch {}
       throw error;
     }
   }

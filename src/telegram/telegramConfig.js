@@ -17,6 +17,13 @@ function normalizeBaseUrl(value) {
   return String(value ?? '').trim().replace(/\/+$/, '');
 }
 
+function normalizePath(value, fallback, key) {
+  const raw = String(value ?? fallback).trim();
+  const path = raw.startsWith('/') ? raw : `/${raw}`;
+  if (path.includes('?') || path.includes('#')) throw new Error(`${key} must be a URL path without query or fragment`);
+  return path.replace(/\/+$/, '') || fallback;
+}
+
 function publicBaseUrl(env) {
   const explicit = normalizeBaseUrl(firstNonEmpty(env, ['BASE_URL', 'TELEGRAM_WEBHOOK_URL']));
   if (explicit) return explicit.replace(/\/webhooks\/telegram$/, '');
@@ -30,7 +37,8 @@ function publicBaseUrl(env) {
 
 export function loadTelegramConfig(env = process.env) {
   if (!firstNonEmpty(env, ['TELEGRAM_BOT_TOKEN', 'BOT_TOKEN'])) throw new Error('Telegram bot token is required (TELEGRAM_BOT_TOKEN or BOT_TOKEN)');
-  const webhookPath = firstNonEmpty(env, ['TELEGRAM_WEBHOOK_PATH']) || '/webhooks/telegram';
+  const webhookPath = normalizePath(firstNonEmpty(env, ['TELEGRAM_WEBHOOK_PATH']), '/webhooks/telegram', 'TELEGRAM_WEBHOOK_PATH');
+  const miniAppPath = normalizePath(firstNonEmpty(env, ['TELEGRAM_MINI_APP_PATH']), '/telegram/mini-app', 'TELEGRAM_MINI_APP_PATH');
   const baseUrl = publicBaseUrl(env);
   if (!baseUrl) throw new Error('Public base URL is required (BASE_URL, RENDER_EXTERNAL_URL or RENDER_EXTERNAL_HOSTNAME)');
 
@@ -38,8 +46,10 @@ export function loadTelegramConfig(env = process.env) {
   return Object.freeze({
     botTokenCredentialId: 'sg.telegram.bot',
     webhookSecretCredentialId: 'sg.telegram.webhook',
-    webhookUrl: `${baseUrl}${webhookPath.startsWith('/') ? webhookPath : `/${webhookPath}`}`,
-    webhookPath: webhookPath.startsWith('/') ? webhookPath : `/${webhookPath}`,
+    webhookUrl: `${baseUrl}${webhookPath}`,
+    webhookPath,
+    miniAppUrl: `${baseUrl}${miniAppPath}`,
+    miniAppPath,
     botUserId: firstNonEmpty(env, ['TELEGRAM_BOT_USER_ID']) || null,
     botUsername: firstNonEmpty(env, ['TELEGRAM_BOT_USERNAME']).replace(/^@/, '') || null,
     apiTimeoutMs: positiveInteger(env.TELEGRAM_API_TIMEOUT_MS, 10000, 'TELEGRAM_API_TIMEOUT_MS'),

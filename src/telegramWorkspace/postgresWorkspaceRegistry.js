@@ -46,6 +46,7 @@ export function createPostgresTelegramWorkspaceRegistry(database, options = {}) 
 
   return Object.freeze({
     ...registry,
+    getWorkspace: (workspaceId) => baseStore.getWorkspace(workspaceId),
     listWorkspaces,
     store: baseStore
   });

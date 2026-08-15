@@ -6,6 +6,8 @@ import { createPostgresTelegramUpdateStore } from '../telegram/postgresTelegramU
 import { createTelegramProductionIntegration } from '../telegram/telegramProductionIntegration.js';
 import { createTelegramWebhookHttpHandler } from '../telegram/telegramWebhookHttpHandler.js';
 import { createTelegramWorkspaceProductionOperations } from '../telegramWorkspace/telegramWorkspaceProductionOperations.js';
+import { createTelegramWorkspaceOperationsNaturalLanguageService } from '../telegramWorkspace/telegramWorkspaceOperationsNaturalLanguageService.js';
+import { createTelegramWorkspaceUnifiedNaturalLanguageService } from '../telegramWorkspace/telegramWorkspaceUnifiedNaturalLanguageService.js';
 import {
   createPostgresTelegramWorkspaceAuthorityResolver,
   createTelegramWorkspaceBotCapabilityService,
@@ -306,7 +308,11 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
       })
     : null;
 
-  const telegramWorkspaceNaturalLanguage = telegramWorkspaceConfiguration && telegramUpdateStore.workspaceRegistry && harness.productionAI?.aiRouter
+  const telegramWorkspaceNaturalLanguagePendingStore = telegramWorkspaceConfiguration && telegramUpdateStore.workspaceRegistry && harness.productionAI?.aiRouter
+    ? createPostgresTelegramWorkspaceNaturalLanguagePendingStore(harness.persistence.database)
+    : null;
+
+  const telegramWorkspaceConfigurationNaturalLanguage = telegramWorkspaceNaturalLanguagePendingStore
     ? createTelegramWorkspaceNaturalLanguageService({
         aiRouter: harness.productionAI.aiRouter,
         botClient,
@@ -314,7 +320,7 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
         workspaceRegistry: telegramUpdateStore.workspaceRegistry,
         authorityResolver: telegramWorkspaceAuthority,
         configurationService: telegramWorkspaceConfiguration,
-        pendingStore: createPostgresTelegramWorkspaceNaturalLanguagePendingStore(harness.persistence.database),
+        pendingStore: telegramWorkspaceNaturalLanguagePendingStore,
         projectScope: harness.config.projectScope,
         audit: async (event) => {
           const correlation = `twm1.9:${event.outcome ?? 'nl'}`;
@@ -329,6 +335,38 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
         }
       })
     : null;
+
+  const telegramWorkspaceOperationsNaturalLanguage = telegramWorkspaceNaturalLanguagePendingStore && telegramWorkspaceOperations?.service
+    ? createTelegramWorkspaceOperationsNaturalLanguageService({
+        aiRouter: harness.productionAI.aiRouter,
+        botClient,
+        identityResolver,
+        workspaceRegistry: telegramUpdateStore.workspaceRegistry,
+        authorityResolver: telegramWorkspaceAuthority,
+        operationsService: telegramWorkspaceOperations.service,
+        pendingStore: telegramWorkspaceNaturalLanguagePendingStore,
+        projectScope: harness.config.projectScope,
+        audit: async (event) => {
+          const correlation = event.traceId ?? `twm1.14-1.15:${event.operation ?? 'operation'}`;
+          return harness.observability.record({
+            eventClass: 'audit_event',
+            channel: 'audit',
+            stage: 'telegram-workspace-operations-natural-language',
+            traceContext: { traceId: correlation, requestId: event.requestId ?? correlation, environment: harness.config.environment, revision: harness.config.revision },
+            actorRef: event.actorGlobalUserId ?? null,
+            outcome: event.outcome ?? 'unknown',
+            data: { operation: event.operation ?? null, workspaceId: event.workspaceId ?? null }
+          });
+        }
+      })
+    : null;
+
+  const telegramWorkspaceNaturalLanguage = telegramWorkspaceConfigurationNaturalLanguage && telegramWorkspaceOperationsNaturalLanguage
+    ? createTelegramWorkspaceUnifiedNaturalLanguageService({
+        configurationNaturalLanguage: telegramWorkspaceConfigurationNaturalLanguage,
+        operationsNaturalLanguage: telegramWorkspaceOperationsNaturalLanguage
+      })
+    : telegramWorkspaceConfigurationNaturalLanguage;
 
   const telegramWorkspaceMiniApp = telegramWorkspaceConfiguration && telegramUpdateStore.workspaceRegistry
     ? createTelegramWorkspaceMiniAppService({
@@ -526,7 +564,7 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
         await discordGateway.start();
         discordStarted = true;
       }
-      return Object.freeze({ port, health: harness.runtime.health(), readiness: harness.runtime.readiness(), automation: automationHealth(), discord: discordHealth(), miniApp: { enabled: Boolean(telegramWorkspaceMiniApp), path: telegramConfig.miniAppPath }, workspaceOperations: { enabled: Boolean(telegramWorkspaceOperations) }, revision: harness.config.revision });
+      return Object.freeze({ port, health: harness.runtime.health(), readiness: harness.runtime.readiness(), automation: automationHealth(), discord: discordHealth(), miniApp: { enabled: Boolean(telegramWorkspaceMiniApp), path: telegramConfig.miniAppPath }, workspaceOperations: { enabled: Boolean(telegramWorkspaceOperations), naturalLanguage: Boolean(telegramWorkspaceOperationsNaturalLanguage) }, revision: harness.config.revision });
     } catch (error) {
       if (automationStarted) {
         try { await automationWorker.stop(); } catch {}
@@ -562,6 +600,8 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
     telegramWorkspaceOperations,
     telegramWorkspaceConfiguration,
     telegramWorkspaceNativeUi,
+    telegramWorkspaceConfigurationNaturalLanguage,
+    telegramWorkspaceOperationsNaturalLanguage,
     telegramWorkspaceNaturalLanguage,
     telegramWorkspaceMiniApp,
     telegramMiniAppHandler,

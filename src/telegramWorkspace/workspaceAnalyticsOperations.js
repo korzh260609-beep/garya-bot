@@ -2,7 +2,7 @@ import { enumValue } from './workspaceOperationsContract.js';
 import { deepFreeze } from './workspaceOperationsCore.js';
 
 const DOMAINS=['content','poll','test','form','submission','event','registration','feedback','faq','onboarding','moderation','case','decision','content-plan','summary','unanswered','task-link'];
-const INTERACTION_EVENT_TYPES=Object.freeze(['poll.answer-update','test.completed','event.registered','feedback.created','form.submitted']);
+const INTERACTION_EVENT_TYPES=Object.freeze(['poll.answer-update','test.completed']);
 
 function interactionMetrics(value={}){
   return deepFreeze({

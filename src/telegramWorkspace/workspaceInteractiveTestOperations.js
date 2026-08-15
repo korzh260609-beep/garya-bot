@@ -2,7 +2,10 @@ import { boundedText, boundedArray, assertEntityId } from './workspaceOperations
 import { deepFreeze, uid, hashKey } from './workspaceOperationsCore.js';
 
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-const callback = Object.freeze({ start: (testId) => `twmt|s|${testId}`, answer: (sessionId, optionIndex) => `twmt|a|${sessionId}|${optionIndex}` });
+const callback = Object.freeze({
+  start: (testId) => `twm19|twmt|s|${testId}`,
+  answer: (sessionId, optionIndex) => `twm19|twmt|a|${sessionId}|${optionIndex}`
+});
 
 function normalizeOption(value, index, profileMode) {
   if (typeof value === 'string') return deepFreeze({ text: boundedText(value, 'option.text', 200), scoreKey: profileMode ? LETTERS[index] ?? String(index + 1) : null });
@@ -43,6 +46,10 @@ function optionKeyboard(sessionId, question) {
   return { inline_keyboard: question.options.map((option, index) => [{ text: `${LETTERS[index] ?? index + 1}. ${option.text}`.slice(0, 64), callback_data: callback.answer(sessionId, index) }]) };
 }
 
+function retryResultKeyboard(sessionId) {
+  return { inline_keyboard: [[{ text: '📩 Отправить результат в личку', callback_data: callback.answer(sessionId, 0) }]] };
+}
+
 function questionText(test, questionIndex) {
   const question = test.payload.questions[questionIndex];
   return `${test.payload.title}\n\n${questionIndex + 1}/${test.payload.questions.length}. ${question.text}`;
@@ -72,6 +79,20 @@ function resultText(test, result) {
   const profiles = result.profiles.length ? result.profiles : result.keys.map((key) => ({ key, title: key, description: '' }));
   const body = profiles.map((profile) => `• ${profile.title}${profile.description ? ` — ${profile.description}` : ''}`).join('\n');
   return `${test.payload.title}\n\nРезультат:\n${body}`;
+}
+
+async function deliverPrivateResult(botClient, ctx, test, result, sessionId) {
+  try {
+    await botClient.sendMessage({ chatId: ctx.telegramUserId, text: resultText(test, result) });
+    return deepFreeze({ delivered: true, text: 'Тест завершён. Результат отправлен вам в личные сообщения.', replyMarkup: null });
+  } catch (error) {
+    return deepFreeze({
+      delivered: false,
+      failureCode: error?.code ?? 'telegram-private-delivery-failed',
+      text: 'Тест завершён, но Telegram не разрешил отправить результат в личку. Откройте личный чат с ботом, нажмите Start и затем нажмите кнопку ниже.',
+      replyMarkup: retryResultKeyboard(sessionId)
+    });
+  }
 }
 
 export function createWorkspaceInteractiveTestOperations({ core, botClient } = {}) {
@@ -106,7 +127,10 @@ export function createWorkspaceInteractiveTestOperations({ core, botClient } = {
     if (!session || session.actorGlobalUserId !== ctx.actorGlobalUserId || session.payload?.participantGlobalUserId !== ctx.actorGlobalUserId) throw Object.assign(new Error('test session denied'), { code: 'twm-test-session-denied' });
     const test = await store.getRecord({ workspaceId: ctx.workspaceId, domain: 'test', recordId: session.payload.testId });
     if (!test) throw Object.assign(new Error('test not found'), { code: 'twm-domain-record-not-found' });
-    if (session.status === 'scored') return deepFreeze({ completed: true, result: session.payload.result, text: resultText(test, session.payload.result), replyMarkup: null });
+    if (session.status === 'scored') {
+      const delivery = await deliverPrivateResult(botClient, ctx, test, session.payload.result, session.recordId);
+      return deepFreeze({ completed: true, result: session.payload.result, privateDelivery: delivery.delivered, text: delivery.text, replyMarkup: delivery.replyMarkup });
+    }
     const questionIndex = Number(session.payload.nextQuestionIndex ?? 0);
     const question = test.payload.questions[questionIndex];
     const selected = Number(optionIndex);
@@ -121,7 +145,8 @@ export function createWorkspaceInteractiveTestOperations({ core, botClient } = {
     const result = test.payload.mode === 'profile' ? scoreProfile(test, answers) : scoreKnowledge(test, answers);
     const updated = await store.updateRecord({ workspaceId: ctx.workspaceId, domain: 'submission', recordId: session.recordId, actorGlobalUserId: ctx.actorGlobalUserId, status: 'scored', visibility: 'private', privacyClass: 'private', payload: { ...session.payload, answers, nextQuestionIndex, result, completedAt: new Date().toISOString() }, expectedVersion: session.version });
     await store.appendEvent({ workspaceId: ctx.workspaceId, eventKey: hashKey(['test.completed', test.recordId, updated.recordId]), eventType: 'test.completed', recordDomain: 'test', recordId: test.recordId, actorGlobalUserId: ctx.actorGlobalUserId, evidence: { submissionId: updated.recordId, mode: test.payload.mode } });
-    return deepFreeze({ completed: true, session: updated, result, text: resultText(test, result), replyMarkup: null });
+    const delivery = await deliverPrivateResult(botClient, ctx, test, result, updated.recordId);
+    return deepFreeze({ completed: true, session: updated, result, privateDelivery: delivery.delivered, text: delivery.text, replyMarkup: delivery.replyMarkup });
   }
 
   return deepFreeze({ createTest, start, answer, callback });

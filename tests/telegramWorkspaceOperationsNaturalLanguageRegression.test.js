@@ -105,16 +105,8 @@ test('TWM media publication confirmation preserves actual Telegram file id and r
     },
     operationsService: {
       core: { store: { async listRecords() { return []; } } },
-      async createDraft(ctx, args) {
-        calls.push({ method: 'createDraft', ctx, args });
-        return { recordId: 'content_1' };
-      },
-      async attachMedia(ctx, args) {
-        calls.push({ method: 'attachMedia', ctx, args });
-        return { recordId: 'content_1' };
-      },
-      async publishContent(ctx, args) {
-        calls.push({ method: 'publishContent', ctx, args });
+      async publishMedia(ctx, args) {
+        calls.push({ method: 'publishMedia', ctx, args });
         return { recordId: 'content_1', status: 'published' };
       }
     },
@@ -157,15 +149,53 @@ test('TWM media publication confirmation preserves actual Telegram file id and r
   });
 
   assert.equal(confirmed.outcome, 'operation-executed');
-  assert.deepEqual(calls.map((call) => call.method), ['createDraft', 'attachMedia', 'publishContent']);
-  assert.equal(calls[1].args.fileId, 'actual-photo-file');
-  assert.notEqual(calls[1].args.fileId, 'ai-must-not-control-this');
-  assert.equal(calls[2].ctx.confirmation.confirmed, true);
-  assert.equal(calls[2].ctx.confirmation.requestId, requestId);
-  assert.equal(calls[2].ctx.requestId, requestId);
+  assert.deepEqual(calls.map((call) => call.method), ['publishMedia']);
+  assert.equal(calls[0].args.fileId, 'actual-photo-file');
+  assert.notEqual(calls[0].args.fileId, 'ai-must-not-control-this');
+  assert.equal(calls[0].ctx.confirmation.confirmed, true);
+  assert.equal(calls[0].ctx.confirmation.requestId, requestId);
+  assert.equal(calls[0].ctx.requestId, requestId);
   assert.equal(answered.at(-1).text, 'Выполнено');
   assert.equal(edited.length, 1);
   assert.equal(pending.snapshot().status, 'completed');
+});
+
+test('TWM callback failure is visible to the user with a safe code and remains failed', async () => {
+  const pending = pendingStore();
+  const answered = [];
+  const edited = [];
+  const workspace = { workspaceId: 'telegram:workspace:100', telegramChatId: '-100100', workspaceType: 'supergroup', title: 'Sandbox' };
+  const service = createTelegramWorkspaceOperationsNaturalLanguageService({
+    aiRouter: { async route() { return { text: JSON.stringify({ kind: 'operation', workspaceId: workspace.workspaceId, operation: 'media.publish', argumentsJson: '{}', summary: 'Опубликовать изображение' }) }; } },
+    botClient: {
+      async sendMessage() { return { message_id: 901 }; },
+      async answerCallbackQuery(input) { answered.push(input); return true; },
+      async editMessageText(input) { edited.push(input); return true; }
+    },
+    identityResolver,
+    workspaceRegistry: {
+      async listWorkspaces() { return [workspace]; },
+      async resolveTelegramChatId() { return null; },
+      async getWorkspace() { return workspace; }
+    },
+    authorityResolver: { async verify() { return { allowed: true }; } },
+    operationsService: {
+      core: { store: { async listRecords() { return []; } } },
+      async publishMedia() { throw Object.assign(new Error('internal detail must not leak'), { code: 'telegram-api-failed' }); }
+    },
+    pendingStore: pending,
+    projectScope: 'sg2.1',
+    idFactory: (() => { const ids = ['trace-fail', 'request-fail']; return () => ids.shift() ?? 'extra'; })()
+  });
+
+  await service.handleUpdate({ update_id: 703, message: { message_id: 12, chat: { id: 42, type: 'private' }, from: { id: 42 }, caption: 'Разместить фото', photo: [{ file_id: 'actual-photo-file' }] } }, { semanticRoute: { destination: 'telegram-workspace-manager', workspaceOperation: 'operate' } });
+
+  await assert.rejects(() => service.handleUpdate({ update_id: 704, callback_query: { id: 'callback-fail', data: 'twm19|op-confirm|pending-token', from: { id: 42 }, message: { message_id: 901, chat: { id: 42, type: 'private' } } } }), /internal detail/);
+  assert.equal(pending.snapshot().status, 'failed');
+  assert.equal(answered.at(-1).text, 'Не выполнено: telegram-api-failed');
+  assert.equal(answered.at(-1).showAlert, true);
+  assert.match(edited.at(-1).text, /telegram-api-failed/);
+  assert.equal(edited.at(-1).text.includes('internal detail'), false);
 });
 
 test('unified TWM natural-language dispatcher keeps config callbacks and operation callbacks separated', async () => {

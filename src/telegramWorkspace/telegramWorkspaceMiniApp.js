@@ -3,6 +3,7 @@ import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 const DEFAULT_MAX_AGE_SECONDS = 10 * 60;
 const MAX_INIT_DATA_BYTES = 16 * 1024;
 const MAX_WORKSPACES = 30;
+const MAX_CONFIRMATION_TOKEN_BYTES = 48 * 1024;
 
 function required(value, name) {
   if (typeof value !== 'string' || value.trim() === '') throw new TypeError(`${name} is required`);
@@ -48,6 +49,7 @@ function parseTelegramUser(raw) {
 /**
  * Validates Telegram WebApp initData using Telegram's server-side HMAC scheme.
  * Returned user facts are transport evidence only; SG Identity/Authority remains authoritative.
+ * bindingKey is server-internal and must never be returned by a Mini App HTTP response.
  */
 export function verifyTelegramMiniAppInitData(initDataValue, botTokenValue, {
   clock = () => new Date(),
@@ -79,12 +81,14 @@ export function verifyTelegramMiniAppInitData(initDataValue, botTokenValue, {
   const secretKey = createHmac('sha256', 'WebAppData').update(botToken).digest();
   const expectedHash = createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
   if (!safeEqualHex(receivedHash, expectedHash)) fail('Telegram Mini App signature is invalid', 'twm-mini-app-signature-invalid');
+  const bindingKey = createHmac('sha256', secretKey).update(`sg:twm1.13:${receivedHash}`).digest('hex');
 
   return freeze({
     telegramUser: parseTelegramUser(userRaw),
     authDate,
     queryId: params.get('query_id') || null,
-    startParam: params.get('start_param') || null
+    startParam: params.get('start_param') || null,
+    bindingKey
   });
 }
 
@@ -97,6 +101,47 @@ function publicWorkspace(workspace) {
     lifecycleState: workspace.lifecycleState,
     botMembershipState: workspace.botMembershipState
   });
+}
+
+function proposalPayload(proposal) {
+  return freeze({
+    kind: 'twm-mini-app-confirmation-v1',
+    proposalId: required(proposal.proposalId, 'proposal.proposalId'),
+    requestId: required(proposal.requestId, 'proposal.requestId'),
+    workspaceId: required(proposal.workspaceId, 'proposal.workspaceId'),
+    namespace: required(proposal.namespace, 'proposal.namespace'),
+    traceId: required(proposal.traceId, 'proposal.traceId'),
+    baseVersion: Number(proposal.baseVersion),
+    nextConfig: proposal.nextConfig,
+    changedPaths: proposal.changedPaths,
+    risk: proposal.risk,
+    confirmationRequired: proposal.confirmationRequired === true,
+    reason: proposal.reason ?? 'telegram-mini-app:confirmed-apply'
+  });
+}
+
+function encodeConfirmation(payload, bindingKey) {
+  const body = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
+  const signature = createHmac('sha256', required(bindingKey, 'bindingKey')).update(body).digest('hex');
+  const token = `${body}.${signature}`;
+  if (Buffer.byteLength(token, 'utf8') > MAX_CONFIRMATION_TOKEN_BYTES) fail('Mini App confirmation token is too large', 'twm-mini-app-confirmation-token-too-large');
+  return token;
+}
+
+function decodeConfirmation(tokenValue, bindingKey) {
+  const token = required(tokenValue, 'confirmationToken');
+  if (Buffer.byteLength(token, 'utf8') > MAX_CONFIRMATION_TOKEN_BYTES) fail('Mini App confirmation token is too large', 'twm-mini-app-confirmation-token-too-large');
+  const separator = token.lastIndexOf('.');
+  if (separator < 1) fail('Mini App confirmation token is invalid', 'twm-mini-app-confirmation-token-invalid');
+  const body = token.slice(0, separator);
+  const receivedSignature = token.slice(separator + 1);
+  const expectedSignature = createHmac('sha256', required(bindingKey, 'bindingKey')).update(body).digest('hex');
+  if (!safeEqualHex(receivedSignature, expectedSignature)) fail('Mini App confirmation token signature is invalid', 'twm-mini-app-confirmation-token-invalid');
+  let payload;
+  try { payload = JSON.parse(Buffer.from(body, 'base64url').toString('utf8')); } catch { fail('Mini App confirmation token payload is invalid', 'twm-mini-app-confirmation-token-invalid'); }
+  if (!payload || typeof payload !== 'object' || payload.kind !== 'twm-mini-app-confirmation-v1') fail('Mini App confirmation token payload is invalid', 'twm-mini-app-confirmation-token-invalid');
+  if (!Number.isInteger(payload.baseVersion) || payload.baseVersion < 0) fail('Mini App confirmation token version is invalid', 'twm-mini-app-confirmation-token-invalid');
+  return freeze(payload);
 }
 
 export function createTelegramWorkspaceMiniAppService({
@@ -114,7 +159,7 @@ export function createTelegramWorkspaceMiniAppService({
   if (typeof identityResolver !== 'function') throw new TypeError('identityResolver is required');
   if (typeof workspaceRegistry?.listWorkspaces !== 'function') throw new TypeError('workspaceRegistry.listWorkspaces is required');
   if (typeof authorityResolver?.verify !== 'function') throw new TypeError('authorityResolver.verify is required');
-  for (const method of ['getConfig', 'listConfigs', 'proposeChange', 'applyChange', 'history', 'rollback']) {
+  for (const method of ['getConfig', 'listConfigs', 'proposeChange', 'applyProposal', 'history', 'rollback']) {
     if (typeof configurationService?.[method] !== 'function') throw new TypeError(`configurationService.${method} is required`);
   }
   if (botCapabilityService !== null && typeof botCapabilityService?.getHealth !== 'function') throw new TypeError('botCapabilityService.getHealth is required');
@@ -123,7 +168,7 @@ export function createTelegramWorkspaceMiniAppService({
   async function identify(initData) {
     const verified = await verifyInitData(required(initData, 'initData'));
     const user = verified?.telegramUser;
-    if (!user?.id) fail('Telegram Mini App identity evidence is missing', 'twm-mini-app-identity-missing');
+    if (!user?.id || !verified?.bindingKey) fail('Telegram Mini App identity evidence is missing', 'twm-mini-app-identity-missing');
     const resolution = await identityResolver(Object.freeze({
       transport: 'telegram',
       platformFacts: Object.freeze({
@@ -145,7 +190,8 @@ export function createTelegramWorkspaceMiniAppService({
       telegramUserId: user.id,
       actorGlobalUserId: required(resolution?.identityContext?.globalUserId, 'resolved globalUserId'),
       languageCode: user.languageCode,
-      queryId: verified.queryId ?? null
+      queryId: verified.queryId ?? null,
+      bindingKey: verified.bindingKey
     });
   }
 
@@ -214,36 +260,46 @@ export function createTelegramWorkspaceMiniAppService({
       requestId,
       reason: 'telegram-mini-app:preview'
     });
+    const payload = proposalPayload(proposal);
     return freeze({
+      confirmationToken: encodeConfirmation(payload, actor.bindingKey),
       requestId,
       workspaceId: proposal.workspaceId,
       namespace: proposal.namespace,
       baseVersion: proposal.baseVersion,
-      nextConfig: proposal.nextConfig,
       changedPaths: proposal.changedPaths,
       risk: proposal.risk,
       confirmationRequired: proposal.confirmationRequired
     });
   }
 
-  async function apply({ initData, workspaceId, namespace, nextConfig, requestId, confirmed } = {}) {
+  async function apply({ initData, confirmationToken, confirmed } = {}) {
     if (confirmed !== true) fail('explicit Mini App confirmation is required', 'twm-mini-app-confirmation-required');
     const actor = await identify(initData);
-    const request = required(requestId, 'requestId');
-    if (!request.startsWith('twm-mini:') || request.length > 128) fail('Mini App request id is invalid', 'twm-mini-app-request-id-invalid');
-    const traceId = `twm-mini:${idFactory()}`;
-    const result = await configurationService.applyChange({
-      workspaceId,
-      namespace,
-      nextConfig,
+    const payload = decodeConfirmation(confirmationToken, actor.bindingKey);
+    await requireWorkspace(actor, payload.workspaceId, 'workspace:configure', true);
+    const proposal = freeze({
+      kind: 'telegram-workspace-config-proposal',
+      proposalId: required(payload.proposalId, 'proposalId'),
+      requestId: required(payload.requestId, 'requestId'),
+      workspaceId: required(payload.workspaceId, 'workspaceId'),
+      namespace: required(payload.namespace, 'namespace'),
+      actorGlobalUserId: actor.actorGlobalUserId,
+      traceId: required(payload.traceId, 'traceId'),
+      reason: payload.reason ?? 'telegram-mini-app:confirmed-apply',
+      baseVersion: Number(payload.baseVersion),
+      nextConfig: payload.nextConfig,
+      changedPaths: freeze([...(payload.changedPaths ?? [])]),
+      risk: payload.risk,
+      confirmationRequired: payload.confirmationRequired === true
+    });
+    const result = await configurationService.applyProposal({
+      proposal,
       actorGlobalUserId: actor.actorGlobalUserId,
       telegramUserId: actor.telegramUserId,
-      traceId,
-      requestId: request,
-      reason: 'telegram-mini-app:confirmed-apply',
-      confirmation: freeze({ confirmed: true, requestId: request })
+      confirmation: freeze({ confirmed: true, requestId: proposal.requestId })
     });
-    try { await audit(freeze({ eventClass: 'telegram_workspace_mini_app', action: 'apply', outcome: 'success', actorGlobalUserId: actor.actorGlobalUserId, workspaceId, namespace, version: result.config.version })); } catch {}
+    try { await audit(freeze({ eventClass: 'telegram_workspace_mini_app', action: 'apply', outcome: 'success', actorGlobalUserId: actor.actorGlobalUserId, workspaceId: proposal.workspaceId, namespace: proposal.namespace, version: result.config.version })); } catch {}
     return result;
   }
 

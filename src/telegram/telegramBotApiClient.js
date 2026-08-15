@@ -109,6 +109,14 @@ export function createTelegramBotApiClient({
       ...(text == null ? {} : { text: String(text).slice(0, 200) }),
       show_alert: showAlert === true
     }),
+    setChatMenuButton: ({ chatId = null, text = 'Управление', webAppUrl }) => call('setChatMenuButton', {
+      ...(chatId == null ? {} : { chat_id: chatId }),
+      menu_button: {
+        type: 'web_app',
+        text: requiredString(text, 'menu button text').slice(0, 64),
+        web_app: { url: requiredString(webAppUrl, 'Mini App URL') }
+      }
+    }),
     setWebhook: ({ url, secretToken, allowedUpdates = ['message', 'edited_message', 'channel_post', 'edited_channel_post', 'callback_query', 'my_chat_member'] }) => call('setWebhook', {
       url: requiredString(url, 'webhook url'),
       secret_token: requiredString(secretToken, 'webhook secret'),

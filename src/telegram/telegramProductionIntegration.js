@@ -335,7 +335,7 @@ export function createTelegramProductionIntegration({
     const semanticRoutingAllowed = effectiveSemanticRouter && naturalLanguage && invocation.workspaceRuntimePolicy?.aiEnabled !== false;
     const work = semanticRoutingAllowed ? processSemanticallyRoutedUpdate(body, claim, invocation, semanticRoute) : processClaimedUpdate(body, claim, invocation);
 
-    if (acknowledgeBeforeProcessing) { trackBackground(work); return Object.freeze({ statusCode: 200, body: { ok: true, accepted: true } });
+    if (acknowledgeBeforeProcessing) { trackBackground(work); return Object.freeze({ statusCode: 200, body: { ok: true, accepted: true } }); }
     const processed = await work;
     if (processed.ok) return Object.freeze({ statusCode: 200, body: processed.naturalLanguage === true ? { ok: true, naturalLanguage: true } : { ok: true } });
     return Object.freeze({ statusCode: 503, body: { ok: false, code: processed.error.code ?? 'telegram-update-failed' } });

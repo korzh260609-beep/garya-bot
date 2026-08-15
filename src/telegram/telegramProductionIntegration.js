@@ -68,6 +68,7 @@ export function createTelegramProductionIntegration({
   nativeUi = null,
   semanticRouter = null,
   naturalLanguage = null,
+  pollUpdates = null,
   observability = null,
   botUserId = null,
   botUsername = null,
@@ -88,6 +89,7 @@ export function createTelegramProductionIntegration({
   if (nativeUi !== null && typeof nativeUi?.handleUpdate !== 'function') throw new TypeError('nativeUi.handleUpdate is required');
   if (semanticRouter !== null && typeof semanticRouter?.routeUpdate !== 'function') throw new TypeError('semanticRouter.routeUpdate is required');
   if (naturalLanguage !== null && typeof naturalLanguage?.handleUpdate !== 'function') throw new TypeError('naturalLanguage.handleUpdate is required');
+  if (pollUpdates !== null && typeof pollUpdates?.handleUpdate !== 'function') throw new TypeError('pollUpdates.handleUpdate is required');
 
   const effectiveSemanticRouter = semanticRouter ?? (typeof naturalLanguage?.routeUpdate === 'function' ? naturalLanguage : null);
   const pending = new Set();
@@ -191,6 +193,19 @@ export function createTelegramProductionIntegration({
     }
   }
 
+  async function processPollUpdate(body, claim) {
+    try {
+      const result = await pollUpdates.handleUpdate(body, claim.updateId);
+      await updateStore.complete(claim.updateId, result?.handled === false ? 'ignored' : 'completed');
+      recordDiagnosticSensor({ eventClass: 'telegram_workspace_poll_update_completed', channel: 'telemetry', stage: 'telegram-workspace-poll-update', outcome: result?.handled === false ? 'ignored' : 'success', data: { updateId: claim.updateId, poll: Boolean(body.poll), pollAnswer: Boolean(body.poll_answer), deduplicated: result?.deduplicated === true } });
+      return Object.freeze({ ok: true, result });
+    } catch (error) {
+      try { await updateStore.fail(claim.updateId, error.code ?? 'twm-poll-update-failed'); } catch {}
+      try { observability?.recordFailure?.({ stage: 'telegram-workspace-poll-update', reason: redactSensitiveText(error.message), code: error.code ?? 'twm-poll-update-failed', data: { updateId: claim.updateId, poll: Boolean(body.poll), pollAnswer: Boolean(body.poll_answer) } }); } catch {}
+      return Object.freeze({ ok: false, error });
+    }
+  }
+
   async function processClaimedUpdate(body, claim, invocation) {
     try {
       const result = await adapter.receive(body);
@@ -265,6 +280,13 @@ export function createTelegramProductionIntegration({
     }
     if (!claim.claimed) return Object.freeze({ statusCode: 200, body: { ok: true, duplicate: true } });
 
+    if (pollUpdates && (body.poll || body.poll_answer)) {
+      if (acknowledgeBeforeProcessing) { trackBackground(processPollUpdate(body, claim)); return Object.freeze({ statusCode: 200, body: { ok: true, accepted: true, pollUpdate: true } }); }
+      const processed = await processPollUpdate(body, claim);
+      if (processed.ok) return Object.freeze({ statusCode: 200, body: { ok: true, pollUpdate: true } });
+      return Object.freeze({ statusCode: 503, body: { ok: false, code: processed.error.code ?? 'twm-poll-update-failed' } });
+    }
+
     if (naturalLanguage && isNaturalLanguageWorkspaceCallback(body)) {
       if (acknowledgeBeforeProcessing) { trackBackground(processNaturalLanguageCallback(body, claim)); return Object.freeze({ statusCode: 200, body: { ok: true, accepted: true, naturalLanguage: true } }); }
       const processed = await processNaturalLanguageCallback(body, claim);
@@ -313,7 +335,7 @@ export function createTelegramProductionIntegration({
     const semanticRoutingAllowed = effectiveSemanticRouter && naturalLanguage && invocation.workspaceRuntimePolicy?.aiEnabled !== false;
     const work = semanticRoutingAllowed ? processSemanticallyRoutedUpdate(body, claim, invocation, semanticRoute) : processClaimedUpdate(body, claim, invocation);
 
-    if (acknowledgeBeforeProcessing) { trackBackground(work); return Object.freeze({ statusCode: 200, body: { ok: true, accepted: true } }); }
+    if (acknowledgeBeforeProcessing) { trackBackground(work); return Object.freeze({ statusCode: 200, body: { ok: true, accepted: true } });
     const processed = await work;
     if (processed.ok) return Object.freeze({ statusCode: 200, body: processed.naturalLanguage === true ? { ok: true, naturalLanguage: true } : { ok: true } });
     return Object.freeze({ statusCode: 503, body: { ok: false, code: processed.error.code ?? 'telegram-update-failed' } });

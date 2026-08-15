@@ -55,7 +55,8 @@ export function verifyTelegramMiniAppInitData(initDataValue, botTokenValue, {
   clock = () => new Date(),
   maxAgeSeconds = DEFAULT_MAX_AGE_SECONDS
 } = {}) {
-  const initData = required(initDataValue, 'initData');
+  if (typeof initDataValue !== 'string' || initDataValue.trim() === '') fail('Telegram Mini App initData is missing', 'twm-mini-app-init-data-incomplete');
+  const initData = initDataValue.trim();
   const botToken = required(botTokenValue, 'botToken');
   if (Buffer.byteLength(initData, 'utf8') > MAX_INIT_DATA_BYTES) fail('Telegram Mini App initData is too large', 'twm-mini-app-init-data-too-large');
   const maxAge = Number(maxAgeSeconds);
@@ -92,9 +93,33 @@ export function verifyTelegramMiniAppInitData(initDataValue, botTokenValue, {
   });
 }
 
-function publicWorkspace(workspace) {
+function signOpaque(body, bindingKey, context) {
+  return createHmac('sha256', required(bindingKey, 'bindingKey')).update(`${context}:${body}`).digest('hex');
+}
+
+function encodeWorkspaceRef(workspaceId, bindingKey) {
+  const body = Buffer.from(required(workspaceId, 'workspaceId'), 'utf8').toString('base64url');
+  return `twr_${body}.${signOpaque(body, bindingKey, 'workspace-ref')}`;
+}
+
+function decodeWorkspaceRef(value, bindingKey) {
+  const ref = required(value, 'workspaceRef');
+  if (!ref.startsWith('twr_') || ref.length > 512) fail('Mini App workspace reference is invalid', 'twm-mini-app-workspace-ref-invalid');
+  const token = ref.slice(4);
+  const separator = token.lastIndexOf('.');
+  if (separator < 1) fail('Mini App workspace reference is invalid', 'twm-mini-app-workspace-ref-invalid');
+  const body = token.slice(0, separator);
+  const received = token.slice(separator + 1);
+  const expected = signOpaque(body, bindingKey, 'workspace-ref');
+  if (!safeEqualHex(received, expected)) fail('Mini App workspace reference is invalid', 'twm-mini-app-workspace-ref-invalid');
+  let workspaceId;
+  try { workspaceId = Buffer.from(body, 'base64url').toString('utf8'); } catch { fail('Mini App workspace reference is invalid', 'twm-mini-app-workspace-ref-invalid'); }
+  return required(workspaceId, 'workspaceId');
+}
+
+function publicWorkspace(workspace, bindingKey) {
   return freeze({
-    workspaceId: workspace.workspaceId,
+    workspaceRef: encodeWorkspaceRef(workspace.workspaceId, bindingKey),
     workspaceType: workspace.workspaceType,
     title: workspace.title ?? null,
     username: workspace.username ?? null,
@@ -103,12 +128,12 @@ function publicWorkspace(workspace) {
   });
 }
 
-function proposalPayload(proposal) {
+function proposalPayload(proposal, workspaceRef) {
   return freeze({
     kind: 'twm-mini-app-confirmation-v1',
     proposalId: required(proposal.proposalId, 'proposal.proposalId'),
     requestId: required(proposal.requestId, 'proposal.requestId'),
-    workspaceId: required(proposal.workspaceId, 'proposal.workspaceId'),
+    workspaceRef: required(workspaceRef, 'workspaceRef'),
     namespace: required(proposal.namespace, 'proposal.namespace'),
     traceId: required(proposal.traceId, 'proposal.traceId'),
     baseVersion: Number(proposal.baseVersion),
@@ -122,7 +147,7 @@ function proposalPayload(proposal) {
 
 function encodeConfirmation(payload, bindingKey) {
   const body = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
-  const signature = createHmac('sha256', required(bindingKey, 'bindingKey')).update(body).digest('hex');
+  const signature = signOpaque(body, bindingKey, 'proposal-confirmation');
   const token = `${body}.${signature}`;
   if (Buffer.byteLength(token, 'utf8') > MAX_CONFIRMATION_TOKEN_BYTES) fail('Mini App confirmation token is too large', 'twm-mini-app-confirmation-token-too-large');
   return token;
@@ -135,7 +160,7 @@ function decodeConfirmation(tokenValue, bindingKey) {
   if (separator < 1) fail('Mini App confirmation token is invalid', 'twm-mini-app-confirmation-token-invalid');
   const body = token.slice(0, separator);
   const receivedSignature = token.slice(separator + 1);
-  const expectedSignature = createHmac('sha256', required(bindingKey, 'bindingKey')).update(body).digest('hex');
+  const expectedSignature = signOpaque(body, bindingKey, 'proposal-confirmation');
   if (!safeEqualHex(receivedSignature, expectedSignature)) fail('Mini App confirmation token signature is invalid', 'twm-mini-app-confirmation-token-invalid');
   let payload;
   try { payload = JSON.parse(Buffer.from(body, 'base64url').toString('utf8')); } catch { fail('Mini App confirmation token payload is invalid', 'twm-mini-app-confirmation-token-invalid'); }
@@ -166,7 +191,7 @@ export function createTelegramWorkspaceMiniAppService({
   const project = required(projectScope, 'projectScope');
 
   async function identify(initData) {
-    const verified = await verifyInitData(required(initData, 'initData'));
+    const verified = await verifyInitData(initData);
     const user = verified?.telegramUser;
     if (!user?.id || !verified?.bindingKey) fail('Telegram Mini App identity evidence is missing', 'twm-mini-app-identity-missing');
     const resolution = await identityResolver(Object.freeze({
@@ -220,7 +245,7 @@ export function createTelegramWorkspaceMiniAppService({
           requestedAction: 'workspace:view',
           forceFresh: false
         });
-        if (decision?.allowed) allowed.push(publicWorkspace(workspace));
+        if (decision?.allowed) allowed.push(publicWorkspace(workspace, actor.bindingKey));
       } catch {}
     }
     return freeze(allowed);
@@ -233,8 +258,9 @@ export function createTelegramWorkspaceMiniAppService({
     return freeze({ version: 'twm1.13.v1', workspaces });
   }
 
-  async function workspace({ initData, workspaceId } = {}) {
+  async function workspace({ initData, workspaceRef } = {}) {
     const actor = await identify(initData);
+    const workspaceId = decodeWorkspaceRef(workspaceRef, actor.bindingKey);
     await requireWorkspace(actor, workspaceId, 'workspace:view', false);
     const configs = await configurationService.listConfigs({ workspaceId, actorGlobalUserId: actor.actorGlobalUserId, telegramUserId: actor.telegramUserId });
     let capabilityHealth = null;
@@ -243,11 +269,12 @@ export function createTelegramWorkspaceMiniAppService({
         capabilityHealth = freeze({ available: false, status: 'verification-failed', reason: error?.code ?? 'twm-mini-app-capability-failed' });
       }
     }
-    return freeze({ workspaceId, configs, capabilityHealth });
+    return freeze({ workspaceRef, configs, capabilityHealth });
   }
 
-  async function propose({ initData, workspaceId, namespace, nextConfig } = {}) {
+  async function propose({ initData, workspaceRef, namespace, nextConfig } = {}) {
     const actor = await identify(initData);
+    const workspaceId = decodeWorkspaceRef(workspaceRef, actor.bindingKey);
     const requestId = `twm-mini:${idFactory()}`;
     const traceId = `twm-mini:${idFactory()}`;
     const proposal = await configurationService.proposeChange({
@@ -260,11 +287,11 @@ export function createTelegramWorkspaceMiniAppService({
       requestId,
       reason: 'telegram-mini-app:preview'
     });
-    const payload = proposalPayload(proposal);
+    const payload = proposalPayload(proposal, workspaceRef);
     return freeze({
       confirmationToken: encodeConfirmation(payload, actor.bindingKey),
       requestId,
-      workspaceId: proposal.workspaceId,
+      workspaceRef,
       namespace: proposal.namespace,
       baseVersion: proposal.baseVersion,
       changedPaths: proposal.changedPaths,
@@ -277,12 +304,13 @@ export function createTelegramWorkspaceMiniAppService({
     if (confirmed !== true) fail('explicit Mini App confirmation is required', 'twm-mini-app-confirmation-required');
     const actor = await identify(initData);
     const payload = decodeConfirmation(confirmationToken, actor.bindingKey);
-    await requireWorkspace(actor, payload.workspaceId, 'workspace:configure', true);
+    const workspaceId = decodeWorkspaceRef(payload.workspaceRef, actor.bindingKey);
+    await requireWorkspace(actor, workspaceId, 'workspace:configure', true);
     const proposal = freeze({
       kind: 'telegram-workspace-config-proposal',
       proposalId: required(payload.proposalId, 'proposalId'),
       requestId: required(payload.requestId, 'requestId'),
-      workspaceId: required(payload.workspaceId, 'workspaceId'),
+      workspaceId,
       namespace: required(payload.namespace, 'namespace'),
       actorGlobalUserId: actor.actorGlobalUserId,
       traceId: required(payload.traceId, 'traceId'),
@@ -299,18 +327,20 @@ export function createTelegramWorkspaceMiniAppService({
       telegramUserId: actor.telegramUserId,
       confirmation: freeze({ confirmed: true, requestId: proposal.requestId })
     });
-    try { await audit(freeze({ eventClass: 'telegram_workspace_mini_app', action: 'apply', outcome: 'success', actorGlobalUserId: actor.actorGlobalUserId, workspaceId: proposal.workspaceId, namespace: proposal.namespace, version: result.config.version })); } catch {}
+    try { await audit(freeze({ eventClass: 'telegram_workspace_mini_app', action: 'apply', outcome: 'success', actorGlobalUserId: actor.actorGlobalUserId, workspaceId, namespace: proposal.namespace, version: result.config.version })); } catch {}
     return result;
   }
 
-  async function history({ initData, workspaceId, namespace, limit = 20 } = {}) {
+  async function history({ initData, workspaceRef, namespace, limit = 20 } = {}) {
     const actor = await identify(initData);
+    const workspaceId = decodeWorkspaceRef(workspaceRef, actor.bindingKey);
     return configurationService.history({ workspaceId, namespace, actorGlobalUserId: actor.actorGlobalUserId, telegramUserId: actor.telegramUserId, limit: Math.max(1, Math.min(Number(limit) || 20, 100)) });
   }
 
-  async function rollback({ initData, workspaceId, namespace, targetVersion, requestId, confirmed } = {}) {
+  async function rollback({ initData, workspaceRef, namespace, targetVersion, requestId, confirmed } = {}) {
     if (confirmed !== true) fail('explicit Mini App confirmation is required', 'twm-mini-app-confirmation-required');
     const actor = await identify(initData);
+    const workspaceId = decodeWorkspaceRef(workspaceRef, actor.bindingKey);
     const request = required(requestId, 'requestId');
     const result = await configurationService.rollback({
       workspaceId,

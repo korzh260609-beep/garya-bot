@@ -5,6 +5,7 @@ import { createTelegramBotApiClient } from '../telegram/telegramBotApiClient.js'
 import { createPostgresTelegramUpdateStore } from '../telegram/postgresTelegramUpdateStore.js';
 import { createTelegramProductionIntegration } from '../telegram/telegramProductionIntegration.js';
 import { createTelegramWebhookHttpHandler } from '../telegram/telegramWebhookHttpHandler.js';
+import { createTelegramWorkspaceProductionOperations } from '../telegramWorkspace/telegramWorkspaceProductionOperations.js';
 import {
   createPostgresTelegramWorkspaceAuthorityResolver,
   createTelegramWorkspaceBotCapabilityService,
@@ -218,12 +219,27 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
               operation: event.operation,
               workspaceId: event.workspaceId,
               namespace: event.namespace,
+              domain: event.domain ?? null,
+              recordId: event.recordId ?? null,
               risk: event.risk,
               confirmationRequired: event.confirmationRequired,
               reasons: event.reasons ?? []
             }
           });
         }
+      })
+    : null;
+
+  const telegramWorkspaceOperations = workspaceStore && telegramWorkspaceAuthority && telegramWorkspaceMutationGate && telegramBotCapabilities
+    ? createTelegramWorkspaceProductionOperations({
+        harness,
+        botClient,
+        workspaceRegistry: telegramUpdateStore.workspaceRegistry,
+        workspaceStore,
+        authorityResolver: telegramWorkspaceAuthority,
+        mutationGate: telegramWorkspaceMutationGate,
+        botCapabilityService: telegramBotCapabilities,
+        identityResolver
       })
     : null;
 
@@ -377,6 +393,7 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
     workspaceRuntime: telegramWorkspaceRuntime,
     nativeUi: telegramWorkspaceNativeUi,
     naturalLanguage: telegramWorkspaceNaturalLanguage,
+    pollUpdates: telegramWorkspaceOperations?.pollUpdates ?? null,
     observability: harness.observability,
     botUserId: telegramConfig.botUserId,
     botUsername: telegramConfig.botUsername,
@@ -509,7 +526,7 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
         await discordGateway.start();
         discordStarted = true;
       }
-      return Object.freeze({ port, health: harness.runtime.health(), readiness: harness.runtime.readiness(), automation: automationHealth(), discord: discordHealth(), miniApp: { enabled: Boolean(telegramWorkspaceMiniApp), path: telegramConfig.miniAppPath }, revision: harness.config.revision });
+      return Object.freeze({ port, health: harness.runtime.health(), readiness: harness.runtime.readiness(), automation: automationHealth(), discord: discordHealth(), miniApp: { enabled: Boolean(telegramWorkspaceMiniApp), path: telegramConfig.miniAppPath }, workspaceOperations: { enabled: Boolean(telegramWorkspaceOperations) }, revision: harness.config.revision });
     } catch (error) {
       if (automationStarted) {
         try { await automationWorker.stop(); } catch {}
@@ -542,6 +559,7 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
     telegramBotCapabilities,
     telegramWorkspaceAuthority,
     telegramWorkspaceMutationGate,
+    telegramWorkspaceOperations,
     telegramWorkspaceConfiguration,
     telegramWorkspaceNativeUi,
     telegramWorkspaceNaturalLanguage,

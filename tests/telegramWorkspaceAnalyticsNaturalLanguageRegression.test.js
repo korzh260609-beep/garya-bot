@@ -93,3 +93,78 @@ test('analytics period is canonically taken from TemporalService and output is h
   assert.match(sent[0].text, /persisted records\/events/);
   assert.equal(sent[0].text.includes('"recordCounts"'), false);
 });
+
+test('analytics with a temporal expression fails closed when user timezone is unknown', async () => {
+  const workspace = { workspaceId: 'telegram:workspace:100', telegramChatId: '-100100', workspaceType: 'supergroup', title: 'Sandbox' };
+  const sent = [];
+  let analyticsCalls = 0;
+  const referenceInstant = '2026-08-15T18:00:00.000Z';
+
+  const service = createTelegramWorkspaceOperationsNaturalLanguageService({
+    aiRouter: {
+      async route() {
+        return { text: JSON.stringify({
+          kind: 'operation',
+          workspaceId: workspace.workspaceId,
+          operation: 'analytics.snapshot',
+          argumentsJson: '{}',
+          summary: 'Показать аналитику за сегодня'
+        }) };
+      }
+    },
+    botClient: {
+      async sendMessage(input) { sent.push(input); return { message_id: 2 }; },
+      async editMessageText() { return true; },
+      async answerCallbackQuery() { return true; }
+    },
+    identityResolver: async () => ({ identityContext: { globalUserId: 'user:owner' } }),
+    workspaceRegistry: {
+      async listWorkspaces() { return [workspace]; },
+      async resolveTelegramChatId() { return null; },
+      async getWorkspace() { return workspace; }
+    },
+    authorityResolver: { async verify() { return { allowed: true }; } },
+    operationsService: {
+      core: { store: { async listRecords() { return []; } } },
+      temporalService: {
+        async resolveForUser(globalUserId, text) {
+          assert.equal(globalUserId, 'user:owner');
+          assert.match(text, /сегодня/);
+          return { status: 'timezone-required', originalExpression: text, referenceInstant, timeZone: null, reason: 'user-timezone-unknown' };
+        },
+        resolveExpression(text, options) {
+          assert.match(text, /сегодня/);
+          assert.equal(options.timeZone, 'UTC');
+          assert.equal(options.referenceInstant, referenceInstant);
+          return {
+            status: 'resolved', ambiguous: false, precision: 'day',
+            utcStart: '2026-08-15T00:00:00.000Z', utcEndExclusive: '2026-08-16T00:00:00.000Z'
+          };
+        }
+      },
+      async analyticsSnapshot() {
+        analyticsCalls += 1;
+        return { metrics: {} };
+      }
+    },
+    pendingStore: pendingStore(),
+    projectScope: 'sg2.1',
+    idFactory: (() => { let n = 0; return () => String(++n); })()
+  });
+
+  const result = await service.handleUpdate({
+    update_id: 901,
+    message: {
+      message_id: 11,
+      chat: { id: 42, type: 'private' },
+      from: { id: 42, first_name: 'Owner', language_code: 'ru' },
+      text: 'Покажи аналитику по Sandbox за сегодня'
+    }
+  }, { semanticRoute: { destination: 'telegram-workspace-manager', workspaceOperation: 'operate' } });
+
+  assert.equal(result.outcome, 'analytics-timezone-required');
+  assert.equal(analyticsCalls, 0);
+  assert.equal(sent.length, 1);
+  assert.match(sent[0].text, /часовой пояс/);
+  assert.match(sent[0].text, /не буду подменять/);
+});

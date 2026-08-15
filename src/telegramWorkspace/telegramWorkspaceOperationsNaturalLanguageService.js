@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { parseStructuredAIOutput } from '../ai/contracts.js';
 
-const CALLBACK_PREFIX = 'twmop|';
+const CALLBACK_PREFIX = 'twm19|op-';
 const OPERATIONS = Object.freeze([
   'content.create','content.attach-media','content.publish','content.schedule','content.cancel-schedule','media.save','media.publish',
   'poll.create','poll.close','poll.analyze','test.create','test.score','form.create','form.submit','feedback.create',
@@ -245,7 +245,8 @@ export function createTelegramWorkspaceOperationsNaturalLanguageService({
   async function handleCallback(update) {
     const data = update?.callback_query?.data;
     if (typeof data !== 'string' || !data.startsWith(CALLBACK_PREFIX)) return freeze({ handled: false });
-    const [, action, token] = data.split('|');
+    const [, actionValue, token] = data.split('|');
+    const action = actionValue?.startsWith('op-') ? actionValue.slice(3) : actionValue;
     if (!['confirm','cancel'].includes(action) || !token) throw Object.assign(new Error('invalid workspace operation callback'), { code: 'twm-operation-callback-invalid' });
     const actor = await identify(update);
     if (action === 'cancel') {

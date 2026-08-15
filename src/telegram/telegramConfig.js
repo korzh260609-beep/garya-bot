@@ -35,10 +35,18 @@ function publicBaseUrl(env) {
   return hostname ? `https://${hostname}` : '';
 }
 
+function enabledFlag(value, fallback = true) {
+  if (value == null || String(value).trim() === '') return fallback;
+  return String(value).trim().toLowerCase() !== 'false';
+}
+
 export function loadTelegramConfig(env = process.env) {
   if (!firstNonEmpty(env, ['TELEGRAM_BOT_TOKEN', 'BOT_TOKEN'])) throw new Error('Telegram bot token is required (TELEGRAM_BOT_TOKEN or BOT_TOKEN)');
   const webhookPath = normalizePath(firstNonEmpty(env, ['TELEGRAM_WEBHOOK_PATH']), '/webhooks/telegram', 'TELEGRAM_WEBHOOK_PATH');
-  const miniAppPath = normalizePath(firstNonEmpty(env, ['TELEGRAM_MINI_APP_PATH']), '/telegram/mini-app', 'TELEGRAM_MINI_APP_PATH');
+  const miniAppEnabled = enabledFlag(env.TELEGRAM_MINI_APP_ENABLED, true);
+  const miniAppPath = miniAppEnabled
+    ? normalizePath(firstNonEmpty(env, ['TELEGRAM_MINI_APP_PATH']), '/telegram/mini-app', 'TELEGRAM_MINI_APP_PATH')
+    : null;
   const baseUrl = publicBaseUrl(env);
   if (!baseUrl) throw new Error('Public base URL is required (BASE_URL, RENDER_EXTERNAL_URL or RENDER_EXTERNAL_HOSTNAME)');
 
@@ -48,7 +56,8 @@ export function loadTelegramConfig(env = process.env) {
     webhookSecretCredentialId: 'sg.telegram.webhook',
     webhookUrl: `${baseUrl}${webhookPath}`,
     webhookPath,
-    miniAppUrl: `${baseUrl}${miniAppPath}`,
+    miniAppEnabled,
+    miniAppUrl: miniAppEnabled ? `${baseUrl}${miniAppPath}` : null,
     miniAppPath,
     botUserId: firstNonEmpty(env, ['TELEGRAM_BOT_USER_ID']) || null,
     botUsername: firstNonEmpty(env, ['TELEGRAM_BOT_USERNAME']).replace(/^@/, '') || null,

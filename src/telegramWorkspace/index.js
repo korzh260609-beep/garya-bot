@@ -67,3 +67,11 @@ export {
   TELEGRAM_WORKSPACE_PRODUCTION_ACCEPTANCE_VERSION,
   TELEGRAM_WORKSPACE_ACCEPTANCE_SCENARIOS
 } from './telegramWorkspaceProductionAcceptance.js';
+export {
+  verifyTelegramMiniAppInitData,
+  createTelegramWorkspaceMiniAppService
+} from './telegramWorkspaceMiniApp.js';
+export {
+  createTelegramWorkspaceMiniAppHttpHandler,
+  TELEGRAM_WORKSPACE_MINI_APP_PATH
+} from './telegramWorkspaceMiniAppHttp.js';

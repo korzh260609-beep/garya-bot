@@ -72,10 +72,6 @@ export {
   createTelegramWorkspaceMiniAppService
 } from './telegramWorkspaceMiniApp.js';
 export {
-  createTelegramMiniAppInitDataCredentialVerifier,
-  TELEGRAM_MINI_APP_CREDENTIAL_CONNECTION_ID
-} from './telegramMiniAppCredentialVerifier.js';
-export {
   createTelegramWorkspaceMiniAppHttpHandler,
   TELEGRAM_WORKSPACE_MINI_APP_PATH
 } from './telegramWorkspaceMiniAppHttp.js';

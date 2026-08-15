@@ -17,6 +17,18 @@ function bareMedia(update) {
   return Boolean(currentMedia(update)) && semanticText(update) === '';
 }
 
+function normalizeInteractiveTestCallback(update) {
+  const data = update?.callback_query?.data;
+  if (typeof data !== 'string' || !data.startsWith('twm19|twmt|')) return update;
+  return {
+    ...update,
+    callback_query: {
+      ...update.callback_query,
+      data: data.slice('twm19|'.length)
+    }
+  };
+}
+
 export function createTelegramWorkspaceUnifiedNaturalLanguageService({ configurationNaturalLanguage, operationsNaturalLanguage } = {}) {
   if (typeof configurationNaturalLanguage?.handleUpdate !== 'function' || typeof configurationNaturalLanguage?.routeUpdate !== 'function') throw new TypeError('configurationNaturalLanguage is required');
   if (typeof operationsNaturalLanguage?.handleUpdate !== 'function') throw new TypeError('operationsNaturalLanguage is required');
@@ -36,6 +48,7 @@ export function createTelegramWorkspaceUnifiedNaturalLanguageService({ configura
 
   async function handleUpdate(update, options = {}) {
     const callbackData = update?.callback_query?.data;
+    if (typeof callbackData === 'string' && callbackData.startsWith('twm19|twmt|')) return operationsNaturalLanguage.handleUpdate(normalizeInteractiveTestCallback(update), options);
     if (typeof callbackData === 'string' && (callbackData.startsWith('twm19|op-') || callbackData.startsWith('twmt|'))) return operationsNaturalLanguage.handleUpdate(update, options);
     if (typeof callbackData === 'string' && callbackData.startsWith('twm19|')) return configurationNaturalLanguage.handleUpdate(update, options);
 

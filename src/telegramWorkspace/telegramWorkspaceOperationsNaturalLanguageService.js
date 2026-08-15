@@ -98,6 +98,17 @@ function safeFailureCode(error) {
   const value = typeof error?.code === 'string' && error.code.trim() ? error.code.trim() : 'twm-operation-failed';
   return /^[a-z0-9._:-]{1,80}$/i.test(value) ? value : 'twm-operation-failed';
 }
+function exactTemporalRunAt(resolution) {
+  if (resolution?.status !== 'resolved' || resolution.ambiguous === true) return null;
+  if (typeof resolution.utcStart !== 'string' || resolution.utcStart.trim() === '') return null;
+  if (resolution.utcEndExclusive != null) return null;
+  return resolution.utcStart.trim();
+}
+function canonicalOperationArguments(interpreted, args) {
+  if (interpreted.operation !== 'content.schedule' || args.runAt || args.recurrence) return freeze({ ...args });
+  const runAt = exactTemporalRunAt(interpreted.temporalResolution);
+  return freeze(runAt ? { ...args, runAt } : { ...args });
+}
 
 export function createTelegramWorkspaceOperationsNaturalLanguageService({
   aiRouter, botClient, identityResolver, workspaceRegistry, authorityResolver, operationsService, pendingStore,
@@ -143,9 +154,19 @@ export function createTelegramWorkspaceOperationsNaturalLanguageService({
     }
     return result;
   }
-  async function interpret(update, candidates, forced, refs) {
+  async function temporalResolution(actor, text) {
+    if (typeof operationsService.temporalService?.resolveForUser !== 'function') return null;
+    try {
+      const resolution = await operationsService.temporalService.resolveForUser(actor.actorGlobalUserId, text);
+      return resolution?.status === 'resolved' ? resolution : null;
+    } catch {
+      return null;
+    }
+  }
+  async function interpret(update, actor, candidates, forced, refs) {
     const text = semanticText(update);
     const media = mediaFacts(update);
+    const temporal = await temporalResolution(actor, text);
     const traceId = `twmop:${idFactory()}`;
     const requestId = `twmop:${idFactory()}`;
     const result = await aiRouter.route({
@@ -153,15 +174,15 @@ export function createTelegramWorkspaceOperationsNaturalLanguageService({
       reason: 'twm1.14-1.15-semantic-operation-interpretation',
       specialty: 'semantic-interpretation',
       messages: [
-        { role: 'system', content: 'Interpret a Telegram Workspace Manager operation by semantic meaning. Return only schema-valid JSON. Never invent workspace ids, record ids, poll/test/event identifiers, permissions, metrics, file ids, dates, or stored facts. Workspace and record references may use only the supplied candidates. argumentsJson must contain only operation arguments explicitly requested or safely implied by the selected operation. Supported meanings: content.create creates a draft only when the requested end state is saved/prepared content and not publication; content.attach-media attaches an already known media id; content.publish publishes an existing draft by contentId, or creates and publishes new text when the semantic end state requested by the user is immediate placement in the workspace, in which case argumentsJson must carry the new text instead of inventing a contentId; content.schedule schedules an existing draft by contentId, or creates and schedules new text when the semantic end state requested by the user is future publication, in which case argumentsJson must carry the new text plus only the supplied scheduling facts; content.cancel-schedule cancels it; media.save/media.publish use the actual attached Telegram media supplied separately and therefore argumentsJson must never contain fileId; poll.create creates regular poll or quiz (quiz=true with correctOptionIndex); poll.close/poll.analyze act on an existing poll; test.create/test.score; form.create/form.submit; feedback.create; event.create/register/cancel-registration/reminder; faq.upsert/faq.resolve; onboarding.update; moderation.queue/execute; case.create/transition; task.create/task.cancel are workspace operational tasks, not the user personal automation lifecycle; decision.confirm/promote; content-plan.create; summary.create; unanswered.update; analytics.snapshot/brief; export.create. Determine draft versus publication from the requested end state, not from keywords or phrasing. Never collapse an immediate new-text publication request into content.create merely because no draft exists yet. For unknown or ordinary conversation return not-twm. For dates/times preserve ISO values only when the user supplied enough temporal meaning; do not fabricate an exact time. For media.save/media.publish use mediaAvailable=true and never reproduce transport file identifiers. Never synthesize analytics values: analytics arguments are only window bounds, not metrics.' },
-        { role: 'user', content: JSON.stringify({ text, forcedWorkspaceId: forced?.workspaceId ?? null, authorizedWorkspaces: candidates.map((w) => ({ workspaceId: w.workspaceId, title: w.title ?? null, username: w.username ?? null, type: w.workspaceType })), existingRecords: refs, mediaAvailable: Boolean(media), mediaType: media?.mediaType ?? null }) }
+        { role: 'system', content: 'Interpret a Telegram Workspace Manager operation by semantic meaning. Return only schema-valid JSON. Never invent workspace ids, record ids, poll/test/event identifiers, permissions, metrics, file ids, dates, or stored facts. Workspace and record references may use only the supplied candidates. argumentsJson must contain only operation arguments explicitly requested or safely implied by the selected operation. Supported meanings: content.create creates a draft only when the requested end state is saved/prepared content and not publication; content.attach-media attaches an already known media id; content.publish publishes an existing draft by contentId, or creates and publishes new text when the semantic end state requested by the user is immediate placement in the workspace, in which case argumentsJson must carry the new text instead of inventing a contentId; content.schedule schedules an existing draft by contentId, or creates and schedules new text when the semantic end state requested by the user is future publication, in which case argumentsJson must carry the new text plus only the supplied scheduling facts; content.cancel-schedule cancels it; media.save/media.publish use the actual attached Telegram media supplied separately and therefore argumentsJson must never contain fileId; poll.create creates regular poll or quiz (quiz=true with correctOptionIndex); poll.close/poll.analyze act on an existing poll; test.create/test.score; form.create/form.submit; feedback.create; event.create/register/cancel-registration/reminder; faq.upsert/faq.resolve; onboarding.update; moderation.queue/execute; case.create/transition; task.create/task.cancel are workspace operational tasks, not the user personal automation lifecycle; decision.confirm/promote; content-plan.create; summary.create; unanswered.update; analytics.snapshot/brief; export.create. Determine draft versus publication from the requested end state, not from keywords or phrasing. Never collapse an immediate new-text publication request into content.create merely because no draft exists yet. For unknown or ordinary conversation return not-twm. For dates/times use supplied schedulingFacts only; never fabricate an exact time. For media.save/media.publish use mediaAvailable=true and never reproduce transport file identifiers. Never synthesize analytics values: analytics arguments are only window bounds, not metrics.' },
+        { role: 'user', content: JSON.stringify({ text, forcedWorkspaceId: forced?.workspaceId ?? null, authorizedWorkspaces: candidates.map((w) => ({ workspaceId: w.workspaceId, title: w.title ?? null, username: w.username ?? null, type: w.workspaceType })), existingRecords: refs, mediaAvailable: Boolean(media), mediaType: media?.mediaType ?? null, schedulingFacts: temporal ? { status: temporal.status, utcStart: temporal.utcStart ?? null, utcEndExclusive: temporal.utcEndExclusive ?? null, localStart: temporal.localStart ?? null, timeZone: temporal.timeZone ?? null, precision: temporal.precision ?? null, ambiguous: temporal.ambiguous === true } : null }) }
       ],
       responseFormat: { name: 'telegram_workspace_operation', strict: true, jsonSchema: operationSchema(candidates.map((w) => w.workspaceId)) },
       maxOutputTokens: 700,
       traceContext: { traceId, requestId },
       metadata: { context: { subsystem: 'telegram-workspace-manager', stage: 'twm1.14-1.15' } }
     });
-    return freeze({ ...parseStructuredAIOutput(result), traceId, requestId, media });
+    return freeze({ ...parseStructuredAIOutput(result), traceId, requestId, media, temporalResolution: temporal });
   }
   function selectWorkspace(interpreted, candidates, forced) {
     if (forced) {
@@ -231,14 +252,18 @@ export function createTelegramWorkspaceOperationsNaturalLanguageService({
       return freeze({ handled: true, outcome: 'no-authorized-workspace' });
     }
     const refs = await references(forced?.workspaceId ?? candidates[0].workspaceId);
-    const interpreted = await interpret(update, candidates, forced, refs);
+    const interpreted = await interpret(update, actor, candidates, forced, refs);
     if (interpreted.kind === 'not-twm' || !interpreted.operation || interpreted.argumentsJson == null) return freeze({ handled: false });
     const workspace = selectWorkspace(interpreted, candidates, forced);
     if (!workspace) {
       await send(update, 'Уточни, в какой доступной группе или канале выполнить действие.');
       return freeze({ handled: true, outcome: 'workspace-selection-required' });
     }
-    const args = parseArguments(interpreted.argumentsJson);
+    const args = canonicalOperationArguments(interpreted, parseArguments(interpreted.argumentsJson));
+    if (interpreted.operation === 'content.schedule' && !args.runAt && !args.recurrence) {
+      await send(update, 'Уточни точное время публикации. Я не буду подставлять время, которого ты не задавал.');
+      return freeze({ handled: true, outcome: 'schedule-time-required', operation: interpreted.operation });
+    }
     if (CONFIRMATION_REQUIRED.has(interpreted.operation)) {
       const pending = await pendingStore.create({
         workspaceId: workspace.workspaceId,

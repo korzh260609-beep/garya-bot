@@ -10,6 +10,7 @@ const INTERNAL_RESPONSE_KEYS = new Set([
 ]);
 
 function normalizePath(value) {
+  if (value === null || value === false) return null;
   const path = String(value ?? DEFAULT_PATH).trim();
   if (!path.startsWith('/')) throw new TypeError('Mini App path must start with /');
   return path.replace(/\/+$/, '') || DEFAULT_PATH;
@@ -125,9 +126,10 @@ export function createTelegramWorkspaceMiniAppHttpHandler({ service, path = DEFA
     if (typeof service?.[method] !== 'function') throw new TypeError(`Mini App service.${method} is required`);
   }
   const basePath = normalizePath(path);
-  const apiPath = `${basePath}/api`;
+  const apiPath = basePath == null ? null : `${basePath}/api`;
 
   return async function handle(request, response) {
+    if (basePath == null) return false;
     const url = new URL(request.url ?? '/', 'http://localhost');
     if (url.pathname === basePath && request.method === 'GET') {
       html(response, shell(basePath));

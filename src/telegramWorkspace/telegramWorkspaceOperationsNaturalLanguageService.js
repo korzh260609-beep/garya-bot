@@ -105,10 +105,26 @@ function exactTemporalRunAt(resolution) {
   if (resolution.utcEndExclusive != null) return null;
   return resolution.utcStart.trim();
 }
+function temporalWindow(resolution) {
+  if (resolution?.status !== 'resolved' || resolution.ambiguous === true) return null;
+  const from = typeof resolution.utcStart === 'string' && resolution.utcStart.trim() ? resolution.utcStart.trim() : null;
+  const to = typeof resolution.utcEndExclusive === 'string' && resolution.utcEndExclusive.trim() ? resolution.utcEndExclusive.trim() : null;
+  return from ? freeze({ from, to }) : null;
+}
 function canonicalOperationArguments(interpreted, args) {
-  if (interpreted.operation !== 'content.schedule' || args.runAt || args.recurrence) return freeze({ ...args });
-  const runAt = exactTemporalRunAt(interpreted.temporalResolution);
-  return freeze(runAt ? { ...args, runAt } : { ...args });
+  const next = { ...args };
+  if (interpreted.operation === 'content.schedule' && !next.runAt && !next.recurrence) {
+    const runAt = exactTemporalRunAt(interpreted.temporalResolution);
+    if (runAt) next.runAt = runAt;
+  }
+  if (['analytics.snapshot','analytics.brief'].includes(interpreted.operation)) {
+    const window = temporalWindow(interpreted.temporalResolution);
+    if (window) {
+      if (!next.from) next.from = window.from;
+      if (!next.to && window.to) next.to = window.to;
+    }
+  }
+  return freeze(next);
 }
 
 export function createTelegramWorkspaceOperationsNaturalLanguageService({
@@ -175,7 +191,7 @@ export function createTelegramWorkspaceOperationsNaturalLanguageService({
       reason: 'twm1.14-1.15-semantic-operation-interpretation',
       specialty: 'semantic-interpretation',
       messages: [
-        { role: 'system', content: 'Interpret a Telegram Workspace Manager operation by semantic meaning. Return only schema-valid JSON. Never invent workspace ids, record ids, poll/test/event identifiers, permissions, metrics, file ids, dates, or stored facts. Workspace and record references may use only the supplied candidates. argumentsJson must contain only operation arguments explicitly requested or safely implied by the selected operation. Supported meanings: content.create creates a draft only when the requested end state is saved/prepared content and not publication; content.attach-media attaches an already known media id; content.publish publishes ordinary static text/content, not an interactive questionnaire; content.schedule schedules future publication; content.cancel-schedule cancels it; media.save/media.publish use the actual attached Telegram media supplied separately; poll.create creates one Telegram poll or quiz; poll.close/poll.analyze act on an existing poll. test.create means an interactive multi-question test that participants should actively take and receive a computed result only after answering all questions. Select test.create rather than content.publish when the requested end state is a playable multi-question assessment, personality/type questionnaire, exam, or similar interactive test. For test.create preserve the supplied title/question/option/result content. argumentsJson shape is {title,intro?,questions:[{id?,text,options:[string|{text,scoreKey?}],correctOptionIndex?}],results?:[{key,title,description}]}. If supplied result categories map answer letters such as A/B/C/D to profiles, use results with matching keys and keep correctOptionIndex absent; do not expose result descriptions as publication text before completion. For knowledge tests use correctOptionIndex only when the correct answers are actually supplied; never invent them. test.score scores an existing test submission. Other supported operations: form.create/form.submit; feedback.create; event.create/register/cancel-registration/reminder; faq.upsert/faq.resolve; onboarding.update; moderation.queue/execute; case.create/transition; task.create/task.cancel; decision.confirm/promote; content-plan.create; summary.create; unanswered.update; analytics.snapshot/brief; export.create. Determine intent from semantic end state, not keywords or phrasing. For unknown or ordinary conversation return not-twm. For dates/times use supplied schedulingFacts only; never fabricate an exact time. Never synthesize analytics values.' },
+        { role: 'system', content: 'Interpret a Telegram Workspace Manager operation by semantic meaning. Return only schema-valid JSON. Never invent workspace ids, record ids, poll/test/event identifiers, permissions, metrics, file ids, dates, or stored facts. Workspace and record references may use only the supplied candidates. argumentsJson must contain only operation arguments explicitly requested or safely implied by the selected operation. Supported meanings: content.create creates a draft only when the requested end state is saved/prepared content and not publication; content.attach-media attaches an already known media id; content.publish publishes ordinary static text/content, not an interactive questionnaire; content.schedule schedules future publication; content.cancel-schedule cancels it; media.save/media.publish use the actual attached Telegram media supplied separately; poll.create creates one Telegram poll or quiz; poll.close/poll.analyze act on an existing poll. test.create means an interactive multi-question test that participants should actively take and receive a computed result only after answering all questions. Select test.create rather than content.publish when the requested end state is a playable multi-question assessment, personality/type questionnaire, exam, or similar interactive test. For test.create preserve the supplied title/question/option/result content. argumentsJson shape is {title,intro?,questions:[{id?,text,options:[string|{text,scoreKey?}],correctOptionIndex?}],results?:[{key,title,description}]}. If supplied result categories map answer letters such as A/B/C/D to profiles, use results with matching keys and keep correctOptionIndex absent; do not expose result descriptions as publication text before completion. For knowledge tests use correctOptionIndex only when the correct answers are actually supplied; never invent them. test.score scores an existing test submission. analytics.snapshot and analytics.brief use only persisted metrics; their arguments may contain {from,to} and any requested period must come only from supplied schedulingFacts. Other supported operations: form.create/form.submit; feedback.create; event.create/register/cancel-registration/reminder; faq.upsert/faq.resolve; onboarding.update; moderation.queue/execute; case.create/transition; task.create/task.cancel; decision.confirm/promote; content-plan.create; summary.create; unanswered.update; export.create. Determine intent from semantic end state, not keywords or phrasing. For unknown or ordinary conversation return not-twm. For dates/times use supplied schedulingFacts only; never fabricate an exact time. Never synthesize analytics values.' },
         { role: 'user', content: JSON.stringify({ text, forcedWorkspaceId: forced?.workspaceId ?? null, authorizedWorkspaces: candidates.map((w) => ({ workspaceId: w.workspaceId, title: w.title ?? null, username: w.username ?? null, type: w.workspaceType })), existingRecords: refs, mediaAvailable: Boolean(media), mediaType: media?.mediaType ?? null, schedulingFacts: temporal ? { status: temporal.status, utcStart: temporal.utcStart ?? null, utcEndExclusive: temporal.utcEndExclusive ?? null, localStart: temporal.localStart ?? null, timeZone: temporal.timeZone ?? null, precision: temporal.precision ?? null, ambiguous: temporal.ambiguous === true } : null }) }
       ],
       responseFormat: { name: 'telegram_workspace_operation', strict: true, jsonSchema: operationSchema(candidates.map((w) => w.workspaceId)) },
@@ -232,12 +248,29 @@ export function createTelegramWorkspaceOperationsNaturalLanguageService({
     const message = messageFrom(update);
     return botClient.sendMessage({ chatId: message.chat.id, text, replyToMessageId: message.message_id, replyMarkup });
   }
+  function analyticsResultText(result) {
+    const snapshot = result?.metrics ? result : result?.exact;
+    const metrics = snapshot?.metrics;
+    if (!metrics) return 'Точные метрики workspace сформированы.';
+    const events = metrics.eventCounts ?? {};
+    const records = metrics.recordCounts ?? {};
+    const interaction = metrics.interaction ?? {};
+    const lines = [
+      'Аналитика workspace по сохранённым данным:',
+      `• опубликовано сообщений: ${Number(events['content.published'] ?? 0)}`,
+      `• создано опросов: ${Number(records.poll ?? 0)}`,
+      `• создано тестов: ${Number(records.test ?? 0)}`,
+      `• завершено тестов: ${Number(events['test.completed'] ?? 0)}`,
+      `• уникальных участников взаимодействий: ${Number(interaction.uniqueActors ?? 0)}`,
+      `• зафиксировано взаимодействий: ${Number(interaction.interactionEvents ?? 0)}`
+    ];
+    if (snapshot.from || snapshot.to) lines.push(`Период UTC: ${snapshot.from ?? 'начало данных'} — ${snapshot.to ?? 'текущее время'}`);
+    lines.push('Источник: только persisted records/events; отсутствующие данные считаются как 0, ничего не синтезируется.');
+    return lines.join('\n');
+  }
   function resultText(operation, result, summary) {
     if (operation === 'faq.resolve') return result?.known ? `Ответ из подтверждённого FAQ:\n${result.answer}` : 'Подтверждённого ответа в FAQ нет; нужен оператор.';
-    if (operation === 'analytics.snapshot' || operation === 'analytics.brief') {
-      const metrics = result?.metrics ?? result?.exact?.metrics ?? null;
-      return metrics ? `Точные метрики workspace:\n${JSON.stringify(metrics, null, 2)}` : 'Точные метрики сформированы.';
-    }
+    if (operation === 'analytics.snapshot' || operation === 'analytics.brief') return analyticsResultText(result);
     if (operation === 'poll.analyze') return `Результат опроса основан на сохранённых Telegram-данных:\n${JSON.stringify(result?.snapshot ?? result, null, 2)}`;
     if (operation === 'test.create') return 'Готово: интерактивный тест опубликован. Результаты скрыты до завершения теста участником.';
     return `Готово: ${summary || operation}.`;

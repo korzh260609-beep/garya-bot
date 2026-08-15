@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { boundedText, boundedArray, assertEntityId } from './workspaceOperationsContract.js';
 import { deepFreeze, uid, hashKey } from './workspaceOperationsCore.js';
 
@@ -25,7 +24,9 @@ function normalizeProfiles(results) {
 }
 
 function normalizeQuestions(questions, profileMode) {
-  return boundedArray(questions, 'questions', 50).map((question, questionIndex) => {
+  const rows = boundedArray(questions, 'questions', 50);
+  if (rows.length === 0) throw new TypeError('questions requires at least 1 question');
+  return rows.map((question, questionIndex) => {
     const rawOptions = boundedArray(question?.options, `questions[${questionIndex}].options`, 12);
     if (rawOptions.length < 2) throw new TypeError(`questions[${questionIndex}].options requires at least 2 options`);
     const options = rawOptions.map((option, optionIndex) => normalizeOption(option, optionIndex, profileMode));
@@ -95,9 +96,8 @@ export function createWorkspaceInteractiveTestOperations({ core, botClient } = {
     await authority(ctx, 'workspace:view', true);
     const test = await store.getRecord({ workspaceId: ctx.workspaceId, domain: 'test', recordId: assertEntityId(testId, 'testId') });
     if (!test || test.status !== 'active') throw Object.assign(new Error('test unavailable'), { code: 'twm-test-unavailable' });
-    const idempotencyKey = `interactive-test:${ctx.workspaceId}:${test.recordId}:${ctx.actorGlobalUserId}`;
-    const session = await store.createRecord({ workspaceId: ctx.workspaceId, domain: 'submission', recordId: uid('submission'), status: 'in-progress', visibility: 'private', privacyClass: 'private', actorGlobalUserId: ctx.actorGlobalUserId, payload: { sourceDomain: 'test', testId: test.recordId, participantGlobalUserId: ctx.actorGlobalUserId, answers: [], nextQuestionIndex: 0 }, idempotencyKey });
-    return deepFreeze({ test, session, text: questionText(test, session.payload.nextQuestionIndex ?? 0), replyMarkup: optionKeyboard(session.recordId, test.payload.questions[session.payload.nextQuestionIndex ?? 0]) });
+    const session = await store.createRecord({ workspaceId: ctx.workspaceId, domain: 'submission', recordId: uid('submission'), status: 'in-progress', visibility: 'private', privacyClass: 'private', actorGlobalUserId: ctx.actorGlobalUserId, payload: { sourceDomain: 'test', testId: test.recordId, participantGlobalUserId: ctx.actorGlobalUserId, answers: [], nextQuestionIndex: 0 } });
+    return deepFreeze({ test, session, text: questionText(test, 0), replyMarkup: optionKeyboard(session.recordId, test.payload.questions[0]) });
   }
 
   async function answer(ctx, { sessionId, optionIndex } = {}) {
@@ -120,7 +120,7 @@ export function createWorkspaceInteractiveTestOperations({ core, botClient } = {
     }
     const result = test.payload.mode === 'profile' ? scoreProfile(test, answers) : scoreKnowledge(test, answers);
     const updated = await store.updateRecord({ workspaceId: ctx.workspaceId, domain: 'submission', recordId: session.recordId, actorGlobalUserId: ctx.actorGlobalUserId, status: 'scored', visibility: 'private', privacyClass: 'private', payload: { ...session.payload, answers, nextQuestionIndex, result, completedAt: new Date().toISOString() }, expectedVersion: session.version });
-    await store.appendEvent({ workspaceId: ctx.workspaceId, eventKey: hashKey(['test.completed', test.recordId, ctx.actorGlobalUserId]), eventType: 'test.completed', recordDomain: 'test', recordId: test.recordId, actorGlobalUserId: ctx.actorGlobalUserId, evidence: { submissionId: updated.recordId, mode: test.payload.mode } });
+    await store.appendEvent({ workspaceId: ctx.workspaceId, eventKey: hashKey(['test.completed', test.recordId, updated.recordId]), eventType: 'test.completed', recordDomain: 'test', recordId: test.recordId, actorGlobalUserId: ctx.actorGlobalUserId, evidence: { submissionId: updated.recordId, mode: test.payload.mode } });
     return deepFreeze({ completed: true, session: updated, result, text: resultText(test, result), replyMarkup: null });
   }
 

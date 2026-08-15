@@ -3,6 +3,15 @@ function requiredString(value, name) {
   return value.trim();
 }
 
+function pollOptions(options) {
+  if (!Array.isArray(options)) throw new TypeError('telegram poll options are required');
+  return options.map((option, index) => {
+    if (typeof option === 'string') return { text: requiredString(option, `telegram poll option ${index + 1}`) };
+    if (!option || typeof option !== 'object') throw new TypeError(`telegram poll option ${index + 1} is invalid`);
+    return { ...option, text: requiredString(option.text, `telegram poll option ${index + 1}`) };
+  });
+}
+
 export class TelegramApiError extends Error {
   constructor(message, { code = 'telegram-api-error', status = null, retryAfterSeconds = null, retryable = false } = {}) {
     super(message);
@@ -98,6 +107,51 @@ export function createTelegramBotApiClient({
       ...(replyToMessageId == null ? {} : { reply_parameters: { message_id: replyToMessageId } }),
       ...(replyMarkup == null ? {} : { reply_markup: replyMarkup })
     }),
+    sendPhoto: ({ chatId, photo, caption = null, messageThreadId = null }) => call('sendPhoto', {
+      chat_id: chatId,
+      photo: requiredString(photo, 'telegram photo'),
+      ...(caption == null || caption === '' ? {} : { caption: String(caption) }),
+      ...(messageThreadId == null ? {} : { message_thread_id: messageThreadId })
+    }),
+    sendVideo: ({ chatId, video, caption = null, messageThreadId = null }) => call('sendVideo', {
+      chat_id: chatId,
+      video: requiredString(video, 'telegram video'),
+      ...(caption == null || caption === '' ? {} : { caption: String(caption) }),
+      ...(messageThreadId == null ? {} : { message_thread_id: messageThreadId })
+    }),
+    sendDocument: ({ chatId, document, caption = null, messageThreadId = null }) => call('sendDocument', {
+      chat_id: chatId,
+      document: requiredString(document, 'telegram document'),
+      ...(caption == null || caption === '' ? {} : { caption: String(caption) }),
+      ...(messageThreadId == null ? {} : { message_thread_id: messageThreadId })
+    }),
+    sendPoll: ({ chatId, question, options, isAnonymous = true, allowsMultipleAnswers = false, type = 'regular', correctOptionId = null, explanation = null, messageThreadId = null }) => call('sendPoll', {
+      chat_id: chatId,
+      question: requiredString(question, 'telegram poll question'),
+      options: pollOptions(options),
+      is_anonymous: isAnonymous === true,
+      type: type === 'quiz' ? 'quiz' : 'regular',
+      allows_multiple_answers: allowsMultipleAnswers === true,
+      ...(type === 'quiz' && correctOptionId != null ? { correct_option_id: Number(correctOptionId) } : {}),
+      ...(explanation == null || explanation === '' ? {} : { explanation: String(explanation) }),
+      ...(messageThreadId == null ? {} : { message_thread_id: messageThreadId })
+    }),
+    stopPoll: ({ chatId, messageId, replyMarkup = null }) => call('stopPoll', {
+      chat_id: chatId,
+      message_id: Number(messageId),
+      ...(replyMarkup == null ? {} : { reply_markup: replyMarkup })
+    }),
+    deleteMessage: ({ chatId, messageId }) => call('deleteMessage', {
+      chat_id: chatId,
+      message_id: Number(messageId)
+    }),
+    restrictChatMember: ({ chatId, userId, permissions, useIndependentChatPermissions = null, untilDate = null }) => call('restrictChatMember', {
+      chat_id: chatId,
+      user_id: Number(userId),
+      permissions: permissions ?? {},
+      ...(useIndependentChatPermissions == null ? {} : { use_independent_chat_permissions: useIndependentChatPermissions === true }),
+      ...(untilDate == null ? {} : { until_date: Number(untilDate) })
+    }),
     editMessageText: ({ chatId, messageId, text, replyMarkup = null }) => call('editMessageText', {
       chat_id: chatId,
       message_id: messageId,
@@ -122,7 +176,7 @@ export function createTelegramBotApiClient({
           : { type: 'default' }
       });
     },
-    setWebhook: ({ url, secretToken, allowedUpdates = ['message', 'edited_message', 'channel_post', 'edited_channel_post', 'callback_query', 'my_chat_member'] }) => call('setWebhook', {
+    setWebhook: ({ url, secretToken, allowedUpdates = ['message', 'edited_message', 'channel_post', 'edited_channel_post', 'callback_query', 'my_chat_member', 'poll', 'poll_answer'] }) => call('setWebhook', {
       url: requiredString(url, 'webhook url'),
       secret_token: requiredString(secretToken, 'webhook secret'),
       allowed_updates: allowedUpdates,

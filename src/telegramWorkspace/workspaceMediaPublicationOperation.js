@@ -6,11 +6,10 @@ function optionalText(value, name, maxLength) {
   return boundedText(String(value), name, maxLength);
 }
 
-export function createWorkspaceMediaPublicationOperation({ core, botClient } = {}) {
+export function createWorkspaceMediaPublicationOperation({ core, botClient = null } = {}) {
   if (!core?.store || typeof core?.gate !== 'function' || typeof core?.workspace !== 'function' || typeof core?.capabilities !== 'function') {
     throw new TypeError('workspace operations core is required');
   }
-  if (!botClient) throw new TypeError('Telegram publication client is required');
 
   const { store, gate, workspace, capabilities } = core;
 
@@ -35,6 +34,10 @@ export function createWorkspaceMediaPublicationOperation({ core, botClient } = {
       authorityAction: 'workspace:publish',
       requiredPermission: 'workspace:publish'
     }, async () => {
+      if (!botClient) throw Object.assign(new Error('Telegram publication client unavailable'), { code: 'twm-publication-unavailable' });
+      const target = await workspace(ctx.workspaceId);
+      await capabilities(ctx.workspaceId, ['telegram.media.send']);
+
       const content = await store.createRecord({
         workspaceId: ctx.workspaceId,
         domain: 'content',
@@ -75,8 +78,6 @@ export function createWorkspaceMediaPublicationOperation({ core, botClient } = {
         expectedVersion: content.version
       });
 
-      const target = await workspace(ctx.workspaceId);
-      await capabilities(ctx.workspaceId, ['telegram.media.send']);
       const common = { chatId: target.telegramChatId, caption: normalizedCaption || null };
       let message;
       if (type === 'photo') {

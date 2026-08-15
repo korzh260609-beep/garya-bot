@@ -24,13 +24,26 @@ function hasBotCommandEntity(message, botUsername) {
   });
 }
 
+function hasWorkspaceMedia(message) {
+  return Boolean(
+    (Array.isArray(message?.photo) && message.photo.length > 0)
+    || message?.video?.file_id
+    || message?.document?.file_id
+  );
+}
+
 export function evaluateTelegramInvocation(update, { botUserId = null, botUsername = null } = {}) {
   const message = messageFrom(update);
   if (!message || message.from?.is_bot) return Object.freeze({ accepted: false, reason: 'unsupported-update', message: null });
   const text = message.text ?? message.caption ?? '';
-  if (!text.trim()) return Object.freeze({ accepted: false, reason: 'empty-message', message });
-
   const chatType = message.chat?.type;
+  if (!text.trim()) {
+    if (chatType === 'private' && hasWorkspaceMedia(message)) {
+      return Object.freeze({ accepted: true, reason: 'private-media', message });
+    }
+    return Object.freeze({ accepted: false, reason: 'empty-message', message });
+  }
+
   if (chatType === 'private') return Object.freeze({ accepted: true, reason: 'private-message', message });
 
   if (!['group', 'supergroup'].includes(chatType)) {

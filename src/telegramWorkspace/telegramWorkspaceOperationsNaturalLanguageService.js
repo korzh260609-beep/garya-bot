@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { parseStructuredAIOutput } from '../ai/contracts.js';
 
 const CALLBACK_PREFIX = 'twm19|op-';
+const TEST_CALLBACK_PREFIX = 'twmt|';
 const OPERATIONS = Object.freeze([
   'content.create','content.attach-media','content.publish','content.schedule','content.cancel-schedule','media.save','media.publish',
   'poll.create','poll.close','poll.analyze','test.create','test.score','form.create','form.submit','feedback.create',
@@ -10,7 +11,7 @@ const OPERATIONS = Object.freeze([
   'content-plan.create','summary.create','unanswered.update','analytics.snapshot','analytics.brief','export.create'
 ]);
 const CONFIRMATION_REQUIRED = new Set([
-  'content.publish','content.schedule','content.cancel-schedule','media.publish','poll.create','poll.close','moderation.execute',
+  'content.publish','content.schedule','content.cancel-schedule','media.publish','poll.create','poll.close','test.create','moderation.execute',
   'case.transition','decision.confirm','decision.promote','content-plan.create','export.create'
 ]);
 const METHOD = Object.freeze({
@@ -174,11 +175,11 @@ export function createTelegramWorkspaceOperationsNaturalLanguageService({
       reason: 'twm1.14-1.15-semantic-operation-interpretation',
       specialty: 'semantic-interpretation',
       messages: [
-        { role: 'system', content: 'Interpret a Telegram Workspace Manager operation by semantic meaning. Return only schema-valid JSON. Never invent workspace ids, record ids, poll/test/event identifiers, permissions, metrics, file ids, dates, or stored facts. Workspace and record references may use only the supplied candidates. argumentsJson must contain only operation arguments explicitly requested or safely implied by the selected operation. Supported meanings: content.create creates a draft only when the requested end state is saved/prepared content and not publication; content.attach-media attaches an already known media id; content.publish publishes an existing draft by contentId, or creates and publishes new text when the semantic end state requested by the user is immediate placement in the workspace, in which case argumentsJson must carry the new text instead of inventing a contentId; content.schedule schedules an existing draft by contentId, or creates and schedules new text when the semantic end state requested by the user is future publication, in which case argumentsJson must carry the new text plus only the supplied scheduling facts; content.cancel-schedule cancels it; media.save/media.publish use the actual attached Telegram media supplied separately and therefore argumentsJson must never contain fileId; poll.create creates regular poll or quiz (quiz=true with correctOptionIndex); poll.close/poll.analyze act on an existing poll; test.create/test.score; form.create/form.submit; feedback.create; event.create/register/cancel-registration/reminder; faq.upsert/faq.resolve; onboarding.update; moderation.queue/execute; case.create/transition; task.create/task.cancel are workspace operational tasks, not the user personal automation lifecycle; decision.confirm/promote; content-plan.create; summary.create; unanswered.update; analytics.snapshot/brief; export.create. Determine draft versus publication from the requested end state, not from keywords or phrasing. Never collapse an immediate new-text publication request into content.create merely because no draft exists yet. For unknown or ordinary conversation return not-twm. For dates/times use supplied schedulingFacts only; never fabricate an exact time. For media.save/media.publish use mediaAvailable=true and never reproduce transport file identifiers. Never synthesize analytics values: analytics arguments are only window bounds, not metrics.' },
+        { role: 'system', content: 'Interpret a Telegram Workspace Manager operation by semantic meaning. Return only schema-valid JSON. Never invent workspace ids, record ids, poll/test/event identifiers, permissions, metrics, file ids, dates, or stored facts. Workspace and record references may use only the supplied candidates. argumentsJson must contain only operation arguments explicitly requested or safely implied by the selected operation. Supported meanings: content.create creates a draft only when the requested end state is saved/prepared content and not publication; content.attach-media attaches an already known media id; content.publish publishes ordinary static text/content, not an interactive questionnaire; content.schedule schedules future publication; content.cancel-schedule cancels it; media.save/media.publish use the actual attached Telegram media supplied separately; poll.create creates one Telegram poll or quiz; poll.close/poll.analyze act on an existing poll. test.create means an interactive multi-question test that participants should actively take and receive a computed result only after answering all questions. Select test.create rather than content.publish when the requested end state is a playable multi-question assessment, personality/type questionnaire, exam, or similar interactive test. For test.create preserve the supplied title/question/option/result content. argumentsJson shape is {title,intro?,questions:[{id?,text,options:[string|{text,scoreKey?}],correctOptionIndex?}],results?:[{key,title,description}]}. If supplied result categories map answer letters such as A/B/C/D to profiles, use results with matching keys and keep correctOptionIndex absent; do not expose result descriptions as publication text before completion. For knowledge tests use correctOptionIndex only when the correct answers are actually supplied; never invent them. test.score scores an existing test submission. Other supported operations: form.create/form.submit; feedback.create; event.create/register/cancel-registration/reminder; faq.upsert/faq.resolve; onboarding.update; moderation.queue/execute; case.create/transition; task.create/task.cancel; decision.confirm/promote; content-plan.create; summary.create; unanswered.update; analytics.snapshot/brief; export.create. Determine intent from semantic end state, not keywords or phrasing. For unknown or ordinary conversation return not-twm. For dates/times use supplied schedulingFacts only; never fabricate an exact time. Never synthesize analytics values.' },
         { role: 'user', content: JSON.stringify({ text, forcedWorkspaceId: forced?.workspaceId ?? null, authorizedWorkspaces: candidates.map((w) => ({ workspaceId: w.workspaceId, title: w.title ?? null, username: w.username ?? null, type: w.workspaceType })), existingRecords: refs, mediaAvailable: Boolean(media), mediaType: media?.mediaType ?? null, schedulingFacts: temporal ? { status: temporal.status, utcStart: temporal.utcStart ?? null, utcEndExclusive: temporal.utcEndExclusive ?? null, localStart: temporal.localStart ?? null, timeZone: temporal.timeZone ?? null, precision: temporal.precision ?? null, ambiguous: temporal.ambiguous === true } : null }) }
       ],
       responseFormat: { name: 'telegram_workspace_operation', strict: true, jsonSchema: operationSchema(candidates.map((w) => w.workspaceId)) },
-      maxOutputTokens: 700,
+      maxOutputTokens: 2600,
       traceContext: { traceId, requestId },
       metadata: { context: { subsystem: 'telegram-workspace-manager', stage: 'twm1.14-1.15' } }
     });
@@ -238,6 +239,7 @@ export function createTelegramWorkspaceOperationsNaturalLanguageService({
       return metrics ? `Точные метрики workspace:\n${JSON.stringify(metrics, null, 2)}` : 'Точные метрики сформированы.';
     }
     if (operation === 'poll.analyze') return `Результат опроса основан на сохранённых Telegram-данных:\n${JSON.stringify(result?.snapshot ?? result, null, 2)}`;
+    if (operation === 'test.create') return 'Готово: интерактивный тест опубликован. Результаты скрыты до завершения теста участником.';
     return `Готово: ${summary || operation}.`;
   }
 
@@ -282,8 +284,36 @@ export function createTelegramWorkspaceOperationsNaturalLanguageService({
     return freeze({ handled: true, outcome: 'operation-executed', operation: interpreted.operation, result });
   }
 
+  async function handleInteractiveTestCallback(update) {
+    const data = update?.callback_query?.data;
+    if (typeof data !== 'string' || !data.startsWith(TEST_CALLBACK_PREFIX)) return freeze({ handled: false });
+    const parts = data.split('|');
+    const action = parts[1];
+    const actor = await identify(update);
+    const workspace = await contextWorkspace(actor);
+    if (!workspace) {
+      await botClient.answerCallbackQuery({ callbackQueryId: update.callback_query.id, text: 'Тест недоступен в этом workspace', showAlert: true });
+      return freeze({ handled: true, outcome: 'test-workspace-denied' });
+    }
+    const ctx = freeze({ workspaceId: workspace.workspaceId, telegramUserId: actor.telegramUserId, actorGlobalUserId: actor.actorGlobalUserId, requestId: `twmt:${idFactory()}`, traceId: `twmt:${idFactory()}` });
+    if (action === 's' && parts[2]) {
+      const result = await operationsService.startInteractiveTest(ctx, { testId: parts[2] });
+      await botClient.answerCallbackQuery({ callbackQueryId: update.callback_query.id, text: 'Тест начат' });
+      await botClient.sendMessage({ chatId: update.callback_query.message.chat.id, text: result.text, replyToMessageId: update.callback_query.message.message_id, replyMarkup: result.replyMarkup });
+      return freeze({ handled: true, outcome: 'interactive-test-started' });
+    }
+    if (action === 'a' && parts[2] && parts[3] !== undefined) {
+      const result = await operationsService.answerInteractiveTest(ctx, { sessionId: parts[2], optionIndex: Number(parts[3]) });
+      await botClient.answerCallbackQuery({ callbackQueryId: update.callback_query.id, text: result.completed ? 'Тест завершён' : 'Ответ сохранён' });
+      await botClient.editMessageText({ chatId: update.callback_query.message.chat.id, messageId: update.callback_query.message.message_id, text: result.text, replyMarkup: result.replyMarkup });
+      return freeze({ handled: true, outcome: result.completed ? 'interactive-test-completed' : 'interactive-test-answer-recorded' });
+    }
+    throw Object.assign(new Error('invalid interactive test callback'), { code: 'twm-test-callback-invalid' });
+  }
+
   async function handleCallback(update) {
     const data = update?.callback_query?.data;
+    if (typeof data === 'string' && data.startsWith(TEST_CALLBACK_PREFIX)) return handleInteractiveTestCallback(update);
     if (typeof data !== 'string' || !data.startsWith(CALLBACK_PREFIX)) return freeze({ handled: false });
     const [, actionValue, token] = data.split('|');
     const action = actionValue?.startsWith('op-') ? actionValue.slice(3) : actionValue;
@@ -329,5 +359,5 @@ export function createTelegramWorkspaceOperationsNaturalLanguageService({
     return handleText(update);
   }
 
-  return freeze({ handleUpdate, handleText, handleCallback });
+  return freeze({ handleUpdate, handleText, handleCallback, handleInteractiveTestCallback });
 }

@@ -4,6 +4,7 @@ export const TELEGRAM_WORKSPACE_MUTATION_CAPABILITIES = Object.freeze({
   apply: 'telegram-workspace-config-apply',
   rollback: 'telegram-workspace-config-rollback'
 });
+export const TELEGRAM_WORKSPACE_DOMAIN_MUTATION_CAPABILITY = 'telegram-workspace-domain-mutation';
 
 function required(value, name) {
   if (typeof value !== 'string' || value.trim() === '') throw new TypeError(`${name} is required`);
@@ -166,5 +167,105 @@ export function createTelegramWorkspaceActionGateIntegration({
     return decision;
   }
 
-  return Object.freeze({ evaluateMutation });
+  async function evaluateDomainMutation({
+    operation,
+    domain,
+    recordId = null,
+    workspaceId,
+    actorGlobalUserId,
+    traceId,
+    requestId,
+    risk = 'low',
+    confirmationRequired = false,
+    authority,
+    confirmation = null,
+    requiredPermission = 'workspace:configure'
+  } = {}) {
+    const op = required(operation, 'operation');
+    const domainName = required(domain, 'domain');
+    const workspace = required(workspaceId, 'workspaceId');
+    const actor = required(actorGlobalUserId, 'actorGlobalUserId');
+    const trace = required(traceId, 'traceId');
+    const request = required(requestId, 'requestId');
+    const permission = required(requiredPermission, 'requiredPermission');
+    if (authority?.allowed !== true) throw new TypeError('verified workspace authority is required before Action Gate evaluation');
+
+    const actionRequest = createActionRequest({
+      capability: TELEGRAM_WORKSPACE_DOMAIN_MUTATION_CAPABILITY,
+      actionType: `telegram-workspace-${op}`,
+      actionClass: 'state-changing',
+      actor: {
+        globalUserId: actor,
+        roles: [normalizedRole(authority.workspaceRole)],
+        grants: [permission],
+        authenticationLevel: 'verified'
+      },
+      scope: {
+        userScope: actor,
+        projectScope: project,
+        groupScope: workspace,
+        threadScope: null,
+        allowedCapabilities: [TELEGRAM_WORKSPACE_DOMAIN_MUTATION_CAPABILITY]
+      },
+      requestedScope: {
+        userScope: actor,
+        projectScope: project,
+        groupScope: workspace,
+        threadScope: null
+      },
+      payload: {
+        subsystem: 'telegram-workspace-manager',
+        operation: op,
+        domain: domainName,
+        recordId: recordId == null ? null : String(recordId)
+      },
+      requiredPermission: permission,
+      resourceRequirement: { resourceId: workspace, relation: permission },
+      resourceAuthority: {
+        allowed: true,
+        reason: authority.reason ?? 'twm-workspace-authority-verified',
+        actorGlobalUserId: actor,
+        projectScope: project,
+        resourceId: workspace,
+        requiredRelation: permission,
+        evidence: {
+          source: 'telegram-workspace-authority',
+          workspaceRole: authority.workspaceRole ?? null,
+          verificationTime: authority.verificationTime ?? null
+        }
+      },
+      risk,
+      confirmationRequired: confirmationRequired === true,
+      confirmation,
+      idempotencyKey: `twm-domain:${op}:${workspace}:${domainName}:${recordId ?? '-'}:${request}`,
+      traceContext: { traceId: trace, requestId: request }
+    });
+
+    const policyContext = policyContextResolver ? await policyContextResolver({
+      actorGlobalUserId: actor,
+      workspaceId: workspace,
+      workspaceRole: authority.workspaceRole ?? null,
+      operation: op,
+      domain: domainName,
+      recordId
+    }) : null;
+    const decision = actionGate.evaluate(actionRequest, { policyContext });
+    await emit({
+      operation: op,
+      domain: domainName,
+      recordId,
+      outcome: decision.outcome,
+      workspaceId: workspace,
+      actorGlobalUserId: actor,
+      traceId: trace,
+      requestId: request,
+      risk: actionRequest.risk,
+      confirmationRequired: actionRequest.confirmationRequired,
+      reasons: decision.reasons
+    });
+    if (decision.outcome !== 'allow') throw gateError(decision);
+    return decision;
+  }
+
+  return Object.freeze({ evaluateMutation, evaluateDomainMutation });
 }

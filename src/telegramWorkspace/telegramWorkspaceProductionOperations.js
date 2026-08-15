@@ -50,6 +50,7 @@ export function createTelegramWorkspaceProductionOperations({
     botCapabilityService,
     botClient,
     taskStore: harness.taskStore,
+    temporalService: harness.temporalService,
     projectScope: harness.config.projectScope,
     audit
   });

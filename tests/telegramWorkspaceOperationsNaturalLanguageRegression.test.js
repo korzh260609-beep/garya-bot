@@ -140,7 +140,8 @@ test('TWM media publication confirmation preserves actual Telegram file id and r
   const prepared = await service.handleUpdate(incoming, { semanticRoute: { destination: 'telegram-workspace-manager', workspaceOperation: 'operate' } });
   assert.equal(prepared.outcome, 'operation-pending');
   assert.equal(calls.length, 0);
-  assert.equal(pending.snapshot().requestId, 'request-fixed');
+  const requestId = pending.snapshot().requestId;
+  assert.equal(requestId, 'twmop:request-fixed');
   assert.equal(pending.snapshot().proposal.media.fileId, 'actual-photo-file');
   assert.equal(JSON.stringify(pending.snapshot().proposal).includes('ai-must-not-control-this'), true);
   assert.equal(sent[0].replyMarkup.inline_keyboard[0][0].callback_data, 'twm19|op-confirm|pending-token');
@@ -160,8 +161,8 @@ test('TWM media publication confirmation preserves actual Telegram file id and r
   assert.equal(calls[1].args.fileId, 'actual-photo-file');
   assert.notEqual(calls[1].args.fileId, 'ai-must-not-control-this');
   assert.equal(calls[2].ctx.confirmation.confirmed, true);
-  assert.equal(calls[2].ctx.confirmation.requestId, 'request-fixed');
-  assert.equal(calls[2].ctx.requestId, 'request-fixed');
+  assert.equal(calls[2].ctx.confirmation.requestId, requestId);
+  assert.equal(calls[2].ctx.requestId, requestId);
   assert.equal(answered.at(-1).text, 'Выполнено');
   assert.equal(edited.length, 1);
   assert.equal(pending.snapshot().status, 'completed');

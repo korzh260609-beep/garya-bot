@@ -13,7 +13,10 @@ import {
   createTelegramWorkspaceNativeUi,
   createTelegramWorkspaceNaturalLanguageService,
   createPostgresTelegramWorkspaceNaturalLanguagePendingStore,
-  createTelegramWorkspaceRuntimeWiring
+  createTelegramWorkspaceRuntimeWiring,
+  verifyTelegramMiniAppInitData,
+  createTelegramWorkspaceMiniAppService,
+  createTelegramWorkspaceMiniAppHttpHandler
 } from '../telegramWorkspace/index.js';
 import { createDeploymentDeliveryRouter } from '../delivery/deploymentDeliveryRouter.js';
 import { createTelegramDeliveryTransport } from '../delivery/telegramDeliveryTransport.js';
@@ -311,6 +314,49 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
       })
     : null;
 
+  const telegramWorkspaceMiniApp = telegramWorkspaceConfiguration && telegramUpdateStore.workspaceRegistry
+    ? createTelegramWorkspaceMiniAppService({
+        verifyInitData: (initData) => harness.credentialManager.useCredential({
+          credentialId: telegramConfig.botTokenCredentialId,
+          actor: harness.credentialAccessContext.actor,
+          scope: harness.credentialAccessContext.scope,
+          purpose: 'telegram.mini-app.verify-init-data',
+          connectionId: 'telegram-mini-app',
+          operation: (botToken) => verifyTelegramMiniAppInitData(initData, botToken)
+        }),
+        identityResolver,
+        workspaceRegistry: telegramUpdateStore.workspaceRegistry,
+        authorityResolver: telegramWorkspaceAuthority,
+        configurationService: telegramWorkspaceConfiguration,
+        botCapabilityService: telegramBotCapabilities,
+        projectScope: harness.config.projectScope,
+        audit: async (event) => {
+          const correlation = `twm1.13:${event.actorGlobalUserId ?? 'unknown'}:${event.action ?? 'mini-app'}`;
+          return harness.observability.record({
+            eventClass: 'audit_event',
+            channel: 'telemetry',
+            stage: 'telegram-workspace-mini-app',
+            traceContext: { traceId: correlation, requestId: correlation, environment: harness.config.environment, revision: harness.config.revision },
+            actorRef: event.actorGlobalUserId ?? null,
+            outcome: event.outcome ?? 'unknown',
+            reason: event.reason ?? null,
+            data: {
+              miniAppEventClass: event.eventClass,
+              action: event.action ?? null,
+              workspaceId: event.workspaceId ?? null,
+              namespace: event.namespace ?? null,
+              version: event.version ?? null,
+              targetVersion: event.targetVersion ?? null,
+              workspaceCount: event.workspaceCount ?? null
+            }
+          });
+        }
+      })
+    : null;
+  const telegramMiniAppHandler = telegramWorkspaceMiniApp
+    ? createTelegramWorkspaceMiniAppHttpHandler({ service: telegramWorkspaceMiniApp, path: telegramConfig.miniAppPath })
+    : null;
+
   const telegramWorkspaceRuntime = workspaceStore && telegramUpdateStore.workspaceRegistry
     ? createTelegramWorkspaceRuntimeWiring({
         runtime: harness.runtime,
@@ -394,6 +440,7 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
       json(response, ready ? 200 : 503, { ok: ready, service: 'sg-2-1-web', runtime: runtimeReadiness, database: { started: databaseHealth.started }, ai: { enabled: effectiveEnv.SG_AI_ENABLED === 'true', initialized: Boolean(harness.productionAI) }, automation: { enabled: automationWorker.enabled, ready: automationReady, ...automation }, discord: { enabled: discordConfig.enabled, ready: discordReady, ...discord }, revision: harness.config.revision });
       return;
     }
+    if (telegramMiniAppHandler && await telegramMiniAppHandler(request, response)) return;
     if (await telegramHandler(request, response)) return;
     json(response, 404, { ok: false, code: 'not-found' });
   };
@@ -439,13 +486,30 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
           operation: (webhookSecret) => botClient.setWebhook({ url: telegramConfig.webhookUrl, secretToken: webhookSecret })
         });
       }
+      if (telegramWorkspaceMiniApp && envString(effectiveEnv, 'TELEGRAM_REGISTER_MINI_APP_MENU', 'true').toLowerCase() !== 'false') {
+        try {
+          await botClient.setChatMenuButton({ text: 'Управление', webAppUrl: telegramConfig.miniAppUrl });
+        } catch (error) {
+          try {
+            await harness.observability.record({
+              eventClass: 'error_event',
+              channel: 'telemetry',
+              stage: 'telegram-workspace-mini-app-menu',
+              traceContext: { traceId: 'twm1.13:menu-registration', requestId: 'twm1.13:menu-registration', environment: harness.config.environment, revision: harness.config.revision },
+              outcome: 'failure',
+              reason: error?.code ?? 'twm-mini-app-menu-registration-failed',
+              data: { miniAppUrlConfigured: true }
+            });
+          } catch {}
+        }
+      }
       await automationWorker.start();
       automationStarted = automationWorker.enabled;
       if (discordGateway) {
         await discordGateway.start();
         discordStarted = true;
       }
-      return Object.freeze({ port, health: harness.runtime.health(), readiness: harness.runtime.readiness(), automation: automationHealth(), discord: discordHealth(), revision: harness.config.revision });
+      return Object.freeze({ port, health: harness.runtime.health(), readiness: harness.runtime.readiness(), automation: automationHealth(), discord: discordHealth(), miniApp: { enabled: Boolean(telegramWorkspaceMiniApp), path: telegramConfig.miniAppPath }, revision: harness.config.revision });
     } catch (error) {
       if (automationStarted) {
         try { await automationWorker.stop(); } catch {}
@@ -481,6 +545,8 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
     telegramWorkspaceConfiguration,
     telegramWorkspaceNativeUi,
     telegramWorkspaceNaturalLanguage,
+    telegramWorkspaceMiniApp,
+    telegramMiniAppHandler,
     telegramWorkspaceRuntime,
     automationWorker,
     discordIntegration,

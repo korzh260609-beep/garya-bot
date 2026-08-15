@@ -19,10 +19,37 @@ function optionIds(answer) {
   return Object.freeze(normalized);
 }
 
-export function createTelegramWorkspacePollUpdateHandler({ operationsService, observability = null } = {}) {
+function telegramProfile(user) {
+  return freeze({
+    displayName: [user?.first_name, user?.last_name].filter(Boolean).join(' ').trim() || user?.username || null,
+    firstName: user?.first_name ?? null,
+    lastName: user?.last_name ?? null,
+    username: user?.username ?? null,
+    languageCode: user?.language_code ?? null,
+    source: 'telegram-poll-answer'
+  });
+}
+
+export function createTelegramWorkspacePollUpdateHandler({ operationsService, identityResolver = null, projectScope = 'sg2.1', observability = null } = {}) {
   if (typeof operationsService?.ingestTelegramPollUpdate !== 'function') throw new TypeError('operationsService.ingestTelegramPollUpdate is required');
   const store = operationsService?.core?.store;
   if (typeof store?.findPollByTelegramId !== 'function' || typeof store?.appendEvent !== 'function') throw new TypeError('workspace operations poll store is required');
+  if (identityResolver !== null && typeof identityResolver !== 'function') throw new TypeError('identityResolver must be a function');
+
+  async function resolveActor(pollAnswer) {
+    const user = pollAnswer?.user;
+    if (!user?.id || !identityResolver) return null;
+    const resolution = await identityResolver(freeze({
+      transport: 'telegram',
+      platformFacts: freeze({
+        platform: 'telegram',
+        platformUserId: String(user.id),
+        profile: telegramProfile(user)
+      }),
+      scopeFacts: freeze({ projectId: projectScope, groupId: null, threadId: null })
+    }));
+    return resolution?.identityContext?.globalUserId ?? null;
+  }
 
   async function ingestPollAnswer(pollAnswer, updateId = null) {
     const telegramPollId = String(pollAnswer?.poll_id ?? '').trim();
@@ -31,8 +58,9 @@ export function createTelegramWorkspacePollUpdateHandler({ operationsService, ob
     if (!poll) return freeze({ handled: false, reason: 'unknown-poll' });
     const options = optionIds(pollAnswer);
     const voterRef = voterReference(telegramPollId, pollAnswer);
+    const actorGlobalUserId = await resolveActor(pollAnswer);
     const eventKey = createHash('sha256')
-      .update(['poll.answer-update', poll.workspaceId, poll.recordId, updateId ?? '', voterRef ?? 'anonymous', ...options].join('|'))
+      .update(['poll.answer-update', poll.workspaceId, poll.recordId, updateId ?? '', voterRef ?? 'unresolved-voter', ...options].join('|'))
       .digest('hex');
     const event = await store.appendEvent({
       workspaceId: poll.workspaceId,
@@ -40,15 +68,26 @@ export function createTelegramWorkspacePollUpdateHandler({ operationsService, ob
       eventType: 'poll.answer-update',
       recordDomain: 'poll',
       recordId: poll.recordId,
-      actorGlobalUserId: 'telegram:poll-answer',
+      actorGlobalUserId,
       evidence: {
         source: 'telegram-poll-answer',
         telegramPollId,
         updateId,
         optionIds: options,
-        voterRef
+        voterRef,
+        identityResolved: actorGlobalUserId !== null
       }
     });
+    try {
+      await observability?.record?.({
+        channel: 'telemetry',
+        eventClass: 'audit_event',
+        stage: 'telegram-workspace-poll-update',
+        outcome: event.deduplicated ? 'deduplicated' : 'recorded',
+        actorRef: actorGlobalUserId,
+        data: { workspaceId: poll.workspaceId, pollId: poll.recordId, updateType: 'poll_answer' }
+      });
+    } catch {}
     return freeze({ handled: true, deduplicated: event.inserted === false || event.deduplicated === true, pollId: poll.recordId, optionIds: options });
   }
 

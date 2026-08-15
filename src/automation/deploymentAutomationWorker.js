@@ -1,6 +1,7 @@
 import { createDurableWorker } from './durableWorker.js';
 import { createNotificationDeliveryPolicy } from './notificationDeliveryPolicy.js';
 import { createProductionWorkerActionGate, createProductionWorkerExecutor } from './productionWorkerExecution.js';
+import { listDeploymentTaskHandlers } from './taskHandlerRegistry.js';
 import { createSecurityOperationsConfig } from '../operations/securityOperations.js';
 
 export function createDeploymentAutomationWorker({ harness, deliveryRouter, env = process.env } = {}) {
@@ -18,10 +19,19 @@ export function createDeploymentAutomationWorker({ harness, deliveryRouter, env 
 
   const securityGate = createProductionWorkerActionGate({ ownerSecurityGateway: harness.ownerSecurityGateway });
   const notificationPolicy = createNotificationDeliveryPolicy({ userSettingsService: harness.userSettingsService ?? null });
+  const baseExecutor = createProductionWorkerExecutor({ deliveryRouter });
+  const registeredHandler = (kind) => listDeploymentTaskHandlers(harness).find((handler) => handler.kind === kind) ?? null;
   const actionGate = async (request) => {
+    const handler = registeredHandler(request?.kind);
+    if (handler) return handler.authorize(request);
     const securityDecision = await securityGate(request);
     if (!(securityDecision?.allowed === true || securityDecision?.outcome === 'allow')) return securityDecision;
     return notificationPolicy(request);
+  };
+  const executor = async (request) => {
+    const handler = registeredHandler(request?.kind);
+    if (handler) return handler.execute(request);
+    return baseExecutor(request);
   };
 
   const worker = createDurableWorker({
@@ -31,7 +41,7 @@ export function createDeploymentAutomationWorker({ harness, deliveryRouter, env 
     environment: harness.config.environment,
     revision: harness.config.revision,
     actionGate,
-    executor: createProductionWorkerExecutor({ deliveryRouter }),
+    executor,
     leaseMs: Number(env.SG_WORKER_LEASE_MS ?? 30000),
     heartbeatMs: Number(env.SG_WORKER_HEARTBEAT_MS ?? 10000),
     pollMs: Number(env.SG_WORKER_POLL_MS ?? 1000)

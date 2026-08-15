@@ -40,7 +40,7 @@ test('TWM domain mutations remain inside canonical Action Gate and workspace Res
 
   assert.equal(decision.outcome, 'allow');
   assert.equal(captured.scope.groupScope, 'telegram:workspace:100');
-  assert.equal(captured.requestedScope.groupScope, 'telegram:workspace:100');
+  assert.equal(captured.scope.requestedGroupScope, 'telegram:workspace:100');
   assert.equal(captured.requiredPermission, 'workspace:publish');
   assert.equal(captured.resourceAuthority.allowed, true);
   assert.equal(captured.resourceAuthority.resourceId, 'telegram:workspace:100');

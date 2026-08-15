@@ -1,5 +1,13 @@
 const DEFAULT_PATH = '/telegram/mini-app';
 const MAX_BODY_BYTES = 64 * 1024;
+const INTERNAL_RESPONSE_KEYS = new Set([
+  'workspaceId', 'workspace_id',
+  'actorGlobalUserId', 'actor_global_user_id',
+  'updatedByGlobalUserId', 'updated_by_global_user_id',
+  'telegramUserId', 'telegram_user_id',
+  'traceId', 'trace_id',
+  'historyId', 'history_id'
+]);
 
 function normalizePath(value) {
   const path = String(value ?? DEFAULT_PATH).trim();
@@ -7,11 +15,19 @@ function normalizePath(value) {
   return path.replace(/\/+$/, '') || DEFAULT_PATH;
 }
 
+function publicProjection(value) {
+  if (Array.isArray(value)) return value.map(publicProjection);
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(Object.entries(value)
+    .filter(([key]) => !INTERNAL_RESPONSE_KEYS.has(key))
+    .map(([key, nested]) => [key, publicProjection(nested)]));
+}
+
 function json(response, statusCode, body) {
   response.statusCode = statusCode;
   response.setHeader('content-type', 'application/json; charset=utf-8');
   response.setHeader('cache-control', 'no-store');
-  response.end(JSON.stringify(body));
+  response.end(JSON.stringify(publicProjection(body)));
 }
 
 function html(response, body) {

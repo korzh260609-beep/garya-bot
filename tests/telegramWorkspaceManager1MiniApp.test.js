@@ -52,7 +52,15 @@ function fixture() {
       return Object.freeze({ allowed, reason: allowed ? 'verified' : 'twm-authority-denied', workspaceRole: allowed ? 'OWNER' : null });
     }
   });
-  const configRow = Object.freeze({ workspaceId, namespace: 'responses', config: Object.freeze({ enabled: true, reply_enabled: true, mode: 'mention_only' }), version: 3 });
+  const configRow = Object.freeze({
+    workspaceId,
+    namespace: 'responses',
+    config: Object.freeze({ enabled: true, reply_enabled: true, mode: 'mention_only' }),
+    version: 3,
+    updatedByGlobalUserId: actorGlobalUserId,
+    traceId: 'trace-sensitive',
+    updatedAt: now.toISOString()
+  });
   const configurationService = Object.freeze({
     async getConfig() { return configRow; },
     async listConfigs({ workspaceId: wid }) { return wid === workspaceId ? Object.freeze([configRow]) : Object.freeze([]); },
@@ -67,9 +75,14 @@ function fixture() {
     },
     async applyProposal(input) {
       applied.push(structuredClone(input));
-      return Object.freeze({ config: Object.freeze({ ...configRow, config: Object.freeze(structuredClone(input.proposal.nextConfig)), version: 4 }), actionGate: Object.freeze({ outcome: 'allow' }) });
+      return Object.freeze({ config: Object.freeze({ ...configRow, config: Object.freeze(structuredClone(input.proposal.nextConfig)), version: 4 }), actionGate: Object.freeze({ outcome: 'allow', traceId: 'gate-trace-sensitive' }) });
     },
-    async history() { return Object.freeze([Object.freeze({ version: 3 }), Object.freeze({ version: 2 })]); },
+    async history() {
+      return Object.freeze([
+        Object.freeze({ history_id: 'hist-sensitive', workspace_id: workspaceId, namespace: 'responses', version: 3, actor_global_user_id: actorGlobalUserId, trace_id: 'history-trace-sensitive', new_config: Object.freeze({ enabled: true, mode: 'mention_only' }) }),
+        Object.freeze({ history_id: 'hist-sensitive-2', workspace_id: workspaceId, namespace: 'responses', version: 2, actor_global_user_id: actorGlobalUserId, trace_id: 'history-trace-sensitive-2', new_config: Object.freeze({ enabled: true, mode: 'all' }) })
+      ]);
+    },
     async rollback(input) { rollbacks.push(structuredClone(input)); return Object.freeze({ config: Object.freeze({ version: 4 }), rolledBackToVersion: Number(input.targetVersion) }); }
   });
   const service = createTelegramWorkspaceMiniAppService({
@@ -210,6 +223,39 @@ test('TWM1.13 authority loss after bootstrap is rechecked and fails closed', asy
     (error) => error.code === 'twm-authority-denied'
   );
   assert.equal(fx.applied.length, 0);
+});
+
+test('TWM1.13 HTTP adapter redacts internal workspace, actor, and trace metadata from user-visible JSON', async () => {
+  const fx = fixture();
+  const handler = createTelegramWorkspaceMiniAppHttpHandler({ service: fx.service });
+  const bootstrapResponse = responseFixture();
+  assert.equal(await handler(request({ url: '/telegram/mini-app/api/bootstrap' }), bootstrapResponse.response), true);
+  assert.equal(bootstrapResponse.response.statusCode, 200);
+  const bootstrap = JSON.parse(bootstrapResponse.response.body);
+  const workspaceRef = bootstrap.workspaces[0].workspaceRef;
+  assert.match(workspaceRef, /^twr_/);
+  assert.equal(bootstrapResponse.response.body.includes(workspaceId), false);
+
+  const workspaceResponse = responseFixture();
+  assert.equal(await handler(request({ url: '/telegram/mini-app/api/workspace', body: { workspaceRef } }), workspaceResponse.response), true);
+  assert.equal(workspaceResponse.response.statusCode, 200);
+  const workspaceBody = workspaceResponse.response.body;
+  const workspaceView = JSON.parse(workspaceBody);
+  assert.equal(workspaceView.configs[0].namespace, 'responses');
+  assert.equal(workspaceView.configs[0].version, 3);
+  for (const forbidden of [workspaceId, actorGlobalUserId, 'trace-sensitive', 'workspaceId', 'updatedByGlobalUserId', 'traceId']) {
+    assert.equal(workspaceBody.includes(forbidden), false, `workspace response leaked ${forbidden}`);
+  }
+
+  const historyResponse = responseFixture();
+  assert.equal(await handler(request({ url: '/telegram/mini-app/api/history', body: { workspaceRef, namespace: 'responses', limit: 5 } }), historyResponse.response), true);
+  assert.equal(historyResponse.response.statusCode, 200);
+  const historyBody = historyResponse.response.body;
+  const historyView = JSON.parse(historyBody);
+  assert.deepEqual(historyView.map((row) => row.version), [3, 2]);
+  for (const forbidden of [workspaceId, actorGlobalUserId, 'hist-sensitive', 'history-trace-sensitive', 'workspace_id', 'actor_global_user_id', 'trace_id', 'history_id']) {
+    assert.equal(historyBody.includes(forbidden), false, `history response leaked ${forbidden}`);
+  }
 });
 
 test('TWM1.13 HTTP adapter serves UI independently and fails closed without signed Telegram initData', async () => {

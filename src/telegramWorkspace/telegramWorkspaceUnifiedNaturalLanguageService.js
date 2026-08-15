@@ -36,7 +36,7 @@ export function createTelegramWorkspaceUnifiedNaturalLanguageService({ configura
 
   async function handleUpdate(update, options = {}) {
     const callbackData = update?.callback_query?.data;
-    if (typeof callbackData === 'string' && callbackData.startsWith('twm19|op-')) return operationsNaturalLanguage.handleUpdate(update, options);
+    if (typeof callbackData === 'string' && (callbackData.startsWith('twm19|op-') || callbackData.startsWith('twmt|'))) return operationsNaturalLanguage.handleUpdate(update, options);
     if (typeof callbackData === 'string' && callbackData.startsWith('twm19|')) return configurationNaturalLanguage.handleUpdate(update, options);
 
     if (options?.semanticRoute?.workspaceOperation === 'capture-media') {

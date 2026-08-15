@@ -321,7 +321,7 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
           actor: harness.credentialAccessContext.actor,
           scope: harness.credentialAccessContext.scope,
           purpose: 'telegram.mini-app.verify-init-data',
-          connectionId: 'telegram-mini-app',
+          connectionId: 'telegram',
           operation: (botToken) => verifyTelegramMiniAppInitData(initData, botToken)
         }),
         identityResolver,

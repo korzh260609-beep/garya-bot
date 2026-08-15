@@ -1,4 +1,57 @@
 import { enumValue } from './workspaceOperationsContract.js';
 import { deepFreeze } from './workspaceOperationsCore.js';
+
 const DOMAINS=['content','poll','test','form','submission','event','registration','feedback','faq','onboarding','moderation','case','decision','content-plan','summary','unanswered','task-link'];
-export function createWorkspaceAnalyticsOperations({core,aiAnalyze=null}={}){const {store,authority,gate}=core;async function snapshot(ctx,{from=null,to=null}={}){await authority(ctx,'workspace:view',false);const eventCounts=await store.aggregateEvents({workspaceId:ctx.workspaceId,from,to}),recordCounts={};for(const domain of DOMAINS)recordCounts[domain]=await store.countRecords({workspaceId:ctx.workspaceId,domain});const metrics=deepFreeze({recordCounts:deepFreeze(recordCounts),eventCounts,totalStructuredEvents:Object.values(eventCounts).reduce((a,b)=>a+b,0)});return store.saveAnalyticsSnapshot({workspaceId:ctx.workspaceId,from,to,metrics});}async function analyze(ctx,{snapshot:input}={}){await authority(ctx,'workspace:view',false);const immutable=deepFreeze(structuredClone(input));if(!aiAnalyze)return deepFreeze({available:false,reason:'ai-analysis-unavailable',snapshot:immutable,authoritativeMetrics:true});return deepFreeze({available:true,snapshot:immutable,narrative:await aiAnalyze({kind:'telegram-workspace-analytics-analysis',snapshot:immutable,workspaceId:ctx.workspaceId}),authoritativeMetrics:true,aiAuthoritative:false});}async function ownerBrief(ctx,{from=null,to=null}={}){const exact=await snapshot(ctx,{from,to}),analysis=await analyze(ctx,{snapshot:exact});return deepFreeze({exact,interpretation:analysis.available?analysis.narrative:null,authoritativeMetrics:true,aiAuthoritative:false});}async function createExport(ctx,{snapshot:input,format='json'}={}){format=enumValue(format,['json'],'format');return gate(ctx,{operation:'export.create',domain:'export',risk:'medium',confirmationRequired:true},async()=>{const immutable=deepFreeze(structuredClone(input??{})),content=JSON.stringify({generatedAt:new Date().toISOString(),data:immutable},null,2);return store.createRecord({workspaceId:ctx.workspaceId,domain:'export',recordId:`export_${Date.now()}`,status:'ready',visibility:'owner',privacyClass:'private',actorGlobalUserId:ctx.actorGlobalUserId,payload:{format,byteLength:Buffer.byteLength(content,'utf8'),content}});});}return Object.freeze({snapshot,analyze,ownerBrief,createExport});}
+const INTERACTION_EVENT_TYPES=Object.freeze(['poll.answer-update','test.completed','event.registered','feedback.created','form.submitted']);
+
+function interactionMetrics(value={}){
+  return deepFreeze({
+    uniqueActors:Number(value?.uniqueActors??0),
+    interactionEvents:Number(value?.interactionEvents??0)
+  });
+}
+
+export function createWorkspaceAnalyticsOperations({core,aiAnalyze=null}={}){
+  const {store,authority,gate}=core;
+
+  async function snapshot(ctx,{from=null,to=null}={}){
+    await authority(ctx,'workspace:view',false);
+    const eventCounts=await store.aggregateEvents({workspaceId:ctx.workspaceId,from,to});
+    const recordCounts={};
+    for(const domain of DOMAINS)recordCounts[domain]=await store.countRecords({workspaceId:ctx.workspaceId,domain,from,to});
+    const interaction=typeof store.aggregateEventActors==='function'
+      ? interactionMetrics(await store.aggregateEventActors({workspaceId:ctx.workspaceId,eventTypes:INTERACTION_EVENT_TYPES,from,to}))
+      : interactionMetrics();
+    const metrics=deepFreeze({
+      recordCounts:deepFreeze(recordCounts),
+      eventCounts,
+      interaction,
+      totalStructuredEvents:Object.values(eventCounts).reduce((a,b)=>a+b,0)
+    });
+    return store.saveAnalyticsSnapshot({workspaceId:ctx.workspaceId,from,to,metrics});
+  }
+
+  async function analyze(ctx,{snapshot:input}={}){
+    await authority(ctx,'workspace:view',false);
+    const immutable=deepFreeze(structuredClone(input));
+    if(!aiAnalyze)return deepFreeze({available:false,reason:'ai-analysis-unavailable',snapshot:immutable,authoritativeMetrics:true});
+    return deepFreeze({available:true,snapshot:immutable,narrative:await aiAnalyze({kind:'telegram-workspace-analytics-analysis',snapshot:immutable,workspaceId:ctx.workspaceId}),authoritativeMetrics:true,aiAuthoritative:false});
+  }
+
+  async function ownerBrief(ctx,{from=null,to=null}={}){
+    const exact=await snapshot(ctx,{from,to}),analysis=await analyze(ctx,{snapshot:exact});
+    return deepFreeze({exact,interpretation:analysis.available?analysis.narrative:null,authoritativeMetrics:true,aiAuthoritative:false});
+  }
+
+  async function createExport(ctx,{snapshot:input,format='json'}={}){
+    format=enumValue(format,['json'],'format');
+    return gate(ctx,{operation:'export.create',domain:'export',risk:'medium',confirmationRequired:true},async()=>{
+      const immutable=deepFreeze(structuredClone(input??{})),content=JSON.stringify({generatedAt:new Date().toISOString(),data:immutable},null,2);
+      return store.createRecord({workspaceId:ctx.workspaceId,domain:'export',recordId:`export_${Date.now()}`,status:'ready',visibility:'owner',privacyClass:'private',actorGlobalUserId:ctx.actorGlobalUserId,payload:{format,byteLength:Buffer.byteLength(content,'utf8'),content}});
+    });
+  }
+
+  return Object.freeze({snapshot,analyze,ownerBrief,createExport});
+}
+
+export const WORKSPACE_ANALYTICS_INTERACTION_EVENT_TYPES=INTERACTION_EVENT_TYPES;

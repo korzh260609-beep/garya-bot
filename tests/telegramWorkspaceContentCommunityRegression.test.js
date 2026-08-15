@@ -136,8 +136,11 @@ test('poll_answer is tied to canonical identity without persisting raw Telegram 
   assert.equal(event.evidence.voterRef.length, 64);
 });
 
-test('workspace analytics contains only deterministic persisted counts and labels AI narrative non-authoritative', async () => {
+test('workspace analytics is date-scoped, actor-aware, persisted and AI narrative remains non-authoritative', async () => {
   const saved = [];
+  const from = '2026-08-15T00:00:00.000Z';
+  const to = '2026-08-16T00:00:00.000Z';
+  const countCalls = [];
   const core = {
     authority: async (_ctx, action) => {
       assert.equal(action, 'workspace:view');
@@ -145,12 +148,21 @@ test('workspace analytics contains only deterministic persisted counts and label
     },
     gate: async (_ctx, _operation, work) => work({}),
     store: {
-      async aggregateEvents({ workspaceId }) {
-        assert.equal(workspaceId, 'telegram:workspace:100');
-        return { 'poll.statistics': 2, 'content.published': 3 };
+      async aggregateEvents(input) {
+        assert.deepEqual(input, { workspaceId: 'telegram:workspace:100', from, to });
+        return { 'poll.answer-update': 2, 'test.completed': 1, 'content.published': 3 };
       },
-      async countRecords({ domain }) {
-        return domain === 'content' ? 4 : domain === 'poll' ? 1 : 0;
+      async countRecords(input) {
+        countCalls.push(input);
+        return input.domain === 'content' ? 4 : input.domain === 'poll' ? 1 : input.domain === 'test' ? 2 : 0;
+      },
+      async aggregateEventActors(input) {
+        assert.equal(input.workspaceId, 'telegram:workspace:100');
+        assert.equal(input.from, from);
+        assert.equal(input.to, to);
+        assert.equal(input.eventTypes.includes('poll.answer-update'), true);
+        assert.equal(input.eventTypes.includes('test.completed'), true);
+        return { uniqueActors: 2, interactionEvents: 3 };
       },
       async saveAnalyticsSnapshot(input) {
         saved.push(input);
@@ -158,18 +170,22 @@ test('workspace analytics contains only deterministic persisted counts and label
       }
     }
   };
-  const analytics = createWorkspaceAnalyticsOperations({
-    core,
-    aiAnalyze: async () => 'Interpretation only'
-  });
+  const analytics = createWorkspaceAnalyticsOperations({ core, aiAnalyze: async () => 'Interpretation only' });
   const ctx = { workspaceId: 'telegram:workspace:100', actorGlobalUserId: 'user:owner', telegramUserId: '42' };
-  const snapshot = await analytics.snapshot(ctx, {});
+  const snapshot = await analytics.snapshot(ctx, { from, to });
   assert.equal(snapshot.metrics.recordCounts.content, 4);
   assert.equal(snapshot.metrics.recordCounts.poll, 1);
-  assert.equal(snapshot.metrics.eventCounts['poll.statistics'], 2);
-  assert.equal(snapshot.metrics.totalStructuredEvents, 5);
-  assert.deepEqual(Object.keys(snapshot.metrics).sort(), ['eventCounts', 'recordCounts', 'totalStructuredEvents']);
+  assert.equal(snapshot.metrics.recordCounts.test, 2);
+  assert.equal(snapshot.metrics.eventCounts['poll.answer-update'], 2);
+  assert.equal(snapshot.metrics.interaction.uniqueActors, 2);
+  assert.equal(snapshot.metrics.interaction.interactionEvents, 3);
+  assert.equal(snapshot.metrics.totalStructuredEvents, 6);
+  assert.deepEqual(Object.keys(snapshot.metrics).sort(), ['eventCounts', 'interaction', 'recordCounts', 'totalStructuredEvents']);
+  assert.equal(countCalls.length > 0, true);
+  assert.equal(countCalls.every((call) => call.from === from && call.to === to), true);
   assert.equal(saved.length, 1);
+  assert.equal(saved[0].from, from);
+  assert.equal(saved[0].to, to);
 
   const analyzed = await analytics.analyze(ctx, { snapshot });
   assert.equal(analyzed.authoritativeMetrics, true);

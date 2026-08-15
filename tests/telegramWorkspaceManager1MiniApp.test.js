@@ -30,6 +30,7 @@ function fixture() {
   const proposed = [];
   const applied = [];
   const rollbacks = [];
+  let ownerAuthorized = true;
   const identityResolver = async ({ platformFacts }) => {
     assert.equal(platformFacts.platform, 'telegram');
     assert.equal(platformFacts.platformUserId, telegramUserId);
@@ -47,7 +48,7 @@ function fixture() {
     async verify(input) {
       assert.equal(input.expectedGlobalUserId, actorGlobalUserId);
       assert.equal(input.telegramUserId, telegramUserId);
-      const allowed = input.workspaceId === workspaceId;
+      const allowed = input.workspaceId === workspaceId && ownerAuthorized;
       return Object.freeze({ allowed, reason: allowed ? 'verified' : 'twm-authority-denied', workspaceRole: allowed ? 'OWNER' : null });
     }
   });
@@ -80,7 +81,13 @@ function fixture() {
     projectScope: 'sg2.1',
     idFactory: (() => { let n = 0; return () => `fixed-${++n}`; })()
   });
-  return { service, proposed, applied, rollbacks };
+  return { service, proposed, applied, rollbacks, setOwnerAuthorized(value) { ownerAuthorized = value; } };
+}
+
+async function authorizedWorkspaceRef(service, initData = signedInitData()) {
+  const bootstrap = await service.bootstrap({ initData });
+  assert.equal(bootstrap.workspaces.length, 1);
+  return bootstrap.workspaces[0].workspaceRef;
 }
 
 function responseFixture() {
@@ -120,26 +127,30 @@ test('TWM1.13 validates Telegram Mini App initData server-side and rejects tampe
   );
 });
 
-test('TWM1.13 bootstrap exposes only authority-filtered workspaces and no SG identity or server binding metadata', async () => {
+test('TWM1.13 bootstrap exposes only authority-filtered opaque workspace refs, never internal workspace IDs', async () => {
   const fx = fixture();
   const result = await fx.service.bootstrap({ initData: signedInitData() });
   assert.equal(result.version, 'twm1.13.v1');
   assert.equal(result.workspaces.length, 1);
-  assert.equal(result.workspaces[0].workspaceId, workspaceId);
+  assert.match(result.workspaces[0].workspaceRef, /^twr_/);
+  assert.equal('workspaceId' in result.workspaces[0], false);
   assert.equal(JSON.stringify(result).includes(actorGlobalUserId), false);
+  assert.equal(JSON.stringify(result).includes(workspaceId), false);
   assert.equal(JSON.stringify(result).includes(deniedWorkspaceId), false);
   assert.equal(JSON.stringify(result).includes('bindingKey'), false);
 });
 
-test('TWM1.13 preview does not mutate; apply uses the exact server-signed proposal and existing Action Gate boundary', async () => {
+test('TWM1.13 preview does not mutate; apply uses exact server-signed proposal through existing Action Gate boundary', async () => {
   const fx = fixture();
+  const workspaceRef = await authorizedWorkspaceRef(fx.service);
   const nextConfig = { enabled: true, reply_enabled: true, mode: 'all' };
-  const preview = await fx.service.propose({ initData: signedInitData(), workspaceId, namespace: 'responses', nextConfig });
+  const preview = await fx.service.propose({ initData: signedInitData(), workspaceRef, namespace: 'responses', nextConfig });
   assert.equal(fx.applied.length, 0);
   assert.equal(fx.proposed.length, 1);
   assert.equal(preview.baseVersion, 3);
   assert.match(preview.requestId, /^twm-mini:/);
   assert.equal(typeof preview.confirmationToken, 'string');
+  assert.equal('workspaceId' in preview, false);
 
   await assert.rejects(
     () => fx.service.apply({ initData: signedInitData(), confirmationToken: preview.confirmationToken, confirmed: false }),
@@ -150,6 +161,7 @@ test('TWM1.13 preview does not mutate; apply uses the exact server-signed propos
   await fx.service.apply({ initData: signedInitData(), confirmationToken: preview.confirmationToken, confirmed: true });
   assert.equal(fx.applied.length, 1);
   assert.equal(fx.applied[0].proposal.actorGlobalUserId, actorGlobalUserId);
+  assert.equal(fx.applied[0].proposal.workspaceId, workspaceId);
   assert.equal(fx.applied[0].telegramUserId, telegramUserId);
   assert.deepEqual(fx.applied[0].proposal.nextConfig, nextConfig);
   assert.deepEqual(fx.applied[0].confirmation, { confirmed: true, requestId: preview.requestId });
@@ -157,7 +169,8 @@ test('TWM1.13 preview does not mutate; apply uses the exact server-signed propos
 
 test('TWM1.13 confirmation token cannot be altered into a different configuration', async () => {
   const fx = fixture();
-  const preview = await fx.service.propose({ initData: signedInitData(), workspaceId, namespace: 'responses', nextConfig: { enabled: true, reply_enabled: true, mode: 'all' } });
+  const workspaceRef = await authorizedWorkspaceRef(fx.service);
+  const preview = await fx.service.propose({ initData: signedInitData(), workspaceRef, namespace: 'responses', nextConfig: { enabled: true, reply_enabled: true, mode: 'all' } });
   const [body, signature] = preview.confirmationToken.split('.');
   const payload = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'));
   payload.nextConfig.mode = 'off';
@@ -170,11 +183,17 @@ test('TWM1.13 confirmation token cannot be altered into a different configuratio
   assert.equal(fx.applied.length, 0);
 });
 
-test('TWM1.13 confirmation token is session-bound and cannot be reused with different signed Telegram initData', async () => {
+test('TWM1.13 workspace refs and confirmations are bound to the signed Telegram session', async () => {
   const fx = fixture();
-  const preview = await fx.service.propose({ initData: signedInitData(), workspaceId, namespace: 'responses', nextConfig: { enabled: true, reply_enabled: true, mode: 'all' } });
+  const firstSession = signedInitData();
+  const workspaceRef = await authorizedWorkspaceRef(fx.service, firstSession);
+  const preview = await fx.service.propose({ initData: firstSession, workspaceRef, namespace: 'responses', nextConfig: { enabled: true, reply_enabled: true, mode: 'all' } });
   const differentSession = signedInitData({ authDate: Math.floor(now.getTime() / 1000) - 1 });
 
+  await assert.rejects(
+    () => fx.service.workspace({ initData: differentSession, workspaceRef }),
+    (error) => error.code === 'twm-mini-app-workspace-ref-invalid'
+  );
   await assert.rejects(
     () => fx.service.apply({ initData: differentSession, confirmationToken: preview.confirmationToken, confirmed: true }),
     (error) => error.code === 'twm-mini-app-confirmation-token-invalid'
@@ -182,10 +201,12 @@ test('TWM1.13 confirmation token is session-bound and cannot be reused with diff
   assert.equal(fx.applied.length, 0);
 });
 
-test('TWM1.13 cross-workspace access fails at Resource Authority before configuration reads/writes', async () => {
+test('TWM1.13 authority loss after bootstrap is rechecked and fails closed', async () => {
   const fx = fixture();
+  const workspaceRef = await authorizedWorkspaceRef(fx.service);
+  fx.setOwnerAuthorized(false);
   await assert.rejects(
-    () => fx.service.workspace({ initData: signedInitData(), workspaceId: deniedWorkspaceId }),
+    () => fx.service.workspace({ initData: signedInitData(), workspaceRef }),
     (error) => error.code === 'twm-authority-denied'
   );
   assert.equal(fx.applied.length, 0);
@@ -199,6 +220,8 @@ test('TWM1.13 HTTP adapter serves UI independently and fails closed without sign
   assert.equal(await handler(request({ url: '/telegram/mini-app', method: 'GET', initData: null }), page.response), true);
   assert.equal(page.response.statusCode, 200);
   assert.match(page.response.body, /Telegram Workspace Manager/);
+  assert.match(page.response.body, /workspaceRef/);
+  assert.doesNotMatch(page.response.body, /workspaceId/);
   assert.match(page.response.body, /confirmationToken/);
   assert.match(page.headers['content-security-policy'], /telegram\.org/);
 

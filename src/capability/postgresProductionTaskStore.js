@@ -44,6 +44,8 @@ export function createPostgresProductionTaskStore({ database, taskQueue } = {}) 
   }
 
   return Object.freeze({
+    database,
+    taskQueue,
     async create({ scope, input = {} }) {
       const [globalUserId, projectScope, groupScope, threadScope] = scopeValues(scope);
       const task = await taskQueue.submit({

@@ -68,8 +68,8 @@ function classifyDecision({ interpretation, selected, selectedAction, uncertaint
   const hasClarificationQuestion = Boolean(interpretation.clarificationQuestion);
   if (hasClarificationQuestion && interpretation.missingInformation.length > 0) return 'clarification';
   if (hasClarificationQuestion && interpretation.uncertainty >= uncertaintyThreshold) return 'clarification';
-  if (selected.protectedIntent || selected.executableIntent || selectedAction.type === 'execute') return 'execute';
   if (selectedAction.type === 'prepare') return 'prepare';
+  if (selected.protectedIntent || selected.executableIntent || selectedAction.type === 'execute') return 'execute';
   return 'answer';
 }
 function answerFallback(locale) {

@@ -61,7 +61,7 @@ Canonical doc: `17_RENDER_DEPLOYMENT.md`.
 
 ## Automation 2.0 — Executable Workflows
 
-**ACCEPTED ARCHITECTURE / IMPLEMENTATION IN PROGRESS — AW2.1–AW2.8 IMPLEMENTED / CI-VERIFIED; AW2.9 IMPLEMENTED / CI-PENDING; AW2.10 NEXT; NOT DEPLOYED / NOT LIVE-VERIFIED AS AUTOMATION 2.0.**
+**ACCEPTED ARCHITECTURE / IMPLEMENTATION IN PROGRESS — AW2.1–AW2.9 CLOSED / CI-VERIFIED; AW2.10 NEXT; NOT DEPLOYED / NOT LIVE-VERIFIED AS AUTOMATION 2.0.**
 
 AW2.1–AW2.9 now provide the additive generalized workflow foundation above the existing durable automation substrate:
 - versioned workflow contract and backward-compatible `self-notification` adapter;
@@ -95,14 +95,14 @@ AW2.8 implementation/closure evidence:
 - regression coverage in `tests/workflowSemanticTargetResolution.test.js` covers unique resolution, zero match, ambiguity, scope isolation and invented/unsupported selector rejection;
 - implementation HEAD `3e4aa1732f17f2dd495da219bdd7f490e3dd503e` passed exact-head SG 2.1 CI #8226, including `npm run check`, web start, worker start and diagnostics.
 
-AW2.9 implementation evidence, closure pending exact-HEAD CI:
-- runtime already preserves `automationId` via canonical workflow patching/versioning in `src/automation/workflowUpdate.js`;
+AW2.9 implementation/closure evidence:
+- runtime preserves `automationId` via canonical workflow patching/versioning in `src/automation/workflowUpdate.js`;
 - one-shot trigger mutation reuses the existing `taskId` through `PostgresTaskQueue.updateScheduled()`;
 - recurring trigger mutation reuses the existing `scheduleId` through scheduler `update()`;
 - content/template synchronization reuses the already-associated durable task;
 - `tests/workflowPatchNotDuplicate.test.js` explicitly fails if update invokes task/schedule `create` or `register` paths and verifies stable `automationId`, `taskId`, `scheduleId` plus workflow version `1 → 2`;
-- regression implementation commit: `c0205686904d119950733c1fe96c70ed20f3ee59` on `dev/sg2.1-semantic`;
-- AW2.9 remains **NOT CLOSED** until SG 2.1 CI succeeds on the final documentation-synchronized HEAD.
+- initial regression commit `c0205686904d119950733c1fe96c70ed20f3ee59`; corrected public-contract assertion commit `e3d21755f6c8fdcbe88bc53620deaf9c46990d69`;
+- SG 2.1 CI #8238 passed on exact HEAD `e3d21755f6c8fdcbe88bc53620deaf9c46990d69`; AW2.9 is therefore CLOSED / CI-VERIFIED.
 
 Boundary:
 - Automation 2.0 generalized workflows are not yet production-wired/live-accepted as a complete program;

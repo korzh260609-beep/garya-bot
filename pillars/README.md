@@ -93,7 +93,7 @@ Active files:
 - `TELEGRAM_WORKSPACE_MANAGER_1_0_PROGRAM.md` — active TWM1 program; TWM1.1–TWM1.9 CLOSED / CI-verified and TWM1.10 next, with later TWM1.14 Content, Polls, Quizzes & Media Management
 - `TELEGRAM_WORKSPACE_MANAGER_1_15_COMMUNITY_OPERATIONS_PROGRAM.md` — planned TWM1.15 forms/events/FAQ/onboarding/feedback/cases/tasks/decisions/content planning/summaries/analytics/briefs/exports program
 - `SG_ACCESS_CONTROL_SYSTEM_1_0_PROGRAM.md` — planned transport-neutral access/entitlement program
-- `AUTOMATION_2_0_EXECUTABLE_WORKFLOWS_PROGRAM.md` — planned AW2.1–AW2.20 executable-workflow extension; not runtime-implemented by documentation alone
+- `AUTOMATION_2_0_EXECUTABLE_WORKFLOWS_PROGRAM.md` — implementation in progress; AW2.1 workflow contract is implemented/CI-verified and AW2.2 is next
 - `UNIVERSAL_DIAGNOSTICS_PROGRAM.md` — canonical Universal Diagnostics D1–D12 cross-cutting program
 - `PRODUCTION_ROADMAP.md` — canonical continuation covering Blocks 11–19, intermediate Blocks 16.5–16.18 and Pilot Launch
 - `CURRENT_STATUS.md` — canonical current-state index when historical roadmap labels are stale
@@ -131,7 +131,7 @@ Telegram Workspace Manager 1.0 is not a second Telegram transport or a second id
 
 TWM1.15 MUST reuse existing Memory 2.0, Session/Conversation Context, task/capability, Durable Automation, Delivery Router, AI Router and Observability foundations. Operational data does not become shared confirmed memory automatically; private user data cannot leak into FAQ/analytics/exports; AI cannot mutate state or fabricate exact metrics; and poll/test outcomes require a separate authorized decision transition before they can become binding workspace decisions.
 
-Automation 2.0 is not a second automation engine. It upgrades the semantic contract and execution model above the existing task/schedule/Durable Worker substrate so an automation can be versioned, semantically patched, collect fresh authorized evidence and perform bounded multi-step work at execution time. It reuses Temporal Context, Capability System, Identity/Scope, Access, Resource Authority, Action Gate, Credential Manager, PostgreSQL, Delivery Router, AI Router and Observability. Its accepted architecture and program are **PLANNED / NOT IMPLEMENTED** until code/CI/deployment/live evidence proves otherwise.
+Automation 2.0 is not a second automation engine. It upgrades the semantic contract and execution model above the existing task/schedule/Durable Worker substrate so an automation can be versioned, semantically patched, collect fresh authorized evidence and perform bounded multi-step work at execution time. It reuses Temporal Context, Capability System, Identity/Scope, Access, Resource Authority, Action Gate, Credential Manager, PostgreSQL, Delivery Router, AI Router and Observability. Current lifecycle state is **IMPLEMENTATION IN PROGRESS — AW2.1 IMPLEMENTED / CI-VERIFIED; AW2.2 NEXT**. AW2.1 establishes the canonical workflow contract and legacy `self-notification` adapter only; generalized workflow execution, semantic mutation, deployment and live acceptance remain future stages.
 
 Block 8.1 is not a new independent core layer. It is the production Discord transport extension of Block 8 Interfaces and does not renumber Blocks 9–19. Its implementation must reuse the existing Identity/Scope, canonical `global_user_id`, Memory 2.0, Resource Authority, Delivery Router, Observability and security boundaries.
 

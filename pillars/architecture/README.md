@@ -9,7 +9,7 @@ DECISIONS → ARCHITECTURE → ROADMAP → WORKFLOW → CODE → TEST/RUNTIME EV
 ```
 
 ## Canonical definition
-SG 2.1 is one global transport-independent project system whose reasoning layer is provided by connected AI models. SG code organizes context, memory, sources, capabilities, identity, safety, execution and evidence.
+SG 2.1 is one global transport-independent project system whose reasoning layer is provided by connected AI models. SG code organizes context, memory, sources, capabilities, identity, access, safety, execution and evidence.
 
 ## Canonical documents
 1. `SG21_SYSTEM.md`
@@ -21,18 +21,19 @@ SG 2.1 is one global transport-independent project system whose reasoning layer 
 7. `PROJECT_DEVELOPMENT_KNOWLEDGE_4_13_LIVE_PRODUCTION_WIRING.md`
 8. `TELEGRAM_WORKSPACE_MANAGER_1_0.md`
 9. `TELEGRAM_WORKSPACE_MANAGER_1_15_COMMUNITY_OPERATIONS.md`
-10. `DECISION_AND_ACTION_GATE.md`
-11. `CAPABILITY_SYSTEM.md`
-12. `IDENTITY_AND_SCOPE.md`
-13. `OBSERVABILITY.md`
-14. `TRANSPORTS_AND_AI_ROUTING.md`
-15. `LANGUAGE_AND_LOCALE_CONTEXT.md`
-16. `FOUNDATIONAL_CONTROL_LAYERS.md`
-17. `SELF_KNOWLEDGE.md`
-18. `MONARCH_OWNER_SECURITY.md`
-19. `RUNTIME_COMPOSITION.md`
-20. `POSTGRESQL_PERSISTENCE.md`
-21. `UNIVERSAL_DIAGNOSTICS.md`
+10. `SG_ACCESS_CONTROL_SYSTEM_1_0.md`
+11. `DECISION_AND_ACTION_GATE.md`
+12. `CAPABILITY_SYSTEM.md`
+13. `IDENTITY_AND_SCOPE.md`
+14. `OBSERVABILITY.md`
+15. `TRANSPORTS_AND_AI_ROUTING.md`
+16. `LANGUAGE_AND_LOCALE_CONTEXT.md`
+17. `FOUNDATIONAL_CONTROL_LAYERS.md`
+18. `SELF_KNOWLEDGE.md`
+19. `MONARCH_OWNER_SECURITY.md`
+20. `RUNTIME_COMPOSITION.md`
+21. `POSTGRESQL_PERSISTENCE.md`
+22. `UNIVERSAL_DIAGNOSTICS.md`
 
 ## Core flow
 
@@ -45,6 +46,7 @@ Input
 → Context Resolution
 → Decision Envelope
 → Capability Selection
+→ SG Access Control / Entitlement / Usage evaluation
 → Resource/Connection Authority Context where required
 → Owner Security Policy where SG-wide privileged state is targeted
 → Action Classification
@@ -66,6 +68,8 @@ PDK4.13 Live Production Wiring & Autonomous Project History is the production-co
 Telegram Workspace Manager 1.0 is a cross-cutting management layer over the existing Telegram production transport/runtime. It lets any authorized SG user manage SG behavior for their own Telegram groups, supergroups and channels through native Telegram UI and natural language. TWM1 reuses canonical `global_user_id`, Identity/Scope, Resource Authority, Action Gate, PostgreSQL, Memory 2.0 isolation, AI Router, Durable Automation and Observability. TWM1.14 extends this same workspace-scoped backend with text/media publication, polls, quiz/test sessions, scheduled content, deterministic result collection/statistics and optional AI Router interpretation. Telegram administrator status remains workspace-scoped evidence only and never SG-global owner/Monarch authority. AI/model output may propose configuration/content or analyze a computed result snapshot, but cannot write state directly, grant authority or invent numeric poll/test results.
 
 TWM1.15 Community Operations, Engagement & Analytics extends the same workspace backend with five bounded functional packages: `TWM Content`, `TWM Engagement`, `TWM Community`, `TWM Operations` and `TWM Analytics`. It adds multi-step forms/questionnaires, feedback, event/RSVP/waitlist flows, contests/challenges with auditable deterministic mechanics, FAQ and newcomer onboarding, unanswered-question and moderation workflows, request/case queues, task/reminder/decision workflows, content planning/recurring rubrics, bounded discussion summaries, deterministic workspace analytics, owner briefs and authorized exports. It MUST reuse Memory 2.0, Conversation Context, existing task/capability and Durable Automation systems rather than creating parallel stores or schedulers.
+
+SG Access Control System 1.0 (ACS1) is the canonical transport-neutral access, entitlement, scoped-capability, delegation and usage/budget layer. It applies equally to Telegram, Discord, Web, API, Email and the future native SG interface. Identity existence, transport login, workspace membership/admin status and private-result delivery never imply conversational AI entitlement. SG is the default Access Authority inside the Monarch-defined deterministic policy envelope; human approval is escalation when policy requires it. AI/model output may interpret a requested capability but cannot produce the final GRANT/DENY/ESCALATE decision. Denied AI/usage paths MUST terminate before AI Router so unauthorized users cannot spend model budget. ACS composes with, and does not replace, Resource Authority, Owner Security, Action Gate or Credential Manager.
 
 Self Knowledge is a shared system-context layer used for evidence-aware descriptions of SG itself. It does not sit as a mandatory reasoning hop in every request and does not replace live diagnostics.
 
@@ -101,6 +105,13 @@ Universal Diagnostics is an independent observer application outside the mandato
 - TWM1.15 AI output may classify, summarize or interpret but cannot mutate state, execute moderation, fabricate analytics, grant authority or create confirmed shared truth.
 - TWM1.15 tasks/reminders/content schedules must reuse the existing task/capability/Durable Automation systems instead of creating parallel execution engines.
 - TWM1.15 anonymity claims must match actual Telegram/storage evidence; SG must not promise anonymity when identifiers are retained.
+- ACS1 is the single SG-wide access/entitlement policy truth; transports and domain modules cannot create parallel authorization truth.
+- ACS1 identity bootstrap, login, `/start`, workspace membership/admin facts and delivery flows cannot implicitly grant `ai.compose` or equivalent paid conversational capability.
+- ACS1 private own-result access cannot imply general AI access or access to another subject's result.
+- ACS1 final access decisions are deterministic; AI/model output may propose intent/capability only and cannot grant, revoke or expand authority.
+- ACS1 denied AI or exhausted-budget paths must terminate before AI Router/paid model execution.
+- ACS1 delegated authority cannot exceed its active delegation envelope and cannot self-expand.
+- ACS1 cannot bypass or weaken Owner/Monarch Security, Resource Authority, Action Gate or Credential Manager.
 - System Self Knowledge is separate from user/project memory and cannot grant authority.
 - Universal Diagnostics is not SG brain, Decision Engine, Action Gate, authorization or ordinary request routing.
 - Diagnostics is read-only by default; it must not silently edit code/config, deploy, mutate production state, grant authority or repair SG automatically.

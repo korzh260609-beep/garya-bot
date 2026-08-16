@@ -1,4 +1,4 @@
-import { createActionRequestFromDecision } from '../contracts/action.js';
+import { createActionRequest, createActionRequestFromDecision } from '../contracts/action.js';
 import { redactSensitiveText } from '../secrets/redaction.js';
 
 function directUserConfirmation(selectedName, selectedPayload, requestInput, traceContext) {
@@ -48,6 +48,29 @@ function conversationKey(input) {
 function selectedResourceRequirement(semantic) {
   const selected = semantic?.decisionEnvelope?.selectedAction;
   return selected?.resourceRequirement ?? selected?.payload?.resourceRequirement ?? null;
+}
+function boundedCapabilityResult(result, maxLength = 20000) {
+  const envelope = {
+    capability: result?.capability ?? null,
+    status: result?.status ?? null,
+    data: result?.data ?? null,
+    sources: result?.sources ?? [],
+    tools: result?.tools ?? []
+  };
+  const serialized = JSON.stringify(envelope);
+  return Object.freeze({
+    capability: envelope.capability,
+    status: envelope.status,
+    content: serialized.slice(0, maxLength),
+    truncated: serialized.length > maxLength,
+    sources: Object.freeze([...(envelope.sources ?? [])]),
+    tools: Object.freeze([...(envelope.tools ?? [])])
+  });
+}
+function repositoryAnswerNeedsComposition(semantic, actionRequest, result) {
+  return semantic?.decisionEnvelope?.decisionType === 'answer'
+    && actionRequest?.capability === 'repository-analyze'
+    && ['success', 'partial'].includes(result?.status);
 }
 async function closeResource(resource) {
   if (resource?.close) await resource.close();
@@ -219,8 +242,37 @@ export function createProductionRuntime({ config, semanticPipeline, actionGate, 
         result = await capabilityExecutor.execute({ actionRequest, gateDecision, policyContext, traceContext });
         observability.record({ eventClass: 'capability_completed', channel: 'telemetry', stage: 'capability', traceContext, outcome: result.status, durationMs: result.durationMs, costUsd: result.costUsd, data: { capability: result.capability } });
       }
-      const message = result?.data?.message ?? result?.data?.text ?? semantic.responsePlan.message;
-      return persistResponse(requestInput, { status: result.status ?? 'success', message, data: { decisionEnvelope: semantic.decisionEnvelope, gateDecision, execution: result, languageContext, policyContext, memoryCapture } });
+
+      let finalResult = result;
+      let responseCompositionGate = null;
+      if (repositoryAnswerNeedsComposition(semantic, actionRequest, result)) {
+        const composeCapability = capabilityRegistry?.get('compose-answer') ?? null;
+        if (!composeCapability) throw new Error('compose-answer capability is required to present repository analysis');
+        const composeRequest = createActionRequest({
+          capability: 'compose-answer',
+          actionType: 'answer',
+          actionClass: 'analysis-only',
+          actor: requestInput.identityContext,
+          scope: requestInput.scopeContext,
+          payload: {
+            ...languagePayload(requestInput, semantic),
+            semanticIntent: semantic.decisionEnvelope.intent,
+            capabilityResult: boundedCapabilityResult(result)
+          },
+          ...capabilityOverrides(composeCapability),
+          traceContext
+        });
+        responseCompositionGate = actionGate.evaluate(composeRequest, { policyContext });
+        observability.record({ eventClass: 'action_gate_decision', channel: 'audit', stage: 'action-gate', traceContext, outcome: responseCompositionGate.outcome, data: { capability: composeRequest.capability, authorized: responseCompositionGate.authorized, responseComposition: true, sourceCapability: actionRequest.capability } });
+        const compositionGatedResponse = responseFromGate(responseCompositionGate, semantic.responsePlan);
+        if (compositionGatedResponse) return persistResponse(requestInput, { ...compositionGatedResponse, data: { ...(compositionGatedResponse.data ?? {}), decisionEnvelope: semantic.decisionEnvelope, gateDecision, execution: result, responseCompositionGate, languageContext, policyContext, memoryCapture } });
+        observability.record({ eventClass: 'capability_started', channel: 'telemetry', stage: 'capability', traceContext, data: { capability: composeRequest.capability, responseComposition: true, sourceCapability: actionRequest.capability } });
+        finalResult = await capabilityExecutor.execute({ actionRequest: composeRequest, gateDecision: responseCompositionGate, policyContext, traceContext });
+        observability.record({ eventClass: 'capability_completed', channel: 'telemetry', stage: 'capability', traceContext, outcome: finalResult.status, durationMs: finalResult.durationMs, costUsd: finalResult.costUsd, data: { capability: finalResult.capability, responseComposition: true, sourceCapability: actionRequest.capability } });
+      }
+
+      const message = finalResult?.data?.message ?? finalResult?.data?.text ?? semantic.responsePlan.message;
+      return persistResponse(requestInput, { status: finalResult.status ?? 'success', message, data: { decisionEnvelope: semantic.decisionEnvelope, gateDecision, execution: result, responseComposition: finalResult === result ? null : finalResult, responseCompositionGate, languageContext, policyContext, memoryCapture } });
     } catch (error) {
       failure = phase === 'ready' ? null : error;
       observability.recordFailure({ traceContext, stage: 'runtime', reason: redactSensitiveText(error.message), code: error.code ?? 'runtime-request-failed' });

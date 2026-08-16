@@ -42,7 +42,7 @@ export function createTelegramWorkspaceProductionOperations({
     });
   };
 
-  const service = createTelegramWorkspaceOperationsService({
+  const baseService = createTelegramWorkspaceOperationsService({
     store,
     workspaceRegistry,
     authorityResolver,
@@ -53,6 +53,10 @@ export function createTelegramWorkspaceProductionOperations({
     temporalService: harness.temporalService,
     projectScope: harness.config.projectScope,
     audit
+  });
+  const service = Object.freeze({
+    ...baseService,
+    conversationContextService: harness.conversationContextService ?? null
   });
   const scheduledContentHandler = registerDeploymentTaskHandler(harness, createScheduledContentTaskHandler(service));
   const pollUpdates = createTelegramWorkspacePollUpdateHandler({

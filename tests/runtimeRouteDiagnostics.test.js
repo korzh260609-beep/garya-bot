@@ -22,14 +22,14 @@ function jsonResponse(body, status = 200) {
 test('runtime route diagnostics exposes latest telegram route metadata without message text', async () => {
   const database = fakeDatabase({
     latestRows: [{
-      trace_id: 'trace-live', request_id: 'request-live', created_at: new Date('2026-08-16T09:05:00.000Z'),
+      trace_id: 'trace-live', request_id: 'request-live', created_at: new Date('2026-08-16T09:05:00.000Z'), project_scope: null,
       payload: { transport: 'telegram', traceContext: { revision: 'rev-live' } }
     }],
     eventRows: [
-      { event_class: 'semantic_decision_created', payload: { data: { intent: 'project_development_current' } } },
-      { event_class: 'action_gate_decision', outcome: 'allow', payload: { data: { capability: 'compose-answer' } } },
-      { event_class: 'capability_started', payload: { data: { capability: 'compose-answer' } } },
-      { event_class: 'capability_completed', payload: { data: { capability: 'compose-answer' } } }
+      { event_class: 'audit_event', payload: { data: { operationalEventClass: 'semantic_decision_created', intent: 'project_development_current' } } },
+      { event_class: 'audit_event', outcome: 'allow', payload: { data: { operationalEventClass: 'action_gate_decision', capability: 'compose-answer' } } },
+      { event_class: 'audit_event', payload: { data: { operationalEventClass: 'capability_started', capability: 'compose-answer' } } },
+      { event_class: 'audit_event', payload: { data: { operationalEventClass: 'capability_completed', capability: 'compose-answer' } } }
     ]
   });
   const diagnostics = createRuntimeRouteDiagnostics({
@@ -50,6 +50,7 @@ test('runtime route diagnostics exposes latest telegram route metadata without m
     requestId: 'request-live',
     occurredAt: '2026-08-16T09:05:00.000Z',
     revision: 'rev-live',
+    projectScopeAtIngress: null,
     intent: 'project_development_current',
     selectedCapability: 'compose-answer',
     startedCapability: 'compose-answer',
@@ -57,12 +58,13 @@ test('runtime route diagnostics exposes latest telegram route metadata without m
     gateOutcome: 'allow'
   });
   assert.doesNotMatch(JSON.stringify(result), /message|text/i);
+  assert.match(database.calls[0].sql, /project_scope=\$2 OR project_scope IS NULL/);
 });
 
 test('runtime route diagnostics makes stale telegram runtime/trace visible', async () => {
   const database = fakeDatabase({
     latestRows: [{
-      trace_id: 'trace-old', request_id: 'request-old', created_at: new Date('2026-08-15T18:29:43.000Z'),
+      trace_id: 'trace-old', request_id: 'request-old', created_at: new Date('2026-08-15T18:29:43.000Z'), project_scope: 'sg2.1',
       payload: { transport: 'telegram', traceContext: { revision: 'old-runtime' } }
     }],
     eventRows: [

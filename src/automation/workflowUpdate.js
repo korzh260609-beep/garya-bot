@@ -122,24 +122,25 @@ function buildNextDefinition(current, patch, actorGlobalUserId, provenance, now)
   });
 }
 
-async function applySchedulerMutation({ recurringScheduler, record, next, scope, patch, lifecycleAction }) {
-  if (!recurringScheduler) {
-    if (patch.trigger !== undefined || lifecycleAction !== null) {
-      throw new WorkflowUpdateError('workflow_update_scheduler_unavailable', 'scheduler is required for trigger or lifecycle mutation');
-    }
-    return null;
-  }
-
+async function applyRuntimeMutation({ recurringScheduler, oneShotTaskQueue, record, next, scope, patch, lifecycleAction, transaction = null }) {
   const scheduleId = record.scheduleId ?? null;
+  const taskId = record.taskId ?? null;
+
   if (lifecycleAction !== null) {
     if (!scheduleId) {
-      throw new WorkflowUpdateError('workflow_update_schedule_required', 'lifecycle mutation requires an existing schedule');
+      throw new WorkflowUpdateError(
+        'workflow_update_schedule_required',
+        'pause/resume/cancel currently require an existing recurring schedule'
+      );
+    }
+    if (!recurringScheduler) {
+      throw new WorkflowUpdateError('workflow_update_scheduler_unavailable', 'scheduler is required for lifecycle mutation');
     }
     const method = recurringScheduler[lifecycleAction];
     if (typeof method !== 'function') {
       throw new WorkflowUpdateError('workflow_update_scheduler_unsupported', `scheduler does not support ${lifecycleAction}`);
     }
-    const result = await method({ scope, scheduleId });
+    const result = await method({ scope, scheduleId, transaction });
     if (!result) {
       throw new WorkflowUpdateError('workflow_update_schedule_transition_denied', `schedule ${lifecycleAction} was not applied`);
     }
@@ -147,14 +148,33 @@ async function applySchedulerMutation({ recurringScheduler, record, next, scope,
   }
 
   if (patch.trigger === undefined) return null;
-  if (next.trigger.type !== 'recurring') {
-    throw new WorkflowUpdateError(
-      'workflow_update_one_shot_trigger_unsupported',
-      'AW2.7 scheduler mutation currently requires an existing recurring trigger'
-    );
+
+  if (next.trigger.type === 'one-shot') {
+    if (scheduleId) {
+      throw new WorkflowUpdateError('workflow_update_trigger_type_change_unsupported', 'recurring automation cannot be converted to one-shot in AW2.7');
+    }
+    if (!taskId) throw new WorkflowUpdateError('workflow_update_task_required', 'one-shot trigger mutation requires an existing task');
+    if (typeof oneShotTaskQueue?.updateScheduled !== 'function') {
+      throw new WorkflowUpdateError('workflow_update_one_shot_unavailable', 'existing durable task queue cannot update one-shot schedule');
+    }
+    const runAt = requiredString(next.trigger.runAt, 'workflow.trigger.runAt');
+    const result = await oneShotTaskQueue.updateScheduled({
+      scope,
+      taskId,
+      runAt,
+      workflowVersion: next.version,
+      automationId: next.automationId,
+      transaction
+    });
+    if (!result) throw new WorkflowUpdateError('workflow_update_one_shot_update_denied', 'one-shot task is not safely updatable in its current state');
+    return Object.freeze({ taskId, runAt, status: result.status ?? null, workflowVersion: next.version });
+  }
+
+  if (!recurringScheduler) {
+    throw new WorkflowUpdateError('workflow_update_scheduler_unavailable', 'scheduler is required for recurring trigger mutation');
   }
   if (!scheduleId) {
-    throw new WorkflowUpdateError('workflow_update_schedule_required', 'recurring trigger mutation requires an existing schedule');
+    throw new WorkflowUpdateError('workflow_update_trigger_type_change_unsupported', 'one-shot automation cannot be converted to recurring in AW2.7');
   }
   if (typeof recurringScheduler.update !== 'function') {
     throw new WorkflowUpdateError('workflow_update_scheduler_unsupported', 'scheduler does not support update');
@@ -172,7 +192,8 @@ async function applySchedulerMutation({ recurringScheduler, record, next, scope,
     state: {
       workflowVersion: next.version,
       automationId: next.automationId
-    }
+    },
+    transaction
   });
   if (!result) {
     throw new WorkflowUpdateError('workflow_update_schedule_update_denied', 'recurring schedule update was not applied');
@@ -184,6 +205,7 @@ export function createWorkflowUpdateCapability({
   store,
   authorization,
   recurringScheduler = null,
+  oneShotTaskQueue = null,
   clock = () => new Date()
 } = {}) {
   if (typeof store?.resolve !== 'function' || typeof store?.commitMutation !== 'function') {
@@ -251,27 +273,49 @@ export function createWorkflowUpdateCapability({
 
     const now = timestamp(clock);
     const next = buildNextDefinition(current, normalizedPatch, globalUserId, normalizedProvenance, now);
-    const scheduleResult = await applySchedulerMutation({
+    const runtimeMutation = (transaction) => applyRuntimeMutation({
       recurringScheduler,
+      oneShotTaskQueue,
       record,
       next,
       scope: normalizedScope,
       patch: normalizedPatch,
-      lifecycleAction: normalizedLifecycleAction
+      lifecycleAction: normalizedLifecycleAction,
+      transaction
     });
 
-    const committed = await store.commitMutation({
-      record,
-      currentWorkflow: current,
-      nextWorkflow: next,
-      expectedVersion: current.version,
-      actor: freezeJson(plainObject(actor, 'actor')),
-      provenance: normalizedProvenance,
-      gateResult: freezeJson(gateResult),
-      patchSummary: mutationSummary(normalizedPatch, normalizedLifecycleAction),
-      lifecycleAction: normalizedLifecycleAction,
-      scheduleResult
-    });
+    let committed;
+    let runtimeResult;
+    if (store.atomicRuntimeMutation === true) {
+      const atomic = await store.commitMutation({
+        record,
+        currentWorkflow: current,
+        nextWorkflow: next,
+        expectedVersion: current.version,
+        actor: freezeJson(plainObject(actor, 'actor')),
+        provenance: normalizedProvenance,
+        gateResult: freezeJson(gateResult),
+        patchSummary: mutationSummary(normalizedPatch, normalizedLifecycleAction),
+        lifecycleAction: normalizedLifecycleAction,
+        runtimeMutation
+      });
+      committed = atomic?.record ?? null;
+      runtimeResult = atomic?.runtimeResult ?? null;
+    } else {
+      runtimeResult = await runtimeMutation(null);
+      committed = await store.commitMutation({
+        record,
+        currentWorkflow: current,
+        nextWorkflow: next,
+        expectedVersion: current.version,
+        actor: freezeJson(plainObject(actor, 'actor')),
+        provenance: normalizedProvenance,
+        gateResult: freezeJson(gateResult),
+        patchSummary: mutationSummary(normalizedPatch, normalizedLifecycleAction),
+        lifecycleAction: normalizedLifecycleAction,
+        scheduleResult: runtimeResult
+      });
+    }
 
     if (!committed) {
       throw new WorkflowUpdateError('workflow_update_commit_conflict', 'workflow mutation was not committed');
@@ -282,7 +326,8 @@ export function createWorkflowUpdateCapability({
       version: next.version,
       workflow: next,
       lifecycleAction: normalizedLifecycleAction,
-      schedule: scheduleResult ?? null
+      schedule: record.scheduleId ? runtimeResult ?? null : null,
+      task: !record.scheduleId && runtimeResult ? runtimeResult : null
     });
   }
 

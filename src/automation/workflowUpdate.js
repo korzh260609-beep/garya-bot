@@ -122,32 +122,24 @@ function buildNextDefinition(current, patch, actorGlobalUserId, provenance, now)
   });
 }
 
-async function applyRuntimeMutation({ recurringScheduler, oneShotTaskQueue, record, next, scope, patch, lifecycleAction, transaction = null }) {
+async function syncDurableTask({ oneShotTaskQueue, record, next, scope, patch, transaction }) {
+  if (Object.keys(patch).length === 0 || !record.taskId || typeof oneShotTaskQueue?.syncWorkflowTask !== 'function') return null;
+  const result = await oneShotTaskQueue.syncWorkflowTask({
+    scope,
+    taskId: record.taskId,
+    workflow: next,
+    allowTerminal: Boolean(record.scheduleId),
+    transaction
+  });
+  if (!result) {
+    throw new WorkflowUpdateError('workflow_update_task_sync_denied', 'durable task/template could not be synchronized with the workflow version');
+  }
+  return Object.freeze({ taskId: record.taskId, status: result.status ?? null, workflowVersion: next.version });
+}
+
+async function updateTrigger({ recurringScheduler, oneShotTaskQueue, record, next, scope, transaction }) {
   const scheduleId = record.scheduleId ?? null;
   const taskId = record.taskId ?? null;
-
-  if (lifecycleAction !== null) {
-    if (!scheduleId) {
-      throw new WorkflowUpdateError(
-        'workflow_update_schedule_required',
-        'pause/resume/cancel currently require an existing recurring schedule'
-      );
-    }
-    if (!recurringScheduler) {
-      throw new WorkflowUpdateError('workflow_update_scheduler_unavailable', 'scheduler is required for lifecycle mutation');
-    }
-    const method = recurringScheduler[lifecycleAction];
-    if (typeof method !== 'function') {
-      throw new WorkflowUpdateError('workflow_update_scheduler_unsupported', `scheduler does not support ${lifecycleAction}`);
-    }
-    const result = await method({ scope, scheduleId, transaction });
-    if (!result) {
-      throw new WorkflowUpdateError('workflow_update_schedule_transition_denied', `schedule ${lifecycleAction} was not applied`);
-    }
-    return result;
-  }
-
-  if (patch.trigger === undefined) return null;
 
   if (next.trigger.type === 'one-shot') {
     if (scheduleId) {
@@ -199,6 +191,37 @@ async function applyRuntimeMutation({ recurringScheduler, oneShotTaskQueue, reco
     throw new WorkflowUpdateError('workflow_update_schedule_update_denied', 'recurring schedule update was not applied');
   }
   return result;
+}
+
+async function applyLifecycleMutation({ recurringScheduler, record, scope, lifecycleAction, transaction }) {
+  if (lifecycleAction === null) return null;
+  const scheduleId = record.scheduleId ?? null;
+  if (!scheduleId) {
+    throw new WorkflowUpdateError('workflow_update_schedule_required', 'pause/resume/cancel currently require an existing recurring schedule');
+  }
+  if (!recurringScheduler) {
+    throw new WorkflowUpdateError('workflow_update_scheduler_unavailable', 'scheduler is required for lifecycle mutation');
+  }
+  const method = recurringScheduler[lifecycleAction];
+  if (typeof method !== 'function') {
+    throw new WorkflowUpdateError('workflow_update_scheduler_unsupported', `scheduler does not support ${lifecycleAction}`);
+  }
+  const result = await method({ scope, scheduleId, transaction });
+  if (!result) {
+    throw new WorkflowUpdateError('workflow_update_schedule_transition_denied', `schedule ${lifecycleAction} was not applied`);
+  }
+  return result;
+}
+
+async function applyRuntimeMutation({ recurringScheduler, oneShotTaskQueue, record, next, scope, patch, lifecycleAction, transaction = null }) {
+  const taskSync = await syncDurableTask({ oneShotTaskQueue, record, next, scope, patch, transaction });
+  const triggerResult = patch.trigger === undefined
+    ? null
+    : await updateTrigger({ recurringScheduler, oneShotTaskQueue, record, next, scope, transaction });
+  const lifecycleResult = await applyLifecycleMutation({ recurringScheduler, record, scope, lifecycleAction, transaction });
+  const scheduleResult = lifecycleResult ?? (record.scheduleId ? triggerResult : null);
+  const oneShotResult = !record.scheduleId && triggerResult ? triggerResult : taskSync;
+  return Object.freeze({ schedule: scheduleResult, task: oneShotResult, taskSync });
 }
 
 export function createWorkflowUpdateCapability({
@@ -313,7 +336,7 @@ export function createWorkflowUpdateCapability({
         gateResult: freezeJson(gateResult),
         patchSummary: mutationSummary(normalizedPatch, normalizedLifecycleAction),
         lifecycleAction: normalizedLifecycleAction,
-        scheduleResult: runtimeResult
+        scheduleResult: runtimeResult?.schedule ?? null
       });
     }
 
@@ -326,8 +349,8 @@ export function createWorkflowUpdateCapability({
       version: next.version,
       workflow: next,
       lifecycleAction: normalizedLifecycleAction,
-      schedule: record.scheduleId ? runtimeResult ?? null : null,
-      task: !record.scheduleId && runtimeResult ? runtimeResult : null
+      schedule: runtimeResult?.schedule ?? null,
+      task: runtimeResult?.task ?? null
     });
   }
 

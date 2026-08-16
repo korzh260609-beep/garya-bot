@@ -1,6 +1,6 @@
 # SG Automation 2.0 — Executable Workflows Program
 
-Status: IMPLEMENTATION IN PROGRESS — AW2.1–AW2.2 IMPLEMENTED / CI-VERIFIED; AW2.3 NEXT
+Status: IMPLEMENTATION IN PROGRESS — AW2.1–AW2.3 IMPLEMENTED / CI-VERIFIED; AW2.4 NEXT
 
 ## Goal
 
@@ -31,13 +31,17 @@ Automation 2.0 is a cross-cutting program. It reuses Block 9 Automation & Agents
 
 No phrase/keyword routing is allowed as workflow semantics.
 
-### AW2.3 — Workflow Executor — NEXT
-- Execute ordered steps.
-- Pass bounded step outputs to following steps.
-- Persist per-step status and outputs/evidence references.
-- Support `completed`, `partial`, `failed`, `denied`, `cancelled` outcomes.
+### AW2.3 — Workflow Executor — IMPLEMENTED / CI-VERIFIED
+- Executes canonical workflow steps strictly in definition order.
+- Passes bounded JSON-compatible output/evidence handoff to the following step.
+- Persists per-step `running` and terminal state, bounded outputs/evidence references and errors in PostgreSQL.
+- Supports `completed`, `partial`, `failed`, `denied`, `cancelled` outcomes; terminal outcomes stop following steps.
+- Implementation: `src/automation/workflowExecutor.js`, `src/automation/postgresWorkflowExecutionStore.js`, migration `src/persistence/migrations/905_automation_workflow_execution.sql`, exported through `src/automation/index.js`.
+- Regression/integration coverage: `tests/automationWorkflowExecutor.test.js`, `tests/postgresWorkflowExecutionStore.test.js`, migration baseline coverage in `tests/postgresPersistence.test.js`.
+- Evidence: code HEAD `50eb46cd6d1d68e1a9301b64c90a5ed3eb0a80eb`; SG 2.1 CI #8132 SUCCESS on that exact HEAD.
+- Boundary: AW2.3 does not create a second scheduler/worker and does not production-wire generalized workflows ahead of execution-time security/outcome mapping. Existing `self-notification` execution remains on its established durable/security/delivery path. AW2.4 owns execution-time security re-checks.
 
-### AW2.4 — Execution-time security
+### AW2.4 — Execution-time security — NEXT
 For each protected step re-check:
 - Identity/Global ID;
 - SG access/entitlement;

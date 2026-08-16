@@ -7,6 +7,7 @@ export const PRODUCTION_CAPABILITY_NAMES = Object.freeze([
   'memory-read',
   'memory-write',
   'task-create',
+  'automation-update',
   'task-list',
   'task-status',
   'task-cancel',
@@ -20,6 +21,15 @@ export const PRODUCTION_CAPABILITY_NAMES = Object.freeze([
 function scopeFrom(request) {
   return Object.freeze({
     userScope: request.scope.userScope,
+    projectScope: request.scope.projectScope,
+    groupScope: request.scope.groupScope ?? null,
+    threadScope: request.scope.threadScope ?? null
+  });
+}
+
+function workflowScopeFrom(request) {
+  return Object.freeze({
+    globalUserId: request.scope.userScope,
     projectScope: request.scope.projectScope,
     groupScope: request.scope.groupScope ?? null,
     threadScope: request.scope.threadScope ?? null
@@ -169,6 +179,7 @@ export function createInMemoryProductionTaskStore() {
 export function createProductionCapabilities({
   memoryProvider,
   taskStore = createInMemoryProductionTaskStore(),
+  workflowUpdateService = null,
   sourceRetriever = null,
   documentAnalyzer = null,
   repositoryAnalyzer = null,
@@ -228,6 +239,35 @@ export function createProductionCapabilities({
         const task = await taskStore.create({ scope: scopeFrom(request), input });
         const schedule = task.recurringSchedule ?? null;
         return { status: 'success', data: { task, schedule, message: automationCreatedMessage({ schedule, task, locale: request.input?.locale }) } };
+      }
+    }),
+    capability({
+      name: 'automation-update', description: 'Patch an existing versioned automation in the current scope without creating a duplicate.',
+      actionTypes: ['automation-update'], actionClasses: ['state-changing'], confirmationRequired: true,
+      execute: async (request) => {
+        if (!workflowUpdateService?.update) return { status: 'unavailable', error: { code: 'automation-update-unavailable', message: 'Workflow update service is not configured', retryable: false } };
+        const gateEvidence = Object.freeze({
+          source: 'canonical-action-gate',
+          authorized: request.gateDecision?.authorized === true && request.gateDecision?.outcome === 'allow',
+          actorGlobalUserId: request.actor.globalUserId,
+          projectScope: request.scope.projectScope,
+          requestId: request.traceContext.requestId
+        });
+        const result = await workflowUpdateService.update({
+          selector: request.input?.selector,
+          scope: workflowScopeFrom(request),
+          patch: request.input?.patch ?? {},
+          lifecycleAction: request.input?.lifecycleAction ?? null,
+          expectedVersion: request.input?.expectedVersion ?? null,
+          actor: Object.freeze({ ...request.actor, automationUpdateGate: gateEvidence }),
+          provenance: Object.freeze({
+            source: 'production-capability',
+            capability: 'automation-update',
+            requestId: request.traceContext.requestId,
+            traceId: request.traceContext.traceId
+          })
+        });
+        return { status: 'success', data: { ...result, message: `Automation ${result.automationId} updated to version ${result.version}.` } };
       }
     }),
     capability({

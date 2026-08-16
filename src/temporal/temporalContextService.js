@@ -4,6 +4,10 @@ function normalized(value) {
   return String(value ?? '').trim().toLowerCase().replace(/ё/g, 'е').replace(/[!?;,()\[\]{}]/g, ' ').replace(/\s+/g, ' ');
 }
 
+function lexicalBoundaryExpression(value) {
+  return String(value ?? '').replace(/([\p{L}])[:](?=\s|$)/gu, '$1 ');
+}
+
 function hasPhrase(text, phrase) {
   return ` ${normalized(text)} `.includes(` ${normalized(phrase)} `);
 }
@@ -66,7 +70,8 @@ export function createTemporalContextService(options = {}) {
   const base = createTemporalService(options);
 
   function resolveExpression(expression, options = {}) {
-    const text = normalized(expression);
+    const lexicalExpression = lexicalBoundaryExpression(expression);
+    const text = normalized(lexicalExpression);
     const monthAlias = firstMatch(text, MONTH_ALIASES);
     if (monthAlias) {
       const reference = options.referenceInstant ?? base.now();
@@ -76,7 +81,7 @@ export function createTemporalContextService(options = {}) {
     }
     const alias = firstMatch(text, IMPLICIT_ALIASES);
     if (alias) return restoreOriginal(base.resolveExpression(alias.replacement, options), expression);
-    return base.resolveExpression(expression, options);
+    return restoreOriginal(base.resolveExpression(lexicalExpression, options), expression);
   }
 
   async function resolveForUser(globalUserId, expression, options = {}) {

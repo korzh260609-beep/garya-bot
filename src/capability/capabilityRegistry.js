@@ -12,11 +12,21 @@ function score(capability, request) {
 
 export function createCapabilityRegistry({ capabilities = [] } = {}) {
   const entries = new Map();
+  function validated(input) {
+    const capability = input?.execute ? createCapability(input) : input;
+    if (!capability?.name || typeof capability.execute !== 'function') throw new TypeError('A validated capability is required');
+    return capability;
+  }
   const api = {
     register(input) {
-      const capability = input?.execute ? createCapability(input) : input;
-      if (!capability?.name || typeof capability.execute !== 'function') throw new TypeError('A validated capability is required');
+      const capability = validated(input);
       if (entries.has(capability.name)) throw new TypeError(`Capability already registered: ${capability.name}`);
+      entries.set(capability.name, capability);
+      return capability;
+    },
+    replace(input) {
+      const capability = validated(input);
+      if (!entries.has(capability.name)) throw new TypeError(`Capability is not registered: ${capability.name}`);
       entries.set(capability.name, capability);
       return capability;
     },

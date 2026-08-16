@@ -4,6 +4,8 @@ export { WORKFLOW_EXECUTION_OUTCOMES, createWorkflowExecutor } from './workflowE
 export { WORKFLOW_EXECUTION_SECURITY_CHECKS, isProtectedWorkflowStep, createWorkflowExecutionSecurity } from './workflowExecutionSecurity.js';
 export { AUTONOMOUS_READ_ONLY_STEP_TYPES, isAutonomousReadOnlyRequested, evaluateAutonomousReadOnlyPolicy } from './workflowReadOnlyAutonomy.js';
 export { STATE_CHANGING_WORKFLOW_STEP_TYPES, STATE_CHANGE_CONFIRMATION_POLICIES, STATE_CHANGE_DELEGATION_POLICIES, isStateChangingWorkflowStep, evaluateStateChangeExecutionEnvelope } from './workflowStateChangeEnvelope.js';
+export { WORKFLOW_MUTATION_FIELDS, WORKFLOW_LIFECYCLE_ACTIONS, WorkflowUpdateError, createWorkflowUpdateCapability } from './workflowUpdate.js';
+export { createPostgresWorkflowUpdateStore } from './postgresWorkflowUpdateStore.js';
 export { createPostgresWorkflowExecutionStore } from './postgresWorkflowExecutionStore.js';
 export { createAutomationEngine } from './automationEngine.js';
 export { PREPARE_ONLY_KINDS, createPrepareOnlyCapability } from './prepareOnly.js';

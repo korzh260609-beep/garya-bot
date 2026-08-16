@@ -1,6 +1,6 @@
 # SG Automation 2.0 — Executable Workflows Program
 
-Status: IMPLEMENTATION IN PROGRESS — AW2.1–AW2.7 IMPLEMENTED / CI-VERIFIED; AW2.8 NEXT
+Status: IMPLEMENTATION IN PROGRESS — AW2.1–AW2.8 IMPLEMENTED / CI-VERIFIED; AW2.9 NEXT
 
 ## Goal
 
@@ -126,14 +126,30 @@ Implementation/evidence:
 
 Boundary: AW2.7 owns canonical mutation of an already deterministically selected automation. It does not make users resolve internal IDs semantically; AW2.8 owns semantic target resolution.
 
-### AW2.8 — Semantic target resolution — NEXT
-Users must not need internal schedule/automation IDs.
-- Resolve existing workflow semantically within canonical scope.
-- One match → select.
-- Zero/multiple matches → fail closed with one clarification.
-- Never invent target attributes or IDs.
+### AW2.8 — Semantic target resolution — CLOSED / CI-VERIFIED
+Users no longer need internal `automationId` / `taskId` / `scheduleId` to identify an existing automation for update.
 
-### AW2.9 — Patch, not duplicate
+Implemented boundary:
+- semantic target attributes are structured (`triggerType`, recurrence, time zone, local time, notification message and lifecycle status), not phrase/keyword routing;
+- candidate discovery is bounded to the existing canonical workflow scope in PostgreSQL before matching;
+- normalized structured attributes are matched deterministically against existing workflow records;
+- exactly one match resolves to the existing canonical `automationId` and then continues through the unchanged AW2.7 authorization/mutation path;
+- zero matches fail closed with clarification required;
+- multiple matches fail closed with clarification required;
+- unsupported/invented selector attributes fail closed rather than being guessed or converted into IDs;
+- semantic resolution does not create a new scheduler, worker, queue, security stack or alternate mutation path;
+- authorization receives the resolved canonical selector while preserving the originally requested structured selector for bounded evidence/audit context.
+
+Implementation/evidence:
+- `src/automation/workflowUpdate.js` — structured semantic selector normalization and deterministic fail-closed resolution;
+- `src/automation/postgresWorkflowUpdateStore.js` — bounded candidate listing inside canonical scope;
+- `src/automation/index.js` — exported semantic selector contract;
+- regression coverage: `tests/workflowSemanticTargetResolution.test.js` covering unique match, zero match, ambiguity, scope isolation and unsupported/invented selector attributes;
+- implementation HEAD `3e4aa1732f17f2dd495da219bdd7f490e3dd503e`; SG 2.1 CI #8226 SUCCESS on that exact HEAD (`npm run check`, web start, worker start and diagnostics all successful).
+
+Boundary: AW2.8 resolves only an existing workflow target. It does not broaden authorization, invent target data, perform fuzzy phrase matching, duplicate an automation or change AW2.7 mutation semantics. AW2.9 owns patch-not-duplicate behavior as the next explicit stage.
+
+### AW2.9 — Patch, not duplicate — NEXT
 Updating an existing automation patches the same `automationId` and creates a new version. Do not create a second schedule/task unless the user explicitly requests a new/copy automation.
 
 ### AW2.10 — Versioning and history

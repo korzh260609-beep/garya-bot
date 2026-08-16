@@ -22,7 +22,9 @@ Convert the Block 9 reference in-memory automation engine into durable PostgreSQ
 
 Block 13 remains the durable scheduler/queue/worker substrate for the accepted Automation 2.0 executable-workflow extension. Automation 2.0 must extend this substrate rather than introduce another scheduler or worker stack.
 
-Automation 2.0 will add versioned workflow definitions, semantic same-automation patching, multi-step execution, fresh execution-time collection and richer execution history above these durable primitives. Existing claim/lease/retry/DLQ/idempotency guarantees remain mandatory and must also protect workflow occurrences.
+AW2.1 is implemented above these durable primitives: it adds the canonical versioned workflow contract, fail-closed schema/version guards and a backward-compatible adapter for existing `self-notification` tasks without replacing the Block 13 scheduler/queue/worker path. Later Automation 2.0 stages add canonical step contracts, semantic same-automation patching, multi-step execution, fresh execution-time collection and richer execution history. Existing claim/lease/retry/DLQ/idempotency guarantees remain mandatory and must also protect workflow occurrences.
+
+Current Automation 2.0 lifecycle state: **IMPLEMENTATION IN PROGRESS — AW2.1 IMPLEMENTED / CI-VERIFIED; AW2.2 NEXT**. Generalized workflow execution is not yet production-implemented.
 
 Canonical Automation 2.0 documents:
 - `../architecture/AUTOMATION_2_0_EXECUTABLE_WORKFLOWS.md`

@@ -64,12 +64,12 @@ function canonicalizeSelectedAction(action, interpretation) {
   }
   return Object.freeze({ ...action });
 }
-function classifyDecision({ interpretation, selected, uncertaintyThreshold }) {
+function classifyDecision({ interpretation, selected, selectedAction, uncertaintyThreshold }) {
   const hasClarificationQuestion = Boolean(interpretation.clarificationQuestion);
   if (hasClarificationQuestion && interpretation.missingInformation.length > 0) return 'clarification';
   if (hasClarificationQuestion && interpretation.uncertainty >= uncertaintyThreshold) return 'clarification';
-  if (selected.action.type === 'prepare') return 'prepare';
-  if (selected.protectedIntent || selected.executableIntent) return 'execute';
+  if (selected.protectedIntent || selected.executableIntent || selectedAction.type === 'execute') return 'execute';
+  if (selectedAction.type === 'prepare') return 'prepare';
   return 'answer';
 }
 function answerFallback(locale) {
@@ -105,7 +105,7 @@ export function createDecisionEngine({ uncertaintyThreshold = 0.65 } = {}) {
       const selected = selectCandidate(evaluations);
       const selectedAction = canonicalizeSelectedAction(selected.action, interpretation);
       const requiresEvidence = interpretation.evidenceNeeds.length > 0;
-      const decisionType = classifyDecision({ interpretation, selected, uncertaintyThreshold });
+      const decisionType = classifyDecision({ interpretation, selected, selectedAction, uncertaintyThreshold });
       const rationale = buildRationale({ decisionType, interpretation, selected, requiresEvidence });
       const memoryCandidates = semanticMemoryCandidates(interpretation);
       const memoryQuery = semanticMemoryQuery(interpretation);

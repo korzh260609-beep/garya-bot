@@ -35,8 +35,7 @@ function projectDevelopmentConversation(action, interpretation) {
   return PROJECT_DEVELOPMENT_CONVERSATIONAL_INTENTS.has(interpretation?.intent)
     && action?.actionClass !== 'external'
     && action?.actionClass !== 'state-change'
-    && action?.type !== 'execute'
-    && action?.type !== 'prepare';
+    && action?.type !== 'execute';
 }
 function canonicalConversationAction(action, interpretation) {
   const legacyCandidates = Array.isArray(action.payload?.memoryCandidates) ? action.payload.memoryCandidates : [];

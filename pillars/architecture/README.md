@@ -22,18 +22,19 @@ SG 2.1 is one global transport-independent project system whose reasoning layer 
 8. `TELEGRAM_WORKSPACE_MANAGER_1_0.md`
 9. `TELEGRAM_WORKSPACE_MANAGER_1_15_COMMUNITY_OPERATIONS.md`
 10. `SG_ACCESS_CONTROL_SYSTEM_1_0.md`
-11. `DECISION_AND_ACTION_GATE.md`
-12. `CAPABILITY_SYSTEM.md`
-13. `IDENTITY_AND_SCOPE.md`
-14. `OBSERVABILITY.md`
-15. `TRANSPORTS_AND_AI_ROUTING.md`
-16. `LANGUAGE_AND_LOCALE_CONTEXT.md`
-17. `FOUNDATIONAL_CONTROL_LAYERS.md`
-18. `SELF_KNOWLEDGE.md`
-19. `MONARCH_OWNER_SECURITY.md`
-20. `RUNTIME_COMPOSITION.md`
-21. `POSTGRESQL_PERSISTENCE.md`
-22. `UNIVERSAL_DIAGNOSTICS.md`
+11. `AUTOMATION_2_0_EXECUTABLE_WORKFLOWS.md`
+12. `DECISION_AND_ACTION_GATE.md`
+13. `CAPABILITY_SYSTEM.md`
+14. `IDENTITY_AND_SCOPE.md`
+15. `OBSERVABILITY.md`
+16. `TRANSPORTS_AND_AI_ROUTING.md`
+17. `LANGUAGE_AND_LOCALE_CONTEXT.md`
+18. `FOUNDATIONAL_CONTROL_LAYERS.md`
+19. `SELF_KNOWLEDGE.md`
+20. `MONARCH_OWNER_SECURITY.md`
+21. `RUNTIME_COMPOSITION.md`
+22. `POSTGRESQL_PERSISTENCE.md`
+23. `UNIVERSAL_DIAGNOSTICS.md`
 
 ## Core flow
 
@@ -70,6 +71,8 @@ Telegram Workspace Manager 1.0 is a cross-cutting management layer over the exis
 TWM1.15 Community Operations, Engagement & Analytics extends the same workspace backend with five bounded functional packages: `TWM Content`, `TWM Engagement`, `TWM Community`, `TWM Operations` and `TWM Analytics`. It adds multi-step forms/questionnaires, feedback, event/RSVP/waitlist flows, contests/challenges with auditable deterministic mechanics, FAQ and newcomer onboarding, unanswered-question and moderation workflows, request/case queues, task/reminder/decision workflows, content planning/recurring rubrics, bounded discussion summaries, deterministic workspace analytics, owner briefs and authorized exports. It MUST reuse Memory 2.0, Conversation Context, existing task/capability and Durable Automation systems rather than creating parallel stores or schedulers.
 
 SG Access Control System 1.0 (ACS1) is the canonical transport-neutral access, entitlement, scoped-capability, delegation and usage/budget layer. It applies equally to Telegram, Discord, Web, API, Email and the future native SG interface. Identity existence, transport login, workspace membership/admin status and private-result delivery never imply conversational AI entitlement. SG is the default Access Authority inside the Monarch-defined deterministic policy envelope; human approval is escalation when policy requires it. AI/model output may interpret a requested capability but cannot produce the final GRANT/DENY/ESCALATE decision. Denied AI/usage paths MUST terminate before AI Router so unauthorized users cannot spend model budget. ACS composes with, and does not replace, Resource Authority, Owner Security, Action Gate or Credential Manager.
+
+Automation 2.0 — Executable Workflows is the cross-cutting automation extension above the existing durable task/schedule/worker substrate. It defines a task as a versioned executable plan rather than only a stored message. SG may semantically identify and patch the same automation, execute ordered collect/retrieve/analyze/compose/invoke-capability/deliver steps, gather fresh authorized data at run time, and retain version/execution history. Every protected step reuses current Identity/Scope, Access, Resource Authority, Action Gate, Credential Manager, Capability System, Temporal Context, Durable Automation, Delivery Router and Observability. It does not create a second scheduler, worker, authorization, credential or transport system.
 
 Self Knowledge is a shared system-context layer used for evidence-aware descriptions of SG itself. It does not sit as a mandatory reasoning hop in every request and does not replace live diagnostics.
 
@@ -112,6 +115,12 @@ Universal Diagnostics is an independent observer application outside the mandato
 - ACS1 denied AI or exhausted-budget paths must terminate before AI Router/paid model execution.
 - ACS1 delegated authority cannot exceed its active delegation envelope and cannot self-expand.
 - ACS1 cannot bypass or weaken Owner/Monarch Security, Resource Authority, Action Gate or Credential Manager.
+- Automation 2.0 updates patch the same automation/version lineage unless the user explicitly requests a new/copy automation.
+- Automation 2.0 target resolution must fail closed when zero or multiple existing automations match; internal IDs are not required user knowledge.
+- Automation 2.0 creation-time authority never becomes permanent run-time authority; protected steps re-check current access/resource/action/credential conditions.
+- Automation 2.0 dynamic reports use fresh execution-time evidence and cannot present stale prepared output as current evidence.
+- Automation 2.0 read-only composition cannot smuggle a state-changing capability, and state-changing steps require an explicit bounded execution envelope.
+- Automation 2.0 must reuse the existing scheduler/worker/Temporal/Capability/Access/Resource Authority/Action Gate/Credential/Delivery/Observability stacks rather than create parallel ones.
 - System Self Knowledge is separate from user/project memory and cannot grant authority.
 - Universal Diagnostics is not SG brain, Decision Engine, Action Gate, authorization or ordinary request routing.
 - Diagnostics is read-only by default; it must not silently edit code/config, deploy, mutate production state, grant authority or repair SG automatically.

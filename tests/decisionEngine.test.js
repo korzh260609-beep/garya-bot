@@ -63,6 +63,50 @@ test('semantic meaning and canonical user text never become the conversational r
   assert.equal(result.decisionEnvelope.diagnostics.semanticMeaningExposedAsResponse, false);
 });
 
+test('PDK4 project-development intent canonicalizes mistaken read-only repository analysis through compose-answer', () => {
+  const result = createDecisionEngine().decide({
+    canonicalInput,
+    interpretation: interpretation({
+      intent: 'project_development_current',
+      candidateActions: [{ type: 'repository-analyze', name: 'repository-analyze', actionClass: 'read-only', payload: { mode: 'read-only' } }]
+    })
+  });
+  assert.equal(result.decisionEnvelope.decisionType, 'answer');
+  assert.equal(result.decisionEnvelope.selectedAction.type, 'answer');
+  assert.equal(result.decisionEnvelope.selectedAction.name, 'compose-answer');
+  assert.equal(result.decisionEnvelope.selectedAction.actionClass, 'analysis');
+  assert.equal(result.decisionEnvelope.selectedAction.payload.semanticIntent, 'project_development_current');
+  assert.equal(result.decisionEnvelope.diagnostics.projectDevelopmentConversationalCanonicalized, true);
+});
+
+test('ordinary repository analysis remains repository analysis outside PDK4 project-development intents', () => {
+  const result = createDecisionEngine().decide({
+    canonicalInput,
+    interpretation: interpretation({
+      intent: 'repository_analysis',
+      candidateActions: [{ type: 'repository-analyze', name: 'repository-analyze', actionClass: 'read-only', payload: { mode: 'read-only' } }]
+    })
+  });
+  assert.equal(result.decisionEnvelope.decisionType, 'answer');
+  assert.equal(result.decisionEnvelope.selectedAction.name, 'repository-analyze');
+  assert.equal(result.decisionEnvelope.selectedAction.type, 'repository-analyze');
+  assert.equal(result.decisionEnvelope.diagnostics.projectDevelopmentConversationalCanonicalized, false);
+});
+
+test('PDK4 semantic intent never canonicalizes an actual protected executable action', () => {
+  const result = createDecisionEngine().decide({
+    canonicalInput,
+    interpretation: interpretation({
+      intent: 'project_development_current',
+      candidateActions: [{ type: 'execute', name: 'send-report', actionClass: 'external' }]
+    })
+  });
+  assert.equal(result.decisionEnvelope.selectedAction.name, 'send-report');
+  assert.equal(result.decisionEnvelope.selectedAction.type, 'execute');
+  assert.equal(result.decisionEnvelope.decisionType, 'execute');
+  assert.equal(result.decisionEnvelope.diagnostics.projectDevelopmentConversationalCanonicalized, false);
+});
+
 test('protected actions retain capability identity and are routed to Action Gate authorization', () => {
   const result = createDecisionEngine().decide({
     canonicalInput,

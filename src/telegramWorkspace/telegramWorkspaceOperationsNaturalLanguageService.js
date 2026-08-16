@@ -83,9 +83,10 @@ function operationSchema(workspaceIds) {
       workspaceId: workspaceIds.length ? { anyOf: [{ type: 'string', enum: workspaceIds }, { type: 'null' }] } : { type: 'null' },
       operation: { anyOf: [{ type: 'string', enum: OPERATIONS }, { type: 'null' }] },
       argumentsJson: { anyOf: [{ type: 'string', maxLength: 20000 }, { type: 'null' }] },
+      temporalRequested: { type: 'boolean' },
       summary: { type: 'string', maxLength: 400 }
     },
-    required: ['kind','workspaceId','operation','argumentsJson','summary']
+    required: ['kind','workspaceId','operation','argumentsJson','temporalRequested','summary']
   };
 }
 function label(row) {
@@ -173,19 +174,25 @@ export function createTelegramWorkspaceOperationsNaturalLanguageService({
   }
   async function temporalResolution(actor, text) {
     const temporalService = operationsService.temporalService;
-    if (typeof temporalService?.resolveForUser !== 'function') return null;
+    if (typeof temporalService?.resolveForUser !== 'function') {
+      return freeze({ status: 'unavailable', reason: 'temporal-service-unavailable', timeZone: null });
+    }
     try {
       const resolution = await temporalService.resolveForUser(actor.actorGlobalUserId, text);
       if (resolution?.status === 'resolved') return resolution;
       if (resolution?.status === 'timezone-required' && typeof temporalService.resolveExpression === 'function') {
-        const detection = temporalService.resolveExpression(text, { timeZone: 'UTC', referenceInstant: resolution.referenceInstant });
-        if (detection?.status === 'resolved') {
-          return freeze({ ...resolution, temporalExpressionDetected: true, detectedPrecision: detection.precision ?? null });
-        }
+        try {
+          const detection = temporalService.resolveExpression(text, { timeZone: 'UTC', referenceInstant: resolution.referenceInstant });
+          if (detection?.status === 'resolved') {
+            return freeze({ ...resolution, temporalExpressionDetected: true, detectedPrecision: detection.precision ?? null });
+          }
+        } catch {}
       }
-      return null;
+      return resolution && typeof resolution === 'object'
+        ? freeze({ ...resolution })
+        : freeze({ status: 'unresolved', reason: 'temporal-resolution-empty', timeZone: null });
     } catch {
-      return null;
+      return freeze({ status: 'error', reason: 'temporal-resolution-failed', timeZone: null });
     }
   }
   async function interpret(update, actor, candidates, forced, refs) {
@@ -199,8 +206,8 @@ export function createTelegramWorkspaceOperationsNaturalLanguageService({
       reason: 'twm1.14-1.15-semantic-operation-interpretation',
       specialty: 'semantic-interpretation',
       messages: [
-        { role: 'system', content: 'Interpret a Telegram Workspace Manager operation by semantic meaning. Return only schema-valid JSON. Never invent workspace ids, record ids, poll/test/event identifiers, permissions, metrics, file ids, dates, or stored facts. Workspace and record references may use only the supplied candidates. argumentsJson must contain only operation arguments explicitly requested or safely implied by the selected operation. Supported meanings: content.create creates a draft only when the requested end state is saved/prepared content and not publication; content.attach-media attaches an already known media id; content.publish publishes ordinary static text/content, not an interactive questionnaire; content.schedule schedules future publication; content.cancel-schedule cancels it; media.save/media.publish use the actual attached Telegram media supplied separately; poll.create creates one Telegram poll or quiz; poll.close/poll.analyze act on an existing poll. test.create means an interactive multi-question test that participants should actively take and receive a computed result only after answering all questions. Select test.create rather than content.publish when the requested end state is a playable multi-question assessment, personality/type questionnaire, exam, or similar interactive test. For test.create preserve the supplied title/question/option/result content. argumentsJson shape is {title,intro?,questions:[{id?,text,options:[string|{text,scoreKey?}],correctOptionIndex?}],results?:[{key,title,description}]}. If supplied result categories map answer letters such as A/B/C/D to profiles, use results with matching keys and keep correctOptionIndex absent; do not expose result descriptions as publication text before completion. For knowledge tests use correctOptionIndex only when the correct answers are actually supplied; never invent them. test.score scores an existing test submission. analytics.snapshot and analytics.brief use only persisted metrics; their arguments may contain {from,to} and any requested period must come only from supplied schedulingFacts. Other supported operations: form.create/form.submit; feedback.create; event.create/register/cancel-registration/reminder; faq.upsert/faq.resolve; onboarding.update; moderation.queue/execute; case.create/transition; task.create/task.cancel; decision.confirm/promote; content-plan.create; summary.create; unanswered.update; export.create. Determine intent from semantic end state, not keywords or phrasing. For unknown or ordinary conversation return not-twm. For dates/times use supplied schedulingFacts only; never fabricate an exact time. Never synthesize analytics values.' },
-        { role: 'user', content: JSON.stringify({ text, forcedWorkspaceId: forced?.workspaceId ?? null, authorizedWorkspaces: candidates.map((w) => ({ workspaceId: w.workspaceId, title: w.title ?? null, username: w.username ?? null, type: w.workspaceType })), existingRecords: refs, mediaAvailable: Boolean(media), mediaType: media?.mediaType ?? null, schedulingFacts: temporal ? { status: temporal.status, utcStart: temporal.utcStart ?? null, utcEndExclusive: temporal.utcEndExclusive ?? null, localStart: temporal.localStart ?? null, timeZone: temporal.timeZone ?? null, precision: temporal.precision ?? temporal.detectedPrecision ?? null, ambiguous: temporal.ambiguous === true, temporalExpressionDetected: temporal.temporalExpressionDetected === true } : null }) }
+        { role: 'system', content: 'Interpret a Telegram Workspace Manager operation by semantic meaning. Return only schema-valid JSON. Never invent workspace ids, record ids, poll/test/event identifiers, permissions, metrics, file ids, dates, or stored facts. Workspace and record references may use only the supplied candidates. argumentsJson must contain only operation arguments explicitly requested or safely implied by the selected operation. temporalRequested=true only when the requested operation semantically depends on a user-specified date, time, range, relative period, or recurrence; determine this from meaning, never from a keyword/phrase list. temporalRequested=false when the user asks for all-time/current aggregate data without a temporal scope. Supported meanings: content.create creates a draft only when the requested end state is saved/prepared content and not publication; content.attach-media attaches an already known media id; content.publish publishes ordinary static text/content, not an interactive questionnaire; content.schedule schedules future publication; content.cancel-schedule cancels it; media.save/media.publish use the actual attached Telegram media supplied separately; poll.create creates one Telegram poll or quiz; poll.close/poll.analyze act on an existing poll. test.create means an interactive multi-question test that participants should actively take and receive a computed result only after answering all questions. Select test.create rather than content.publish when the requested end state is a playable multi-question assessment, personality/type questionnaire, exam, or similar interactive test. For test.create preserve the supplied title/question/option/result content. argumentsJson shape is {title,intro?,questions:[{id?,text,options:[string|{text,scoreKey?}],correctOptionIndex?}],results?:[{key,title,description}]}. If supplied result categories map answer letters such as A/B/C/D to profiles, use results with matching keys and keep correctOptionIndex absent; do not expose result descriptions as publication text before completion. For knowledge tests use correctOptionIndex only when the correct answers are actually supplied; never invent them. test.score scores an existing test submission. analytics.snapshot and analytics.brief use only persisted metrics; their arguments may contain {from,to} and any requested period must come only from supplied schedulingFacts. Other supported operations: form.create/form.submit; feedback.create; event.create/register/cancel-registration/reminder; faq.upsert/faq.resolve; onboarding.update; moderation.queue/execute; case.create/transition; task.create/task.cancel; decision.confirm/promote; content-plan.create; summary.create; unanswered.update; export.create. Determine intent from semantic end state, not keywords or phrasing. For unknown or ordinary conversation return not-twm. For dates/times use supplied schedulingFacts only; never fabricate an exact time. Never synthesize analytics values.' },
+        { role: 'user', content: JSON.stringify({ text, forcedWorkspaceId: forced?.workspaceId ?? null, authorizedWorkspaces: candidates.map((w) => ({ workspaceId: w.workspaceId, title: w.title ?? null, username: w.username ?? null, type: w.workspaceType })), existingRecords: refs, mediaAvailable: Boolean(media), mediaType: media?.mediaType ?? null, schedulingFacts: temporal ? { status: temporal.status, utcStart: temporal.utcStart ?? null, utcEndExclusive: temporal.utcEndExclusive ?? null, localStart: temporal.localStart ?? null, timeZone: temporal.timeZone ?? null, precision: temporal.precision ?? temporal.detectedPrecision ?? null, ambiguous: temporal.ambiguous === true, temporalExpressionDetected: temporal.temporalExpressionDetected === true, reason: temporal.reason ?? null } : null }) }
       ],
       responseFormat: { name: 'telegram_workspace_operation', strict: true, jsonSchema: operationSchema(candidates.map((w) => w.workspaceId)) },
       maxOutputTokens: 2600,
@@ -302,11 +309,15 @@ export function createTelegramWorkspaceOperationsNaturalLanguageService({
       await send(update, 'Уточни, в какой доступной группе или канале выполнить действие.');
       return freeze({ handled: true, outcome: 'workspace-selection-required' });
     }
-    if (['analytics.snapshot','analytics.brief'].includes(interpreted.operation)
-      && interpreted.temporalResolution?.status === 'timezone-required'
-      && interpreted.temporalResolution?.temporalExpressionDetected === true) {
+    const analyticsOperation = ['analytics.snapshot','analytics.brief'].includes(interpreted.operation);
+    const temporalRequested = interpreted.temporalRequested === true || interpreted.temporalResolution?.temporalExpressionDetected === true;
+    if (analyticsOperation && temporalRequested && interpreted.temporalResolution?.status === 'timezone-required') {
       await send(update, 'Чтобы точно посчитать запрошенный период, сначала укажи свой часовой пояс, например: «Мой часовой пояс Europe/Kyiv». Без часового пояса я не буду подменять запрос аналитикой за всё время.');
       return freeze({ handled: true, outcome: 'analytics-timezone-required', operation: interpreted.operation });
+    }
+    if (analyticsOperation && temporalRequested && !temporalWindow(interpreted.temporalResolution)) {
+      await send(update, 'Не удалось канонически разрешить запрошенный период через TemporalService. Аналитика за всё время вместо указанного периода не выполнялась.');
+      return freeze({ handled: true, outcome: 'analytics-period-unresolved', operation: interpreted.operation });
     }
     const args = canonicalOperationArguments(interpreted, parseArguments(interpreted.argumentsJson));
     if (interpreted.operation === 'content.schedule' && !args.runAt && !args.recurrence) {

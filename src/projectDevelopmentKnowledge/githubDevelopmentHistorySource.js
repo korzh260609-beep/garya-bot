@@ -17,8 +17,14 @@ export function createGitHubDevelopmentHistorySource({fetchImpl=globalThis.fetch
   function allow(repo){if(!allowed.has(repo))fail('pdk4-github-history-repository-denied',`repository is not approved for PDK4: ${repo}`);}
   async function resolveAnchor(repo){const {body}=await request(`/repos/${repo}/commits/${encodeURIComponent(branchName)}`);return sha(body?.sha,'bootstrap anchor SHA');}
   async function listCommits({repository:repoInput,cursorToken=null,limit=50,order='asc'}={}){
-    const repo=repository(repoInput);allow(repo);if(order!=='asc')throw new TypeError('PDK4 historical bootstrap requires asc order');const pageSize=positive(limit,'limit',100);let cursor=decodeCursor(cursorToken),anchorSha,page;
-    if(cursor){if(cursor.repository!==repo||cursor.branch!==branchName||cursor.limit!==pageSize)fail('pdk4-github-history-cursor-mismatch','GitHub history cursor scope mismatch');anchorSha=sha(cursor.anchorSha,'cursor anchor SHA');page=positive(cursor.page,'cursor page',1000000);}else{
+    const repo=repository(repoInput);allow(repo);if(order!=='asc')throw new TypeError('PDK4 historical bootstrap requires asc order');let pageSize=positive(limit,'limit',100);let cursor=decodeCursor(cursorToken),anchorSha,page;
+    if(cursor){
+      if(cursor.repository!==repo||cursor.branch!==branchName)fail('pdk4-github-history-cursor-mismatch','GitHub history cursor scope mismatch');
+      const cursorLimit=positive(cursor.limit,'cursor limit',100);
+      if(cursorLimit>pageSize)fail('pdk4-github-history-cursor-mismatch','GitHub history cursor page size exceeds configured batch limit');
+      pageSize=cursorLimit;
+      anchorSha=sha(cursor.anchorSha,'cursor anchor SHA');page=positive(cursor.page,'cursor page',1000000);
+    }else{
       anchorSha=await resolveAnchor(repo);const discovery=await request(`/repos/${repo}/commits?sha=${anchorSha}&per_page=${pageSize}&page=1`);page=parseLastPage(discovery.headers?.get?.('link'));if(page===1){const records=Array.isArray(discovery.body)?discovery.body:[];return Object.freeze({commits:Object.freeze(records.slice().reverse().map((row,index)=>commit(row,`1:${records.length-index}`))),nextCursorToken:null,complete:true,anchorSha});}
     }
     const {body}=await request(`/repos/${repo}/commits?sha=${anchorSha}&per_page=${pageSize}&page=${page}`);if(!Array.isArray(body))fail('pdk4-github-history-response-invalid','GitHub commits response must be an array');const records=body.slice().reverse().map((row,index)=>commit(row,`${page}:${body.length-index}`));const nextPage=page-1;return Object.freeze({commits:Object.freeze(records),nextCursorToken:nextPage>=1?encodeCursor({repository:repo,branch:branchName,limit:pageSize,anchorSha,page:nextPage}):null,complete:nextPage<1,anchorSha});

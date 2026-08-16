@@ -18,6 +18,17 @@ Convert the Block 9 reference in-memory automation engine into durable PostgreSQ
 - Protected tasks pass Action Gate immediately before every execution attempt.
 - Transports do not assign roles, grants or scopes.
 
+## Automation 2.0 substrate relationship
+
+Block 13 remains the durable scheduler/queue/worker substrate for the accepted Automation 2.0 executable-workflow extension. Automation 2.0 must extend this substrate rather than introduce another scheduler or worker stack.
+
+Automation 2.0 will add versioned workflow definitions, semantic same-automation patching, multi-step execution, fresh execution-time collection and richer execution history above these durable primitives. Existing claim/lease/retry/DLQ/idempotency guarantees remain mandatory and must also protect workflow occurrences.
+
+Canonical Automation 2.0 documents:
+- `../architecture/AUTOMATION_2_0_EXECUTABLE_WORKFLOWS.md`
+- `AUTOMATION_2_0_EXECUTABLE_WORKFLOWS_PROGRAM.md`
+- `../workflow/AUTOMATION_2_0_EXECUTABLE_WORKFLOWS_WORKFLOW.md`
+
 ## Durable states
 
 - `scheduled`

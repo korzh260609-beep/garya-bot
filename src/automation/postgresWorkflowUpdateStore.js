@@ -66,6 +66,18 @@ export function createPostgresWorkflowUpdateStore({ database } = {}) {
     return Object.freeze(result.rows.map(normalizeRecord));
   }
 
+  async function list({ scope, limit = 100 } = {}) {
+    const [globalUserId, projectScope, groupScope, threadScope] = scopeValues(scope);
+    const bounded = Number.isInteger(limit) && limit > 0 ? Math.min(limit, 201) : 100;
+    const result = await database.query(`SELECT * FROM automation_workflows
+      WHERE global_user_id=$1 AND project_scope=$2
+        AND group_scope IS NOT DISTINCT FROM $3
+        AND thread_scope IS NOT DISTINCT FROM $4
+      ORDER BY automation_id LIMIT $5`,
+    [globalUserId, projectScope, groupScope, threadScope, bounded]);
+    return Object.freeze(result.rows.map(normalizeRecord));
+  }
+
   async function commitMutation({
     currentWorkflow,
     nextWorkflow,
@@ -132,5 +144,5 @@ export function createPostgresWorkflowUpdateStore({ database } = {}) {
     })));
   }
 
-  return Object.freeze({ register, resolve, commitMutation, history, atomicRuntimeMutation: true });
+  return Object.freeze({ register, resolve, list, commitMutation, history, atomicRuntimeMutation: true });
 }

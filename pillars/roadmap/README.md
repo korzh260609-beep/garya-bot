@@ -10,6 +10,8 @@ Project Development Knowledge 4.0 has a completed CI-verified PDK4.1–PDK4.12 b
 
 Telegram Workspace Manager 1.0 is an in-progress cross-cutting Telegram management program documented in `TELEGRAM_WORKSPACE_MANAGER_1_0_PROGRAM.md`; TWM1.1–TWM1.9 are CLOSED / CI-verified and TWM1.10 Workspace Runtime Wiring is next. It lets any authorized SG user configure and operate SG for their own Telegram groups, supergroups and channels through native Telegram UI and natural language while reusing Block 14 Telegram Production Integration, canonical Identity/Scope, Resource Authority, Action Gate, PostgreSQL, Memory 2.0 isolation, Durable Automation and AI Router. TWM1.14 adds text/media publication, polls, quizzes/tests, scheduled content, deterministic result statistics and bounded AI analysis. TWM1.15 extends the same backend with community operations, engagement and analytics: forms, events, FAQ/onboarding, feedback, cases, tasks/reminders/decisions, content planning, summaries, owner briefs and exports. TWM1 does not renumber Blocks 0–19 and does not create a second Telegram transport, memory, task, scheduler or authorization system.
 
+SG Access Control System 1.0 (ACS1) is a planned cross-cutting transport-neutral access, entitlement, scoped-capability, delegation and usage/budget program documented in `SG_ACCESS_CONTROL_SYSTEM_1_0_PROGRAM.md`. ACS1 applies to Telegram, Discord, Web, API, Email and the future native SG interface. SG is the default Access Authority inside a Monarch-defined deterministic policy envelope; human approval is escalation where policy requires it. Identity creation, transport login, workspace membership/admin status and private-result delivery do not grant conversational AI access. ACS1 does not renumber Blocks 0–19 and must compose with existing Identity/Scope, Resource Authority, Owner Security, Action Gate, Credential Manager, PostgreSQL, Delivery Router, AI Router accounting and Observability rather than create parallel systems.
+
 Universal Diagnostics is a separate planned cross-cutting diagnostic program documented in `UNIVERSAL_DIAGNOSTICS_PROGRAM.md`. It is implemented as an independent observer application around SG, not as a new core layer and not as a renumbering of Blocks 0–19.
 
 Block 8.1 is a production extension of completed Block 8 Interfaces. It adds the real Discord production transport on top of the existing Discord adapter contract and does not renumber Blocks 9–19.
@@ -58,7 +60,8 @@ Block 8.1 is a production extension of completed Block 8 Interfaces. It adds the
 40. `PROJECT_DEVELOPMENT_KNOWLEDGE_4_13_LIVE_PRODUCTION_WIRING.md` — planned PDK4.13 live production wiring/autonomous history extension
 41. `TELEGRAM_WORKSPACE_MANAGER_1_0_PROGRAM.md` — in-progress TWM1 program; TWM1.1–TWM1.9 CLOSED / CI-verified, TWM1.10 next
 42. `TELEGRAM_WORKSPACE_MANAGER_1_15_COMMUNITY_OPERATIONS_PROGRAM.md` — planned TWM1.15 community operations, engagement and analytics extension
-43. `UNIVERSAL_DIAGNOSTICS_PROGRAM.md` — planned cross-cutting Universal Diagnostics D1–D12 program
+43. `SG_ACCESS_CONTROL_SYSTEM_1_0_PROGRAM.md` — planned transport-neutral ACS1 access/entitlement/usage-control program
+44. `UNIVERSAL_DIAGNOSTICS_PROGRAM.md` — planned cross-cutting Universal Diagnostics D1–D12 program
 
 ## Block 8.1 — Discord Transport Integration
 
@@ -120,7 +123,7 @@ Canonical implementation order:
 
 `PDK4.1 Development Knowledge Contract & Taxonomy → PDK4.2 GitHub Historical Scanner & Durable Cursor → PDK4.3 Source Normalization & Verification → PDK4.4 Development Significance Classifier → PDK4.5 Development Event Extraction → PDK4.6 Commit/Event Clustering & Milestones → PDK4.7 Historical Reconstruction & Project Genesis → PDK4.8 Temporal/Causal Linking & Reconciliation → PDK4.9 Continuous GitHub Ingestion → PDK4.10 Product Component Registry & Current Project Snapshot → PDK4.11 Development Query & Normal SG Answer Integration → PDK4.12 Diagnostics, Production Bootstrap & Live Acceptance → PDK4.13 Live Production Wiring & Autonomous Project History`.
 
-PDK4 builds on the completed Project Memory 3.0 foundation. PDK4.1–PDK4.12 provide the complete CI-verified development-history engine, PostgreSQL persistence/restart semantics, GitHub production source contract, diagnostics and production-like acceptance. PDK4.13 remains the next planned production extension: it must wire that engine into real SG startup/worker composition, automatically bootstrap/resume real repository history, continuously reconcile new commits, use a PostgreSQL single-flight guard, expose protected live diagnostics and prove real production restart/new-commit/replay/query acceptance.
+PDK4 builds on the completed Project Memory 3.0 foundation. PDK4.1–PDK4.12 provide the complete CI-verified development-history engine, PostgreSQL persistence/restart semantics, GitHub production source contract, diagnostics and production-like acceptance. PDK4.13 remains the next planned production extension: it must wire that engine into real SG startup/worker composition, automatically bootstrap/resume real repository history, continuously reconcile new commits, use a PostgreSQL single-flight guard, expose protected diagnostics and prove real production restart/new-commit/replay/query acceptance.
 
 PDK4.13 does not redefine evidence semantics. Canonical documents cannot by themselves prove implementation, CI cannot imply deployment/live state, supporting evidence cannot silently promote milestone state, and deployment/runtime evidence still requires an approved source. PDK4 continues to reuse PM3 PostgreSQL storage for durable project facts, provenance, trust, confirmation, dedup/conflict, temporal history, retrieval and Context Guard.
 
@@ -160,6 +163,24 @@ TWM1.15 architecture: `../architecture/TELEGRAM_WORKSPACE_MANAGER_1_15_COMMUNITY
 Workflow: `../workflow/TELEGRAM_WORKSPACE_MANAGER_1_0_WORKFLOW.md`.
 TWM1.15 workflow: `../workflow/TELEGRAM_WORKSPACE_MANAGER_1_15_COMMUNITY_OPERATIONS_WORKFLOW.md`.
 
+## SG Access Control System 1.0
+
+**Status: PLANNED / NOT IMPLEMENTED.**
+
+Canonical implementation order:
+
+`ACS1.1 Access Domain Foundation → ACS1.2 Identity / Access Separation → ACS1.3 Capability Registry → ACS1.4 Scope Authority Model → ACS1.5 Deterministic Policy Engine → ACS1.6 SG Default Access Authority → ACS1.7 Access Request Workflow → ACS1.8 Approval & Escalation → ACS1.9 Temporary / Conditional Grants → ACS1.10 AI Usage Gate → ACS1.11 Budget, Credits & Billing Scope → ACS1.12 Private Delivery & Own-Result Access → ACS1.13 Delegation → ACS1.14 Workspace / Transport Role Integration → ACS1.15 Resource Authority Integration → ACS1.16 Action Gate Integration → ACS1.17 Transport-Neutral Enforcement → ACS1.18 Access Management Service/API → ACS1.19 Management UI → ACS1.20 Audit & Observability → ACS1.21 Security Regression Suite → ACS1.22 Cross-Transport E2E → ACS1.23 Production / Live Acceptance`.
+
+ACS1 establishes one SG-wide access truth across transports. A new identity is not a user entitlement. By target design, an ordinary new subject receives only a `delivery-only` baseline with own-result/private-delivery/access-request rights; `ai.compose` is explicit policy/grant-controlled. The current Telegram production resolver behavior that auto-grants `compose-answer` to a new guest is an explicit ACS1.2 migration target, not accepted final behavior.
+
+SG is the default Access Authority and may automatically grant, limit or deny within a deterministic Monarch-defined policy envelope. Requests requiring authority beyond that envelope are escalated. AI may interpret a user's request for a capability, but final access decisions remain deterministic and auditable. Denied `ai.compose` or exhausted-budget requests must stop before AI Router so unauthorized users cannot consume model budget.
+
+Private test/poll/form/case results are authorized independently from general SG access: a user may retrieve only their own pending result without receiving conversational AI entitlement. ACS1 composes with existing Identity/Scope, Resource Authority, Owner/Monarch Security, Action Gate, Credential Manager, PostgreSQL, Delivery Router, AI Router accounting and Observability.
+
+Program: `SG_ACCESS_CONTROL_SYSTEM_1_0_PROGRAM.md`.
+Architecture: `../architecture/SG_ACCESS_CONTROL_SYSTEM_1_0.md`.
+Workflow: `../workflow/SG_ACCESS_CONTROL_SYSTEM_1_0_WORKFLOW.md`.
+
 ## Universal Diagnostics
 
 **Status: Planned and architecturally specified.**
@@ -176,7 +197,7 @@ Workflow: `../workflow/UNIVERSAL_DIAGNOSTICS_WORKFLOW.md`.
 
 ## Production continuation
 
-`PRODUCTION_ROADMAP.md` remains the canonical numbered continuation after Block 10. Memory 2.0, Project Memory 3.0, Project Development Knowledge 4.0, Telegram Workspace Manager 1.0 and Universal Diagnostics are separate cross-cutting programs and do not renumber Blocks 11–19. Block 8.1 remains an extension of Block 8 rather than a renumbering of that continuation.
+`PRODUCTION_ROADMAP.md` remains the canonical numbered continuation after Block 10. Memory 2.0, Project Memory 3.0, Project Development Knowledge 4.0, Telegram Workspace Manager 1.0, SG Access Control System 1.0 and Universal Diagnostics are separate cross-cutting programs and do not renumber Blocks 11–19. Block 8.1 remains an extension of Block 8 rather than a renumbering of that continuation.
 
 Each production block/program stage must still be independently verifiable, reversible and completed through code, tests, documentation, CI and runtime evidence.
 

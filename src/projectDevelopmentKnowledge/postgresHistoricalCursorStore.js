@@ -120,6 +120,19 @@ export function createPostgresHistoricalCursorStore(database) {
     });
   }
 
+  async function restartScan({ projectKey, sourceKind = 'github-commit', sourceScope }, db = database) {
+    const project = normalizeProjectKey(projectKey);
+    const kind = normalizeSourceKind(sourceKind);
+    const scope = normalizeScope(sourceScope);
+    return db.transaction(async (tx) => {
+      await ensureCursor({ projectKey: project, sourceKind: kind, sourceScope: scope }, tx);
+      await tx.query(`UPDATE pdk4_history_cursors SET
+        cursor_token=NULL,last_source_id=NULL,status='scanning',completed_at=NULL,updated_at=now()
+        WHERE project_key=$1 AND source_kind=$2 AND source_scope=$3`, [project, kind, scope]);
+      return getCursor({ projectKey: project, sourceKind: kind, sourceScope: scope }, tx);
+    });
+  }
+
   async function markFailed({ projectKey, sourceKind = 'github-commit', sourceScope }, db = database) {
     await ensureCursor({ projectKey, sourceKind, sourceScope }, db);
     await db.query(`UPDATE pdk4_history_cursors SET status='failed',updated_at=now()
@@ -133,5 +146,5 @@ export function createPostgresHistoricalCursorStore(database) {
     return Number(result.rows[0].count);
   }
 
-  return Object.freeze({ getCursor, ensureCursor, listProcessedSourceIds, commitBatch, markFailed, countProcessed });
+  return Object.freeze({ getCursor, ensureCursor, listProcessedSourceIds, commitBatch, restartScan, markFailed, countProcessed });
 }

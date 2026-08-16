@@ -5,6 +5,12 @@ function requiredString(value, field) {
   return value.trim();
 }
 
+function timestamp(value, field) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (!Number.isFinite(date.getTime())) throw new TypeError(`${field} must be a valid timestamp`);
+  return date.toISOString();
+}
+
 function workflowForCreatedTask({ task, scope, input }) {
   if (input?.kind !== 'self-notification') return null;
   const payload = input.payload;
@@ -12,8 +18,8 @@ function workflowForCreatedTask({ task, scope, input }) {
   const schedule = task.recurringSchedule ?? null;
   const automationId = requiredString(task.taskId, 'task.taskId');
   const globalUserId = requiredString(scope.userScope ?? scope.globalUserId, 'scope.userScope');
-  const createdAt = task.createdAt ?? new Date().toISOString();
-  const updatedAt = task.updatedAt ?? createdAt;
+  const createdAt = timestamp(task.createdAt ?? new Date(), 'task.createdAt');
+  const updatedAt = timestamp(task.updatedAt ?? createdAt, 'task.updatedAt');
   const trigger = schedule
     ? {
         type: 'recurring',
@@ -25,7 +31,7 @@ function workflowForCreatedTask({ task, scope, input }) {
       }
     : {
         type: 'one-shot',
-        runAt: requiredString(task.runAt ?? task.availableAt, 'task.runAt')
+        runAt: timestamp(task.runAt ?? task.availableAt, 'task.runAt')
       };
 
   return createWorkflowDefinition({

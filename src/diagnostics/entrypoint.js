@@ -77,6 +77,15 @@ const baseService = createDiagnosticService({
 });
 const service = Object.freeze({
   ...baseService,
+  async pdk4(input = {}) {
+    const projectKey = input.projectKey ?? projectScope;
+    if (projectKey !== projectScope) {
+      const error = new Error('PDK4 diagnostics project scope denied');
+      error.code = 'pdk4-diagnostics-project-scope-denied';
+      throw error;
+    }
+    return pdk4Diagnostics.inspect({ projectKey, repository: pdk4Repository });
+  },
   async projectMemory(input = {}) {
     const projectMemory = await projectMemoryDiagnostics.runAll({
       actor: { globalUserId: monarchGlobalUserId, projects: [projectScope] },

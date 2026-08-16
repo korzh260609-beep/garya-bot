@@ -179,7 +179,7 @@ export function createInMemoryProductionTaskStore() {
 export function createProductionCapabilities({
   memoryProvider,
   taskStore = createInMemoryProductionTaskStore(),
-  workflowUpdateService = null,
+  workflowUpdateService = taskStore?.workflowUpdateService ?? null,
   sourceRetriever = null,
   documentAnalyzer = null,
   repositoryAnalyzer = null,

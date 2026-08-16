@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createPostgresHistoricalCursorStore } from '../src/projectDevelopmentKnowledge/postgresHistoricalCursorStore.js';
 import { createPostgresContinuousIngestionStore } from '../src/projectDevelopmentKnowledge/postgresContinuousIngestionStore.js';
+import { createGitHubDevelopmentHistorySource } from '../src/projectDevelopmentKnowledge/githubDevelopmentHistorySource.js';
 
 const PROJECT = 'sg2.1';
 const REPOSITORY = 'korzh260609-beep/garya-bot';
@@ -56,4 +57,53 @@ test('PDK4.13 continuous reanchor preserves counters while moving branch anchor'
   assert.equal(result.lastSourceId, SOURCE_ID);
   assert.equal(result.lastCommitSha, SHA);
   assert.equal(result.processedCount, 17);
+});
+
+test('PDK4.13 historical cursor keeps its original page size when configured batch grows', async () => {
+  const calls = [];
+  const cursor = Buffer.from(JSON.stringify({
+    repository: REPOSITORY,
+    branch: 'dev/sg2.1-semantic',
+    limit: 25,
+    anchorSha: SHA,
+    page: 2
+  }), 'utf8').toString('base64url');
+  const fetchImpl = async (url) => {
+    calls.push(String(url));
+    return {
+      ok: true,
+      headers: { get: () => null },
+      async json() { return []; }
+    };
+  };
+  const source = createGitHubDevelopmentHistorySource({
+    fetchImpl,
+    allowedRepositories: [REPOSITORY],
+    branch: 'dev/sg2.1-semantic',
+    headersProvider: async () => ({})
+  });
+  const result = await source.listCommits({ repository: REPOSITORY, cursorToken: cursor, limit: 50, order: 'asc' });
+  assert.equal(result.complete, false);
+  assert.match(calls[0], /per_page=25/);
+  assert.match(calls[0], /page=2/);
+});
+
+test('PDK4.13 historical cursor fails closed when configured batch shrinks below cursor page size', async () => {
+  const cursor = Buffer.from(JSON.stringify({
+    repository: REPOSITORY,
+    branch: 'dev/sg2.1-semantic',
+    limit: 50,
+    anchorSha: SHA,
+    page: 2
+  }), 'utf8').toString('base64url');
+  const source = createGitHubDevelopmentHistorySource({
+    fetchImpl: async () => { throw new Error('must not fetch'); },
+    allowedRepositories: [REPOSITORY],
+    branch: 'dev/sg2.1-semantic',
+    headersProvider: async () => ({})
+  });
+  await assert.rejects(
+    source.listCommits({ repository: REPOSITORY, cursorToken: cursor, limit: 25, order: 'asc' }),
+    (error) => error?.code === 'pdk4-github-history-cursor-mismatch'
+  );
 });

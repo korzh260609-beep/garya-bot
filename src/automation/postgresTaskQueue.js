@@ -68,7 +68,6 @@ export function createPostgresTaskQueue({ database, idFactory = randomUUID } = {
         FOR UPDATE`, [requiredString(taskId, 'taskId'), globalUserId, projectScope, groupScope, threadScope]);
       const task = locked.rows[0];
       if (!task || !['queued','scheduled','waiting_approval'].includes(task.status)) return null;
-      const approval = task.approval_state ?? {};
       const workflowState = {
         ...(task.payload?.workflow ?? {}),
         ...(workflowVersion == null ? {} : { version: workflowVersion }),
@@ -85,6 +84,36 @@ export function createPostgresTaskQueue({ database, idFactory = randomUUID } = {
           payload=$3::jsonb,
           updated_at=now()
         WHERE task_id=$1 RETURNING *`, [task.task_id, scheduledFor, JSON.stringify(payload)]);
+      return result.rows[0] ?? null;
+    });
+  }
+
+  async function syncWorkflowTask({ scope, taskId, workflow, allowTerminal = false, transaction = null } = {}) {
+    const [globalUserId, projectScope, groupScope, threadScope] = scopeValues(scope);
+    if (!workflow || typeof workflow !== 'object' || Array.isArray(workflow)) throw new TypeError('workflow is required');
+    return inTransaction(database, transaction, async (tx) => {
+      const locked = await tx.query(`SELECT * FROM tasks
+        WHERE task_id=$1 AND global_user_id=$2 AND project_scope=$3
+          AND group_scope IS NOT DISTINCT FROM $4 AND thread_scope IS NOT DISTINCT FROM $5
+        FOR UPDATE`, [requiredString(taskId, 'taskId'), globalUserId, projectScope, groupScope, threadScope]);
+      const task = locked.rows[0];
+      if (!task) return null;
+      if (!allowTerminal && !['queued','scheduled','waiting_approval'].includes(task.status)) return null;
+      const nextPayload = {
+        ...(task.payload ?? {}),
+        ...(typeof workflow.inputs?.message === 'string' ? { message: workflow.inputs.message } : {}),
+        ...(workflow.delivery && typeof workflow.delivery === 'object' ? { delivery: workflow.delivery } : {}),
+        workflow: { automationId: workflow.automationId, version: workflow.version }
+      };
+      const maxAttempts = Number.isInteger(workflow.executionPolicy?.maxAttempts) && workflow.executionPolicy.maxAttempts > 0
+        ? workflow.executionPolicy.maxAttempts
+        : Number(task.max_attempts ?? 3);
+      const result = await tx.query(`UPDATE tasks SET
+          payload=$2::jsonb,
+          max_attempts=$3,
+          protected_action=protected_action OR $4,
+          updated_at=now()
+        WHERE task_id=$1 RETURNING *`, [task.task_id, JSON.stringify(nextPayload), maxAttempts, workflow.executionPolicy?.protectedAction === true]);
       return result.rows[0] ?? null;
     });
   }
@@ -198,5 +227,5 @@ export function createPostgresTaskQueue({ database, idFactory = randomUUID } = {
     return result.rows;
   }
 
-  return Object.freeze({ submit, updateScheduled, releaseDue, approve, cancel, claim, heartbeat, complete, fail, recoverAbandoned, get, listDeadLetters });
+  return Object.freeze({ submit, updateScheduled, syncWorkflowTask, releaseDue, approve, cancel, claim, heartbeat, complete, fail, recoverAbandoned, get, listDeadLetters });
 }

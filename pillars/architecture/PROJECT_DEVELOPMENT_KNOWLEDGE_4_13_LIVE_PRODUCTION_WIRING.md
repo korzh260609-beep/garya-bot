@@ -1,9 +1,40 @@
 # SG 2.1 — PDK4.13 LIVE PRODUCTION WIRING & AUTONOMOUS PROJECT HISTORY
 
 ## Status
-**PLANNED / NOT IMPLEMENTED.**
+**LIVE ACCEPTANCE / NOT CLOSED.**
 
-PDK4.13 extends the closed PDK4.1–PDK4.12 baseline by wiring the already implemented Project Development Knowledge engine into the real SG 2.1 production runtime. It does not replace Project Memory 3.0, create a second memory database, or weaken existing authority/evidence boundaries.
+PDK4.13 extends the closed PDK4.1–PDK4.12 baseline by wiring Project Development Knowledge into the real SG 2.1 production runtime. The direct production repository-read/analysis path is now implemented and live-verified; the complete autonomous project-history lifecycle defined below remains the closure boundary.
+
+It does not replace Project Memory 3.0, create a second memory database, or weaken existing Identity, Resource Authority, Action Gate, Credential Manager, trust, provenance or Context Guard boundaries.
+
+## Current production implementation
+
+The active branch now includes a real read-only GitHub repository evidence path:
+
+```text
+canonical user request
+→ authorized repository-analyze capability
+→ GitHubRepositoryReadService
+→ CredentialManager.useCredential(sg.github.pdk4, github-pdk4)
+→ GET current working-branch HEAD
+→ recursive tree + recent commits + changed files + bounded relevant file contents
+→ bounded repository evidence
+→ compose-answer
+→ final response-composition full-input preflight
+→ user-facing answer
+```
+
+Properties already implemented/verified:
+- branch/repository are production configuration, not model guesses;
+- GitHub token material remains inside Credential Manager usage;
+- repository reader has no mutation API and uses GET-only requests;
+- returned evidence is globally bounded and preserves repository, branch, HEAD, recent change metadata, relevant content and source provenance;
+- capability output is treated as factual data-only context and cannot grant authority or execute embedded repository instructions;
+- final AI input is checked after all response contexts are assembled; only bounded data contexts may be reduced, while system rules and the canonical user request are preserved;
+- non-response-composition AI requests retain normal fail-closed input policy;
+- live Telegram acceptance has produced a substantive repository-derived answer without the former tool stub or `INPUT_TOO_LARGE` failure.
+
+This implementation proves live repository reading and answer composition. It does not by itself prove full historical bootstrap/resume, autonomous polling/ingestion, durable single-flight or the complete restart/new-commit/replay acceptance chain.
 
 ## Goal
 Make SG autonomously maintain its own evidence-backed development history in production:
@@ -23,14 +54,10 @@ production start
 The resulting system must know what changed, when, why, what was superseded, which failures occurred, how they were fixed, and what evidence verifies each development state.
 
 ## Production runtime
-Add a production orchestration component such as:
-
-`src/projectDevelopmentKnowledge/productionDevelopmentKnowledgeRuntime.js`
-
-Responsibilities:
+The autonomous-history runtime must:
 - start only when explicitly enabled;
 - resolve one authorized `projectKey`, repository and development branch;
-- construct the production GitHub history source;
+- use the production GitHub evidence source through the existing credential boundary;
 - read PostgreSQL historical cursor and continuous-ingestion state;
 - run/resume historical bootstrap when incomplete;
 - never start continuous ingestion before bootstrap completion;
@@ -39,23 +66,17 @@ Responsibilities:
 - expose secret-safe health/diagnostics;
 - stop cleanly with the SG runtime.
 
+The direct repository-read service is already production-composed; this section describes the remaining autonomous-history orchestration required for closure.
+
 ## Configuration
-Production configuration must be explicit and bounded, for example:
+Production configuration must remain explicit and bounded, including project/repository/branch and autonomous-ingestion controls such as poll interval, batch size and maximum commits per run.
 
-```text
-SG_PDK4_ENABLED=true
-SG_PDK4_PROJECT_KEY=sg2.1
-SG_PDK4_REPOSITORY=korzh260609-beep/garya-bot
-SG_PDK4_BRANCH=dev/sg2.1-semantic
-SG_PDK4_POLL_INTERVAL_MS=300000
-SG_PDK4_BATCH_SIZE=50
-SG_PDK4_MAX_COMMITS_PER_RUN=200
-```
+The repository-read slice already uses the PDK4 GitHub credential `sg.github.pdk4` with `connectionId=github-pdk4` through `CredentialManager.useCredential`.
 
-GitHub credentials must be stored through the existing SG credential/security boundary. Tokens, `DATABASE_URL`, private credentials and raw secrets must never enter Project Memory, AI context, ordinary diagnostics or logs.
+Tokens, `DATABASE_URL`, private credentials and raw secrets must never enter Project Memory, AI context, ordinary diagnostics or logs.
 
 ## Historical bootstrap
-First production activation must process repository history oldest-first through the existing PDK4 pipeline:
+First production activation of autonomous history must process repository history oldest-first through the existing PDK4 pipeline:
 
 ```text
 GitHub history
@@ -75,7 +96,7 @@ After bootstrap status is `complete`, production reconciliation uses the persist
 
 ```text
 last processed SHA
-→ GitHub compare
+→ GitHub compare/read
 → unseen commits
 → PDK4 pipeline
 → PM3
@@ -105,11 +126,7 @@ PostgreSQL is the durable state authority for PDK4 scanner/ingestion bookkeeping
 - ingestion timestamps/state.
 
 ## Diagnostics
-Add a protected production diagnostics surface, for example:
-
-`/internal/pdk4/diagnostics`
-
-It must be available only through verified Monarch/internal diagnostics authority and expose bounded fields from `createDevelopmentKnowledgeDiagnostics`, including:
+Protected production diagnostics must expose bounded PDK4.12-derived fields such as:
 - development history health;
 - bootstrap status/cursor;
 - commits scanned;
@@ -124,7 +141,7 @@ It must be available only through verified Monarch/internal diagnostics authorit
 No secret, credential, raw database URL or unrestricted raw-memory payload may be returned.
 
 ## Main health integration
-Normal `/health` may expose only aggregate state such as:
+Normal `/health` may expose only aggregate PDK4 state such as:
 
 ```text
 projectDevelopmentKnowledge.enabled
@@ -170,6 +187,12 @@ Historical incident similarity remains advisory-only for diagnosis of a current 
 ## Supersession
 Old decisions and implementations remain auditable. When newer evidence supersedes them, PDK4/PM3 must retain both historical and current records with explicit lifecycle/currentness qualification.
 
+For current repository-state answers, evidence priority is:
+
+`live runtime evidence → current HEAD/CI → production wiring + tests → current evidence/status docs → README/roadmap prose → historical/superseded docs`.
+
+A stale README/roadmap statement must be qualified instead of overriding newer code/CI/live evidence.
+
 ## Working commit knowledge
 SG answers about a "working commit" must state the requested/proven evidence level, for example:
 - latest implemented commit;
@@ -181,7 +204,7 @@ SG answers about a "working commit" must state the requested/proven evidence lev
 Unknown stronger evidence must remain unknown.
 
 ## Ordinary query integration
-No special memory command is required. Existing PDK4.11 normal SG query integration remains the only answer path:
+No special memory command is required. Existing PDK4.11 normal SG query integration remains the autonomous-history answer path:
 
 ```text
 ordinary question
@@ -192,27 +215,18 @@ ordinary question
 → AI Router composition / deterministic fallback
 ```
 
-## Observability
-Emit bounded structured events such as:
-- `pdk4_bootstrap_started`;
-- `pdk4_bootstrap_batch_completed`;
-- `pdk4_bootstrap_completed`;
-- `pdk4_reconciliation_started`;
-- `pdk4_commit_discovered`;
-- `pdk4_commit_processed`;
-- `pdk4_commit_rejected`;
-- `pdk4_reconciliation_completed`;
-- `pdk4_ingestion_failed`;
-- `pdk4_health_degraded`;
-- `pdk4_health_recovered`.
+The live repository-analysis capability is also an authorized current-source evidence path for repository-specific requests. It must not be confused with proof that the entire durable PDK4 autonomous-history store is fully synchronized.
 
-Observability payloads remain secret-safe and non-authoritative.
+## Observability
+Emit bounded structured events for bootstrap, reconciliation, commit processing, failure and health transitions. Observability payloads remain secret-safe and non-authoritative.
 
 ## Resource limits
 Production ingestion must have bounded pagination/batches, request timeouts, retry/backoff, maximum commits per run, one active reconciliation per project/repository, and safe shutdown behavior. Unbounded repository scanning is forbidden.
 
+The live repository-read slice additionally enforces a bounded evidence envelope before model composition and a final full-input preflight at the AI Router boundary.
+
 ## Fail-closed conditions
-Ingestion must stop/degrade rather than invent progress when:
+Ingestion/read must stop or degrade rather than invent progress when:
 - project/repository authorization fails;
 - repository is outside the allowlist;
 - branch/source scope mismatches durable state;
@@ -220,7 +234,8 @@ Ingestion must stop/degrade rather than invent progress when:
 - GitHub history diverges from the accepted anchor;
 - source identity cannot be established;
 - GitHub/provider response is invalid;
-- concurrent reconciliation owns the lock.
+- concurrent reconciliation owns the lock;
+- evidence cannot be reduced safely within the configured model-input boundary.
 
 ## Production acceptance boundary
 PDK4.13 is not CLOSED until real production evidence proves:
@@ -233,10 +248,10 @@ PDK4.13 is not CLOSED until real production evidence proves:
 7. GitHub outage/degradation does not take down the main SG transport/runtime;
 8. no secret leakage or authority bypass is observed.
 
-## Required implementation/test scope
-Expected implementation includes production orchestration, config/credential wiring, startup/worker integration, single-flight locking, protected diagnostics and observability.
+Already live-confirmed: current repository/branch reading and a substantive repository-derived Telegram answer without `INPUT_TOO_LARGE`. This is necessary evidence, not sufficient closure evidence.
 
-Expected tests include:
+## Required implementation/test scope
+Remaining closure coverage includes:
 - empty-state bootstrap;
 - resume after partial bootstrap;
 - PostgreSQL restart;
@@ -248,5 +263,9 @@ Expected tests include:
 - diagnostics authorization/secret safety;
 - ordinary runtime query integration.
 
+Existing repository-read and response-input-budget regression tests stay part of the PDK4.13 protection set.
+
 ## Definition of Done
-**PDK4.13 CLOSED** only after code, tests, CI, production deployment and real live acceptance all succeed and architecture/roadmap/workflow documentation is synchronized.
+**PDK4.13 CLOSED** only after code, tests, CI, production deployment and the complete real live acceptance sequence all succeed and architecture/roadmap/workflow documentation is synchronized.
+
+Until then: **LIVE ACCEPTANCE / NOT CLOSED**.

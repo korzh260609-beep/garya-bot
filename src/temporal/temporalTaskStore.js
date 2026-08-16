@@ -1,5 +1,8 @@
 import { parseRecurrenceRule } from './recurrenceEngine.js';
 import { resolveElapsedInterval } from './elapsedInterval.js';
+import { createPostgresWorkflowUpdateStore } from '../automation/postgresWorkflowUpdateStore.js';
+import { createWorkflowUpdateCapability } from '../automation/workflowUpdate.js';
+import { createWorkflowRegisteredTaskStore } from '../automation/workflowRegisteredTaskStore.js';
 
 const SUB_DAILY_INTERVAL_MS = Object.freeze({ MINUTELY: 60_000, HOURLY: 3_600_000 });
 
@@ -95,11 +98,31 @@ async function cancelLinkedRecurringSchedule({ recurringScheduler, scope, taskId
   return recurringScheduler.cancel({ scope, scheduleId: linked.scheduleId });
 }
 
+function productionWorkflowAuthorization() {
+  return Object.freeze({
+    async authorize(request) {
+      const evidence = request?.actor?.automationUpdateGate;
+      const actorId = request?.actor?.globalUserId;
+      const scopeUserId = request?.scope?.globalUserId ?? request?.scope?.userScope;
+      const allowed = evidence?.source === 'canonical-action-gate'
+        && evidence.authorized === true
+        && evidence.actorGlobalUserId === actorId
+        && evidence.projectScope === request?.scope?.projectScope
+        && scopeUserId === actorId;
+      return Object.freeze({
+        allowed,
+        reason: allowed ? 'canonical-action-gate-authorized' : 'canonical-action-gate-evidence-invalid',
+        evidenceRefs: evidence?.requestId ? Object.freeze([`action-gate:${evidence.requestId}`]) : Object.freeze([])
+      });
+    }
+  });
+}
+
 export function createTemporalTaskStore({ taskStore, temporalService, recurringScheduler = null } = {}) {
   if (!taskStore?.create || !taskStore?.list || !taskStore?.get || !taskStore?.cancel) throw new TypeError('taskStore is required');
   if (!temporalService?.resolveForUser) throw new TypeError('temporalService is required');
 
-  return Object.freeze({
+  const coreStore = Object.freeze({
     async create({ scope, input = {} }) {
       let expression = input.temporalExpression ?? input.when ?? (typeof input.runAt === 'string' && !isExactIsoInstant(input.runAt) ? input.runAt : null);
       let resolution = null;
@@ -147,7 +170,7 @@ export function createTemporalTaskStore({ taskStore, temporalService, recurringS
         dtstartLocal: resolution.localStart,
         misfirePolicy: input.misfirePolicy ?? 'fire_once',
         maxCatchup: input.maxCatchup ?? 10,
-        state: { originalExpression: resolution.originalExpression, localTime: input.localTime ?? null, notificationMessage, createdBy: scope.userScope }
+        state: { originalExpression: resolution.originalExpression, localTime: input.localTime ?? null, notificationMessage, createdBy: scope.userScope, workflowVersion: 1, automationId: created.taskId }
       });
       return Object.freeze({ ...created, runAt: schedule.firstOccurrenceAt ?? created.runAt ?? created.availableAt ?? null, recurringSchedule: schedule });
     },
@@ -159,5 +182,23 @@ export function createTemporalTaskStore({ taskStore, temporalService, recurringS
       if (!task) return null;
       return schedule ? Object.freeze({ ...task, recurringSchedule: schedule }) : task;
     }
+  });
+
+  if (!taskStore.database?.query || !taskStore.taskQueue || !recurringScheduler) return coreStore;
+  const workflowStore = createPostgresWorkflowUpdateStore({ database: taskStore.database });
+  const workflowUpdateService = createWorkflowUpdateCapability({
+    store: workflowStore,
+    authorization: productionWorkflowAuthorization(),
+    recurringScheduler,
+    oneShotTaskQueue: taskStore.taskQueue
+  });
+  const registeredStore = createWorkflowRegisteredTaskStore({ taskStore: coreStore, workflowStore });
+  return Object.freeze({
+    create: registeredStore.create,
+    list: registeredStore.list,
+    get: registeredStore.get,
+    cancel: registeredStore.cancel,
+    workflowStore,
+    workflowUpdateService
   });
 }

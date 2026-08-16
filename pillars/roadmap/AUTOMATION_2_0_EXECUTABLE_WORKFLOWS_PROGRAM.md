@@ -1,6 +1,6 @@
 # SG Automation 2.0 — Executable Workflows Program
 
-Status: IMPLEMENTATION IN PROGRESS — AW2.1–AW2.3 IMPLEMENTED / CI-VERIFIED; AW2.4 NEXT
+Status: IMPLEMENTATION IN PROGRESS — AW2.1–AW2.4 IMPLEMENTED / CI-VERIFIED; AW2.5 NEXT
 
 ## Goal
 
@@ -41,8 +41,8 @@ No phrase/keyword routing is allowed as workflow semantics.
 - Evidence: code HEAD `50eb46cd6d1d68e1a9301b64c90a5ed3eb0a80eb`; SG 2.1 CI #8132 SUCCESS on that exact HEAD.
 - Boundary: AW2.3 does not create a second scheduler/worker and does not production-wire generalized workflows ahead of execution-time security/outcome mapping. Existing `self-notification` execution remains on its established durable/security/delivery path. AW2.4 owns execution-time security re-checks.
 
-### AW2.4 — Execution-time security — NEXT
-For each protected step re-check:
+### AW2.4 — Execution-time security — IMPLEMENTED / CI-VERIFIED
+For every explicitly protected workflow step, immediately before its handler/side effect, execution now re-checks in deterministic fail-closed order:
 - Identity/Global ID;
 - SG access/entitlement;
 - Resource Ownership & Authority;
@@ -50,9 +50,21 @@ For each protected step re-check:
 - Credential/connection availability;
 - capability/resource permission health.
 
-Creation-time authority must never become permanent execution authority.
+Implementation rules:
+- protected semantics are typed metadata (`step.security.protected === true`), never phrase/keyword matching;
+- each protected step is re-checked independently at execution time; creation-time authority is never reused as permanent execution authority;
+- missing or throwing runtime security is denied before the protected handler is resolved/invoked;
+- the first current denial stops remaining security checks, denies the step and stops following workflow steps;
+- successful security evidence is merged into persisted per-step evidence;
+- unprotected legacy steps keep existing behavior, preserving the established self-notification path;
+- no second scheduler, queue, worker, authority stack or credential path is introduced.
 
-### AW2.5 — Autonomous read-only work
+Implementation: `src/automation/workflowExecutionSecurity.js`, `src/automation/workflowExecutor.js`, exported through `src/automation/index.js`.
+Regression coverage: `tests/workflowExecutionSecurity.test.js`, `tests/automationWorkflowExecutor.test.js`.
+Evidence: code HEAD `9dece1b1f1b0ff277575453a7d7191ad1789c2a2`; SG 2.1 CI #8145 SUCCESS on that exact HEAD.
+Boundary: AW2.4 adds the mandatory execution-time security seam at the Workflow Executor boundary. It does not create generalized production workflow composition ahead of later Automation 2.0 stages and does not replace existing Identity, Access, Resource Authority, Action Gate, Credential Manager, ACS, Durable Worker or Delivery Router implementations.
+
+### AW2.5 — Autonomous read-only work — NEXT
 Allow approved read-only workflows to collect fresh data, retrieve approved sources, analyze and compose reports without requiring per-occurrence manual confirmation when policy allows.
 
 ### AW2.6 — State-changing execution envelope

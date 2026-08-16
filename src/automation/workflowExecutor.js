@@ -1,4 +1,5 @@
 import { createWorkflowDefinition } from './workflowContract.js';
+import { isProtectedWorkflowStep } from './workflowExecutionSecurity.js';
 
 export const WORKFLOW_EXECUTION_OUTCOMES = Object.freeze([
   'completed',
@@ -53,14 +54,28 @@ function normalizeStepResult(value, bounds) {
   });
 }
 
+function deniedSecurityResult(verdict, bounds) {
+  return Object.freeze({
+    outcome: 'denied',
+    output: null,
+    evidenceRefs: boundJson(verdict?.evidenceRefs ?? [], { ...bounds, field: 'workflow execution security evidenceRefs' }),
+    errorCode: verdict?.errorCode == null ? 'execution_security_denied' : String(verdict.errorCode),
+    errorMessage: verdict?.errorMessage == null
+      ? String(verdict?.reason ?? 'execution-time security re-check denied')
+      : String(verdict.errorMessage)
+  });
+}
+
 export function createWorkflowExecutor({
   stepHandlers,
   stepRunStore,
+  executionSecurity = null,
   maxSerializedLength = DEFAULT_MAX_SERIALIZED_LENGTH,
   previewLength = DEFAULT_PREVIEW_LENGTH
 } = {}) {
   if (!stepHandlers || typeof stepHandlers !== 'object' || Array.isArray(stepHandlers)) throw new TypeError('stepHandlers must be an object');
   requiredFunction(stepRunStore?.recordStep, 'stepRunStore.recordStep');
+  if (executionSecurity != null) requiredFunction(executionSecurity.recheckProtectedStep, 'executionSecurity.recheckProtectedStep');
   positiveInteger(maxSerializedLength, 'maxSerializedLength');
   positiveInteger(previewLength, 'previewLength');
   if (previewLength >= maxSerializedLength) throw new TypeError('previewLength must be less than maxSerializedLength');
@@ -86,6 +101,52 @@ export function createWorkflowExecutor({
 
       await stepRunStore.recordStep({ ...baseRecord, status: 'running', output: null, evidenceRefs: [] });
 
+      let securityVerdict = null;
+      if (isProtectedWorkflowStep(step)) {
+        if (executionSecurity == null) {
+          securityVerdict = Object.freeze({
+            allowed: false,
+            protected: true,
+            failedCheck: 'security-runtime',
+            reason: 'execution-security-runtime-unavailable',
+            errorCode: 'execution_security_unavailable',
+            errorMessage: 'protected workflow step requires execution-time security re-checks',
+            evidenceRefs: Object.freeze([])
+          });
+        } else {
+          securityVerdict = await executionSecurity.recheckProtectedStep(Object.freeze({
+            taskId: normalizedTaskId,
+            workflow: definition,
+            step,
+            stepIndex,
+            handoff,
+            traceContext: Object.freeze({ ...traceContext })
+          }));
+        }
+
+        if (securityVerdict?.allowed !== true) {
+          const result = deniedSecurityResult(securityVerdict, bounds);
+          await stepRunStore.recordStep({
+            ...baseRecord,
+            status: result.outcome,
+            output: result.output,
+            evidenceRefs: result.evidenceRefs,
+            errorCode: result.errorCode,
+            errorMessage: result.errorMessage
+          });
+          stepRuns.push(Object.freeze({ stepIndex, stepType: step.type, ...result }));
+          return Object.freeze({
+            taskId: normalizedTaskId,
+            automationId: definition.automationId,
+            workflowVersion: definition.version,
+            outcome: 'denied',
+            output: result.output,
+            evidenceRefs: result.evidenceRefs,
+            stepRuns: Object.freeze(stepRuns)
+          });
+        }
+      }
+
       let result;
       try {
         result = normalizeStepResult(await handler(Object.freeze({
@@ -94,6 +155,7 @@ export function createWorkflowExecutor({
           step,
           stepIndex,
           handoff,
+          securityVerdict,
           traceContext: Object.freeze({ ...traceContext })
         })), bounds);
       } catch (error) {

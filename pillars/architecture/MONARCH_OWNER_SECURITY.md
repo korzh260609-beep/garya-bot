@@ -1,5 +1,11 @@
 # SG 2.1 — MONARCH / OWNER SECURITY
 
+## Status
+
+**IMPLEMENTED / WIRED / CI-VERIFIED — formal acceptance/closure pending.**
+
+This document describes the active Owner Security architecture, not a future-only design. Current implementation is composed into production SG runtime; closure remains governed by the roadmap acceptance checklist.
+
 ## Purpose
 Define the architecture boundary that guarantees SG-wide privileged state can be changed only by the verified SG owner/Monarch while preserving the existing Identity, Scope, Action Gate, Resource Authority, Secrets, Automation/Workers and Observability architecture.
 
@@ -16,21 +22,31 @@ Verified owner = resolved global_user_id == MONARCH_GLOBAL_USER_ID
 
 Owner status is never inferred from username, display name, transport account name, phone number, command, phrase, secret word or AI interpretation.
 
+## Current implementation boundary
+
+Active implementation:
+- `src/security/ownerSecurity.js` owns owner policy/configuration, verified-owner comparison, lockdown/rate limiting and bounded audit;
+- `src/security/ownerSecurityActionGate.js` composes Owner Security into the existing Action Gate path;
+- `src/action/actionGate.js` validates the owner-security decision together with identity, permission, scope, Resource Authority, capability/source/tool, risk, cost, confirmation, idempotency and audit checks;
+- production runtime creates and exposes Owner Security status without permitting Self Knowledge, Project Memory, AI or transport metadata to grant authority.
+
 ## Canonical flow
 
 ```text
 Platform actor
 → verified Identity Link
 → canonical global_user_id (`usr_...`)
-→ compare with MONARCH_GLOBAL_USER_ID
-→ Scope / Grants / Resource Authority
-→ Owner Security Policy
-→ Action Gate
+→ Scope / Grants
+→ Resource Authority evidence where required
+→ Owner Security Policy for owner-sensitive operations
+→ existing Action Gate
 → Capability / Tool / Worker
 → Audit / Security Event
 ```
 
-If the trusted configured owner Telegram identity has no link, the bootstrap procedure links it directly to `MONARCH_GLOBAL_USER_ID`. If a legacy or incorrect prior global identity exists for that trusted account, migration to the canonical owner identity must be transactional and preserve user-owned state.
+Owner Security tightens the existing authorization chain. It is not a second permission system and never bypasses Resource Authority or Action Gate.
+
+If the trusted configured owner Telegram identity has no link, the bootstrap procedure may associate it with the canonical owner identity only through the trusted identity-link/bootstrap boundary. If a legacy or incorrect prior global identity exists for that trusted account, migration to the canonical owner identity must be transactional and preserve user-owned state.
 
 ## Owner-only surfaces
 The owner-only boundary covers any operation that can alter SG itself or its global privileged state, including:
@@ -70,7 +86,7 @@ Raw secrets remain inside the Secrets & Credentials boundary and never enter ord
 ## Audit and emergency control
 Privileged allow/deny decisions must produce privacy-bounded audit evidence containing actor, action, target/resource, scope, result, reason, timestamp and trace/request identity without leaking secrets.
 
-A `SECURITY_LOCKDOWN` mode may block new privileged write/execution paths while retaining bounded owner diagnostics, health and recovery access.
+`SECURITY_LOCKDOWN` / `SG_SECURITY_LOCKDOWN` may block protected owner-sensitive operations while retaining bounded diagnostics/health/recovery paths allowed by policy.
 
 ## Recovery
 Owner recovery must use trusted infrastructure/recovery procedures and verified identity-link restoration. Conversational backdoors, secret phrases and keyword-based owner recovery are forbidden.
@@ -79,11 +95,15 @@ Owner recovery must use trusted infrastructure/recovery procedures and verified 
 - Identity determines who acts and resolves platform links to canonical `global_user_id`.
 - Scope determines where the action is bounded.
 - Grants/Access determine what kind of action is permitted.
-- Resource Authority determines over which concrete resource the actor may act.
-- Owner Security determines whether the resolved canonical identity is the SG owner.
+- Resource Authority determines over which concrete resource the actor may act where required.
+- Owner Security determines whether the resolved canonical identity may perform an owner-sensitive operation.
 - Action Gate remains the concrete execution authorization boundary.
 
 Owner Security therefore tightens the existing authorization chain; it does not replace or bypass any existing layer.
+
+## Evidence and closure
+
+Implementation/CI evidence must remain distinct from formal acceptance. Current code can be reported as implemented/wired/CI-verified, while the block remains NOT CLOSED until the acceptance checklist in the roadmap is explicitly satisfied.
 
 ## Roadmap linkage
 Implementation and acceptance scope is defined by `../roadmap/16_18_MONARCH_CONTROL_OWNER_SECURITY.md`.

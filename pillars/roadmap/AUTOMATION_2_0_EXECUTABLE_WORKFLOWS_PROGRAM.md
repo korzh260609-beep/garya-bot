@@ -1,6 +1,6 @@
 # SG Automation 2.0 — Executable Workflows Program
 
-Status: IMPLEMENTATION IN PROGRESS — AW2.1–AW2.9 CLOSED / CI-VERIFIED; AW2.10 NEXT
+Status: IMPLEMENTATION IN PROGRESS — AW2.1–AW2.10 CLOSED / CI-VERIFIED; AW2.11 NEXT
 
 ## Goal
 
@@ -168,17 +168,26 @@ Implementation/evidence:
 
 Boundary: AW2.9 adds regression-proof of patch-not-duplicate semantics only. It does not introduce create/copy semantics, rewrite the scheduler/queue, or broaden authorization. AW2.10 owns the next explicit version-history stage.
 
-### AW2.10 — Versioning and history — NEXT
-Persist:
-- version;
-- parent version;
-- actor;
-- timestamp;
-- patch summary;
-- request/trace provenance;
-- gate/validation outcome.
+### AW2.10 — Versioning and history — CLOSED / CI-VERIFIED
+Every accepted workflow registration/mutation has an inspectable durable version-history record built on the existing AW2.7 PostgreSQL history mechanism; no parallel version store was introduced.
 
-Support history inspection and later safe rollback/restore.
+Implemented boundary:
+- monotonic `version` and `previousVersion` form the workflow version chain;
+- each history row retains the full canonical workflow snapshot, actor, timestamp and bounded patch summary;
+- request/trace provenance and Action Gate result remain persisted with the version;
+- canonical workflow validation evidence is now persisted explicitly as `validation_result`, derived from the already-required successful `createWorkflowDefinition()` validation rather than a second validator;
+- history inspection returns versions newest-first with workflow snapshot, patch/provenance/validation/gate evidence;
+- invalid next workflow definitions fail before commit and therefore create no version-history entry;
+- the stored full snapshots provide the evidence substrate for a later safe restore flow, but AW2.10 does not itself add rollback mutation semantics.
+
+Implementation/evidence:
+- `src/automation/postgresWorkflowUpdateStore.js` persists and exposes validation evidence alongside the existing version-history fields;
+- migration `src/persistence/migrations/907_automation_workflow_version_validation.sql` additively backfills existing valid history and requires `validation_result` for later rows;
+- regression coverage: `tests/workflowVersionHistory.test.js` verifies `v1 → v2 → v3`, parent links, actor/timestamp, patch summary, request/trace provenance, validation/gate evidence, full snapshots and no history row for invalid mutation;
+- migration baseline coverage in `tests/postgresPersistence.test.js` now includes migration `907`;
+- implementation/test HEAD `79fede067c9eec9f15c71008a58848b0fdb7f50c`; SG 2.1 CI #8251 SUCCESS on that exact HEAD, including migration, security gate, `npm run check`, web start, worker start and diagnostics.
+
+Boundary: AW2.10 extends the existing AW2.7 durable history record only. It does not change scheduler/queue/update semantics, create a second validator/version store, or implement restore execution. AW2.11 owns runtime fresh-data collection.
 
 ### AW2.11 — Runtime fresh-data collection
 Execution-time collectors must fetch current authorized evidence, not replay stale prepared text as current data.

@@ -61,30 +61,33 @@ Canonical doc: `17_RENDER_DEPLOYMENT.md`.
 
 ## Automation 2.0 — Executable Workflows
 
-**ACCEPTED ARCHITECTURE / IMPLEMENTATION IN PROGRESS — AW2.1–AW2.6 IMPLEMENTED / CI-VERIFIED; AW2.7 NEXT; NOT DEPLOYED / NOT LIVE-VERIFIED AS AUTOMATION 2.0.**
+**ACCEPTED ARCHITECTURE / IMPLEMENTATION IN PROGRESS — AW2.1–AW2.7 IMPLEMENTED / CI-VERIFIED; AW2.8 NEXT; NOT DEPLOYED / NOT LIVE-VERIFIED AS AUTOMATION 2.0.**
 
-AW2.1–AW2.6 now provide the additive generalized workflow foundation above the existing durable automation substrate:
+AW2.1–AW2.7 now provide the additive generalized workflow foundation above the existing durable automation substrate:
 - versioned workflow contract and backward-compatible `self-notification` adapter;
 - six canonical step types (`collect`, `retrieve`, `analyze`, `compose`, `invoke-capability`, `deliver`);
 - ordered Workflow Executor with bounded handoff and persisted per-step outcomes/evidence;
 - execution-time protected-step security re-checks through existing Identity, access, Resource Authority, Action Gate, Credential Manager and permission-health seams;
 - explicit autonomous read-only policy closed to `collect`/`retrieve`/`analyze`/`compose`, with every autonomous step still protected by current runtime security;
-- bounded AW2.6 state-changing execution envelope for `invoke-capability`, requiring explicit capability, resource scope, action class, risk and confirmation/delegation semantics before handler invocation.
+- bounded AW2.6 state-changing execution envelope for `invoke-capability`, requiring explicit capability, resource scope, action class, risk and confirmation/delegation semantics before handler invocation;
+- canonical AW2.7 `automation-update` path that mutates the same `automationId`, creates monotonic PostgreSQL workflow versions/history, atomically commits workflow/runtime mutation, and reuses the existing scheduler/PostgresTaskQueue.
 
 AW2.6 does **not** turn the stored envelope into authority. A structurally valid state-changing step still passes the existing AW2.4 runtime checks immediately before its handler, so lost access/authority, Action Gate denial, unavailable credentials or permission-health failure remains terminally denied. Scheduled/delegated execution cannot broaden current authorization. No second scheduler, queue, worker, identity, authority, credential, confirmation or ACS stack was created.
 
-AW2.6 implementation evidence:
-- `src/automation/workflowStateChangeEnvelope.js` defines closed typed envelope policy and fail-closed validation;
-- `src/automation/workflowExecutor.js` rejects missing/invalid state-changing envelopes before handler resolution/invocation and merges envelope evidence only for the affected state-changing step;
-- `src/automation/index.js` exports the AW2.6 contract helpers;
-- `tests/workflowStateChangeEnvelope.test.js` covers required fields, protected-step requirement, capability mismatch, per-execution confirmation, bounded delegation, fail-before-handler, current-authority denial for scheduled execution and evidence persistence;
-- AW2.4 regression coverage was updated so the pre-existing runtime-security test remains isolated behind a structurally valid AW2.6 envelope;
-- code HEAD `2fbde9b7c427b1fdf95b2605c7bc68bbf7a074d0` passed exact-head SG 2.1 CI #8167, including `npm run check`, web start, worker start and diagnostics.
+AW2.7 implementation/closure evidence:
+- `src/automation/workflowUpdate.js` implements deterministic existing-automation mutation and workflow versioning;
+- recurring updates reuse the existing scheduler and one-shot updates reuse the existing `PostgresTaskQueue`;
+- workflow v1 registration and later optimistic version commits persist in PostgreSQL;
+- workflow optimistic commit and runtime mutation execute atomically in one PostgreSQL transaction;
+- production `automation-update` remains behind the existing Capability/Action Gate path and does not bypass Identity, Resource Authority, Action Gate or other security seams;
+- regression coverage includes AW2.7 workflow-update, production-wiring, scheduler, persistence and security cases;
+- the final legacy compatibility regression was fixed with `delivery: payload.delivery ?? {}`;
+- code HEAD `9fb186864071b2039062cfd63ab1e9d56839db85` passed exact-head SG 2.1 CI #8212.
 
 Boundary:
 - Automation 2.0 generalized workflows are not yet production-wired/live-accepted as a complete program;
 - `deliver` remains on the existing Delivery Router / execution-security boundary and is not reclassified by AW2.6 as a generic capability mutation, preserving the established self-notification compatibility path;
-- AW2.7 is next and owns the canonical automation-update capability; semantic target resolution, patch/version history, fresh collection, dynamic composition, idempotency and live acceptance remain later stages.
+- AW2.8 is next and owns semantic target resolution so users do not need internal automation/schedule IDs; fresh collection, dynamic composition, idempotency and live acceptance remain later stages.
 
 Canonical docs:
 - `../architecture/AUTOMATION_2_0_EXECUTABLE_WORKFLOWS.md`

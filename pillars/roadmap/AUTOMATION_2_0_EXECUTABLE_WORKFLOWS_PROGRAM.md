@@ -1,6 +1,6 @@
 # SG Automation 2.0 — Executable Workflows Program
 
-Status: PLANNED / NOT IMPLEMENTED
+Status: IMPLEMENTATION IN PROGRESS — AW2.1 IMPLEMENTED / CI-VERIFIED; AW2.2 NEXT
 
 ## Goal
 
@@ -10,12 +10,16 @@ Automation 2.0 is a cross-cutting program. It reuses Block 9 Automation & Agents
 
 ## Implementation stages
 
-### AW2.1 — Workflow contract
+### AW2.1 — Workflow contract — IMPLEMENTED / CI-VERIFIED
 - Define `automationId`, `version`, `trigger`, `steps`, `inputs`, `delivery`, `executionPolicy`, scope and provenance.
 - Preserve backward compatibility for existing `self-notification` tasks.
 - Add schema/version guards.
+- Implementation: `src/automation/workflowContract.js`, exported through `src/automation/index.js`.
+- Regression coverage: `tests/automationWorkflowContract.test.js`.
+- Evidence: implementation commit `0b45ede3516f60ca38b4b748263f914d71d33405`; SG 2.1 CI #8104 SUCCESS on that exact HEAD.
+- Boundary: AW2.1 defines and adapts the workflow contract only. It does not yet execute generalized workflow steps or replace the existing scheduler/queue/worker/authorization stack.
 
-### AW2.2 — Canonical step types
+### AW2.2 — Canonical step types — NEXT
 - `collect`
 - `retrieve`
 - `analyze`

@@ -1,6 +1,6 @@
 # SG Automation 2.0 — Executable Workflows Program
 
-Status: IMPLEMENTATION IN PROGRESS — AW2.1 IMPLEMENTED / CI-VERIFIED; AW2.2 NEXT
+Status: IMPLEMENTATION IN PROGRESS — AW2.1–AW2.2 IMPLEMENTED / CI-VERIFIED; AW2.3 NEXT
 
 ## Goal
 
@@ -19,17 +19,19 @@ Automation 2.0 is a cross-cutting program. It reuses Block 9 Automation & Agents
 - Evidence: implementation commit `0b45ede3516f60ca38b4b748263f914d71d33405`; SG 2.1 CI #8104 SUCCESS on that exact HEAD.
 - Boundary: AW2.1 defines and adapts the workflow contract only. It does not yet execute generalized workflow steps or replace the existing scheduler/queue/worker/authorization stack.
 
-### AW2.2 — Canonical step types — NEXT
-- `collect`
-- `retrieve`
-- `analyze`
-- `compose`
-- `invoke-capability`
-- `deliver`
+### AW2.2 — Canonical step types — IMPLEMENTED / CI-VERIFIED
+- Canonical types: `collect`, `retrieve`, `analyze`, `compose`, `invoke-capability`, `deliver`.
+- Missing or unsupported step types fail closed.
+- `createWorkflowStep()` normalizes and recursively freezes bounded JSON-compatible step metadata.
+- `createWorkflowDefinition()` validates every ordered step against the canonical step-type contract.
+- Implementation: `src/automation/workflowContract.js`, exported through `src/automation/index.js`.
+- Regression coverage: `tests/automationWorkflowContract.test.js`.
+- Evidence: implementation commit `251e7b73253eb8f05b4a07563c7087568c234bea`; SG 2.1 CI #8116 SUCCESS on that exact HEAD.
+- Boundary: AW2.2 defines step semantics/contracts only. It does not execute steps, persist per-step runtime state, or introduce any parallel scheduler/worker/security stack.
 
 No phrase/keyword routing is allowed as workflow semantics.
 
-### AW2.3 — Workflow Executor
+### AW2.3 — Workflow Executor — NEXT
 - Execute ordered steps.
 - Pass bounded step outputs to following steps.
 - Persist per-step status and outputs/evidence references.

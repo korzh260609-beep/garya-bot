@@ -18,7 +18,7 @@ The accepted cross-cutting **Automation 2.0 — Executable Workflows** extension
 
 Automation 2.0 does not renumber Blocks 0–19 and does not create a second scheduler, worker, identity, authorization, credential or delivery stack.
 
-Current Automation 2.0 lifecycle state: **IMPLEMENTATION IN PROGRESS — AW2.1 IMPLEMENTED / CI-VERIFIED; AW2.2 NEXT**. AW2.1 adds the canonical versioned workflow contract, fail-closed schema/version guards and backward-compatible `self-notification` adapter above the existing automation substrate; generalized step execution is not yet implemented. Canonical specification:
+Current Automation 2.0 lifecycle state: **IMPLEMENTATION IN PROGRESS — AW2.1–AW2.2 IMPLEMENTED / CI-VERIFIED; AW2.3 NEXT**. AW2.1 adds the canonical versioned workflow contract, fail-closed schema/version guards and backward-compatible `self-notification` adapter above the existing automation substrate. AW2.2 adds the six canonical step contracts (`collect`, `retrieve`, `analyze`, `compose`, `invoke-capability`, `deliver`) with fail-closed type validation and immutable step normalization. Generalized step execution remains unimplemented until AW2.3. Canonical specification:
 - `../architecture/AUTOMATION_2_0_EXECUTABLE_WORKFLOWS.md`
 - `AUTOMATION_2_0_EXECUTABLE_WORKFLOWS_PROGRAM.md`
 - `../workflow/AUTOMATION_2_0_EXECUTABLE_WORKFLOWS_WORKFLOW.md`

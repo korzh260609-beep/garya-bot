@@ -61,9 +61,9 @@ Canonical doc: `17_RENDER_DEPLOYMENT.md`.
 
 ## Automation 2.0 — Executable Workflows
 
-**ACCEPTED ARCHITECTURE / IMPLEMENTATION IN PROGRESS — AW2.1 IMPLEMENTED / CI-VERIFIED; NOT DEPLOYED / NOT LIVE-VERIFIED.**
+**ACCEPTED ARCHITECTURE / IMPLEMENTATION IN PROGRESS — AW2.1–AW2.2 IMPLEMENTED / CI-VERIFIED; AW2.3 NEXT; NOT DEPLOYED / NOT LIVE-VERIFIED.**
 
-AW2.1 now provides the canonical versioned workflow contract, fail-closed schema/version guards and a backward-compatible adapter from existing `self-notification` tasks. The implementation is additive above the existing durable automation substrate: it does not replace or bypass the current scheduler, queue, worker, Identity/Scope, Access, Resource Authority, Action Gate or Credential Manager paths.
+AW2.1 provides the canonical versioned workflow contract, fail-closed schema/version guards and a backward-compatible adapter from existing `self-notification` tasks. AW2.2 adds the six canonical step types (`collect`, `retrieve`, `analyze`, `compose`, `invoke-capability`, `deliver`), fail-closed step-type validation, immutable canonical step normalization and workflow-level step validation. The implementation remains additive above the existing durable automation substrate: it does not replace or bypass the current scheduler, queue, worker, Identity/Scope, Access, Resource Authority, Action Gate or Credential Manager paths.
 
 AW2.1 implementation evidence:
 - `src/automation/workflowContract.js` defines workflow schema v1 with `automationId`, workflow `version`, trigger, steps, inputs, delivery, execution policy, scope, actor/timestamps and provenance;
@@ -72,7 +72,15 @@ AW2.1 implementation evidence:
 - regression tests cover canonical fields, immutability, schema/version guards, one-shot/recurring legacy adaptation and rejection of non-`self-notification` tasks;
 - implementation commit `0b45ede3516f60ca38b4b748263f914d71d33405` passed exact-head SG 2.1 CI #8104.
 
-The broader Automation 2.0 runtime is **not yet implemented**. AW2.1 does not by itself execute generalized workflow steps, semantically mutate automations, collect fresh runtime data, persist version/execution history or perform the AW2.20 live scenario. The next implementation stage is **AW2.2 — Canonical step types**.
+AW2.2 implementation evidence:
+- `src/automation/workflowContract.js` exports exactly six canonical workflow step types and rejects missing/unsupported step types fail-closed;
+- `createWorkflowStep()` normalizes and recursively freezes JSON-compatible step metadata without executing the step;
+- `createWorkflowDefinition()` now validates every ordered workflow step against the canonical step-type contract;
+- `src/automation/index.js` exports the AW2.2 step contract helpers;
+- `tests/automationWorkflowContract.test.js` covers the exact canonical type set, immutability, rejection of missing/unsupported types and coexistence/order of all six step classes without execution;
+- implementation commit `251e7b73253eb8f05b4a07563c7087568c234bea` passed exact-head SG 2.1 CI #8116.
+
+The broader Automation 2.0 runtime is **not yet implemented**. AW2.1–AW2.2 define workflow and step contracts only; they do not yet execute generalized workflow steps, semantically mutate automations, collect fresh runtime data, persist version/execution history or perform the AW2.20 live scenario. The next implementation stage is **AW2.3 — Workflow Executor**.
 
 Canonical docs:
 - `../architecture/AUTOMATION_2_0_EXECUTABLE_WORKFLOWS.md`

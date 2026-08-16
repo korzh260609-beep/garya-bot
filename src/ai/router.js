@@ -27,7 +27,8 @@ function estimateCost(model, usage) {
   return Number.isFinite(total) ? total : null;
 }
 function messageCharacters(messages) {
-  return (messages ?? []).reduce((total, message) => total + String(message?.content ?? '').length, 0);
+  const list = messages ?? [];
+  return list.reduce((total, message) => total + String(message?.content ?? '').length, 0) + Math.max(0, list.length - 1);
 }
 function responseDataRule(message) {
   if (message?.role !== 'system') return null;

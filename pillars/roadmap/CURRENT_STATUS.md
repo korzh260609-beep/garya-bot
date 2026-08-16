@@ -61,19 +61,18 @@ Canonical doc: `17_RENDER_DEPLOYMENT.md`.
 
 ## Automation 2.0 — Executable Workflows
 
-**ACCEPTED ARCHITECTURE / PLANNED / NOT IMPLEMENTED.**
+**ACCEPTED ARCHITECTURE / IMPLEMENTATION IN PROGRESS — AW2.1 IMPLEMENTED / CI-VERIFIED; NOT DEPLOYED / NOT LIVE-VERIFIED.**
 
-The current production automation substrate already provides durable one-shot/recurring tasks, scheduler/worker execution, retries/idempotency and lifecycle operations. The current user-facing automation path is still materially narrower than Automation 2.0: `self-notification` primarily delivers stored notification content, and schedule updates do not yet provide the full versioned workflow mutation/dynamic fresh-work model.
+AW2.1 now provides the canonical versioned workflow contract, fail-closed schema/version guards and a backward-compatible adapter from existing `self-notification` tasks. The implementation is additive above the existing durable automation substrate: it does not replace or bypass the current scheduler, queue, worker, Identity/Scope, Access, Resource Authority, Action Gate or Credential Manager paths.
 
-Automation 2.0 is the accepted cross-cutting extension that will let SG:
-- semantically find and patch an existing automation instead of creating a duplicate;
-- add/remove/replace workflow steps and output content;
-- collect fresh authorized data or perform other allowed work at execution time;
-- compose dynamic results from current evidence;
-- re-check Identity/Access/Resource Authority/Action Gate/credentials at execution time;
-- retain version history, execution history and occurrence idempotency.
+AW2.1 implementation evidence:
+- `src/automation/workflowContract.js` defines workflow schema v1 with `automationId`, workflow `version`, trigger, steps, inputs, delivery, execution policy, scope, actor/timestamps and provenance;
+- unsupported workflow schema versions and unsupported trigger types fail closed;
+- existing in-memory and persisted snake_case `self-notification` task shapes can be adapted without mutating the legacy task;
+- regression tests cover canonical fields, immutability, schema/version guards, one-shot/recurring legacy adaptation and rejection of non-`self-notification` tasks;
+- implementation commit `0b45ede3516f60ca38b4b748263f914d71d33405` passed exact-head SG 2.1 CI #8104.
 
-Documentation/specification does **not** prove runtime implementation. Until AW2 code, CI, deployment and live acceptance exist, Automation 2.0 must remain reported as planned/not implemented.
+The broader Automation 2.0 runtime is **not yet implemented**. AW2.1 does not by itself execute generalized workflow steps, semantically mutate automations, collect fresh runtime data, persist version/execution history or perform the AW2.20 live scenario. The next implementation stage is **AW2.2 — Canonical step types**.
 
 Canonical docs:
 - `../architecture/AUTOMATION_2_0_EXECUTABLE_WORKFLOWS.md`

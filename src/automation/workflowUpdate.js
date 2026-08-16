@@ -98,12 +98,12 @@ function normalizeSelector(value) {
   if (selector.localTime != null) normalized.localTime = normalizedLocalTime(selector.localTime, 'selector.localTime');
   if (selector.notificationMessage != null) normalized.notificationMessage = normalizedSemanticText(selector.notificationMessage, 'selector.notificationMessage');
   if (selector.lifecycleStatus != null) normalized.lifecycleStatus = requiredString(selector.lifecycleStatus, 'selector.lifecycleStatus').toLocaleLowerCase('und');
-  if (Object.keys(normalized).length === 0) {
-    throw new WorkflowUpdateError('workflow_update_selector_required', 'at least one structured workflow selector is required');
-  }
   const unsupported = Object.keys(selector).filter((key) => !allowed.includes(key));
   if (unsupported.length) {
     throw new WorkflowUpdateError('workflow_update_selector_invalid', `unsupported selector fields: ${unsupported.join(', ')}`);
+  }
+  if (Object.keys(normalized).length === 0) {
+    throw new WorkflowUpdateError('workflow_update_selector_required', 'at least one structured workflow selector is required');
   }
   return Object.freeze(normalized);
 }

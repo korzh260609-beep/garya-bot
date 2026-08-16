@@ -40,7 +40,7 @@ function boundJson(value, { maxSerializedLength, previewLength, field }) {
   return Object.freeze({ truncated: true, preview: serialized.slice(0, previewLength) });
 }
 
-function normalizeStepResult(value, bounds) {
+function normalizeStepResult(value, bounds, securityEvidenceRefs = []) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new TypeError('workflow step handler result must be an object');
   const outcome = requiredString(value.outcome, 'workflow step result.outcome');
   if (!WORKFLOW_EXECUTION_OUTCOMES.includes(outcome)) throw new TypeError(`unsupported workflow execution outcome: ${outcome}`);
@@ -48,7 +48,7 @@ function normalizeStepResult(value, bounds) {
   return Object.freeze({
     outcome,
     output: boundJson(value.output, { ...bounds, field: 'workflow step result.output' }),
-    evidenceRefs: boundJson(value.evidenceRefs ?? [], { ...bounds, field: 'workflow step result.evidenceRefs' }),
+    evidenceRefs: boundJson([...securityEvidenceRefs, ...(value.evidenceRefs ?? [])], { ...bounds, field: 'workflow step result.evidenceRefs' }),
     errorCode: value.errorCode == null ? null : String(value.errorCode),
     errorMessage: value.errorMessage == null ? null : String(value.errorMessage)
   });
@@ -63,6 +63,18 @@ function deniedSecurityResult(verdict, bounds) {
     errorMessage: verdict?.errorMessage == null
       ? String(verdict?.reason ?? 'execution-time security re-check denied')
       : String(verdict.errorMessage)
+  });
+}
+
+function securityFailureVerdict(error) {
+  return Object.freeze({
+    allowed: false,
+    protected: true,
+    failedCheck: 'security-runtime',
+    reason: 'execution-security-runtime-error',
+    errorCode: error?.code == null ? 'execution_security_check_error' : String(error.code),
+    errorMessage: error instanceof Error ? error.message : String(error),
+    evidenceRefs: Object.freeze([])
   });
 }
 
@@ -90,7 +102,6 @@ export function createWorkflowExecutor({
 
     for (let stepIndex = 0; stepIndex < definition.steps.length; stepIndex += 1) {
       const step = definition.steps[stepIndex];
-      const handler = requiredFunction(stepHandlers[step.type], `stepHandlers.${step.type}`);
       const baseRecord = Object.freeze({
         taskId: normalizedTaskId,
         automationId: definition.automationId,
@@ -114,14 +125,18 @@ export function createWorkflowExecutor({
             evidenceRefs: Object.freeze([])
           });
         } else {
-          securityVerdict = await executionSecurity.recheckProtectedStep(Object.freeze({
-            taskId: normalizedTaskId,
-            workflow: definition,
-            step,
-            stepIndex,
-            handoff,
-            traceContext: Object.freeze({ ...traceContext })
-          }));
+          try {
+            securityVerdict = await executionSecurity.recheckProtectedStep(Object.freeze({
+              taskId: normalizedTaskId,
+              workflow: definition,
+              step,
+              stepIndex,
+              handoff,
+              traceContext: Object.freeze({ ...traceContext })
+            }));
+          } catch (error) {
+            securityVerdict = securityFailureVerdict(error);
+          }
         }
 
         if (securityVerdict?.allowed !== true) {
@@ -149,6 +164,8 @@ export function createWorkflowExecutor({
 
       let result;
       try {
+        const handler = requiredFunction(stepHandlers[step.type], `stepHandlers.${step.type}`);
+        const securityEvidenceRefs = Array.isArray(securityVerdict?.evidenceRefs) ? securityVerdict.evidenceRefs : [];
         result = normalizeStepResult(await handler(Object.freeze({
           taskId: normalizedTaskId,
           workflow: definition,
@@ -157,7 +174,7 @@ export function createWorkflowExecutor({
           handoff,
           securityVerdict,
           traceContext: Object.freeze({ ...traceContext })
-        })), bounds);
+        })), bounds, securityEvidenceRefs);
       } catch (error) {
         await stepRunStore.recordStep({
           ...baseRecord,

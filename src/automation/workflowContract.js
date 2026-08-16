@@ -1,5 +1,13 @@
 export const WORKFLOW_SCHEMA_VERSION = 1;
 export const WORKFLOW_TRIGGER_TYPES = Object.freeze(['one-shot', 'recurring']);
+export const WORKFLOW_STEP_TYPES = Object.freeze([
+  'collect',
+  'retrieve',
+  'analyze',
+  'compose',
+  'invoke-capability',
+  'deliver'
+]);
 
 function requiredString(value, field) {
   if (typeof value !== 'string' || value.trim() === '') throw new TypeError(`${field} must be a non-empty string`);
@@ -49,9 +57,25 @@ function normalizeTrigger(value) {
   return freezeJson({ ...trigger, type }, 'workflow.trigger');
 }
 
+export function assertSupportedWorkflowStepType(stepType, field = 'workflow step type') {
+  const type = requiredString(stepType, field);
+  if (!WORKFLOW_STEP_TYPES.includes(type)) throw new TypeError(`unsupported workflow step type: ${type}`);
+  return type;
+}
+
+function normalizeWorkflowStep(value, field) {
+  const step = plainObject(value, field);
+  const type = assertSupportedWorkflowStepType(step.type, `${field}.type`);
+  return freezeJson({ ...step, type }, field);
+}
+
+export function createWorkflowStep(input) {
+  return normalizeWorkflowStep(input, 'workflow step');
+}
+
 function normalizeSteps(value) {
   if (!Array.isArray(value) || value.length === 0) throw new TypeError('workflow.steps must be a non-empty array');
-  return Object.freeze(value.map((step, index) => freezeJson(plainObject(step, `workflow.steps[${index}]`), `workflow.steps[${index}]`)));
+  return Object.freeze(value.map((step, index) => normalizeWorkflowStep(step, `workflow.steps[${index}]`)));
 }
 
 export function assertSupportedWorkflowSchema(schemaVersion) {

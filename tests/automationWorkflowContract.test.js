@@ -2,9 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   WORKFLOW_SCHEMA_VERSION,
+  WORKFLOW_STEP_TYPES,
   adaptSelfNotificationTaskToWorkflow,
   assertSupportedWorkflowSchema,
-  createWorkflowDefinition
+  assertSupportedWorkflowStepType,
+  createWorkflowDefinition,
+  createWorkflowStep
 } from '../src/automation/index.js';
 
 const baseWorkflow = {
@@ -44,6 +47,55 @@ test('AW2.1 schema and workflow version guards fail closed', () => {
   assert.throws(() => assertSupportedWorkflowSchema(2), /unsupported workflow schema version: 2/);
   assert.throws(() => createWorkflowDefinition({ ...baseWorkflow, version: 0 }), /workflow.version must be a positive integer/);
   assert.throws(() => createWorkflowDefinition({ ...baseWorkflow, trigger: { type: 'event' } }), /unsupported workflow trigger type/);
+});
+
+test('AW2.2 exposes exactly the six canonical workflow step types', () => {
+  assert.deepEqual(WORKFLOW_STEP_TYPES, [
+    'collect',
+    'retrieve',
+    'analyze',
+    'compose',
+    'invoke-capability',
+    'deliver'
+  ]);
+  for (const type of WORKFLOW_STEP_TYPES) assert.equal(assertSupportedWorkflowStepType(type), type);
+});
+
+test('AW2.2 canonical step contract preserves bounded JSON metadata and freezes it', () => {
+  const step = createWorkflowStep({
+    type: 'collect',
+    source: { capability: 'workspace-activity', resources: ['workspace-1'] },
+    output: 'activity'
+  });
+
+  assert.equal(step.type, 'collect');
+  assert.equal(step.source.capability, 'workspace-activity');
+  assert.equal(step.output, 'activity');
+  assert.equal(Object.isFrozen(step), true);
+  assert.equal(Object.isFrozen(step.source), true);
+  assert.equal(Object.isFrozen(step.source.resources), true);
+});
+
+test('AW2.2 workflow definition rejects missing or unsupported step types', () => {
+  assert.throws(
+    () => createWorkflowDefinition({ ...baseWorkflow, steps: [{ mode: 'static-message' }] }),
+    /workflow\.steps\[0\]\.type must be a non-empty string/
+  );
+  assert.throws(
+    () => createWorkflowDefinition({ ...baseWorkflow, steps: [{ type: 'send-message' }] }),
+    /unsupported workflow step type: send-message/
+  );
+  assert.throws(() => assertSupportedWorkflowStepType('keyword-route'), /unsupported workflow step type: keyword-route/);
+});
+
+test('AW2.2 all canonical step classes can coexist in ordered workflow steps without executing them', () => {
+  const workflow = createWorkflowDefinition({
+    ...baseWorkflow,
+    steps: WORKFLOW_STEP_TYPES.map((type, index) => ({ type, orderEvidence: index + 1 }))
+  });
+
+  assert.deepEqual(workflow.steps.map((step) => step.type), WORKFLOW_STEP_TYPES);
+  assert.deepEqual(workflow.steps.map((step) => step.orderEvidence), [1, 2, 3, 4, 5, 6]);
 });
 
 test('AW2.1 adapts existing in-memory self-notification without mutating it', () => {

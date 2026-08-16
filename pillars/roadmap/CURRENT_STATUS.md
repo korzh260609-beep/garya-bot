@@ -59,6 +59,27 @@ Canonical doc: `17_RENDER_DEPLOYMENT.md`.
 
 **COMPLETED / ACCEPTANCE-VERIFIED** according to their canonical roadmap/evidence records.
 
+## Automation 2.0 — Executable Workflows
+
+**ACCEPTED ARCHITECTURE / PLANNED / NOT IMPLEMENTED.**
+
+The current production automation substrate already provides durable one-shot/recurring tasks, scheduler/worker execution, retries/idempotency and lifecycle operations. The current user-facing automation path is still materially narrower than Automation 2.0: `self-notification` primarily delivers stored notification content, and schedule updates do not yet provide the full versioned workflow mutation/dynamic fresh-work model.
+
+Automation 2.0 is the accepted cross-cutting extension that will let SG:
+- semantically find and patch an existing automation instead of creating a duplicate;
+- add/remove/replace workflow steps and output content;
+- collect fresh authorized data or perform other allowed work at execution time;
+- compose dynamic results from current evidence;
+- re-check Identity/Access/Resource Authority/Action Gate/credentials at execution time;
+- retain version history, execution history and occurrence idempotency.
+
+Documentation/specification does **not** prove runtime implementation. Until AW2 code, CI, deployment and live acceptance exist, Automation 2.0 must remain reported as planned/not implemented.
+
+Canonical docs:
+- `../architecture/AUTOMATION_2_0_EXECUTABLE_WORKFLOWS.md`
+- `AUTOMATION_2_0_EXECUTABLE_WORKFLOWS_PROGRAM.md`
+- `../workflow/AUTOMATION_2_0_EXECUTABLE_WORKFLOWS_WORKFLOW.md`
+
 ## Memory / project-development programs
 
 ### Memory 2.0

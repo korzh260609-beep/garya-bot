@@ -60,6 +60,11 @@ function fixedIntervalFrequency(freq) {
   return freq === 'MINUTELY' || freq === 'HOURLY';
 }
 
+function inTransaction(database, transaction, work) {
+  if (transaction?.query) return work(transaction);
+  return database.transaction(work);
+}
+
 export function createPostgresRecurringScheduler({ database, recurrenceEngine, clock = () => new Date(), idFactory = randomUUID } = {}) {
   if (!database?.query || !database?.transaction) throw new TypeError('database is required');
   if (!recurrenceEngine?.next || !recurrenceEngine?.occurrences) throw new TypeError('recurrenceEngine is required');
@@ -121,9 +126,9 @@ export function createPostgresRecurringScheduler({ database, recurrenceEngine, c
         AND status IN ('queued','scheduled','waiting_approval','schedule_paused')`, [scheduleId]);
   }
 
-  async function transition({ scope, scheduleId, fromStatuses, sqlStatus }) {
+  async function transition({ scope, scheduleId, fromStatuses, sqlStatus, transaction = null }) {
     const [userScope, projectScope, groupScope, threadScope] = scopeValues(scope);
-    return database.transaction(async (tx) => {
+    return inTransaction(database, transaction, async (tx) => {
       const locked = await tx.query(`SELECT s.*,t.status AS template_status,t.available_at AS template_available_at,t.approval_state AS template_approval
         FROM schedules s JOIN tasks t ON t.task_id=s.task_id
         WHERE s.schedule_id=$1 AND ${scopedWhere('t')} FOR UPDATE OF s,t`,
@@ -158,9 +163,9 @@ export function createPostgresRecurringScheduler({ database, recurrenceEngine, c
     });
   }
 
-  const pause = ({ scope, scheduleId }) => transition({ scope, scheduleId, fromStatuses: ['active'], sqlStatus: 'paused' });
-  const resume = ({ scope, scheduleId }) => transition({ scope, scheduleId, fromStatuses: ['paused'], sqlStatus: 'active' });
-  const cancel = ({ scope, scheduleId }) => transition({ scope, scheduleId, fromStatuses: ['active', 'paused', 'error'], sqlStatus: 'cancelled' });
+  const pause = ({ scope, scheduleId, transaction = null }) => transition({ scope, scheduleId, fromStatuses: ['active'], sqlStatus: 'paused', transaction });
+  const resume = ({ scope, scheduleId, transaction = null }) => transition({ scope, scheduleId, fromStatuses: ['paused'], sqlStatus: 'active', transaction });
+  const cancel = ({ scope, scheduleId, transaction = null }) => transition({ scope, scheduleId, fromStatuses: ['active', 'paused', 'error'], sqlStatus: 'cancelled', transaction });
 
   async function cancelByTaskId({ scope, taskId }) {
     const [userScope, projectScope, groupScope, threadScope] = scopeValues(scope);
@@ -171,9 +176,9 @@ export function createPostgresRecurringScheduler({ database, recurrenceEngine, c
     return scheduleId ? cancel({ scope, scheduleId }) : null;
   }
 
-  async function update({ scope, scheduleId, recurrence = null, timeZone = null, dtstartLocal = null, state = null }) {
+  async function update({ scope, scheduleId, recurrence = null, timeZone = null, dtstartLocal = null, state = null, transaction = null }) {
     const [userScope, projectScope, groupScope, threadScope] = scopeValues(scope);
-    return database.transaction(async (tx) => {
+    return inTransaction(database, transaction, async (tx) => {
       const locked = await tx.query(`SELECT s.*,t.status AS template_status,t.approval_state AS template_approval
         FROM schedules s JOIN tasks t ON t.task_id=s.task_id
         WHERE s.schedule_id=$1 AND ${scopedWhere('t')} FOR UPDATE OF s,t`,

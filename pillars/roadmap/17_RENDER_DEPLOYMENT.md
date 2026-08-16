@@ -2,7 +2,9 @@
 
 ## Status
 
-Implementation complete. External Render runtime evidence is still required before marking the block operationally completed.
+**IMPLEMENTATION COMPLETE / LIVE WEB RUNTIME EVIDENCE PRESENT / NOT FORMALLY CLOSED.**
+
+The earlier statement that external Render runtime evidence was entirely missing is superseded: the SG 2.1 web runtime is deployed and has repeatedly served live Telegram acceptance on `dev/sg2.1-semantic`. Formal Block 17 closure still requires the complete acceptance checklist below, especially the independent durable-worker/restart and rollback-rehearsal evidence where not yet recorded.
 
 ## Goal
 
@@ -14,7 +16,7 @@ Only `dev/sg2.1-semantic` may be deployed for SG 2.1. `main` is not the SG 2.1 d
 
 ## Existing Render Web Service compatibility
 
-The existing service is already configured with the required repository and branch:
+The existing service is configured for the required repository/branch model:
 
 - repository: `korzh260609-beep/garya-bot`;
 - branch: `dev/sg2.1-semantic`;
@@ -29,7 +31,7 @@ No Render Blueprint is required and the removed `render.yaml` path is not used.
 
 ### Compatibility layer
 
-`npm start` remains `node src/runtime/entrypoint.js`. The entrypoint detects the existing Render environment and delegates to the long-lived production web entrypoint. Outside Render it preserves the deterministic verification behavior used by CI.
+`npm start` remains `node src/runtime/entrypoint.js`. The entrypoint detects the existing Render environment and delegates to the long-lived production web entrypoint. Outside Render it preserves deterministic verification behavior used by CI.
 
 The production web runtime supplies defaults when the legacy Render environment does not contain SG 2.1-specific names:
 
@@ -77,8 +79,8 @@ The production resolver still enforces the SG 2.1 authority model:
 
 - Telegram platform identity is only an identity fact;
 - existing identity links are reused;
-- a configured monarch receives the monarch role and approved capability grants;
-- a new unconfigured user receives only guest plus `capability:compose-answer`;
+- configured Monarch authority is bound through canonical SG identity/security policy;
+- a new unconfigured user receives only the ordinary bounded user/guest capabilities defined by current policy;
 - transport input cannot self-assign roles, grants or scope.
 
 ## PostgreSQL
@@ -102,22 +104,31 @@ The existing SG 2.0 Render Web Service can host the SG 2.1 web runtime without R
 
 However, Block 13's durable background worker is intentionally a separate process boundary. It is not embedded into the web process because doing so would violate the approved architecture and weaken independent restart/lease/health behavior.
 
-Therefore zero-change reuse applies to the web deployment. Operational completion of Block 17 still requires a real durable worker process using `npm run start:worker`. If no such Render worker already exists, creating one is the one remaining infrastructure action that cannot be reproduced inside the existing Web Service without changing architecture.
+Therefore web deployment evidence must not be silently promoted into worker evidence. Formal Block 17 closure still requires proof of the real durable worker process using `npm run start:worker` and its restart/reconnect behavior.
+
+## Current live evidence
+
+Current project checkpoints/live acceptance prove at least:
+- Telegram production runtime has been deployed and operational on the SG 2.1 working branch;
+- live Telegram workspace discovery/configuration and configuration persistence across redeploy/restart have been observed;
+- response modes have changed real live runtime behavior;
+- TWM publication/media/poll/quiz and scheduled-publication paths have produced live Telegram evidence;
+- PDK4.13 live repository analysis has executed through the deployed SG runtime and returned a repository-derived answer.
+
+These observations prove that external Render web-runtime evidence exists. They do **not** automatically satisfy every Block 17 acceptance item below.
 
 ## Deployment procedure — existing Web Service
 
-1. Do not change the existing Render Web Service settings.
+1. Do not change the existing Render Web Service settings without a separate reviewed reason.
 2. Confirm it still points to repository `korzh260609-beep/garya-bot` and branch `dev/sg2.1-semantic`.
-3. Keep Build Command `npm install`.
-4. Keep Pre-Deploy Command empty.
-5. Keep Start Command `npm start`.
-6. Keep the current Environment values, including `RUN_MIGRATIONS_ON_BOOT=1`, `TELEGRAM_BOT_TOKEN`, `BASE_URL`, `DATABASE_URL`, `DATABASE_SSL` and `MONARCH_USER_ID`.
-7. Trigger a controlled manual deploy while Auto-Deploy is Off.
-8. Confirm migration completion in logs before `render-web-ready`.
-9. Confirm `/health` returns HTTP 200.
-10. Confirm `/ready` returns HTTP 200.
-11. Confirm Telegram webhook points to the current Render service and the bot receives/responds to a test update.
-12. Record the deployed commit SHA and Render deploy ID as evidence.
+3. Keep Build Command `npm install` unless an approved deployment change supersedes it.
+4. Keep Start Command `npm start`.
+5. Keep required Environment values secret and out of repository documentation/logs.
+6. Trigger a controlled deployment of the exact CI-verified working-branch revision.
+7. Confirm migration completion before runtime readiness.
+8. Confirm `/health` and `/ready` where available.
+9. Confirm Telegram webhook reconnect and a real test update.
+10. Record deployed commit/revision evidence when available.
 
 ## Rollback procedure
 
@@ -128,18 +139,20 @@ Therefore zero-change reuse applies to the web deployment. Operational completio
 5. Do not manually delete migration rows or force destructive schema downgrades.
 6. Reverify `/health`, `/ready` and Telegram webhook after rollback.
 
-## Acceptance evidence required for operational completion
+## Acceptance evidence required for formal operational completion
 
-- GitHub CI green for the Block 17 HEAD;
-- existing Render Web Service still connected to `korzh260609-beep/garya-bot` and `dev/sg2.1-semantic`;
-- successful migration-on-boot before runtime start;
-- successful Render web deployment using unchanged `npm install` / `npm start` settings;
-- `/health` 200 and `/ready` 200;
-- Telegram webhook registered to the deployed web service;
-- web reconnect after restart;
-- durable worker running as its own process and reconnecting after restart;
-- rollback procedure verified or rehearsed against a non-production revision.
+- [x] SG 2.1 has real external Render web-runtime / Telegram live evidence on the working branch;
+- [ ] exact final Block 17 closure HEAD is recorded with green CI and deployment evidence;
+- [ ] successful migration-on-boot before that closure runtime start is recorded;
+- [ ] `/health` 200 and `/ready` 200 are recorded for the closure revision;
+- [ ] Telegram webhook is recorded against that deployed closure revision;
+- [ ] web reconnect after restart is explicitly recorded for the closure revision;
+- [ ] durable worker is proven as its own real process and reconnects after restart;
+- [ ] rollback procedure is verified/rehearsed against a safe non-production/known-good revision;
+- [ ] no security/identity/credential boundary was weakened to obtain deployment evidence.
+
+Unchecked items mean formal Block 17 closure evidence is still incomplete; they do not mean the web runtime is absent.
 
 ## Next
 
-Do not start Block 18 until the external Render runtime evidence above is complete.
+Blocks 18–19 have since been implemented/accepted in the wider SG 2.1 program, so the old sequencing sentence “do not start Block 18” is historical and no longer current. Block 17 itself remains **NOT FORMALLY CLOSED** until its own remaining acceptance evidence is recorded.

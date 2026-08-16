@@ -1,6 +1,6 @@
 # SG Automation 2.0 — Executable Workflows Program
 
-Status: IMPLEMENTATION IN PROGRESS — AW2.1–AW2.8 IMPLEMENTED / CI-VERIFIED; AW2.9 NEXT
+Status: IMPLEMENTATION IN PROGRESS — AW2.1–AW2.8 IMPLEMENTED / CI-VERIFIED; AW2.9 IMPLEMENTED / CI-PENDING; AW2.10 NEXT
 
 ## Goal
 
@@ -149,10 +149,26 @@ Implementation/evidence:
 
 Boundary: AW2.8 resolves only an existing workflow target. It does not broaden authorization, invent target data, perform fuzzy phrase matching, duplicate an automation or change AW2.7 mutation semantics. AW2.9 owns patch-not-duplicate behavior as the next explicit stage.
 
-### AW2.9 — Patch, not duplicate — NEXT
-Updating an existing automation patches the same `automationId` and creates a new version. Do not create a second schedule/task unless the user explicitly requests a new/copy automation.
+### AW2.9 — Patch, not duplicate — IMPLEMENTED / CI-PENDING
+Updating an existing automation patches the same canonical workflow/runtime registration instead of creating a second automation, task or schedule.
 
-### AW2.10 — Versioning and history
+Implemented boundary:
+- `automationId` remains unchanged across update and the workflow version increases monotonically;
+- one-shot updates preserve the existing `taskId` and use the existing durable queue `updateScheduled()` path;
+- recurring updates preserve the existing `scheduleId` and use the existing scheduler `update()` path;
+- content/template synchronization reuses the already-associated durable task rather than creating a second task;
+- update is forbidden from using create/register paths; a new `automationId` is only valid through an explicit create/copy flow outside `automation-update`;
+- no production runtime rewrite is required because AW2.7 already provides the correct patch semantics.
+
+Implementation/evidence:
+- runtime invariants are enforced by `src/automation/workflowUpdate.js` and existing production automation wiring;
+- regression coverage: `tests/workflowPatchNotDuplicate.test.js` fails if recurring/one-shot update invokes `create`/`register`, and verifies stable `automationId`, `taskId`, `scheduleId` plus workflow version `1 → 2`;
+- regression implementation commit `c0205686904d119950733c1fe96c70ed20f3ee59` on `dev/sg2.1-semantic`;
+- exact-HEAD SG 2.1 CI SUCCESS is still required before AW2.9 may be marked CLOSED / CI-VERIFIED.
+
+Boundary: AW2.9 adds regression-proof of patch-not-duplicate semantics only. It does not introduce create/copy semantics, rewrite the scheduler/queue, or broaden authorization. AW2.10 owns the next explicit version-history stage.
+
+### AW2.10 — Versioning and history — NEXT
 Persist:
 - version;
 - parent version;

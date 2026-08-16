@@ -16,6 +16,7 @@ import { createObservabilityEvidenceSource, createDeploymentEvidenceSource, crea
 import { createDiagnosticService } from './diagnosticService.js';
 import { createDiagnosticsHttpServer } from './httpServer.js';
 import { createHttpHealthProbe, createLiveDiagnosticRunner } from './liveRunner.js';
+import { createRuntimeRouteDiagnostics } from './runtimeRouteDiagnostics.js';
 
 function truthy(value) { return ['1', 'true', 'yes', 'on'].includes(String(value ?? '').trim().toLowerCase()); }
 function required(value, name) { const normalized = String(value ?? '').trim(); if (!normalized) throw new Error(`${name} is required`); return normalized; }
@@ -71,6 +72,11 @@ const liveRunner = createLiveDiagnosticRunner({ probes });
 
 const revision = env.SG_REVISION ?? env.RENDER_GIT_COMMIT ?? 'unknown';
 const environment = env.SG_ENVIRONMENT ?? env.NODE_ENV ?? 'production';
+const runtimeRouteDiagnostics = createRuntimeRouteDiagnostics({
+  database,
+  runtimeHealthUrl: env.DIAGNOSTICS_SG_HEALTH_URL ?? null,
+  diagnosticsRevision: revision
+});
 const baseService = createDiagnosticService({
   store, observabilitySource, deploymentSource, infrastructureSource, liveRunner, environment, revision,
   inFlightGraceMs: Number(env.DIAGNOSTICS_IN_FLIGHT_GRACE_MS ?? 300000)
@@ -84,7 +90,9 @@ const service = Object.freeze({
       error.code = 'pdk4-diagnostics-project-scope-denied';
       throw error;
     }
-    return pdk4Diagnostics.inspect({ projectKey, repository: pdk4Repository });
+    const developmentKnowledge = await pdk4Diagnostics.inspect({ projectKey, repository: pdk4Repository });
+    const runtimeRouteHealth = await runtimeRouteDiagnostics.inspect({ globalUserId: monarchGlobalUserId, projectScope });
+    return Object.freeze({ ...developmentKnowledge, runtime_route_health: runtimeRouteHealth });
   },
   async projectMemory(input = {}) {
     const projectMemory = await projectMemoryDiagnostics.runAll({

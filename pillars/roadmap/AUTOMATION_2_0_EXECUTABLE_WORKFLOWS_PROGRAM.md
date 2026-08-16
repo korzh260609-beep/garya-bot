@@ -1,6 +1,6 @@
 # SG Automation 2.0 — Executable Workflows Program
 
-Status: IMPLEMENTATION IN PROGRESS — AW2.1–AW2.6 IMPLEMENTED / CI-VERIFIED; AW2.7 NEXT
+Status: IMPLEMENTATION IN PROGRESS — AW2.1–AW2.7 IMPLEMENTED / CI-VERIFIED; AW2.8 NEXT
 
 ## Goal
 
@@ -104,20 +104,29 @@ Regression coverage: `tests/workflowStateChangeEnvelope.test.js` plus the existi
 Evidence: code HEAD `2fbde9b7c427b1fdf95b2605c7bc68bbf7a074d0`; SG 2.1 CI #8167 SUCCESS on that exact HEAD (`npm run check`, web start, worker start and diagnostics all successful).
 Boundary: AW2.6 defines and enforces the bounded state-changing execution envelope at the generalized Workflow Executor boundary. It does not production-wire new state-changing capabilities, grant autonomous authority, broaden resource scope, replace existing confirmation/action-gate semantics, or implement automation mutation; AW2.7 owns the automation-update path.
 
-### AW2.7 — Automation update capability — NEXT
-Introduce a canonical `automation-update` path able to modify workflow content as well as schedule fields.
+### AW2.7 — Automation update capability — CLOSED / CI-VERIFIED
+Canonical `automation-update` now updates an existing automation without changing `automationId` and creates a monotonic workflow version/history entry.
 
-Supported changes:
-- add/remove/replace steps;
-- change notification/content;
-- change sources/resources;
-- change output format;
-- change delivery;
-- change recurrence/time/timezone;
-- change execution policy;
-- pause/resume/cancel.
+Implemented boundary:
+- workflow content and trigger/input/delivery/execution-policy updates are applied to the existing automation;
+- pause/resume/cancel and schedule/runtime mutation reuse the existing scheduler;
+- recurring updates reuse the existing scheduler; one-shot updates reuse `PostgresTaskQueue`;
+- workflow v1 is registered in PostgreSQL before later updates;
+- workflow optimistic commit and runtime mutation are atomic in one PostgreSQL transaction;
+- production mutation stays behind the existing Capability/Action Gate path and does not bypass Identity, Resource Authority, Action Gate or other security seams;
+- zero or multiple structured selector matches fail closed;
+- no parallel scheduler, worker, queue or security stack is introduced.
 
-### AW2.8 — Semantic target resolution
+Implementation/evidence:
+- `src/automation/workflowUpdate.js` and production automation wiring;
+- PostgreSQL workflow update/version persistence and migration;
+- regression coverage including `tests/workflowUpdate.test.js`, `tests/workflowUpdateProductionWiring.test.js` and existing scheduler/security suites;
+- final compatibility fix preserves legacy self-notification updates when `payload.delivery` is absent via `delivery: payload.delivery ?? {}`;
+- closure evidence HEAD `9fb186864071b2039062cfd63ab1e9d56839db85`; SG 2.1 CI #8212 SUCCESS on that exact HEAD.
+
+Boundary: AW2.7 owns canonical mutation of an already deterministically selected automation. It does not make users resolve internal IDs semantically; AW2.8 owns semantic target resolution.
+
+### AW2.8 — Semantic target resolution — NEXT
 Users must not need internal schedule/automation IDs.
 - Resolve existing workflow semantically within canonical scope.
 - One match → select.

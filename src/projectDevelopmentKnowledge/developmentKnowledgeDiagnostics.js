@@ -34,7 +34,7 @@ async function scalar(database, sql, params = []) {
   return n(result.rows?.[0]?.count);
 }
 
-export const PDK4_DIAGNOSTICS_CONTRACT_VERSION = 2;
+export const PDK4_DIAGNOSTICS_CONTRACT_VERSION = 3;
 
 export function createDevelopmentKnowledgeDiagnostics({ database, historyCursorStore, ingestionStateStore, authorization = null, clock = () => new Date() } = {}) {
   if (!database?.query) throw new TypeError('started PostgreSQL database is required');
@@ -74,7 +74,9 @@ export function createDevelopmentKnowledgeDiagnostics({ database, historyCursorS
       activeConfirmedEvents,
       gapCandidates,
       lastContinuousSourceOccurrences,
-      lastHistoricalSourceOccurrences
+      lastHistoricalSourceOccurrences,
+      duplicateSourceCount,
+      replayCount
     ] = await Promise.all([
       historyCursorStore.countProcessed({ projectKey: p, sourceKind: 'github-commit', sourceScope: repo }),
       ingestionStateStore.countProcessed({ projectKey: p, repository: repo }),
@@ -87,7 +89,27 @@ export function createDevelopmentKnowledgeDiagnostics({ database, historyCursorS
       scalar(database, "SELECT count(*)::int AS count FROM project_memory_entries e JOIN memory_records m USING(memory_id) WHERE e.project_key=$1 AND e.fact_type='project-event' AND m.confirmed=true AND m.confirmation_state='confirmed' AND m.lifecycle_state='active'", [p]),
       scalar(database, "SELECT count(*)::int AS count FROM memory_records WHERE project_scope=$1 AND memory_layer='project-memory' AND value->>'candidateType'='development-knowledge-gap' AND confirmation_state<>'rejected'", [p]),
       lastSourceId ? scalar(database, 'SELECT count(*)::int AS count FROM pdk4_continuous_processed_sources WHERE project_key=$1 AND repository=$2 AND source_id=$3', [p, repo, lastSourceId]) : 0,
-      lastSourceId ? scalar(database, "SELECT count(*)::int AS count FROM pdk4_processed_sources WHERE project_key=$1 AND source_kind='github-commit' AND source_scope=$2 AND source_id=$3", [p, repo, lastSourceId]) : 0
+      lastSourceId ? scalar(database, "SELECT count(*)::int AS count FROM pdk4_processed_sources WHERE project_key=$1 AND source_kind='github-commit' AND source_scope=$2 AND source_id=$3", [p, repo, lastSourceId]) : 0,
+      scalar(database, `SELECT count(*)::int AS count FROM (
+        SELECT source_id
+        FROM (
+          SELECT source_id FROM pdk4_continuous_processed_sources WHERE project_key=$1 AND repository=$2
+          UNION ALL
+          SELECT source_id FROM pdk4_processed_sources WHERE project_key=$1 AND source_kind='github-commit' AND source_scope=$2
+        ) all_sources
+        GROUP BY source_id
+        HAVING count(*) > 1
+      ) duplicate_sources`, [p, repo]),
+      scalar(database, `SELECT COALESCE(sum(occurrences - 1), 0)::int AS count FROM (
+        SELECT source_id, count(*)::int AS occurrences
+        FROM (
+          SELECT source_id FROM pdk4_continuous_processed_sources WHERE project_key=$1 AND repository=$2
+          UNION ALL
+          SELECT source_id FROM pdk4_processed_sources WHERE project_key=$1 AND source_kind='github-commit' AND source_scope=$2
+        ) all_sources
+        GROUP BY source_id
+        HAVING count(*) > 1
+      ) replay_excess`, [p, repo])
     ]);
 
     const sourceGap = Math.max(0, commitsScanned - eventsExtracted);
@@ -96,6 +118,8 @@ export function createDevelopmentKnowledgeDiagnostics({ database, historyCursorS
     const timelineOk = eventsConfirmed <= eventsExtracted && eventsSuperseded <= eventsExtracted;
     const continuousOccurrenceTotal = n(lastContinuousSourceOccurrences) + n(lastHistoricalSourceOccurrences);
     const exactlyOnceEvidence = lastSourceId == null ? null : continuousOccurrenceTotal === 1;
+    const noDuplicates = n(duplicateSourceCount) === 0;
+    const noReplay = n(replayCount) === 0;
 
     return freeze({
       contractVersion: PDK4_DIAGNOSTICS_CONTRACT_VERSION,
@@ -103,7 +127,7 @@ export function createDevelopmentKnowledgeDiagnostics({ database, historyCursorS
       projectKey: p,
       repository: repo,
       generatedAt: new Date(clock()).toISOString(),
-      development_history_health: health(bootstrapComplete && timelineOk, { bootstrapComplete, timelineIntegrity: timelineOk }),
+      development_history_health: health(bootstrapComplete && timelineOk && noDuplicates && noReplay, { bootstrapComplete, timelineIntegrity: timelineOk, noDuplicates, noReplay }),
       historical_bootstrap_status: cursor?.status ?? 'not-started',
       historical_bootstrap_cursor: cursor ? {
         lastSourceId: cursor.lastSourceId ?? null,
@@ -111,6 +135,18 @@ export function createDevelopmentKnowledgeDiagnostics({ database, historyCursorS
         batchCount: n(cursor.batchCount),
         completedAt: cursor.completedAt ?? null
       } : null,
+      continuous_cursor: ingestion ? {
+        bootstrapLastSourceId: ingestion.bootstrapLastSourceId ?? null,
+        lastSourceId,
+        lastCommitSha,
+        processedCount: n(incrementalProcessed),
+        lastProcessedAt: ingestion.lastProcessedAt ?? null
+      } : null,
+      processed_source_count: {
+        historical: n(commitsScanned),
+        continuous: n(incrementalProcessed),
+        totalLedgerEntries: n(commitsScanned) + n(incrementalProcessed)
+      },
       commits_scanned: n(commitsScanned),
       events_extracted: n(eventsExtracted),
       events_confirmed: n(eventsConfirmed),
@@ -128,15 +164,19 @@ export function createDevelopmentKnowledgeDiagnostics({ database, historyCursorS
         lastSourceId,
         lastProcessedAt: ingestion?.lastProcessedAt ?? null
       }),
-      exact_once_evidence: health(exactlyOnceEvidence !== false, {
+      exact_once_evidence: health(exactlyOnceEvidence !== false && noDuplicates && noReplay, {
         available: lastSourceId != null,
         lastSourceId,
         lastCommitSha,
         continuousOccurrences: n(lastContinuousSourceOccurrences),
         historicalOccurrences: n(lastHistoricalSourceOccurrences),
         totalOccurrences: continuousOccurrenceTotal,
-        exactlyOnce: exactlyOnceEvidence
+        exactlyOnce: exactlyOnceEvidence,
+        duplicateSourceCount: n(duplicateSourceCount),
+        replayCount: n(replayCount)
       }),
+      duplicate_source_count: n(duplicateSourceCount),
+      replay_count: n(replayCount),
       last_successful_ingestion: ingestion?.lastProcessedAt ?? null,
       reconciliation_gap_count: n(gapCandidates),
       source_gap_check: health(true, {

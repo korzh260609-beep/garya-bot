@@ -1,6 +1,7 @@
 import { loadProductionDevelopmentKnowledgeConfig } from './productionDevelopmentKnowledgeConfig.js';
 import { registerProductionDevelopmentKnowledgeCredential } from './productionDevelopmentKnowledgeCredential.js';
 import { createProductionDevelopmentKnowledgeRuntime } from './productionDevelopmentKnowledgeRuntime.js';
+import { createGitHubRepositoryReadService } from './githubRepositoryReadService.js';
 
 function disabledHealth(config) {
   return Object.freeze({ enabled: false, phase: 'disabled', healthy: true, projectKey: config.projectKey, repository: config.repository, branch: config.branch });
@@ -14,6 +15,7 @@ export function createProductionDevelopmentKnowledgeDeployment({ harness, env = 
       config,
       credential: Object.freeze({ registered: false, credentialId: config.credentialId, tokenKey: null }),
       runtime: null,
+      repositoryReadService: null,
       start: async () => disabledHealth(config),
       stop: async () => disabledHealth(config),
       health: () => disabledHealth(config),
@@ -28,6 +30,12 @@ export function createProductionDevelopmentKnowledgeDeployment({ harness, env = 
     projectScope: config.projectKey,
     credentialId: config.credentialId
   });
+  const repositoryReadService = createGitHubRepositoryReadService({
+    config,
+    credentialManager: harness.credentialManager,
+    credentialAccessContext: harness.credentialAccessContext,
+    fetchImpl
+  });
   const runtime = createProductionDevelopmentKnowledgeRuntime({
     config,
     database: harness.persistence.database,
@@ -39,5 +47,5 @@ export function createProductionDevelopmentKnowledgeDeployment({ harness, env = 
     observability: harness.observability,
     clock
   });
-  return Object.freeze({ config, credential, runtime, start: runtime.start, stop: runtime.stop, health: runtime.health, inspect: runtime.inspect, reconcile: runtime.reconcile });
+  return Object.freeze({ config, credential, runtime, repositoryReadService, start: runtime.start, stop: runtime.stop, health: runtime.health, inspect: runtime.inspect, reconcile: runtime.reconcile });
 }

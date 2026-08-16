@@ -1,5 +1,6 @@
 import { createWorkflowDefinition } from './workflowContract.js';
 import { isProtectedWorkflowStep } from './workflowExecutionSecurity.js';
+import { evaluateAutonomousReadOnlyPolicy } from './workflowReadOnlyAutonomy.js';
 
 export const WORKFLOW_EXECUTION_OUTCOMES = Object.freeze([
   'completed',
@@ -96,9 +97,49 @@ export function createWorkflowExecutor({
   async function execute({ taskId, workflow, traceContext = {} } = {}) {
     const normalizedTaskId = requiredString(taskId, 'taskId');
     const definition = createWorkflowDefinition(workflow);
+    const autonomyVerdict = evaluateAutonomousReadOnlyPolicy(definition);
+    const autonomyEvidenceRefs = autonomyVerdict.allowed === true ? autonomyVerdict.evidenceRefs : [];
     let overallOutcome = 'completed';
     let handoff = boundJson({ workflowInputs: definition.inputs }, { ...bounds, field: 'workflow initial handoff' });
     const stepRuns = [];
+
+    if (autonomyVerdict.applies === true && autonomyVerdict.allowed !== true) {
+      const stepIndex = Number.isInteger(autonomyVerdict.failedStepIndex) ? autonomyVerdict.failedStepIndex : 0;
+      const step = definition.steps[stepIndex] ?? definition.steps[0];
+      const baseRecord = Object.freeze({
+        taskId: normalizedTaskId,
+        automationId: definition.automationId,
+        workflowVersion: definition.version,
+        stepIndex,
+        stepType: step.type
+      });
+      const result = Object.freeze({
+        outcome: 'denied',
+        output: null,
+        evidenceRefs: boundJson(autonomyVerdict.evidenceRefs, { ...bounds, field: 'autonomous read-only policy evidenceRefs' }),
+        errorCode: autonomyVerdict.errorCode == null ? 'autonomous_read_only_policy_denied' : String(autonomyVerdict.errorCode),
+        errorMessage: String(autonomyVerdict.reason ?? 'autonomous read-only policy denied')
+      });
+      await stepRunStore.recordStep({ ...baseRecord, status: 'running', output: null, evidenceRefs: [] });
+      await stepRunStore.recordStep({
+        ...baseRecord,
+        status: result.outcome,
+        output: result.output,
+        evidenceRefs: result.evidenceRefs,
+        errorCode: result.errorCode,
+        errorMessage: result.errorMessage
+      });
+      stepRuns.push(Object.freeze({ stepIndex, stepType: step.type, ...result }));
+      return Object.freeze({
+        taskId: normalizedTaskId,
+        automationId: definition.automationId,
+        workflowVersion: definition.version,
+        outcome: 'denied',
+        output: result.output,
+        evidenceRefs: result.evidenceRefs,
+        stepRuns: Object.freeze(stepRuns)
+      });
+    }
 
     for (let stepIndex = 0; stepIndex < definition.steps.length; stepIndex += 1) {
       const step = definition.steps[stepIndex];
@@ -140,7 +181,11 @@ export function createWorkflowExecutor({
         }
 
         if (securityVerdict?.allowed !== true) {
-          const result = deniedSecurityResult(securityVerdict, bounds);
+          const verdictWithAutonomyEvidence = Object.freeze({
+            ...securityVerdict,
+            evidenceRefs: Object.freeze([...autonomyEvidenceRefs, ...(securityVerdict?.evidenceRefs ?? [])])
+          });
+          const result = deniedSecurityResult(verdictWithAutonomyEvidence, bounds);
           await stepRunStore.recordStep({
             ...baseRecord,
             status: result.outcome,
@@ -165,7 +210,10 @@ export function createWorkflowExecutor({
       let result;
       try {
         const handler = requiredFunction(stepHandlers[step.type], `stepHandlers.${step.type}`);
-        const securityEvidenceRefs = Array.isArray(securityVerdict?.evidenceRefs) ? securityVerdict.evidenceRefs : [];
+        const securityEvidenceRefs = [
+          ...autonomyEvidenceRefs,
+          ...(Array.isArray(securityVerdict?.evidenceRefs) ? securityVerdict.evidenceRefs : [])
+        ];
         result = normalizeStepResult(await handler(Object.freeze({
           taskId: normalizedTaskId,
           workflow: definition,

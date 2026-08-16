@@ -67,35 +67,19 @@ function fixedIntervalResolution({ temporalService, recurrence }) {
   const rule = parseRecurrenceRule(recurrence);
   const unitMs = SUB_DAILY_INTERVAL_MS[rule.freq] ?? null;
   if (!unitMs) return null;
-  if (typeof temporalService.now !== 'function') {
-    throw temporalError('task-time-context-unavailable', 'Temporal Context cannot resolve fixed interval recurrence');
-  }
+  if (typeof temporalService.now !== 'function') throw temporalError('task-time-context-unavailable', 'Temporal Context cannot resolve fixed interval recurrence');
   const reference = temporalService.now();
   const firstInstant = new Date(reference.getTime() + unitMs * rule.interval);
-  return Object.freeze({
-    status: 'resolved',
-    originalExpression: null,
-    referenceInstant: reference.toISOString(),
-    timeZone: 'UTC',
-    localStart: utcLocalDateTime(firstInstant),
-    utcStart: firstInstant.toISOString(),
-    utcEndExclusive: null,
-    precision: rule.freq === 'MINUTELY' ? 'minute' : 'hour',
-    ambiguous: false,
-    source: 'deterministic-fixed-interval-recurrence'
-  });
+  return Object.freeze({ status: 'resolved', originalExpression: null, referenceInstant: reference.toISOString(), timeZone: 'UTC', localStart: utcLocalDateTime(firstInstant), utcStart: firstInstant.toISOString(), utcEndExclusive: null, precision: rule.freq === 'MINUTELY' ? 'minute' : 'hour', ambiguous: false, source: 'deterministic-fixed-interval-recurrence' });
 }
 
 async function cancelLinkedRecurringSchedule({ recurringScheduler, scope, taskId }) {
   if (!recurringScheduler) return null;
-  if (typeof recurringScheduler.cancelByTaskId === 'function') {
-    return recurringScheduler.cancelByTaskId({ scope, taskId });
-  }
+  if (typeof recurringScheduler.cancelByTaskId === 'function') return recurringScheduler.cancelByTaskId({ scope, taskId });
   if (!recurringScheduler.list || !recurringScheduler.cancel) return null;
   const schedules = await recurringScheduler.list({ scope, limit: 100 });
   const linked = schedules.find((schedule) => schedule.taskId === taskId && ['active', 'paused', 'error'].includes(schedule.status));
-  if (!linked) return null;
-  return recurringScheduler.cancel({ scope, scheduleId: linked.scheduleId });
+  return linked ? recurringScheduler.cancel({ scope, scheduleId: linked.scheduleId }) : null;
 }
 
 function productionWorkflowAuthorization() {
@@ -109,12 +93,18 @@ function productionWorkflowAuthorization() {
         && evidence.actorGlobalUserId === actorId
         && evidence.projectScope === request?.scope?.projectScope
         && scopeUserId === actorId;
-      return Object.freeze({
-        allowed,
-        reason: allowed ? 'canonical-action-gate-authorized' : 'canonical-action-gate-evidence-invalid',
-        evidenceRefs: evidence?.requestId ? Object.freeze([`action-gate:${evidence.requestId}`]) : Object.freeze([])
-      });
+      return Object.freeze({ allowed, reason: allowed ? 'canonical-action-gate-authorized' : 'canonical-action-gate-evidence-invalid', evidenceRefs: evidence?.requestId ? Object.freeze([`action-gate:${evidence.requestId}`]) : Object.freeze([]) });
     }
+  });
+}
+
+function workflowSchedulerAdapter(scheduler) {
+  const adapt = (input) => ({ ...input, scope: { ...input.scope, userScope: input.scope?.userScope ?? input.scope?.globalUserId } });
+  return Object.freeze({
+    update: (input) => scheduler.update(adapt(input)),
+    pause: (input) => scheduler.pause(adapt(input)),
+    resume: (input) => scheduler.resume(adapt(input)),
+    cancel: (input) => scheduler.cancel(adapt(input))
   });
 }
 
@@ -126,52 +116,25 @@ export function createTemporalTaskStore({ taskStore, temporalService, recurringS
     async create({ scope, input = {} }) {
       let expression = input.temporalExpression ?? input.when ?? (typeof input.runAt === 'string' && !isExactIsoInstant(input.runAt) ? input.runAt : null);
       let resolution = null;
-      if (!expression && input.recurrence && input.localTime) {
-        expression = await expressionFromLocalTime({ temporalService, userScope: scope.userScope, localTime: input.localTime });
-      }
-      if (!expression && input.recurrence) {
-        resolution = fixedIntervalResolution({ temporalService, recurrence: input.recurrence });
-      }
+      if (!expression && input.recurrence && input.localTime) expression = await expressionFromLocalTime({ temporalService, userScope: scope.userScope, localTime: input.localTime });
+      if (!expression && input.recurrence) resolution = fixedIntervalResolution({ temporalService, recurrence: input.recurrence });
       if (!expression && !resolution) {
         if (input.recurrence) throw temporalError('recurrence-start-required', 'A calendar recurring task requires localTime or an explicit first local time');
         return normalizeTask(await taskStore.create({ scope, input }));
       }
-
-      if (!resolution && expression && typeof temporalService.now === 'function') {
-        resolution = resolveElapsedInterval(expression, { referenceInstant: temporalService.now() });
-      }
+      if (!resolution && expression && typeof temporalService.now === 'function') resolution = resolveElapsedInterval(expression, { referenceInstant: temporalService.now() });
       if (!resolution) resolution = await temporalService.resolveForUser(scope.userScope, expression);
       if (resolution.status === 'timezone-required') throw temporalError('task-timezone-required', 'User timezone is required to schedule relative local time');
       if (resolution.status !== 'resolved') throw temporalError('task-time-unresolved', 'Temporal expression could not be resolved deterministically');
       if (resolution.ambiguous || !resolution.utcStart || resolution.utcEndExclusive) throw temporalError('task-time-ambiguous', 'Task time is a range or ambiguous; a precise time is required');
 
       const payload = input.payload && typeof input.payload === 'object' && !Array.isArray(input.payload) ? { ...input.payload } : { ...input };
-      payload.temporal = Object.freeze({
-        originalExpression: resolution.originalExpression,
-        timeZone: resolution.timeZone,
-        localDateTime: resolution.localStart,
-        utcInstant: resolution.utcStart,
-        precision: resolution.precision
-      });
-
-      const created = normalizeTask(await taskStore.create({
-        scope,
-        input: { ...input, runAt: resolution.utcStart, temporalExpression: expression, payload }
-      }));
-
+      payload.temporal = Object.freeze({ originalExpression: resolution.originalExpression, timeZone: resolution.timeZone, localDateTime: resolution.localStart, utcInstant: resolution.utcStart, precision: resolution.precision });
+      const created = normalizeTask(await taskStore.create({ scope, input: { ...input, runAt: resolution.utcStart, temporalExpression: expression, payload } }));
       if (!input.recurrence) return created;
       if (!recurringScheduler?.register) throw temporalError('recurrence-unavailable', 'Recurring scheduler is not available in this runtime');
       const notificationMessage = typeof payload.message === 'string' && payload.message.trim() !== '' ? payload.message.trim() : null;
-      const schedule = await recurringScheduler.register({
-        scheduleId: input.scheduleId,
-        taskId: created.taskId,
-        recurrence: input.recurrence,
-        timeZone: resolution.timeZone,
-        dtstartLocal: resolution.localStart,
-        misfirePolicy: input.misfirePolicy ?? 'fire_once',
-        maxCatchup: input.maxCatchup ?? 10,
-        state: { originalExpression: resolution.originalExpression, localTime: input.localTime ?? null, notificationMessage, createdBy: scope.userScope, workflowVersion: 1, automationId: created.taskId }
-      });
+      const schedule = await recurringScheduler.register({ scheduleId: input.scheduleId, taskId: created.taskId, recurrence: input.recurrence, timeZone: resolution.timeZone, dtstartLocal: resolution.localStart, misfirePolicy: input.misfirePolicy ?? 'fire_once', maxCatchup: input.maxCatchup ?? 10, state: { originalExpression: resolution.originalExpression, localTime: input.localTime ?? null, notificationMessage, createdBy: scope.userScope, workflowVersion: 1, automationId: created.taskId } });
       return Object.freeze({ ...created, runAt: schedule.firstOccurrenceAt ?? created.runAt ?? created.availableAt ?? null, recurringSchedule: schedule });
     },
     async list(request) { return Object.freeze((await taskStore.list(request)).map(normalizeTask)); },
@@ -186,19 +149,7 @@ export function createTemporalTaskStore({ taskStore, temporalService, recurringS
 
   if (!taskStore.database?.query || !taskStore.taskQueue || !recurringScheduler) return coreStore;
   const workflowStore = createPostgresWorkflowUpdateStore({ database: taskStore.database });
-  const workflowUpdateService = createWorkflowUpdateCapability({
-    store: workflowStore,
-    authorization: productionWorkflowAuthorization(),
-    recurringScheduler,
-    oneShotTaskQueue: taskStore.taskQueue
-  });
+  const workflowUpdateService = createWorkflowUpdateCapability({ store: workflowStore, authorization: productionWorkflowAuthorization(), recurringScheduler: workflowSchedulerAdapter(recurringScheduler), oneShotTaskQueue: taskStore.taskQueue });
   const registeredStore = createWorkflowRegisteredTaskStore({ taskStore: coreStore, workflowStore });
-  return Object.freeze({
-    create: registeredStore.create,
-    list: registeredStore.list,
-    get: registeredStore.get,
-    cancel: registeredStore.cancel,
-    workflowStore,
-    workflowUpdateService
-  });
+  return Object.freeze({ create: registeredStore.create, list: registeredStore.list, get: registeredStore.get, cancel: registeredStore.cancel, workflowStore, workflowUpdateService });
 }

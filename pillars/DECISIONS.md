@@ -209,3 +209,25 @@ The following boundaries are mandatory:
 - live operational diagnosis remains the responsibility of current runtime/diagnostic evidence rather than historical similarity.
 
 The canonical architecture is `pillars/architecture/PROJECT_DEVELOPMENT_KNOWLEDGE_4_0.md`; implementation program is `pillars/roadmap/PROJECT_DEVELOPMENT_KNOWLEDGE_4_0_PROGRAM.md`; implementation/verification procedure is `pillars/workflow/PROJECT_DEVELOPMENT_KNOWLEDGE_4_0_WORKFLOW.md`.
+
+## D-029 — SG automation is editable executable work, not only scheduled messages
+SG automation must support durable, versioned executable workflows that can perform fresh authorized work at execution time, not only deliver a static message stored at creation time.
+
+The following rules are mandatory:
+
+- natural-language instructions may create or semantically modify an existing automation without requiring the user to know an internal task/schedule ID;
+- modifications patch the same automation and create a new version; a duplicate automation is created only when the user explicitly requests a new/copy workflow;
+- ambiguous or missing target resolution fails closed and asks for clarification rather than guessing;
+- workflow execution may contain bounded `collect`, `retrieve`, `analyze`, `compose`, `invoke-capability` and `deliver` steps;
+- dynamic reports collect fresh execution-time evidence rather than presenting previously composed text as current data;
+- every protected execution re-evaluates current Identity/Scope, SG access/entitlement, Resource Ownership & Authority, Action Gate, applicable credentials/connections and capability/resource permission health;
+- creation-time authority is not permanent execution authority;
+- read-only autonomous work may run without per-occurrence confirmation only inside the active deterministic policy envelope;
+- state-changing/external automated steps require an explicit bounded execution envelope and may not self-expand their scope, resources, capabilities or authority;
+- Automation 2.0 reuses existing Temporal Context, Capability System, Durable Automation/Workers, Access Control, Resource Authority, Action Gate, Credential Manager, Delivery Router, PostgreSQL and Observability and must not create parallel control or scheduler stacks;
+- retries, worker restarts and duplicate materialization must preserve occurrence idempotency and prevent duplicate externally visible delivery;
+- AI may interpret workflow meaning or perform approved analysis only through AI Router and cannot grant access, fabricate deterministic metrics or bypass execution gates.
+
+Canonical architecture: `pillars/architecture/AUTOMATION_2_0_EXECUTABLE_WORKFLOWS.md`.
+Implementation program: `pillars/roadmap/AUTOMATION_2_0_EXECUTABLE_WORKFLOWS_PROGRAM.md`.
+Implementation/verification workflow: `pillars/workflow/AUTOMATION_2_0_EXECUTABLE_WORKFLOWS_WORKFLOW.md`.

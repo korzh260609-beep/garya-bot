@@ -1,6 +1,7 @@
 import { createWorkflowDefinition } from './workflowContract.js';
 import { isProtectedWorkflowStep } from './workflowExecutionSecurity.js';
 import { evaluateAutonomousReadOnlyPolicy } from './workflowReadOnlyAutonomy.js';
+import { evaluateStateChangeExecutionEnvelope, isStateChangingWorkflowStep } from './workflowStateChangeEnvelope.js';
 
 export const WORKFLOW_EXECUTION_OUTCOMES = Object.freeze([
   'completed',
@@ -67,6 +68,16 @@ function deniedSecurityResult(verdict, bounds) {
   });
 }
 
+function policyDeniedResult(verdict, bounds, field, defaultErrorCode, defaultMessage) {
+  return Object.freeze({
+    outcome: 'denied',
+    output: null,
+    evidenceRefs: boundJson(verdict?.evidenceRefs ?? [], { ...bounds, field }),
+    errorCode: verdict?.errorCode == null ? defaultErrorCode : String(verdict.errorCode),
+    errorMessage: String(verdict?.reason ?? defaultMessage)
+  });
+}
+
 function securityFailureVerdict(error) {
   return Object.freeze({
     allowed: false,
@@ -77,6 +88,29 @@ function securityFailureVerdict(error) {
     errorMessage: error instanceof Error ? error.message : String(error),
     evidenceRefs: Object.freeze([])
   });
+}
+
+async function persistDeniedPolicyStep({ stepRunStore, taskId, definition, verdict, bounds, field, defaultErrorCode, defaultMessage }) {
+  const stepIndex = Number.isInteger(verdict.failedStepIndex) ? verdict.failedStepIndex : 0;
+  const step = definition.steps[stepIndex] ?? definition.steps[0];
+  const baseRecord = Object.freeze({
+    taskId,
+    automationId: definition.automationId,
+    workflowVersion: definition.version,
+    stepIndex,
+    stepType: step.type
+  });
+  const result = policyDeniedResult(verdict, bounds, field, defaultErrorCode, defaultMessage);
+  await stepRunStore.recordStep({ ...baseRecord, status: 'running', output: null, evidenceRefs: [] });
+  await stepRunStore.recordStep({
+    ...baseRecord,
+    status: result.outcome,
+    output: result.output,
+    evidenceRefs: result.evidenceRefs,
+    errorCode: result.errorCode,
+    errorMessage: result.errorMessage
+  });
+  return Object.freeze({ stepIndex, stepType: step.type, ...result });
 }
 
 export function createWorkflowExecutor({
@@ -99,44 +133,54 @@ export function createWorkflowExecutor({
     const definition = createWorkflowDefinition(workflow);
     const autonomyVerdict = evaluateAutonomousReadOnlyPolicy(definition);
     const autonomyEvidenceRefs = autonomyVerdict.allowed === true ? autonomyVerdict.evidenceRefs : [];
+    const stateChangeVerdict = evaluateStateChangeExecutionEnvelope(definition);
+    const stateChangeEvidenceRefs = stateChangeVerdict.allowed === true ? stateChangeVerdict.evidenceRefs : [];
     let overallOutcome = 'completed';
     let handoff = boundJson({ workflowInputs: definition.inputs }, { ...bounds, field: 'workflow initial handoff' });
     const stepRuns = [];
 
     if (autonomyVerdict.applies === true && autonomyVerdict.allowed !== true) {
-      const stepIndex = Number.isInteger(autonomyVerdict.failedStepIndex) ? autonomyVerdict.failedStepIndex : 0;
-      const step = definition.steps[stepIndex] ?? definition.steps[0];
-      const baseRecord = Object.freeze({
+      const denied = await persistDeniedPolicyStep({
+        stepRunStore,
         taskId: normalizedTaskId,
-        automationId: definition.automationId,
-        workflowVersion: definition.version,
-        stepIndex,
-        stepType: step.type
+        definition,
+        verdict: autonomyVerdict,
+        bounds,
+        field: 'autonomous read-only policy evidenceRefs',
+        defaultErrorCode: 'autonomous_read_only_policy_denied',
+        defaultMessage: 'autonomous read-only policy denied'
       });
-      const result = Object.freeze({
-        outcome: 'denied',
-        output: null,
-        evidenceRefs: boundJson(autonomyVerdict.evidenceRefs, { ...bounds, field: 'autonomous read-only policy evidenceRefs' }),
-        errorCode: autonomyVerdict.errorCode == null ? 'autonomous_read_only_policy_denied' : String(autonomyVerdict.errorCode),
-        errorMessage: String(autonomyVerdict.reason ?? 'autonomous read-only policy denied')
-      });
-      await stepRunStore.recordStep({ ...baseRecord, status: 'running', output: null, evidenceRefs: [] });
-      await stepRunStore.recordStep({
-        ...baseRecord,
-        status: result.outcome,
-        output: result.output,
-        evidenceRefs: result.evidenceRefs,
-        errorCode: result.errorCode,
-        errorMessage: result.errorMessage
-      });
-      stepRuns.push(Object.freeze({ stepIndex, stepType: step.type, ...result }));
+      stepRuns.push(denied);
       return Object.freeze({
         taskId: normalizedTaskId,
         automationId: definition.automationId,
         workflowVersion: definition.version,
         outcome: 'denied',
-        output: result.output,
-        evidenceRefs: result.evidenceRefs,
+        output: denied.output,
+        evidenceRefs: denied.evidenceRefs,
+        stepRuns: Object.freeze(stepRuns)
+      });
+    }
+
+    if (stateChangeVerdict.applies === true && stateChangeVerdict.allowed !== true) {
+      const denied = await persistDeniedPolicyStep({
+        stepRunStore,
+        taskId: normalizedTaskId,
+        definition,
+        verdict: stateChangeVerdict,
+        bounds,
+        field: 'state-change execution envelope evidenceRefs',
+        defaultErrorCode: 'state_change_execution_envelope_denied',
+        defaultMessage: 'state-change execution envelope denied'
+      });
+      stepRuns.push(denied);
+      return Object.freeze({
+        taskId: normalizedTaskId,
+        automationId: definition.automationId,
+        workflowVersion: definition.version,
+        outcome: 'denied',
+        output: denied.output,
+        evidenceRefs: denied.evidenceRefs,
         stepRuns: Object.freeze(stepRuns)
       });
     }
@@ -153,6 +197,7 @@ export function createWorkflowExecutor({
 
       await stepRunStore.recordStep({ ...baseRecord, status: 'running', output: null, evidenceRefs: [] });
 
+      const stateChangeStepEvidenceRefs = isStateChangingWorkflowStep(step) ? stateChangeEvidenceRefs : [];
       let securityVerdict = null;
       if (isProtectedWorkflowStep(step)) {
         if (executionSecurity == null) {
@@ -181,11 +226,15 @@ export function createWorkflowExecutor({
         }
 
         if (securityVerdict?.allowed !== true) {
-          const verdictWithAutonomyEvidence = Object.freeze({
+          const verdictWithPolicyEvidence = Object.freeze({
             ...securityVerdict,
-            evidenceRefs: Object.freeze([...autonomyEvidenceRefs, ...(securityVerdict?.evidenceRefs ?? [])])
+            evidenceRefs: Object.freeze([
+              ...autonomyEvidenceRefs,
+              ...stateChangeStepEvidenceRefs,
+              ...(securityVerdict?.evidenceRefs ?? [])
+            ])
           });
-          const result = deniedSecurityResult(verdictWithAutonomyEvidence, bounds);
+          const result = deniedSecurityResult(verdictWithPolicyEvidence, bounds);
           await stepRunStore.recordStep({
             ...baseRecord,
             status: result.outcome,
@@ -212,6 +261,7 @@ export function createWorkflowExecutor({
         const handler = requiredFunction(stepHandlers[step.type], `stepHandlers.${step.type}`);
         const securityEvidenceRefs = [
           ...autonomyEvidenceRefs,
+          ...stateChangeStepEvidenceRefs,
           ...(Array.isArray(securityVerdict?.evidenceRefs) ? securityVerdict.evidenceRefs : [])
         ];
         result = normalizeStepResult(await handler(Object.freeze({

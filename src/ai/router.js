@@ -10,6 +10,14 @@ import {
 } from './productionPolicy.js';
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const RESPONSE_CONTEXT_TRUNCATION_MARKER = '\n...[SG_CONTEXT_TRUNCATED_TO_INPUT_BUDGET]...\n';
+const RESPONSE_CONTEXT_MINIMUMS = Object.freeze([
+  Object.freeze({ prefix: 'PROJECT_MEMORY_CONTEXT ', minimum: 300, priority: 1 }),
+  Object.freeze({ prefix: 'DEVELOPMENT_QUERY_CONTEXT ', minimum: 300, priority: 2 }),
+  Object.freeze({ prefix: 'SG_RESOLVED_CONTEXT ', minimum: 1200, priority: 3 }),
+  Object.freeze({ prefix: 'IDENTITY_RESPONSE_CONTRACT ', minimum: 1600, priority: 4 }),
+  Object.freeze({ prefix: 'CAPABILITY_RESULT ', minimum: 3500, priority: 5 }),
+]);
 
 function estimateCost(model, usage) {
   if (!usage) return null;
@@ -17,6 +25,70 @@ function estimateCost(model, usage) {
   const output = usage.outputTokens == null ? 0 : usage.outputTokens * model.outputCostPerMillion / 1_000_000;
   const total = input + output;
   return Number.isFinite(total) ? total : null;
+}
+function messageCharacters(messages) {
+  return (messages ?? []).reduce((total, message) => total + String(message?.content ?? '').length, 0);
+}
+function responseDataRule(message) {
+  if (message?.role !== 'system') return null;
+  const content = String(message.content ?? '');
+  return RESPONSE_CONTEXT_MINIMUMS.find((rule) => content.startsWith(rule.prefix)) ?? null;
+}
+function truncateResponseData(content, maximum) {
+  const text = String(content ?? '');
+  if (text.length <= maximum) return text;
+  if (maximum <= RESPONSE_CONTEXT_TRUNCATION_MARKER.length + 40) return text.slice(0, maximum);
+  const available = maximum - RESPONSE_CONTEXT_TRUNCATION_MARKER.length;
+  const headLength = Math.max(20, Math.floor(available * 0.72));
+  const tailLength = Math.max(20, available - headLength);
+  return `${text.slice(0, headLength)}${RESPONSE_CONTEXT_TRUNCATION_MARKER}${text.slice(-tailLength)}`;
+}
+function preflightResponseCompositionInput(request, policy) {
+  if (request?.task !== 'response-composition' || !policy?.maxInputCharacters) return request;
+  const maximum = Number(policy.maxInputCharacters);
+  if (!Number.isInteger(maximum) || maximum <= 0) return request;
+  const originalCharacters = messageCharacters(request.messages);
+  if (originalCharacters <= maximum) return request;
+
+  const messages = request.messages.map((message) => ({ ...message }));
+  const shrinkable = messages.map((message, index) => {
+    const rule = responseDataRule(message);
+    return rule ? { index, rule } : null;
+  }).filter(Boolean);
+  let guard = 0;
+  while (messageCharacters(messages) > maximum && guard < 200) {
+    guard += 1;
+    const candidates = shrinkable.map(({ index, rule }) => ({
+      index,
+      rule,
+      current: String(messages[index].content ?? '').length,
+      reducible: Math.max(0, String(messages[index].content ?? '').length - rule.minimum)
+    })).filter((entry) => entry.reducible > 0)
+      .sort((left, right) => left.rule.priority - right.rule.priority || right.reducible - left.reducible);
+    if (candidates.length === 0) break;
+    const candidate = candidates[0];
+    const overflow = messageCharacters(messages) - maximum;
+    const reduction = Math.min(candidate.reducible, Math.max(overflow, Math.ceil(candidate.reducible * 0.35)));
+    const target = candidate.current - reduction;
+    messages[candidate.index].content = truncateResponseData(messages[candidate.index].content, target);
+  }
+
+  const finalCharacters = messageCharacters(messages);
+  if (finalCharacters > maximum) return request;
+  return createAIRequest({
+    ...request,
+    messages,
+    metadata: {
+      ...(request.metadata ?? {}),
+      responseCompositionInputPreflight: Object.freeze({
+        applied: true,
+        originalCharacters,
+        finalCharacters,
+        maxInputCharacters: maximum,
+        canonicalUserMessagePreserved: true
+      })
+    }
+  });
 }
 
 async function withTimeout(operation, timeoutMs) {
@@ -123,7 +195,7 @@ export function createAIRouter({
     const provider = providerMap.get(model.provider);
     if (!provider) throw new AIProviderError(`AI provider is not registered: ${model.provider}`, { code: 'AI_PROVIDER_NOT_REGISTERED' });
     let lastError;
-    let activeRequest = request;
+    let activeRequest = preflightResponseCompositionInput(request, policy);
 
     for (let attempt = 1; attempt <= maxRetries + 1; attempt += 1) {
       enforcePolicy({ model, request: activeRequest, role });

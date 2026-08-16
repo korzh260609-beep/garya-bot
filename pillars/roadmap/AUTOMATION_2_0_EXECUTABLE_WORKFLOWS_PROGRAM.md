@@ -1,6 +1,6 @@
 # SG Automation 2.0 — Executable Workflows Program
 
-Status: IMPLEMENTATION IN PROGRESS — AW2.1–AW2.4 IMPLEMENTED / CI-VERIFIED; AW2.5 NEXT
+Status: IMPLEMENTATION IN PROGRESS — AW2.1–AW2.5 IMPLEMENTED / CI-VERIFIED; AW2.6 NEXT
 
 ## Goal
 
@@ -64,10 +64,26 @@ Regression coverage: `tests/workflowExecutionSecurity.test.js`, `tests/automatio
 Evidence: code HEAD `9dece1b1f1b0ff277575453a7d7191ad1789c2a2`; SG 2.1 CI #8145 SUCCESS on that exact HEAD.
 Boundary: AW2.4 adds the mandatory execution-time security seam at the Workflow Executor boundary. It does not create generalized production workflow composition ahead of later Automation 2.0 stages and does not replace existing Identity, Access, Resource Authority, Action Gate, Credential Manager, ACS, Durable Worker or Delivery Router implementations.
 
-### AW2.5 — Autonomous read-only work — NEXT
-Allow approved read-only workflows to collect fresh data, retrieve approved sources, analyze and compose reports without requiring per-occurrence manual confirmation when policy allows.
+### AW2.5 — Autonomous read-only work — IMPLEMENTED / CI-VERIFIED
+Approved autonomous read-only workflows can execute without per-occurrence manual confirmation only inside an explicit deterministic policy envelope.
 
-### AW2.6 — State-changing execution envelope
+Implementation rules:
+- autonomy is typed workflow policy (`executionPolicy.autonomousReadOnly === true`), never phrase/keyword matching;
+- per-occurrence confirmation bypass is allowed only when `executionPolicy.confirmationRequired === false` is explicit;
+- the autonomous read-only allowlist is closed to `collect`, `retrieve`, `analyze`, `compose`;
+- `invoke-capability`, `deliver`, missing/unsupported types and any other step class are denied by the AW2.5 policy;
+- every autonomous read-only step must remain explicitly protected (`step.security.protected === true`), so AW2.4 independently re-checks current Identity, access, Resource Authority, Action Gate, credentials and permission health immediately before every handler;
+- invalid autonomy policy fails closed before the affected handler is invoked and persists a denied step outcome;
+- successful autonomy-policy evidence is merged with the existing per-step security/source evidence;
+- workflows that do not request autonomous read-only execution keep their existing behavior, preserving legacy self-notification compatibility;
+- no scheduler, queue, worker, authority, credential or confirmation stack is duplicated or bypassed.
+
+Implementation: `src/automation/workflowReadOnlyAutonomy.js`, `src/automation/workflowExecutor.js`, exported through `src/automation/index.js`.
+Regression coverage: `tests/workflowReadOnlyAutonomy.test.js` plus existing AW2.3/AW2.4 workflow executor coverage.
+Evidence: code HEAD `03dc1903fc17ae605bc96503f1eb2fac8ced8d4d`; SG 2.1 CI #8156 SUCCESS on that exact HEAD.
+Boundary: AW2.5 defines and enforces autonomous read-only policy only. It does not introduce state-changing/external autonomous execution; that remains AW2.6.
+
+### AW2.6 — State-changing execution envelope — NEXT
 State-changing/external steps require explicit bounded execution policy: capability, resource scope, action class, risk and confirmation/delegation semantics. Scheduled execution cannot broaden authorization.
 
 ### AW2.7 — Automation update capability

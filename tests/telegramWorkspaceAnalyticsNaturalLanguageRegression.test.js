@@ -27,6 +27,7 @@ test('analytics period is canonically taken from TemporalService and output is h
           workspaceId: workspace.workspaceId,
           operation: 'analytics.snapshot',
           argumentsJson: '{}',
+          temporalRequested: true,
           summary: 'Показать аналитику за сегодня'
         }) };
       }
@@ -90,6 +91,7 @@ test('analytics period is canonically taken from TemporalService and output is h
   assert.match(sent[0].text, /создано опросов: 2/);
   assert.match(sent[0].text, /создано тестов: 2/);
   assert.match(sent[0].text, /уникальных участников взаимодействий: 2/);
+  assert.match(sent[0].text, /Период UTC:/);
   assert.match(sent[0].text, /persisted records\/events/);
   assert.equal(sent[0].text.includes('"recordCounts"'), false);
 });
@@ -108,6 +110,7 @@ test('analytics with a temporal expression fails closed when user timezone is un
           workspaceId: workspace.workspaceId,
           operation: 'analytics.snapshot',
           argumentsJson: '{}',
+          temporalRequested: true,
           summary: 'Показать аналитику за сегодня'
         }) };
       }
@@ -167,4 +170,68 @@ test('analytics with a temporal expression fails closed when user timezone is un
   assert.equal(sent.length, 1);
   assert.match(sent[0].text, /часовой пояс/);
   assert.match(sent[0].text, /не буду подменять/);
+});
+
+test('analytics temporal request never falls back to all-time when TemporalService resolution fails', async () => {
+  const workspace = { workspaceId: 'telegram:workspace:100', telegramChatId: '-100100', workspaceType: 'supergroup', title: 'Sandbox' };
+  const sent = [];
+  let analyticsCalls = 0;
+
+  const service = createTelegramWorkspaceOperationsNaturalLanguageService({
+    aiRouter: {
+      async route() {
+        return { text: JSON.stringify({
+          kind: 'operation',
+          workspaceId: workspace.workspaceId,
+          operation: 'analytics.snapshot',
+          argumentsJson: '{}',
+          temporalRequested: true,
+          summary: 'Показать аналитику за выбранный период'
+        }) };
+      }
+    },
+    botClient: {
+      async sendMessage(input) { sent.push(input); return { message_id: 3 }; },
+      async editMessageText() { return true; },
+      async answerCallbackQuery() { return true; }
+    },
+    identityResolver: async () => ({ identityContext: { globalUserId: 'user:owner' } }),
+    workspaceRegistry: {
+      async listWorkspaces() { return [workspace]; },
+      async resolveTelegramChatId() { return null; },
+      async getWorkspace() { return workspace; }
+    },
+    authorityResolver: { async verify() { return { allowed: true }; } },
+    operationsService: {
+      core: { store: { async listRecords() { return []; } } },
+      temporalService: {
+        async resolveForUser() {
+          throw Object.assign(new Error('timezone store unavailable'), { code: 'timezone-store-unavailable' });
+        }
+      },
+      async analyticsSnapshot() {
+        analyticsCalls += 1;
+        return { metrics: {} };
+      }
+    },
+    pendingStore: pendingStore(),
+    projectScope: 'sg2.1',
+    idFactory: (() => { let n = 0; return () => String(++n); })()
+  });
+
+  const result = await service.handleUpdate({
+    update_id: 902,
+    message: {
+      message_id: 12,
+      chat: { id: 42, type: 'private' },
+      from: { id: 42, first_name: 'Owner', language_code: 'ru' },
+      text: 'Покажи аналитику по Sandbox за выбранный период'
+    }
+  }, { semanticRoute: { destination: 'telegram-workspace-manager', workspaceOperation: 'operate' } });
+
+  assert.equal(result.outcome, 'analytics-period-unresolved');
+  assert.equal(analyticsCalls, 0);
+  assert.equal(sent.length, 1);
+  assert.match(sent[0].text, /TemporalService/);
+  assert.match(sent[0].text, /за всё время/);
 });

@@ -39,6 +39,14 @@ function workflow() {
   };
 }
 
+function validationResult(definition) {
+  return {
+    valid: true,
+    validator: 'createWorkflowDefinition',
+    schemaVersion: definition.schemaVersion
+  };
+}
+
 function versionHistoryStore() {
   let current = {
     workflow: structuredClone(workflow()),
@@ -54,6 +62,7 @@ function versionHistoryStore() {
     patchSummary: { fields: [], lifecycleAction: null, registration: true },
     actorGlobalUserId: actor.globalUserId,
     provenance: structuredClone(current.workflow.provenance),
+    validationResult: validationResult(current.workflow),
     gateResult: { allowed: true, reason: 'workflow-registration' },
     createdAt: current.workflow.createdAt
   }];
@@ -87,6 +96,7 @@ function versionHistoryStore() {
         patchSummary: structuredClone(input.patchSummary),
         actorGlobalUserId: input.actor.globalUserId,
         provenance: structuredClone(input.provenance),
+        validationResult: validationResult(input.nextWorkflow),
         gateResult: structuredClone(input.gateResult),
         createdAt: input.nextWorkflow.updatedAt
       });
@@ -110,7 +120,7 @@ function authorization() {
   };
 }
 
-test('AW2.10 preserves an inspectable monotonic version chain with actor timestamp provenance patch and gate evidence', async () => {
+test('AW2.10 preserves an inspectable monotonic version chain with actor timestamp provenance validation patch and gate evidence', async () => {
   const store = versionHistoryStore();
   const timestamps = [
     new Date('2026-08-16T18:00:00.000Z'),
@@ -161,6 +171,11 @@ test('AW2.10 preserves an inspectable monotonic version chain with actor timesta
   assert.deepEqual(history[0].patchSummary.fields, ['delivery']);
   assert.equal(history[0].provenance.requestId, 'request:aw2.10:v3');
   assert.equal(history[0].provenance.traceId, 'trace:aw2.10:v3');
+  assert.deepEqual(history[0].validationResult, {
+    valid: true,
+    validator: 'createWorkflowDefinition',
+    schemaVersion: 1
+  });
   assert.equal(history[0].gateResult.allowed, true);
   assert.equal(history[0].gateResult.reason, 'aw2.10-gate');
   assert.equal(history[0].workflow.version, 3);

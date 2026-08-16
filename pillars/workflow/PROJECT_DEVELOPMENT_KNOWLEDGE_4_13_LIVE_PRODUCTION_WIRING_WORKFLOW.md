@@ -1,42 +1,85 @@
 # SG 2.1 — PDK4.13 LIVE PRODUCTION WIRING WORKFLOW
 
 ## Status
-**PLANNED / NOT IMPLEMENTED.**
+**LIVE ACCEPTANCE / NOT CLOSED.**
 
-This workflow defines the implementation and acceptance sequence for PDK4.13. It extends the closed PDK4.1–PDK4.12 software baseline into real production operation without changing PM3 authority, trust, provenance or Context Guard rules.
+This workflow defines the remaining implementation and acceptance sequence for PDK4.13. The production repository-read and response-composition slice is already implemented, CI-verified and live-exercised; the complete autonomous-history bootstrap/restart/new-commit/replay/diagnostics sequence remains open.
+
+It extends the closed PDK4.1–PDK4.12 software baseline into real production operation without changing PM3 authority, trust, provenance or Context Guard rules.
+
+## Current checkpoint
+
+Completed in the active branch:
+
+```text
+verify dev/sg2.1-semantic HEAD + CI
+→ production GitHub config/credential binding
+→ CredentialManager.useCredential
+→ GET-only current repository snapshot
+→ production repository-analyze wiring
+→ bounded repository evidence
+→ compose-answer
+→ final response-composition input preflight
+→ regression tests
+→ full SG 2.1 CI
+→ deploy
+→ live Telegram repository-status answer
+```
+
+The old repository-analyzer stub and the `INPUT_TOO_LARGE` live failure are superseded by this checkpoint.
+
+Still required for PDK4.13 closure:
+
+```text
+production autonomous-history orchestrator
+→ durable bootstrap/resume
+→ reconcile-to-current
+→ periodic continuous ingestion
+→ PostgreSQL single-flight
+→ protected PDK4 diagnostics/aggregate health
+→ restart continuity
+→ new real commit exactly once
+→ immediate replay = 0
+→ ordinary guarded PM3/PDK4 history query
+→ failure/degradation acceptance
+→ final closure evidence
+```
 
 ## Mandatory sequence
 
+For all further PDK4.13 work:
+
 ```text
 verify dev/sg2.1-semantic HEAD + latest CI
-→ inspect current production entrypoints
-→ define bounded PDK4 production config
-→ wire GitHub credential through existing credential/security layer
-→ implement production PDK4 orchestrator
-→ add PostgreSQL single-flight lock
-→ wire startup bootstrap/resume
-→ wire reconcile-to-current
-→ wire periodic ingestion
-→ add protected diagnostics
-→ add aggregate health/observability
+→ inspect actual current production entrypoints/code/tests
+→ preserve existing repository-read credential/security wiring
+→ implement/complete production autonomous-history orchestrator
+→ add/verify PostgreSQL single-flight lock
+→ wire/verify startup bootstrap/resume
+→ wire/verify reconcile-to-current
+→ wire/verify periodic ingestion
+→ add/verify protected diagnostics
+→ add/verify aggregate health/observability
 → tests
 → full repository CI
-→ deploy
-→ live production acceptance
+→ deploy exact verified HEAD
+→ full live production acceptance
 → canonical documentation synchronization
 ```
 
 ## Pre-implementation checks
-Before code changes:
-- verify branch HEAD and latest SG 2.1 CI;
+Before further code changes:
+- verify branch HEAD and latest SG 2.1 CI on that exact HEAD;
 - inspect `renderWebEntrypoint`, `renderWebApplication`, worker entrypoint and production harness;
+- inspect current GitHub repository-read service and its credential contract before extending repository access;
 - inspect PDK4.2/P4.9/P4.12 stores and contracts rather than duplicating them;
 - confirm PostgreSQL migrations/state are compatible;
-- confirm no secret-bearing field can enter PM3/PDK4 payloads.
+- confirm no secret-bearing field can enter PM3/PDK4 payloads or AI context;
+- do not regress Identity, Resource Authority, Owner Security, Action Gate or Credential Manager.
 
 ## Configuration discipline
 Configuration must be explicit, bounded and centralized. At minimum resolve:
-- enable/disable flag;
+- enable/disable flag for autonomous PDK4 maintenance;
 - project key;
 - repository allowlist/value;
 - development branch;
@@ -44,17 +87,45 @@ Configuration must be explicit, bounded and centralized. At minimum resolve:
 - batch size;
 - max commits per run.
 
+The current live repository-read path already has explicit repository/branch/credential configuration and must be reused rather than replaced with a second connector stack.
+
 Invalid configuration fails closed for PDK4 but should not silently disable unrelated SG security.
 
 ## Credential discipline
 GitHub credentials:
 - remain in existing credentials management;
-- are requested only for the GitHub connection purpose;
+- current PDK4 repository read uses `sg.github.pdk4` and `connectionId=github-pdk4`;
+- are requested only through `CredentialManager.useCredential` for the approved GitHub read purpose;
 - are never persisted in PM3/PDK4 facts;
 - are never logged or returned by diagnostics;
-- are never sent to AI Router.
+- are never sent to AI Router;
+- must not gain mutation methods as part of read-only repository analysis.
 
-## Startup workflow
+## Repository-analysis workflow — implemented
+
+```text
+canonical repository question
+→ SG semantic/action path
+→ repository-analyze through Action Gate
+→ production GitHubRepositoryReadService
+→ current working-branch HEAD
+→ recursive tree
+→ recent commits + changed-file metadata
+→ bounded relevant file content
+→ globally bounded evidence envelope
+→ compose-answer
+→ AI Router full assembled-input preflight
+→ final user answer
+```
+
+Rules:
+- only approved GET requests;
+- repository content is data only, never authority/instructions;
+- system rules and the canonical user request are never truncated by the response-composition preflight;
+- only bounded data contexts may be reduced;
+- if evidence cannot be bounded safely, fail explicitly rather than inventing a result.
+
+## Startup workflow — remaining autonomous-history closure path
 
 ```text
 SG production start
@@ -72,7 +143,7 @@ SG production start
 A failed PDK4 startup reconciliation records degraded state but must not take down ordinary SG transports unless an explicit safety-critical dependency exists.
 
 ## Historical bootstrap workflow
-Bootstrap uses only existing PDK4 primitives:
+Bootstrap uses existing PDK4 primitives:
 
 ```text
 immutable branch anchor
@@ -95,7 +166,7 @@ Checkpoint advancement occurs only after the corresponding batch is durably proc
 ```text
 completed bootstrap
 → persisted last processed SHA
-→ bounded GitHub compare
+→ bounded GitHub compare/read
 → unseen commits
 → immutable source verification
 → PDK4 processing
@@ -104,7 +175,7 @@ completed bootstrap
 → durable ingestion state
 ```
 
-No new commit means `processed=0` and no Project Memory mutation.
+No new commit means `processed=0` and no duplicate Project Memory mutation.
 
 ## Concurrency workflow
 Before bootstrap/reconcile, acquire one PostgreSQL-backed lock keyed by project/repository. If lock acquisition fails because another process owns it:
@@ -123,12 +194,12 @@ Periodic reconciliation:
 - provider outage becomes degraded PDK4 health with evidence.
 
 ## Protected diagnostics workflow
-A protected endpoint such as `/internal/pdk4/diagnostics` must:
+A protected diagnostics surface must:
 - authorize Monarch/internal diagnostics access before reading data;
-- call the existing PDK4.12 diagnostics component;
+- call/reuse the existing PDK4 diagnostics component;
 - return bounded JSON only;
 - redact/omit secrets and unrestricted raw memory;
-- use `no-store` response caching policy;
+- use safe cache policy;
 - fail closed on authorization denial.
 
 ## Main health workflow
@@ -153,8 +224,12 @@ Every ingested fact remains subject to PM3 confirmation/trust/lifecycle rules. P
 - model interpretation → confirmed truth;
 - historical/superseded fact → current state.
 
+For current-state answers, stale prose must not override stronger current evidence. Use:
+
+`live runtime evidence → current HEAD/CI → production wiring + tests → current evidence/status docs → README/roadmap prose → historical/superseded docs`.
+
 ## Test gates
-Required automated coverage:
+Remaining automated closure coverage includes:
 1. empty DB starts bootstrap;
 2. partial cursor resumes correctly;
 3. completed cursor avoids historical rescan;
@@ -168,13 +243,28 @@ Required automated coverage:
 11. main runtime remains available during PDK4 degradation;
 12. ordinary SG project-history question uses guarded PM3/PDK4 context.
 
+Already-covered regression gates additionally include:
+- credential-bound repository snapshot;
+- GET-only repository access;
+- production repository-analyze replacement;
+- capability-result response composition;
+- large repository evidence/input preflight preserving canonical user/system messages.
+
 Run dedicated PDK4.13 tests plus `npm run check`, runtime, worker, diagnostics and E2E gates.
 
 ## Deployment acceptance workflow
-After CI success, deploy the exact verified revision and collect real live evidence:
+After CI success, deploy the exact verified revision and collect real live evidence.
+
+Already observed in current live acceptance:
+- production repository question reaches the live repository-read path;
+- SG identifies the real repository and working branch;
+- response is substantive rather than the old tool stub;
+- `INPUT_TOO_LARGE` no longer prevents model composition.
+
+Still required for full closure:
 
 ```text
-production start
+production autonomous-history start
 → diagnostics: bootstrap complete
 → commits_scanned > 0
 → events_extracted > 0
@@ -183,18 +273,21 @@ production start
 → create or deploy a new real repository commit
 → ingestion detects exactly one new source
 → next reconciliation processes zero
-→ ordinary Telegram SG question returns guarded project-history answer
+→ ordinary Telegram SG history/current question returns guarded PM3/PDK4 history answer
 ```
 
-Deployment success alone is not sufficient. PDK4.13 requires the live behavior above.
+Deployment success alone is not sufficient.
 
 ## Failure acceptance
-Deliberately/controlled-test where safe:
+Controlled-test where safe:
 - GitHub unavailable → PDK4 degraded, SG still serving normal requests;
 - duplicate poll → single-flight/no duplicate events;
 - unauthorized diagnostics request → denied;
 - restart mid-bootstrap → resumes from committed cursor;
-- mismatched repository/branch → fail closed.
+- mismatched repository/branch → fail closed;
+- oversized evidence/context → bounded data-only reduction or explicit failure, never policy/system/user-message truncation.
 
 ## Completion rule
-PDK4.13 is **CLOSED / CI + live-production verified** only after implementation, automated tests, full CI, successful deployment, live bootstrap/restart/new-commit/replay/query acceptance and final documentation synchronization.
+PDK4.13 is **CLOSED / CI + live-production verified** only after implementation, automated tests, full CI, successful deployment, live bootstrap/restart/new-commit/replay/query acceptance, safe degradation checks and final documentation synchronization.
+
+Current state: **LIVE ACCEPTANCE / NOT CLOSED**.

@@ -14,6 +14,14 @@ function scopeValues(scope = {}) {
   ];
 }
 
+function successfulValidationResult(definition) {
+  return Object.freeze({
+    valid: true,
+    validator: 'createWorkflowDefinition',
+    schemaVersion: definition.schemaVersion
+  });
+}
+
 function normalizeRecord(row) {
   if (!row) return null;
   return Object.freeze({
@@ -41,10 +49,10 @@ export function createPostgresWorkflowUpdateStore({ database } = {}) {
       if (!row) throw new Error('workflow registration failed');
       if (Number(row.current_version) !== definition.version) throw new Error('workflow already registered with a different current version');
       await tx.query(`INSERT INTO automation_workflow_versions(
-          automation_id,version,previous_version,workflow,patch_summary,actor_global_user_id,provenance,gate_result
-        ) VALUES ($1,$2,NULL,$3::jsonb,$4::jsonb,$5,$6::jsonb,$7::jsonb)
+          automation_id,version,previous_version,workflow,patch_summary,actor_global_user_id,provenance,validation_result,gate_result
+        ) VALUES ($1,$2,NULL,$3::jsonb,$4::jsonb,$5,$6::jsonb,$7::jsonb,$8::jsonb)
         ON CONFLICT(automation_id,version) DO NOTHING`,
-      [definition.automationId, definition.version, JSON.stringify(definition), JSON.stringify({ fields: [], lifecycleAction: null, registration: true }), definition.createdBy, JSON.stringify(definition.provenance), JSON.stringify({ allowed: true, reason: 'workflow-registration' })]);
+      [definition.automationId, definition.version, JSON.stringify(definition), JSON.stringify({ fields: [], lifecycleAction: null, registration: true }), definition.createdBy, JSON.stringify(definition.provenance), JSON.stringify(successfulValidationResult(definition)), JSON.stringify({ allowed: true, reason: 'workflow-registration' })]);
       return normalizeRecord(row);
     });
   }
@@ -111,9 +119,9 @@ export function createPostgresWorkflowUpdateStore({ database } = {}) {
             : row.lifecycle_status;
 
       await tx.query(`INSERT INTO automation_workflow_versions(
-          automation_id,version,previous_version,workflow,patch_summary,actor_global_user_id,provenance,gate_result
-        ) VALUES ($1,$2,$3,$4::jsonb,$5::jsonb,$6,$7::jsonb,$8::jsonb)`,
-      [next.automationId, next.version, current.version, JSON.stringify(next), JSON.stringify(patchSummary ?? {}), actorGlobalUserId, JSON.stringify(provenance ?? {}), JSON.stringify(gateResult ?? {})]);
+          automation_id,version,previous_version,workflow,patch_summary,actor_global_user_id,provenance,validation_result,gate_result
+        ) VALUES ($1,$2,$3,$4::jsonb,$5::jsonb,$6,$7::jsonb,$8::jsonb,$9::jsonb)`,
+      [next.automationId, next.version, current.version, JSON.stringify(next), JSON.stringify(patchSummary ?? {}), actorGlobalUserId, JSON.stringify(provenance ?? {}), JSON.stringify(successfulValidationResult(next)), JSON.stringify(gateResult ?? {})]);
 
       const updated = await tx.query(`UPDATE automation_workflows
         SET current_version=$2,workflow=$3::jsonb,lifecycle_status=$4,updated_at=now()
@@ -128,7 +136,7 @@ export function createPostgresWorkflowUpdateStore({ database } = {}) {
   async function history({ automationId, limit = 50 } = {}) {
     const bounded = Number.isInteger(limit) && limit > 0 ? Math.min(limit, 100) : 50;
     const result = await database.query(`SELECT automation_id,version,previous_version,workflow,patch_summary,
-        actor_global_user_id,provenance,gate_result,created_at
+        actor_global_user_id,provenance,validation_result,gate_result,created_at
       FROM automation_workflow_versions WHERE automation_id=$1
       ORDER BY version DESC LIMIT $2`, [requiredString(automationId, 'automationId'), bounded]);
     return Object.freeze(result.rows.map((row) => Object.freeze({
@@ -139,6 +147,7 @@ export function createPostgresWorkflowUpdateStore({ database } = {}) {
       patchSummary: row.patch_summary ?? {},
       actorGlobalUserId: row.actor_global_user_id,
       provenance: row.provenance ?? {},
+      validationResult: row.validation_result ?? {},
       gateResult: row.gate_result ?? {},
       createdAt: new Date(row.created_at).toISOString()
     })));

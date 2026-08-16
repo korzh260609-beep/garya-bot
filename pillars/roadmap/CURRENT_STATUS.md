@@ -61,9 +61,9 @@ Canonical doc: `17_RENDER_DEPLOYMENT.md`.
 
 ## Automation 2.0 — Executable Workflows
 
-**ACCEPTED ARCHITECTURE / IMPLEMENTATION IN PROGRESS — AW2.1–AW2.8 IMPLEMENTED / CI-VERIFIED; AW2.9 NEXT; NOT DEPLOYED / NOT LIVE-VERIFIED AS AUTOMATION 2.0.**
+**ACCEPTED ARCHITECTURE / IMPLEMENTATION IN PROGRESS — AW2.1–AW2.8 IMPLEMENTED / CI-VERIFIED; AW2.9 IMPLEMENTED / CI-PENDING; AW2.10 NEXT; NOT DEPLOYED / NOT LIVE-VERIFIED AS AUTOMATION 2.0.**
 
-AW2.1–AW2.8 now provide the additive generalized workflow foundation above the existing durable automation substrate:
+AW2.1–AW2.9 now provide the additive generalized workflow foundation above the existing durable automation substrate:
 - versioned workflow contract and backward-compatible `self-notification` adapter;
 - six canonical step types (`collect`, `retrieve`, `analyze`, `compose`, `invoke-capability`, `deliver`);
 - ordered Workflow Executor with bounded handoff and persisted per-step outcomes/evidence;
@@ -71,7 +71,8 @@ AW2.1–AW2.8 now provide the additive generalized workflow foundation above the
 - explicit autonomous read-only policy closed to `collect`/`retrieve`/`analyze`/`compose`, with every autonomous step still protected by current runtime security;
 - bounded AW2.6 state-changing execution envelope for `invoke-capability`, requiring explicit capability, resource scope, action class, risk and confirmation/delegation semantics before handler invocation;
 - canonical AW2.7 `automation-update` path that mutates the same `automationId`, creates monotonic PostgreSQL workflow versions/history, atomically commits workflow/runtime mutation, and reuses the existing scheduler/PostgresTaskQueue;
-- AW2.8 structured semantic target resolution inside canonical scope, selecting exactly one existing automation without requiring the user to know internal IDs.
+- AW2.8 structured semantic target resolution inside canonical scope, selecting exactly one existing automation without requiring the user to know internal IDs;
+- AW2.9 regression coverage proving updates reuse the same canonical automation/task/schedule registrations and do not create/register duplicates.
 
 AW2.6 does **not** turn the stored envelope into authority. A structurally valid state-changing step still passes the existing AW2.4 runtime checks immediately before its handler, so lost access/authority, Action Gate denial, unavailable credentials or permission-health failure remains terminally denied. Scheduled/delegated execution cannot broaden current authorization. No second scheduler, queue, worker, identity, authority, credential, confirmation or ACS stack was created.
 
@@ -94,11 +95,20 @@ AW2.8 implementation/closure evidence:
 - regression coverage in `tests/workflowSemanticTargetResolution.test.js` covers unique resolution, zero match, ambiguity, scope isolation and invented/unsupported selector rejection;
 - implementation HEAD `3e4aa1732f17f2dd495da219bdd7f490e3dd503e` passed exact-head SG 2.1 CI #8226, including `npm run check`, web start, worker start and diagnostics.
 
+AW2.9 implementation evidence, closure pending exact-HEAD CI:
+- runtime already preserves `automationId` via canonical workflow patching/versioning in `src/automation/workflowUpdate.js`;
+- one-shot trigger mutation reuses the existing `taskId` through `PostgresTaskQueue.updateScheduled()`;
+- recurring trigger mutation reuses the existing `scheduleId` through scheduler `update()`;
+- content/template synchronization reuses the already-associated durable task;
+- `tests/workflowPatchNotDuplicate.test.js` explicitly fails if update invokes task/schedule `create` or `register` paths and verifies stable `automationId`, `taskId`, `scheduleId` plus workflow version `1 → 2`;
+- regression implementation commit: `c0205686904d119950733c1fe96c70ed20f3ee59` on `dev/sg2.1-semantic`;
+- AW2.9 remains **NOT CLOSED** until SG 2.1 CI succeeds on the final documentation-synchronized HEAD.
+
 Boundary:
 - Automation 2.0 generalized workflows are not yet production-wired/live-accepted as a complete program;
 - `deliver` remains on the existing Delivery Router / execution-security boundary and is not reclassified by AW2.6 as a generic capability mutation, preserving the established self-notification compatibility path;
 - AW2.8 resolves existing targets only and does not broaden authority, invent IDs/attributes, perform fuzzy phrase matching or change AW2.7 mutation semantics;
-- AW2.9 is next and owns the explicit patch-not-duplicate stage; fresh collection, dynamic composition, idempotency and live acceptance remain later stages.
+- AW2.9 adds patch-not-duplicate regression proof without rewriting production runtime; AW2.10 is next; fresh collection, dynamic composition, idempotency and live acceptance remain later stages.
 
 Canonical docs:
 - `../architecture/AUTOMATION_2_0_EXECUTABLE_WORKFLOWS.md`

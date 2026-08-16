@@ -90,10 +90,13 @@ test('AW2.9 recurring update patches the same automation/task/schedule and never
   };
   const store = atomicStore(record);
   const forbidden = [];
+  const queueCalls = [];
+  const schedulerCalls = [];
   const queue = {
     async create(input) { forbidden.push(['queue.create', input]); throw new Error('duplicate task creation is forbidden'); },
     async register(input) { forbidden.push(['queue.register', input]); throw new Error('duplicate task registration is forbidden'); },
     async syncWorkflowTask(input) {
+      queueCalls.push(input);
       return { task_id: input.taskId, status: 'scheduled' };
     }
   };
@@ -101,6 +104,7 @@ test('AW2.9 recurring update patches the same automation/task/schedule and never
     async create(input) { forbidden.push(['scheduler.create', input]); throw new Error('duplicate schedule creation is forbidden'); },
     async register(input) { forbidden.push(['scheduler.register', input]); throw new Error('duplicate schedule registration is forbidden'); },
     async update(input) {
+      schedulerCalls.push(input);
       return { scheduleId: input.scheduleId, status: 'active' };
     }
   };
@@ -136,7 +140,14 @@ test('AW2.9 recurring update patches the same automation/task/schedule and never
   assert.equal(result.workflow.automationId, record.workflow.automationId);
   assert.equal(result.workflow.version, 2);
   assert.equal(result.schedule.scheduleId, record.scheduleId);
-  assert.equal(result.taskSync.taskId, record.taskId);
+  assert.equal(queueCalls.length, 1);
+  assert.equal(queueCalls[0].taskId, record.taskId);
+  assert.equal(queueCalls[0].workflow.automationId, record.workflow.automationId);
+  assert.equal(queueCalls[0].workflow.version, 2);
+  assert.equal(schedulerCalls.length, 1);
+  assert.equal(schedulerCalls[0].scheduleId, record.scheduleId);
+  assert.equal(schedulerCalls[0].state.automationId, record.workflow.automationId);
+  assert.equal(schedulerCalls[0].state.workflowVersion, 2);
   assert.equal(store.commits[0].nextWorkflow.automationId, record.workflow.automationId);
   assert.equal(store.commits[0].nextWorkflow.version, 2);
 });

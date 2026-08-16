@@ -1,6 +1,6 @@
 # SG Automation 2.0 — Executable Workflows Program
 
-Status: IMPLEMENTATION IN PROGRESS — AW2.1–AW2.5 IMPLEMENTED / CI-VERIFIED; AW2.6 NEXT
+Status: IMPLEMENTATION IN PROGRESS — AW2.1–AW2.6 IMPLEMENTED / CI-VERIFIED; AW2.7 NEXT
 
 ## Goal
 
@@ -83,10 +83,28 @@ Regression coverage: `tests/workflowReadOnlyAutonomy.test.js` plus existing AW2.
 Evidence: code HEAD `03dc1903fc17ae605bc96503f1eb2fac8ced8d4d`; SG 2.1 CI #8156 SUCCESS on that exact HEAD.
 Boundary: AW2.5 defines and enforces autonomous read-only policy only. It does not introduce state-changing/external autonomous execution; that remains AW2.6.
 
-### AW2.6 — State-changing execution envelope — NEXT
-State-changing/external steps require explicit bounded execution policy: capability, resource scope, action class, risk and confirmation/delegation semantics. Scheduled execution cannot broaden authorization.
+### AW2.6 — State-changing execution envelope — IMPLEMENTED / CI-VERIFIED
+State-changing capability invocation now requires an explicit bounded execution envelope before the handler can be resolved or invoked. The envelope is structural policy only; it never grants runtime authority and never replaces AW2.4.
 
-### AW2.7 — Automation update capability
+Implementation rules:
+- the current state-changing canonical step class is closed to `invoke-capability`; no keyword/phrase classification is used;
+- every such step must remain `security.protected === true`;
+- every such step must carry explicit `executionEnvelope.capability`, non-empty `resourceScope`, `actionClass`, `risk`, `confirmationPolicy` and `delegationPolicy`;
+- an explicit step capability, when present, must equal the envelope capability;
+- `per-execution` confirmation requires workflow `executionPolicy.confirmationRequired === true` and no delegation;
+- delegated scheduled execution requires workflow `confirmationRequired === false`, `delegationPolicy === 'bounded'` and an explicit `delegationRef`;
+- a valid envelope contributes audit evidence but does not authorize the action: AW2.4 still performs current Identity, access, Resource Authority, Action Gate, credential and permission-health re-checks immediately before the protected handler;
+- loss of current authority denies the action even when a stored bounded delegation/envelope remains structurally valid;
+- invalid/missing envelope fails closed before the state-changing handler is invoked and persists a denied outcome;
+- `deliver` remains on the existing Delivery Router / execution-security boundary and is not reclassified as a generic capability mutation in AW2.6, preserving the established self-notification compatibility path;
+- no new scheduler, worker, queue, confirmation service, authority stack, credential path or ACS bypass is introduced.
+
+Implementation: `src/automation/workflowStateChangeEnvelope.js`, `src/automation/workflowExecutor.js`, exported through `src/automation/index.js`.
+Regression coverage: `tests/workflowStateChangeEnvelope.test.js` plus the existing AW2.3/AW2.4/AW2.5 executor/security suites.
+Evidence: code HEAD `2fbde9b7c427b1fdf95b2605c7bc68bbf7a074d0`; SG 2.1 CI #8167 SUCCESS on that exact HEAD (`npm run check`, web start, worker start and diagnostics all successful).
+Boundary: AW2.6 defines and enforces the bounded state-changing execution envelope at the generalized Workflow Executor boundary. It does not production-wire new state-changing capabilities, grant autonomous authority, broaden resource scope, replace existing confirmation/action-gate semantics, or implement automation mutation; AW2.7 owns the automation-update path.
+
+### AW2.7 — Automation update capability — NEXT
 Introduce a canonical `automation-update` path able to modify workflow content as well as schedule fields.
 
 Supported changes:

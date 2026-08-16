@@ -74,12 +74,14 @@ export function createPostgresWorkflowUpdateStore({ database } = {}) {
     provenance,
     gateResult,
     patchSummary,
-    lifecycleAction = null
+    lifecycleAction = null,
+    runtimeMutation = null
   } = {}) {
     const current = createWorkflowDefinition(currentWorkflow);
     const next = createWorkflowDefinition(nextWorkflow);
     if (current.automationId !== next.automationId) throw new TypeError('automationId cannot change');
     if (next.version !== current.version + 1) throw new TypeError('workflow version must increment by exactly one');
+    if (runtimeMutation != null && typeof runtimeMutation !== 'function') throw new TypeError('runtimeMutation must be a function');
     const actorGlobalUserId = requiredString(actor?.globalUserId, 'actor.globalUserId');
 
     return database.transaction(async (tx) => {
@@ -87,6 +89,7 @@ export function createPostgresWorkflowUpdateStore({ database } = {}) {
       const row = locked.rows[0];
       if (!row || Number(row.current_version) !== Number(expectedVersion)) return null;
 
+      const runtimeResult = runtimeMutation ? await runtimeMutation(tx) : null;
       const lifecycleStatus = lifecycleAction === 'pause'
         ? 'paused'
         : lifecycleAction === 'resume'
@@ -104,7 +107,9 @@ export function createPostgresWorkflowUpdateStore({ database } = {}) {
         SET current_version=$2,workflow=$3::jsonb,lifecycle_status=$4,updated_at=now()
         WHERE automation_id=$1 AND current_version=$5 RETURNING *`,
       [next.automationId, next.version, JSON.stringify(next), lifecycleStatus, expectedVersion]);
-      return normalizeRecord(updated.rows[0] ?? null);
+      const record = normalizeRecord(updated.rows[0] ?? null);
+      if (!record) throw new Error('workflow optimistic update failed after lock');
+      return runtimeMutation ? Object.freeze({ record, runtimeResult }) : record;
     });
   }
 
@@ -127,5 +132,5 @@ export function createPostgresWorkflowUpdateStore({ database } = {}) {
     })));
   }
 
-  return Object.freeze({ register, resolve, commitMutation, history });
+  return Object.freeze({ register, resolve, commitMutation, history, atomicRuntimeMutation: true });
 }

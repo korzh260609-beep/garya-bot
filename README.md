@@ -8,7 +8,9 @@ This branch is the active development and production source for SG 2.1.
 
 ## Current canonical status
 
-Status statements in this README describe the current active branch. Historical checkpoints, `old/` and `archive/` documents remain historical evidence and must not override newer code/CI/live evidence.
+**Canonical current-status index: `pillars/roadmap/CURRENT_STATUS.md`.**
+
+Status statements in this README describe the current active branch. Historical checkpoints, `old/` and `archive/` documents remain historical evidence and must not override newer code/CI/live evidence. Large roadmap/program documents remain authoritative for requirements and acceptance contracts, but an old lifecycle label inside them does not override the current-status index plus stronger implementation/CI/live evidence.
 
 Evidence priority for current-state claims:
 
@@ -43,8 +45,11 @@ When sources conflict, SG must qualify the conflict instead of presenting stale 
   - PDK4.13 remains open until its full production acceptance/closure criteria are explicitly satisfied.
 - Telegram Workspace Manager:
   - TWM1.1–TWM1.11 have implementation/evidence records in the repository;
-  - **TWM1.12 Production E2E / Live Acceptance is not the end of the active TWM work; TWM1.14 and TWM1.15 reached live acceptance work and remain NOT CLOSED according to the latest active checkpoint evidence.**
-  - do not regress to the obsolete statement “TWM1.10 is next”.
+  - TWM1.12 has advanced through real production/live acceptance and is not a future-only “NEXT” stage;
+  - TWM1.13 Mini App is implemented and live-exercised for the confirmed management flows;
+  - **TWM1.14 and TWM1.15 are implementation/live-acceptance work in progress and remain NOT CLOSED.**
+  - lifecycle labels in the original large TWM program saying TWM1.12 is next or TWM1.13–1.15 are merely planned are superseded for current-state reporting; their detailed requirements/gates remain valid.
+- SG Access Control System 1.0 — **PLANNED / NOT IMPLEMENTED** unless newer code/CI/live evidence explicitly supersedes that state.
 
 ## Requirements
 
@@ -81,6 +86,7 @@ Core invariants:
 
 ## Active status documents
 
+- `pillars/roadmap/CURRENT_STATUS.md` — canonical current-state index; read this before interpreting older lifecycle labels in large program documents.
 - `pillars/roadmap/16_18_MONARCH_CONTROL_OWNER_SECURITY.md`
 - `pillars/architecture/MONARCH_OWNER_SECURITY.md`
 - `pillars/roadmap/17_RENDER_DEPLOYMENT.md`
@@ -88,8 +94,10 @@ Core invariants:
 - `pillars/roadmap/PROJECT_DEVELOPMENT_KNOWLEDGE_4_13_LIVE_PRODUCTION_WIRING.md`
 - `pillars/architecture/PROJECT_DEVELOPMENT_KNOWLEDGE_4_13_LIVE_PRODUCTION_WIRING.md`
 - `pillars/workflow/PROJECT_DEVELOPMENT_KNOWLEDGE_4_13_LIVE_PRODUCTION_WIRING_WORKFLOW.md`
-- `pillars/roadmap/TELEGRAM_WORKSPACE_MANAGER_1_0_PROGRAM.md`
-- `docs/checkpoints/SG2.1_2026-08-15_1946.md`
+- `pillars/roadmap/TELEGRAM_WORKSPACE_MANAGER_1_0_PROGRAM.md` — requirements/history; current lifecycle labels are qualified by `CURRENT_STATUS.md` where they conflict.
+- `pillars/roadmap/TELEGRAM_WORKSPACE_MANAGER_1_15_COMMUNITY_OPERATIONS_PROGRAM.md` — requirements; current implementation/live state is qualified by `CURRENT_STATUS.md` where the older header conflicts.
+- `pillars/roadmap/SG_ACCESS_CONTROL_SYSTEM_1_0_PROGRAM.md`
+- `docs/checkpoints/SG2.1_2026-08-15_1946.md` — immutable historical rollback/live checkpoint.
 - `evidence/LIVE_RUNTIME_BASELINES.md`
 - `evidence/PDK4_13_LIVE_CONTINUOUS_INGESTION_PROBE_2026-08-16.md`
 

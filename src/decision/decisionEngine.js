@@ -32,9 +32,9 @@ function conversationalMemoryRead(action, interpretation) {
     && action?.actionClass === 'read-only';
 }
 function conversationalRepositoryRead(action) {
-  return action?.name === 'repository-analyze'
-    && action?.actionClass === 'read-only'
-    && action?.type !== 'execute';
+  return action?.type === 'prepare'
+    && action?.name === 'repository-analyze'
+    && action?.actionClass === 'read-only';
 }
 function projectDevelopmentConversation(action, interpretation) {
   return PROJECT_DEVELOPMENT_CONVERSATIONAL_INTENTS.has(interpretation?.intent)

@@ -11,7 +11,7 @@ function positiveInteger(value, name) {
 }
 
 function scopeValues(scope = {}) {
-  return [requiredString(scope.globalUserId, 'scope.globalUserId'), requiredString(scope.projectScope, 'scope.projectScope'), scope.groupScope ?? null, scope.threadScope ?? null];
+  return [requiredString(scope.globalUserId ?? scope.userScope, 'scope.globalUserId'), requiredString(scope.projectScope, 'scope.projectScope'), scope.groupScope ?? null, scope.threadScope ?? null];
 }
 
 function boundedEvidence(value) {
@@ -25,6 +25,17 @@ function validFutureDate(value) {
   const date = new Date(value);
   if (!Number.isFinite(date.getTime()) || date <= new Date()) return null;
   return date.toISOString();
+}
+
+function validInstant(value, field) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (!Number.isFinite(date.getTime())) throw new TypeError(`${field} must be a valid timestamp`);
+  return date.toISOString();
+}
+
+function inTransaction(database, transaction, work) {
+  if (transaction?.query) return work(transaction);
+  return database.transaction(work);
 }
 
 export function createPostgresTaskQueue({ database, idFactory = randomUUID } = {}) {
@@ -44,6 +55,37 @@ export function createPostgresTaskQueue({ database, idFactory = randomUUID } = {
       const existing = await tx.query('SELECT * FROM tasks WHERE task_id=$1 OR ($2::text IS NOT NULL AND idempotency_key=$2) ORDER BY created_at LIMIT 1', [taskId, idempotencyKey]);
       if (!existing.rows[0]) throw new Error('task submission conflict without existing task');
       return existing.rows[0];
+    });
+  }
+
+  async function updateScheduled({ scope, taskId, runAt, workflowVersion = null, automationId = null, transaction = null } = {}) {
+    const [globalUserId, projectScope, groupScope, threadScope] = scopeValues(scope);
+    const scheduledFor = validInstant(runAt, 'runAt');
+    return inTransaction(database, transaction, async (tx) => {
+      const locked = await tx.query(`SELECT * FROM tasks
+        WHERE task_id=$1 AND global_user_id=$2 AND project_scope=$3
+          AND group_scope IS NOT DISTINCT FROM $4 AND thread_scope IS NOT DISTINCT FROM $5
+        FOR UPDATE`, [requiredString(taskId, 'taskId'), globalUserId, projectScope, groupScope, threadScope]);
+      const task = locked.rows[0];
+      if (!task || !['queued','scheduled','waiting_approval'].includes(task.status)) return null;
+      const approval = task.approval_state ?? {};
+      const workflowState = {
+        ...(task.payload?.workflow ?? {}),
+        ...(workflowVersion == null ? {} : { version: workflowVersion }),
+        ...(automationId == null ? {} : { automationId })
+      };
+      const payload = { ...(task.payload ?? {}), workflow: workflowState };
+      const result = await tx.query(`UPDATE tasks SET
+          available_at=$2::timestamptz,
+          status=CASE
+            WHEN COALESCE((approval_state->>'required')::boolean,false)=true AND COALESCE((approval_state->>'approved')::boolean,false)=false THEN 'waiting_approval'
+            WHEN $2::timestamptz > now() THEN 'scheduled'
+            ELSE 'queued'
+          END,
+          payload=$3::jsonb,
+          updated_at=now()
+        WHERE task_id=$1 RETURNING *`, [task.task_id, scheduledFor, JSON.stringify(payload)]);
+      return result.rows[0] ?? null;
     });
   }
 
@@ -156,5 +198,5 @@ export function createPostgresTaskQueue({ database, idFactory = randomUUID } = {
     return result.rows;
   }
 
-  return Object.freeze({ submit, releaseDue, approve, cancel, claim, heartbeat, complete, fail, recoverAbandoned, get, listDeadLetters });
+  return Object.freeze({ submit, updateScheduled, releaseDue, approve, cancel, claim, heartbeat, complete, fail, recoverAbandoned, get, listDeadLetters });
 }

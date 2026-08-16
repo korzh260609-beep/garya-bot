@@ -37,8 +37,12 @@ function sourceKind(record) { return String(record?.source?.kind ?? '').trim().t
 function isRelevant(item) {
   return Number(item?.exactScore ?? 0) > 0 || Number(item?.lexicalScore ?? 0) > 0 || Number(item?.semanticScore ?? 0) >= 0.55;
 }
-function directRelevantAnchors(items) {
-  return items.filter((item) => item?.relationExpanded !== true && isRelevant(item));
+function isStrongFallbackRelevant(item) {
+  return Number(item?.exactScore ?? 0) > 0 || Number(item?.lexicalScore ?? 0) >= 0.5 || Number(item?.semanticScore ?? 0) >= 0.7;
+}
+function directRelevantAnchors(items, { strong = false } = {}) {
+  const predicate = strong ? isStrongFallbackRelevant : isRelevant;
+  return items.filter((item) => item?.relationExpanded !== true && predicate(item));
 }
 function anchorBoundResults(items, anchors) {
   const anchorIds = new Set(anchors.map((item) => item?.record?.memoryId).filter(Boolean));
@@ -89,7 +93,7 @@ export function createDevelopmentQueryIntegration({ projectMemoryIntegration, re
   if (!retrieval?.search) throw new TypeError('Project Memory retrieval.search is required');
   if (!contextGuard?.build) throw new TypeError('Project Memory contextGuard.build is required');
 
-  async function autonomousVerifiedContext({ request, query, projectKey, mode, includeHistorical }) {
+  async function autonomousVerifiedContext({ request, query, projectKey, mode, includeHistorical, strongAnchor = false }) {
     const actor = authorizationActor(request, projectKey);
     const retrievalResult = await retrieval.search({
       actor,
@@ -104,7 +108,7 @@ export function createDevelopmentQueryIntegration({ projectMemoryIntegration, re
       relationLimit: 8
     });
     const autonomousVerified = retrievalResult.results.filter(isAutonomousVerified);
-    const anchors = directRelevantAnchors(autonomousVerified);
+    const anchors = directRelevantAnchors(autonomousVerified, { strong: strongAnchor });
     if (anchors.length === 0) return null;
     const autonomous = anchorBoundResults(autonomousVerified, anchors);
     const guarded = await contextGuard.build({
@@ -167,7 +171,8 @@ export function createDevelopmentQueryIntegration({ projectMemoryIntegration, re
         query: canonicalQuery,
         projectKey: project,
         mode: 'evidence',
-        includeHistorical: false
+        includeHistorical: false,
+        strongAnchor: true
       });
       if (!projectMemoryContext) return null;
       mode = 'evidence';
@@ -196,7 +201,7 @@ export function createDevelopmentQueryIntegration({ projectMemoryIntegration, re
         includeHistorical,
         semanticIntentMatched: !semanticFallbackActivated,
         semanticFallbackActivated,
-        semanticFallbackBasis: semanticFallbackActivated ? 'direct-relevant-source-verified-project-memory-anchor' : null,
+        semanticFallbackBasis: semanticFallbackActivated ? 'strong-direct-relevant-source-verified-project-memory-anchor' : null,
         provenanceRequired: true,
         currentnessRequired: true,
         historicalFactsMustRemainQualified: includeHistorical,

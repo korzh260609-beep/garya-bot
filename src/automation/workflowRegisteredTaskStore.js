@@ -1,0 +1,85 @@
+import { createWorkflowDefinition } from './workflowContract.js';
+
+function requiredString(value, field) {
+  if (typeof value !== 'string' || value.trim() === '') throw new TypeError(`${field} is required`);
+  return value.trim();
+}
+
+function workflowForCreatedTask({ task, scope, input }) {
+  if (input?.kind !== 'self-notification') return null;
+  const payload = input.payload;
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) throw new TypeError('self-notification payload is required');
+  const schedule = task.recurringSchedule ?? null;
+  const automationId = requiredString(task.taskId, 'task.taskId');
+  const globalUserId = requiredString(scope.userScope ?? scope.globalUserId, 'scope.userScope');
+  const createdAt = task.createdAt ?? new Date().toISOString();
+  const updatedAt = task.updatedAt ?? createdAt;
+  const trigger = schedule
+    ? {
+        type: 'recurring',
+        recurrence: {
+          rule: requiredString(schedule.recurrence, 'schedule.recurrence'),
+          timeZone: requiredString(schedule.timeZone, 'schedule.timeZone'),
+          dtstartLocal: requiredString(schedule.dtstartLocal, 'schedule.dtstartLocal')
+        }
+      }
+    : {
+        type: 'one-shot',
+        runAt: requiredString(task.runAt ?? task.availableAt, 'task.runAt')
+      };
+
+  return createWorkflowDefinition({
+    automationId,
+    version: 1,
+    trigger,
+    steps: [
+      { type: 'compose', mode: 'static-message', input: 'message' },
+      { type: 'deliver', mode: 'legacy-self-notification' }
+    ],
+    inputs: { message: requiredString(payload.message, 'payload.message') },
+    delivery: payload.delivery,
+    executionPolicy: {
+      maxAttempts: Number.isInteger(input.maxAttempts) ? input.maxAttempts : 3,
+      protectedAction: input.protectedAction === true,
+      confirmationRequired: input.approvalRequired === true
+    },
+    scope: {
+      globalUserId,
+      projectScope: requiredString(scope.projectScope, 'scope.projectScope'),
+      groupScope: scope.groupScope ?? null,
+      threadScope: scope.threadScope ?? null
+    },
+    createdBy: globalUserId,
+    updatedBy: globalUserId,
+    createdAt,
+    updatedAt,
+    provenance: {
+      source: payload.automation?.source ?? 'canonical-task-create',
+      capability: payload.automation?.capability ?? 'task-create',
+      legacyTaskId: automationId,
+      traceContext: payload.traceContext ?? {}
+    }
+  });
+}
+
+export function createWorkflowRegisteredTaskStore({ taskStore, workflowStore } = {}) {
+  if (!taskStore?.create || !taskStore?.list || !taskStore?.get || !taskStore?.cancel) throw new TypeError('taskStore is required');
+  if (typeof workflowStore?.register !== 'function') throw new TypeError('workflowStore.register is required');
+
+  return Object.freeze({
+    async create(request) {
+      const task = await taskStore.create(request);
+      const workflow = workflowForCreatedTask({ task, scope: request.scope, input: request.input });
+      if (!workflow) return task;
+      await workflowStore.register({
+        workflow,
+        taskId: task.taskId,
+        scheduleId: task.recurringSchedule?.scheduleId ?? null
+      });
+      return task;
+    },
+    list: (request) => taskStore.list(request),
+    get: (request) => taskStore.get(request),
+    cancel: (request) => taskStore.cancel(request)
+  });
+}

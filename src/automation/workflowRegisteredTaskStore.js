@@ -43,7 +43,7 @@ function workflowForCreatedTask({ task, scope, input }) {
       { type: 'deliver', mode: 'legacy-self-notification' }
     ],
     inputs: { message: requiredString(payload.message, 'payload.message') },
-    delivery: payload.delivery,
+    delivery: payload.delivery ?? {},
     executionPolicy: {
       maxAttempts: Number.isInteger(input.maxAttempts) ? input.maxAttempts : 3,
       protectedAction: input.protectedAction === true,

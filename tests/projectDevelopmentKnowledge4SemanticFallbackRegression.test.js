@@ -69,7 +69,7 @@ test('PDK4.13 live regression: ordinary upstream intent still resolves a genuine
   assert.equal(context?.kind, 'DevelopmentQueryContext');
   assert.equal(context?.mode, 'evidence');
   assert.equal(context?.qualification.semanticFallbackActivated, true);
-  assert.equal(context?.qualification.semanticFallbackBasis, 'direct-relevant-source-verified-project-memory-anchor');
+  assert.equal(context?.qualification.semanticFallbackBasis, 'strong-direct-relevant-source-verified-project-memory-anchor');
   assert.equal(calls.retrieval, 1);
   assert.equal(calls.guard, 1);
   assert.equal(calls.pm, 0);

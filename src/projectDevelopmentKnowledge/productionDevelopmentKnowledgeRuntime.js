@@ -23,6 +23,22 @@ function freeze(value) {
 }
 function errorCode(error) { return String(error?.code ?? 'pdk4-production-ingestion-failed').slice(0, 160); }
 function iso(clock) { const value = clock(); return new Date(value?.toISOString?.() ?? value).toISOString(); }
+function sourceCommitSha(sourceId, repository) {
+  const prefix = `github:${repository}:commit:`;
+  const text = required(sourceId, 'historical cursor lastSourceId');
+  if (!text.startsWith(prefix)) {
+    const error = new Error('PDK4 historical cursor source identity is invalid');
+    error.code = 'pdk4-history-anchor-invalid';
+    throw error;
+  }
+  const sha = text.slice(prefix.length).toLowerCase();
+  if (!/^[a-f0-9]{40}$/.test(sha)) {
+    const error = new Error('PDK4 historical cursor source SHA is invalid');
+    error.code = 'pdk4-history-anchor-invalid';
+    throw error;
+  }
+  return sha;
+}
 
 export const PDK4_PRODUCTION_RUNTIME_CONTRACT_VERSION = 1;
 
@@ -186,6 +202,42 @@ export function createProductionDevelopmentKnowledgeRuntime({
     }
   }
 
+  async function alignContinuousAnchor(cursor) {
+    const state = await ingestionStateStore.getState({ projectKey, repository });
+    if (!state || state.bootstrapLastSourceId === cursor.lastSourceId) return state;
+    const previousBootstrapLastSourceId = state.bootstrapLastSourceId;
+    const previousLastCommitSha = state.lastCommitSha;
+    const anchorSha = sourceCommitSha(cursor.lastSourceId, repository);
+    const aligned = await ingestionStateStore.reanchorState({
+      projectKey,
+      repository,
+      bootstrapLastSourceId: cursor.lastSourceId,
+      bootstrapLastCommitSha: anchorSha
+    });
+    await observe('pdk4_history_reanchored', {
+      previousBootstrapLastSourceId,
+      previousLastCommitSha,
+      bootstrapLastSourceId: aligned.bootstrapLastSourceId,
+      lastCommitSha: aligned.lastCommitSha
+    });
+    return aligned;
+  }
+
+  async function beginHistoryRecovery(error, reason) {
+    const previousState = await ingestionStateStore.getState({ projectKey, repository });
+    const previousCursor = await historyCursorStore.getCursor({ projectKey, sourceKind: 'github-commit', sourceScope: repository });
+    await historyCursorStore.restartScan({ projectKey, sourceKind: 'github-commit', sourceScope: repository });
+    phase = 'bootstrapping';
+    lastError = null;
+    await observe('pdk4_history_divergence_recovery_started', {
+      reason,
+      errorCode: errorCode(error),
+      previousLastCommitSha: previousState?.lastCommitSha ?? null,
+      previousHistoricalLastSourceId: previousCursor?.lastSourceId ?? null
+    }, 'recovered');
+    return freeze({ status: 'history-recovery-started', errorCode: errorCode(error), health: health() });
+  }
+
   async function reconcile({ reason = 'poll' } = {}) {
     if (config.enabled !== true) return freeze({ status: 'disabled', health: health() });
     if (running) return freeze({ status: 'already-running', health: health() });
@@ -225,6 +277,7 @@ export function createProductionDevelopmentKnowledgeRuntime({
         return freeze({ status: 'bootstrap-partial', processed, fetched, bootstrapBatches, incrementalBatches, health: health() });
       }
 
+      await alignContinuousAnchor(cursor);
       phase = 'catching-up';
       while (processed < maxCommitsPerRun) {
         sequence += 1;
@@ -244,6 +297,7 @@ export function createProductionDevelopmentKnowledgeRuntime({
       await observe('pdk4_ingestion_completed', { reason, processed, fetched, bootstrapBatches, incrementalBatches, lastCommitSha: state?.lastCommitSha ?? null });
       return freeze({ status: 'current', processed, fetched, bootstrapBatches, incrementalBatches, state, health: health() });
     } catch (error) {
+      if (errorCode(error) === 'pdk4-github-history-diverged') return beginHistoryRecovery(error, reason);
       phase = 'degraded';
       lastError = errorCode(error);
       await observe('pdk4_ingestion_failed', { reason, errorCode: lastError }, 'failed');
@@ -260,6 +314,12 @@ export function createProductionDevelopmentKnowledgeRuntime({
     return freeze({ ...report, productionRuntime: health(), singleFlight: lease ? { active: lease.active, leaseUntil: lease.leaseUntil } : null });
   }
 
+  function nextDelay(result) {
+    if (phase === 'not-started' && result?.status === 'single-flight-busy') return startupLeaseRetryMs;
+    if (result?.status === 'history-recovery-started' || result?.status === 'bootstrap-partial') return startupLeaseRetryMs;
+    return pollIntervalMs;
+  }
+
   function scheduleNext(delayMs) {
     if (!active) return;
     if (timer) clearTimeout(timer);
@@ -269,8 +329,7 @@ export function createProductionDevelopmentKnowledgeRuntime({
       let result = null;
       try { result = await reconcile({ reason: 'poll' }); } catch {}
       if (!active) return;
-      const startupContended = phase === 'not-started' && result?.status === 'single-flight-busy';
-      scheduleNext(startupContended ? startupLeaseRetryMs : pollIntervalMs);
+      scheduleNext(nextDelay(result));
     }, delayMs);
     timer.unref?.();
   }
@@ -280,8 +339,7 @@ export function createProductionDevelopmentKnowledgeRuntime({
     if (active) return health();
     active = true;
     const result = await reconcile({ reason: 'startup' });
-    const startupContended = phase === 'not-started' && result?.status === 'single-flight-busy';
-    scheduleNext(startupContended ? startupLeaseRetryMs : pollIntervalMs);
+    scheduleNext(nextDelay(result));
     return health();
   }
 

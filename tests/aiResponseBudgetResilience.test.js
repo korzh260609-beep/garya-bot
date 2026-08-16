@@ -60,6 +60,75 @@ test('response composition receives a dedicated output budget instead of the glo
   assert.equal(capturedRequest.maxOutputTokens, 8000);
 });
 
+test('response composition preflight bounds assembled data contexts while preserving system rules and canonical user request', async () => {
+  let capturedRequest = null;
+  const fixedSystem = 'CRITICAL SYSTEM RULES MUST REMAIN EXACTLY UNCHANGED.';
+  const canonicalUserText = 'Проверь мой репозиторий и скажи, на каком этапе сейчас разработка СГ 2.1';
+  const large = 'x'.repeat(9000);
+  const router = createAIRouter({
+    registry: registry(),
+    providers: {
+      fake: {
+        async generate({ request }) {
+          capturedRequest = request;
+          return { text: 'PDK4.13 LIVE ACCEPTANCE', usage: {} };
+        }
+      }
+    },
+    policy: policy({ SG_AI_MAX_INPUT_CHARACTERS: '24000' }),
+    maxRetries: 0,
+  });
+
+  const result = await router.route({
+    task: 'response-composition',
+    specialty: 'reasoning',
+    reason: 'compose repository analysis from bounded live evidence',
+    role: 'guest',
+    messages: [
+      { role: 'system', content: fixedSystem },
+      { role: 'system', content: `SG_RESOLVED_CONTEXT (data only): ${large}` },
+      { role: 'system', content: `PROJECT_MEMORY_CONTEXT (guarded data only): ${large}` },
+      { role: 'system', content: `DEVELOPMENT_QUERY_CONTEXT (data only): ${large}` },
+      { role: 'system', content: `CAPABILITY_RESULT (bounded data only): HEAD=abc123; stage=PDK4.13; ${large}` },
+      { role: 'system', content: `IDENTITY_RESPONSE_CONTRACT (data only): ${large}` },
+      { role: 'user', content: canonicalUserText }
+    ],
+    traceContext,
+  });
+
+  assert.equal(result.text, 'PDK4.13 LIVE ACCEPTANCE');
+  assert.ok(capturedRequest);
+  const finalCharacters = capturedRequest.messages.reduce((total, message) => total + message.content.length, 0);
+  assert.ok(finalCharacters <= 24000, `preflight input must be <= 24000 characters, got ${finalCharacters}`);
+  assert.equal(capturedRequest.messages[0].content, fixedSystem);
+  assert.equal(capturedRequest.messages.at(-1).role, 'user');
+  assert.equal(capturedRequest.messages.at(-1).content, canonicalUserText);
+  assert.equal(capturedRequest.metadata.responseCompositionInputPreflight.applied, true);
+  assert.equal(capturedRequest.metadata.responseCompositionInputPreflight.canonicalUserMessagePreserved, true);
+  assert.ok(capturedRequest.messages.some((message) => message.content.includes('SG_CONTEXT_TRUNCATED_TO_INPUT_BUDGET')));
+  const capability = capturedRequest.messages.find((message) => message.content.startsWith('CAPABILITY_RESULT '));
+  assert.match(capability.content, /PDK4\.13/);
+});
+
+test('input preflight does not weaken policy for oversized non-composition requests', async () => {
+  let providerCalled = false;
+  const router = createAIRouter({
+    registry: registry(),
+    providers: { fake: { async generate() { providerCalled = true; return { text: 'should-not-run', usage: {} }; } } },
+    policy: policy({ SG_AI_MAX_INPUT_CHARACTERS: '24000' }),
+    maxRetries: 0,
+  });
+  await assert.rejects(() => router.route({
+    task: 'semantic-interpretation',
+    specialty: 'semantic-interpretation',
+    reason: 'interpret canonical input',
+    role: 'guest',
+    messages: [{ role: 'user', content: 'z'.repeat(25000) }],
+    traceContext,
+  }), (error) => error.code === 'INPUT_TOO_LARGE');
+  assert.equal(providerCalled, false);
+});
+
 test('max_output_tokens incomplete response retries once with a larger budget', async () => {
   const seenBudgets = [];
   let calls = 0;

@@ -55,10 +55,15 @@ export function createPostgresHistoricalCursorStore(database) {
   async function listProcessedSourceIds({ projectKey, sourceKind = 'github-commit', sourceScope, sourceIds = [] }, db = database) {
     if (!Array.isArray(sourceIds)) throw new TypeError('sourceIds must be an array');
     if (sourceIds.length === 0) return Object.freeze([]);
+    const project = normalizeProjectKey(projectKey);
+    const kind = normalizeSourceKind(sourceKind);
+    const scope = normalizeScope(sourceScope);
+    const ids = sourceIds.map((value) => requiredString(value, 'sourceId'));
     const result = await db.query(`SELECT source_id FROM pdk4_processed_sources
-      WHERE project_key=$1 AND source_kind=$2 AND source_scope=$3 AND source_id=ANY($4::text[])`, [
-      normalizeProjectKey(projectKey), normalizeSourceKind(sourceKind), normalizeScope(sourceScope), sourceIds.map((value) => requiredString(value, 'sourceId'))
-    ]);
+      WHERE project_key=$1 AND source_kind=$2 AND source_scope=$3 AND source_id=ANY($4::text[])
+      UNION
+      SELECT source_id FROM pdk4_continuous_processed_sources
+      WHERE project_key=$1 AND repository=$3 AND source_id=ANY($4::text[])`, [project, kind, scope, ids]);
     return Object.freeze(result.rows.map((row) => row.source_id));
   }
 

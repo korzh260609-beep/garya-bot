@@ -73,13 +73,13 @@ test('PDK4.11: exposes all nine canonical development query modes through semant
   assert.equal(classifyDevelopmentQueryMode({ semanticIntent: 'user_identity' }), null);
 });
 
-test('PDK4.11 regression: unrelated semantic intent cannot activate Project Development Knowledge', async () => {
+test('PDK4.13 regression: unrelated semantic intent may probe retrieval but cannot activate Project Development Knowledge without a verified autonomous relevant anchor', async () => {
   const { calls, projectMemoryIntegration, retrieval, contextGuard } = mocks();
   const integration = createDevelopmentQueryIntegration({ projectMemoryIntegration, retrieval, contextGuard });
   const context = await integration.contextForRequest({ request: requestWithIntent('answer'), query: 'arbitrary user-domain statement' });
   assert.equal(context, null);
   assert.equal(calls.pm.length, 0);
-  assert.equal(calls.retrieval.length, 0);
+  assert.equal(calls.retrieval.length, 1);
   assert.equal(calls.guard.length, 0);
 });
 

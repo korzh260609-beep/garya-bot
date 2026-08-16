@@ -1,6 +1,6 @@
 # SG Automation 2.0 — Executable Workflows Program
 
-Status: IMPLEMENTATION IN PROGRESS — AW2.1–AW2.8 IMPLEMENTED / CI-VERIFIED; AW2.9 IMPLEMENTED / CI-PENDING; AW2.10 NEXT
+Status: IMPLEMENTATION IN PROGRESS — AW2.1–AW2.9 CLOSED / CI-VERIFIED; AW2.10 NEXT
 
 ## Goal
 
@@ -149,7 +149,7 @@ Implementation/evidence:
 
 Boundary: AW2.8 resolves only an existing workflow target. It does not broaden authorization, invent target data, perform fuzzy phrase matching, duplicate an automation or change AW2.7 mutation semantics. AW2.9 owns patch-not-duplicate behavior as the next explicit stage.
 
-### AW2.9 — Patch, not duplicate — IMPLEMENTED / CI-PENDING
+### AW2.9 — Patch, not duplicate — CLOSED / CI-VERIFIED
 Updating an existing automation patches the same canonical workflow/runtime registration instead of creating a second automation, task or schedule.
 
 Implemented boundary:
@@ -163,8 +163,8 @@ Implemented boundary:
 Implementation/evidence:
 - runtime invariants are enforced by `src/automation/workflowUpdate.js` and existing production automation wiring;
 - regression coverage: `tests/workflowPatchNotDuplicate.test.js` fails if recurring/one-shot update invokes `create`/`register`, and verifies stable `automationId`, `taskId`, `scheduleId` plus workflow version `1 → 2`;
-- regression implementation commit `c0205686904d119950733c1fe96c70ed20f3ee59` on `dev/sg2.1-semantic`;
-- exact-HEAD SG 2.1 CI SUCCESS is still required before AW2.9 may be marked CLOSED / CI-VERIFIED.
+- initial regression commit `c0205686904d119950733c1fe96c70ed20f3ee59`; corrected public-contract assertion commit `e3d21755f6c8fdcbe88bc53620deaf9c46990d69` on `dev/sg2.1-semantic`;
+- closure evidence: SG 2.1 CI #8238 SUCCESS on exact HEAD `e3d21755f6c8fdcbe88bc53620deaf9c46990d69`.
 
 Boundary: AW2.9 adds regression-proof of patch-not-duplicate semantics only. It does not introduce create/copy semantics, rewrite the scheduler/queue, or broaden authorization. AW2.10 owns the next explicit version-history stage.
 

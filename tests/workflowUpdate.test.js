@@ -49,7 +49,7 @@ function memoryStore(records = [{
         (selector.automationId == null || record.workflow.automationId === selector.automationId)
         && (selector.taskId == null || record.taskId === selector.taskId)
         && (selector.scheduleId == null || record.scheduleId === selector.scheduleId)
-      )).map(structuredClone);
+      )).map((record) => structuredClone(record));
     },
     async commitMutation(input) {
       const index = current.findIndex((record) => record.workflow.automationId === input.currentWorkflow.automationId);
@@ -69,7 +69,7 @@ function memoryStore(records = [{
       return structuredClone(current[index]);
     },
     async history() {
-      return history.map(structuredClone);
+      return history.map((record) => structuredClone(record));
     }
   };
 }

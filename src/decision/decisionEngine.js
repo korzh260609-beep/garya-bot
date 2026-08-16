@@ -31,6 +31,11 @@ function conversationalMemoryRead(action, interpretation) {
     && retrievalCapability
     && action?.actionClass === 'read-only';
 }
+function conversationalRepositoryRead(action) {
+  return action?.name === 'repository-analyze'
+    && action?.actionClass === 'read-only'
+    && action?.type !== 'execute';
+}
 function projectDevelopmentConversation(action, interpretation) {
   return PROJECT_DEVELOPMENT_CONVERSATIONAL_INTENTS.has(interpretation?.intent)
     && action?.actionClass !== 'external'
@@ -59,6 +64,7 @@ function canonicalConversationAction(action, interpretation) {
 function canonicalizeSelectedAction(action, interpretation) {
   if ((action?.type === 'answer' && action?.actionClass === 'analysis')
     || conversationalMemoryRead(action, interpretation)
+    || conversationalRepositoryRead(action)
     || projectDevelopmentConversation(action, interpretation)) {
     return canonicalConversationAction(action, interpretation);
   }
@@ -110,13 +116,14 @@ export function createDecisionEngine({ uncertaintyThreshold = 0.65 } = {}) {
       const memoryCandidates = semanticMemoryCandidates(interpretation);
       const memoryQuery = semanticMemoryQuery(interpretation);
       const memoryReadCanonicalized = conversationalMemoryRead(selected.action, interpretation);
+      const repositoryReadCanonicalized = conversationalRepositoryRead(selected.action);
       const projectDevelopmentCanonicalized = projectDevelopmentConversation(selected.action, interpretation)
         && selected.action.name !== 'compose-answer';
       const missingInformationWithoutClarification = interpretation.missingInformation.length > 0 && !interpretation.clarificationQuestion;
       const decisionEnvelope = createDecisionEnvelope({
         traceId: canonicalInput.traceContext.traceId, requestId: canonicalInput.traceContext.requestId, decisionType, goal: interpretation.goal, intent: interpretation.intent, selectedAction,
         contextNeeds: interpretation.contextNeeds, evidenceNeeds: interpretation.evidenceNeeds, clarificationQuestion: decisionType === 'clarification' ? interpretation.clarificationQuestion : null, rationale,
-        diagnostics: { engine: 'sg-decision-engine-v1', interpreter: interpreterName, uncertainty: interpretation.uncertainty, uncertaintyThreshold, candidateCount: evaluations.length, selectedCandidateIndex: selected.index, selectedCandidatePriority: selected.priority, requiresEvidence, executableIntent: selected.executableIntent, protectedIntent: selected.protectedIntent, conversationalAnswerCanonicalized: selected.action.type === 'answer' && selected.action.actionClass === 'analysis' && selected.action.name !== 'compose-answer', conversationalMemoryReadCanonicalized: memoryReadCanonicalized, projectDevelopmentConversationalCanonicalized: projectDevelopmentCanonicalized, semanticMemoryQueryAvailable: Boolean(memoryQuery), semanticMemoryCandidateCount: memoryCandidates.length, semanticConversationHistoryQueryAvailable: Boolean(interpretation.conversationHistoryQuery), semanticSubsystemRequest: interpretation.subsystemRequest?.name ?? null, missingInformationWithoutClarification, semanticMeaningExposedAsResponse: false, permissionChecked: false, capabilityExecuted: false }
+        diagnostics: { engine: 'sg-decision-engine-v1', interpreter: interpreterName, uncertainty: interpretation.uncertainty, uncertaintyThreshold, candidateCount: evaluations.length, selectedCandidateIndex: selected.index, selectedCandidatePriority: selected.priority, requiresEvidence, executableIntent: selected.executableIntent, protectedIntent: selected.protectedIntent, conversationalAnswerCanonicalized: selected.action.type === 'answer' && selected.action.actionClass === 'analysis' && selected.action.name !== 'compose-answer', conversationalMemoryReadCanonicalized: memoryReadCanonicalized, conversationalRepositoryReadCanonicalized: repositoryReadCanonicalized, projectDevelopmentConversationalCanonicalized: projectDevelopmentCanonicalized, semanticMemoryQueryAvailable: Boolean(memoryQuery), semanticMemoryCandidateCount: memoryCandidates.length, semanticConversationHistoryQueryAvailable: Boolean(interpretation.conversationHistoryQuery), semanticSubsystemRequest: interpretation.subsystemRequest?.name ?? null, missingInformationWithoutClarification, semanticMeaningExposedAsResponse: false, permissionChecked: false, capabilityExecuted: false }
       });
       const responsePlan = createResponsePlan({ mode: decisionType, message: buildMessage({ decisionType, interpretation, selectedAction, locale: canonicalInput.locale }), requiresConfirmation: false, preparedAction: decisionType === 'prepare' ? selectedAction : null });
       return Object.freeze({ decisionEnvelope, responsePlan, candidateEvaluations: evaluations });

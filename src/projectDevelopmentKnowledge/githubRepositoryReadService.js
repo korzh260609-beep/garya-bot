@@ -46,8 +46,56 @@ function boundedText(value, maxLength) {
   const text = String(value ?? '');
   return Object.freeze({ text: text.slice(0, maxLength), truncated: text.length > maxLength });
 }
+function jsonLength(value) { return JSON.stringify(value).length; }
+function compactEvidenceToBudget(snapshot, maxCharacters) {
+  const mutable = JSON.parse(JSON.stringify(snapshot));
+  let truncated = false;
+  let guard = 0;
+  while (jsonLength(mutable) > maxCharacters && guard < 300) {
+    guard += 1;
+    let changed = false;
+    const longestFile = [...(mutable.relevantFiles ?? [])]
+      .filter((file) => typeof file.content === 'string' && file.content.length > 500)
+      .sort((a, b) => b.content.length - a.content.length)[0];
+    if (longestFile) {
+      longestFile.content = longestFile.content.slice(0, Math.max(500, Math.floor(longestFile.content.length * 0.7)));
+      longestFile.truncated = true;
+      changed = true;
+    } else {
+      const commitWithExtraFiles = [...(mutable.recentCommits ?? [])].reverse().find((commit) => (commit.files?.length ?? 0) > 4);
+      if (commitWithExtraFiles) {
+        commitWithExtraFiles.files.pop();
+        commitWithExtraFiles.filesTruncated = true;
+        changed = true;
+      } else if ((mutable.tree?.paths?.length ?? 0) > 12) {
+        mutable.tree.paths.pop();
+        mutable.tree.truncated = true;
+        changed = true;
+      } else if ((mutable.recentCommits?.length ?? 0) > 3) {
+        mutable.recentCommits.pop();
+        mutable.recentCommitsTruncated = true;
+        changed = true;
+      } else if ((mutable.relevantFiles?.length ?? 0) > 2) {
+        mutable.relevantFiles.pop();
+        mutable.relevantFilesTruncated = true;
+        changed = true;
+      } else {
+        const longMessage = [...(mutable.recentCommits ?? [])].find((commit) => typeof commit.message === 'string' && commit.message.length > 240);
+        if (longMessage) {
+          longMessage.message = `${longMessage.message.slice(0, 239)}…`;
+          changed = true;
+        }
+      }
+    }
+    if (!changed) break;
+    truncated = true;
+  }
+  if (jsonLength(mutable) > maxCharacters) fail('pdk4-repository-evidence-too-large', 'Repository evidence cannot satisfy the model-input evidence budget');
+  mutable.evidence = { ...(mutable.evidence ?? {}), truncated: Boolean(mutable.evidence?.truncated || truncated), characters: jsonLength(mutable), maxCharacters };
+  return Object.freeze(mutable);
+}
 
-export const PDK4_GITHUB_REPOSITORY_READ_CONTRACT_VERSION = 1;
+export const PDK4_GITHUB_REPOSITORY_READ_CONTRACT_VERSION = 2;
 
 export function createGitHubRepositoryReadService({
   config,
@@ -59,7 +107,10 @@ export function createGitHubRepositoryReadService({
   maxRecentCommits = 8,
   maxRelevantFiles = 8,
   maxFileCharacters = 8000,
-  maxPatchCharacters = 3000
+  maxPatchCharacters = 3000,
+  maxChangedFilesPerCommit = 12,
+  maxReturnedTreePaths = 24,
+  maxEvidenceCharacters = 7000
 } = {}) {
   if (!config || typeof config !== 'object') throw new TypeError('config is required');
   if (!credentialManager?.useCredential) throw new TypeError('credentialManager.useCredential is required');
@@ -73,7 +124,10 @@ export function createGitHubRepositoryReadService({
   const commitLimit = boundedInteger(maxRecentCommits, 'maxRecentCommits', 8, 1, 20);
   const fileLimit = boundedInteger(maxRelevantFiles, 'maxRelevantFiles', 8, 1, 20);
   const fileCharacterLimit = boundedInteger(maxFileCharacters, 'maxFileCharacters', 8000, 500, 30000);
-  const patchCharacterLimit = boundedInteger(maxPatchCharacters, 'maxPatchCharacters', 3000, 200, 10000);
+  boundedInteger(maxPatchCharacters, 'maxPatchCharacters', 3000, 200, 10000);
+  const changedFileLimit = boundedInteger(maxChangedFilesPerCommit, 'maxChangedFilesPerCommit', 12, 1, 50);
+  const returnedTreePathLimit = boundedInteger(maxReturnedTreePaths, 'maxReturnedTreePaths', 24, 4, 200);
+  const evidenceCharacterLimit = boundedInteger(maxEvidenceCharacters, 'maxEvidenceCharacters', 7000, 3000, 20000);
   const base = required(apiBaseUrl, 'apiBaseUrl').replace(/\/+$/u, '');
 
   async function headersProvider() {
@@ -144,18 +198,24 @@ export function createGitHubRepositoryReadService({
     for (const row of recentRows.slice(0, commitLimit)) {
       const sha = required(row?.sha, 'commit.sha').toLowerCase();
       const detail = await request(`/repos/${repo}/commits/${sha}`);
-      const changedFiles = Array.isArray(detail?.files) ? detail.files.map((file) => {
+      const allChangedFiles = Array.isArray(detail?.files) ? detail.files : [];
+      for (const file of allChangedFiles) {
         const path = String(file?.filename ?? '');
         if (path) changedPaths.add(path);
-        const patch = boundedText(file?.patch ?? '', patchCharacterLimit);
-        return Object.freeze({ path, status: file?.status ?? null, additions: Number(file?.additions ?? 0), deletions: Number(file?.deletions ?? 0), patch: patch.text, patchTruncated: patch.truncated });
-      }).filter((file) => file.path) : [];
+      }
+      const changedFiles = allChangedFiles.slice(0, changedFileLimit).map((file) => Object.freeze({
+        path: String(file?.filename ?? ''),
+        status: file?.status ?? null,
+        additions: Number(file?.additions ?? 0),
+        deletions: Number(file?.deletions ?? 0)
+      })).filter((file) => file.path);
       commitDetails.push(Object.freeze({
         sha,
         committedAt: detail?.commit?.committer?.date ?? detail?.commit?.author?.date ?? null,
         author: detail?.commit?.author?.name ?? detail?.author?.login ?? null,
-        message: detail?.commit?.message ?? null,
-        files: Object.freeze(changedFiles)
+        message: boundedText(detail?.commit?.message ?? '', 600).text,
+        files: Object.freeze(changedFiles),
+        filesTruncated: allChangedFiles.length > changedFiles.length
       }));
     }
 
@@ -174,18 +234,22 @@ export function createGitHubRepositoryReadService({
         if (requestedPaths.includes(path)) throw error;
       }
     }
-
-    return Object.freeze({
+    const returnedTreePaths = [...new Set([...selectedPaths, ...[...changedPaths], ...ranked])].slice(0, returnedTreePathLimit);
+    const rawEvidence = {
       contractVersion: PDK4_GITHUB_REPOSITORY_READ_CONTRACT_VERSION,
       repository: repo,
       branch,
-      head: Object.freeze({ sha: headSha, committedAt: head?.commit?.committer?.date ?? head?.commit?.author?.date ?? null, message: head?.commit?.message ?? null }),
-      recentCommits: Object.freeze(commitDetails),
-      relevantFiles: Object.freeze(relevantFiles),
-      tree: Object.freeze({ totalBlobCount: fullTree.length, paths: Object.freeze(treePaths.slice(0, treeLimit)), truncated: treeTruncatedByGitHub || fullTree.length > treeLimit }),
+      head: { sha: headSha, committedAt: head?.commit?.committer?.date ?? head?.commit?.author?.date ?? null, message: boundedText(head?.commit?.message ?? '', 600).text },
+      recentCommits: commitDetails,
+      recentCommitsTruncated: recentRows.length > commitDetails.length,
+      relevantFiles,
+      relevantFilesTruncated: selectedPaths.length > relevantFiles.length,
+      tree: { totalBlobCount: fullTree.length, paths: returnedTreePaths, truncated: treeTruncatedByGitHub || fullTree.length > treeLimit || treePaths.length > returnedTreePaths.length },
       mutated: false,
-      sources: Object.freeze([`github:${repo}@${headSha}`])
-    });
+      sources: [`github:${repo}@${headSha}`],
+      evidence: { bounded: true, truncated: false, characters: 0, maxCharacters: evidenceCharacterLimit }
+    };
+    return compactEvidenceToBudget(rawEvidence, evidenceCharacterLimit);
   }
 
   return Object.freeze({ snapshot });

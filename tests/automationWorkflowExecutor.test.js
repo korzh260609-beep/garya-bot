@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createWorkflowExecutor } from '../src/automation/workflowExecutor.js';
 
-function workflow(steps) {
+function workflow(steps, executionPolicy = { maxAttempts: 3 }) {
   return {
     schemaVersion: 1,
     automationId: 'automation:aw2.3:test',
@@ -11,13 +11,29 @@ function workflow(steps) {
     steps,
     inputs: { seed: 'value' },
     delivery: { transport: 'telegram', target: 'self' },
-    executionPolicy: { maxAttempts: 3 },
+    executionPolicy,
     scope: { globalUserId: 'user:test', projectScope: 'sg2.1' },
     createdBy: 'user:test',
     updatedBy: 'user:test',
     createdAt: '2026-08-16T12:00:00.000Z',
     updatedAt: '2026-08-16T12:00:00.000Z',
     provenance: { source: 'test' }
+  };
+}
+
+function stateChangeStep() {
+  return {
+    type: 'invoke-capability',
+    capability: 'test-state-change',
+    security: { protected: true },
+    executionEnvelope: {
+      capability: 'test-state-change',
+      resourceScope: { resourceId: 'resource:test' },
+      actionClass: 'test.state.change',
+      risk: 'external-state-change',
+      confirmationPolicy: 'per-execution',
+      delegationPolicy: 'none'
+    }
   };
 }
 
@@ -147,15 +163,15 @@ test('AW2.4 protected step is denied before its handler when current authority i
   const result = await executor.execute({
     taskId: 'task:aw2.4:revoked',
     workflow: workflow([
-      { type: 'invoke-capability', security: { protected: true } },
+      stateChangeStep(),
       { type: 'compose' }
-    ])
+    ], { maxAttempts: 3, confirmationRequired: true })
   });
 
   assert.equal(result.outcome, 'denied');
   assert.equal(handlerCalls, 0);
   assert.equal(followingCalls, 0);
-  assert.deepEqual(result.evidenceRefs, ['authority:revoked']);
+  assert.deepEqual(result.evidenceRefs, ['policy:state-change-execution-envelope', 'authority:revoked']);
   assert.deepEqual(store.records.map(({ status }) => status), ['running', 'denied']);
 });
 

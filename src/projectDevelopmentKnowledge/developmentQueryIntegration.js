@@ -73,7 +73,7 @@ function authorizationActor(request, projectKey) {
   });
 }
 
-export const PDK4_DEVELOPMENT_QUERY_INTEGRATION_CONTRACT_VERSION = 1;
+export const PDK4_DEVELOPMENT_QUERY_INTEGRATION_CONTRACT_VERSION = 2;
 export const PDK4_DEVELOPMENT_QUERY_MODES = QUERY_MODES;
 export const PDK4_DEVELOPMENT_SEMANTIC_INTENTS = Object.freeze(Object.keys(SEMANTIC_INTENT_TO_MODE));
 
@@ -155,17 +155,33 @@ export function createDevelopmentQueryIntegration({ projectMemoryIntegration, re
   }
 
   async function contextForRequest({ request, query, projectKey = request?.scope?.projectScope, semanticIntent = request?.input?.semanticIntent ?? null } = {}) {
-    const mode = classifyDevelopmentQueryMode({ semanticIntent });
-    if (!mode) return null;
     const canonicalQuery = required(query ?? request?.input?.text, 'query');
     const project = required(projectKey, 'projectKey').toLowerCase();
+    let mode = classifyDevelopmentQueryMode({ semanticIntent });
+    let semanticFallbackActivated = false;
+    let projectMemoryContext = null;
+
+    if (!mode) {
+      projectMemoryContext = await autonomousVerifiedContext({
+        request,
+        query: canonicalQuery,
+        projectKey: project,
+        mode: 'evidence',
+        includeHistorical: false
+      });
+      if (!projectMemoryContext) return null;
+      mode = 'evidence';
+      semanticFallbackActivated = true;
+    }
+
     const includeHistorical = HISTORICAL_MODES.has(mode);
-    let projectMemoryContext;
-    if (includeHistorical) {
-      projectMemoryContext = await historicalContext({ request, query: canonicalQuery, projectKey: project, mode });
-    } else {
-      projectMemoryContext = await projectMemoryIntegration.contextForRequest({ request, query: canonicalQuery, projectKey: project });
-      if (!projectMemoryContext) projectMemoryContext = await autonomousVerifiedContext({ request, query: canonicalQuery, projectKey: project, mode, includeHistorical: false });
+    if (!projectMemoryContext) {
+      if (includeHistorical) {
+        projectMemoryContext = await historicalContext({ request, query: canonicalQuery, projectKey: project, mode });
+      } else {
+        projectMemoryContext = await projectMemoryIntegration.contextForRequest({ request, query: canonicalQuery, projectKey: project });
+        if (!projectMemoryContext) projectMemoryContext = await autonomousVerifiedContext({ request, query: canonicalQuery, projectKey: project, mode, includeHistorical: false });
+      }
     }
     if (!projectMemoryContext) return null;
     const includesAutonomousProposed = projectMemoryContext.facts.some((fact) => fact.confirmed === false && fact.trust === 'verified');
@@ -178,6 +194,9 @@ export function createDevelopmentQueryIntegration({ projectMemoryIntegration, re
       projectMemoryContext: cloneJson(projectMemoryContext),
       qualification: {
         includeHistorical,
+        semanticIntentMatched: !semanticFallbackActivated,
+        semanticFallbackActivated,
+        semanticFallbackBasis: semanticFallbackActivated ? 'direct-relevant-source-verified-project-memory-anchor' : null,
         provenanceRequired: true,
         currentnessRequired: true,
         historicalFactsMustRemainQualified: includeHistorical,

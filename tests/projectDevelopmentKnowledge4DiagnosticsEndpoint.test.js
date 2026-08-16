@@ -29,7 +29,9 @@ test('PDK4.13 protected diagnostics endpoint is owner authenticated and audited'
       return {
         kind: 'DevelopmentKnowledgeDiagnostics',
         continuous_ingestion_health: { status: 'ok', lastCommitSha: SHA },
-        exact_once_evidence: { status: 'ok', exactlyOnce: true, totalOccurrences: 1 }
+        exact_once_evidence: { status: 'ok', exactlyOnce: true, totalOccurrences: 1, duplicateSourceCount: 0, replayCount: 0 },
+        duplicate_source_count: 0,
+        replay_count: 0
       };
     },
     async runLive() { return { result: { failed: 0 } }; },
@@ -58,6 +60,8 @@ test('PDK4.13 protected diagnostics endpoint is owner authenticated and audited'
     assert.equal(payload.ok, true);
     assert.equal(payload.continuous_ingestion_health.lastCommitSha, SHA);
     assert.equal(payload.exact_once_evidence.totalOccurrences, 1);
+    assert.equal(payload.duplicate_source_count, 0);
+    assert.equal(payload.replay_count, 0);
 
     const alias = await fetch(`http://127.0.0.1:${address.port}/api/pdk4`, { headers });
     assert.equal(alias.status, 200);
@@ -71,9 +75,11 @@ test('PDK4.13 protected diagnostics endpoint is owner authenticated and audited'
   }
 });
 
-test('PDK4.13 diagnostics proves the latest processed source occurs exactly once across ingestion ledgers', async () => {
+test('PDK4.13 diagnostics proves cursors, processed source counts, no duplicates and replay=0', async () => {
   const database = {
     async query(sql) {
+      if (sql.includes(') duplicate_sources')) return { rows: [{ count: 0 }], rowCount: 1 };
+      if (sql.includes(') replay_excess')) return { rows: [{ count: 0 }], rowCount: 1 };
       if (sql.includes('FROM pdk4_continuous_processed_sources')) return { rows: [{ count: 1 }], rowCount: 1 };
       if (sql.includes('FROM pdk4_processed_sources')) return { rows: [{ count: 0 }], rowCount: 1 };
       return { rows: [{ count: 0 }], rowCount: 1 };
@@ -111,7 +117,13 @@ test('PDK4.13 diagnostics proves the latest processed source occurs exactly once
   });
   const result = await diagnostics.inspect({ projectKey: PROJECT, repository: REPOSITORY });
 
-  assert.equal(result.contractVersion, 2);
+  assert.equal(result.contractVersion, 3);
+  assert.equal(result.historical_bootstrap_cursor.lastSourceId, SOURCE_ID);
+  assert.equal(result.historical_bootstrap_cursor.scannedCount, 10);
+  assert.equal(result.continuous_cursor.lastCommitSha, SHA);
+  assert.equal(result.continuous_cursor.lastSourceId, SOURCE_ID);
+  assert.equal(result.continuous_cursor.processedCount, 1);
+  assert.deepEqual(result.processed_source_count, { historical: 10, continuous: 1, totalLedgerEntries: 11 });
   assert.equal(result.continuous_ingestion_health.status, 'ok');
   assert.equal(result.continuous_ingestion_health.lastCommitSha, SHA);
   assert.equal(result.exact_once_evidence.status, 'ok');
@@ -120,4 +132,38 @@ test('PDK4.13 diagnostics proves the latest processed source occurs exactly once
   assert.equal(result.exact_once_evidence.historicalOccurrences, 0);
   assert.equal(result.exact_once_evidence.totalOccurrences, 1);
   assert.equal(result.exact_once_evidence.exactlyOnce, true);
+  assert.equal(result.exact_once_evidence.duplicateSourceCount, 0);
+  assert.equal(result.exact_once_evidence.replayCount, 0);
+  assert.equal(result.duplicate_source_count, 0);
+  assert.equal(result.replay_count, 0);
+  assert.equal(result.development_history_health.status, 'ok');
+});
+
+test('PDK4.13 diagnostics degrades when source replay exists across historical and continuous ledgers', async () => {
+  const database = {
+    async query(sql) {
+      if (sql.includes(') duplicate_sources')) return { rows: [{ count: 1 }], rowCount: 1 };
+      if (sql.includes(') replay_excess')) return { rows: [{ count: 1 }], rowCount: 1 };
+      if (sql.includes('FROM pdk4_continuous_processed_sources')) return { rows: [{ count: 1 }], rowCount: 1 };
+      if (sql.includes('FROM pdk4_processed_sources')) return { rows: [{ count: 1 }], rowCount: 1 };
+      return { rows: [{ count: 0 }], rowCount: 1 };
+    }
+  };
+  const historyCursorStore = {
+    async getCursor() { return { status: 'complete', lastSourceId: SOURCE_ID, scannedCount: 10, batchCount: 2, completedAt: '2026-08-16T06:00:00.000Z' }; },
+    async countProcessed() { return 10; }
+  };
+  const ingestionStateStore = {
+    async getState() { return { bootstrapLastSourceId: SOURCE_ID, lastSourceId: SOURCE_ID, lastCommitSha: SHA, lastProcessedAt: '2026-08-16T06:08:46.861Z' }; },
+    async countProcessed() { return 1; }
+  };
+  const diagnostics = createDevelopmentKnowledgeDiagnostics({ database, historyCursorStore, ingestionStateStore });
+  const result = await diagnostics.inspect({ projectKey: PROJECT, repository: REPOSITORY });
+
+  assert.equal(result.exact_once_evidence.status, 'degraded');
+  assert.equal(result.exact_once_evidence.exactlyOnce, false);
+  assert.equal(result.exact_once_evidence.totalOccurrences, 2);
+  assert.equal(result.duplicate_source_count, 1);
+  assert.equal(result.replay_count, 1);
+  assert.equal(result.development_history_health.status, 'degraded');
 });

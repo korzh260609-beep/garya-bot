@@ -65,7 +65,7 @@ test('production worker executes registered self notification through Delivery R
   assert.equal(calls[0].message, 'ДОБРОЕ УТРО МОНАРХ');
   assert.equal(calls[0].originTarget.address, '100500');
   assert.equal(calls[0].metadata.originBoundSelfNotification, true);
-  assert.equal(calls[0].idempotencyKey, 'automation-delivery:task-1');
+  assert.equal(calls[0].idempotencyKey, 'automation-delivery:idempotency:task-key:step:final');
 });
 
 test('production worker rejects self notification with altered recipient', async () => {

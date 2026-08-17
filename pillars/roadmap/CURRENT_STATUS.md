@@ -61,9 +61,9 @@ Canonical doc: `17_RENDER_DEPLOYMENT.md`.
 
 ## Automation 2.0 — Executable Workflows
 
-**ACCEPTED ARCHITECTURE / IMPLEMENTATION IN PROGRESS — AW2.1–AW2.10 CLOSED / CI-VERIFIED; AW2.11 NEXT; NOT DEPLOYED / NOT LIVE-VERIFIED AS AUTOMATION 2.0.**
+**ACCEPTED ARCHITECTURE / IMPLEMENTATION IN PROGRESS — AW2.1–AW2.11 CLOSED / CI-VERIFIED; AW2.12 NEXT; NOT DEPLOYED / NOT LIVE-VERIFIED AS AUTOMATION 2.0.**
 
-AW2.1–AW2.10 now provide the additive generalized workflow foundation above the existing durable automation substrate:
+AW2.1–AW2.11 now provide the additive generalized workflow foundation above the existing durable automation substrate:
 - versioned workflow contract and backward-compatible `self-notification` adapter;
 - six canonical step types (`collect`, `retrieve`, `analyze`, `compose`, `invoke-capability`, `deliver`);
 - ordered Workflow Executor with bounded handoff and persisted per-step outcomes/evidence;
@@ -73,7 +73,8 @@ AW2.1–AW2.10 now provide the additive generalized workflow foundation above th
 - canonical AW2.7 `automation-update` path that mutates the same `automationId`, creates monotonic PostgreSQL workflow versions/history, atomically commits workflow/runtime mutation, and reuses the existing scheduler/PostgresTaskQueue;
 - AW2.8 structured semantic target resolution inside canonical scope, selecting exactly one existing automation without requiring the user to know internal IDs;
 - AW2.9 regression coverage proving updates reuse the same canonical automation/task/schedule registrations and do not create/register duplicates;
-- AW2.10 durable version-history evidence covering version/parent, actor, timestamp, patch summary, request/trace provenance, canonical validation result, gate result and full workflow snapshots.
+- AW2.10 durable version-history evidence covering version/parent, actor, timestamp, patch summary, request/trace provenance, canonical validation result, gate result and full workflow snapshots;
+- AW2.11 execution-time fresh-data `collect` handler contract that requires a current allowed protected-step security verdict, performs collection anew per execution and does not expose stored workflow inputs/prior handoff to the collector as substitute current evidence.
 
 AW2.6 does **not** turn the stored envelope into authority. A structurally valid state-changing step still passes the existing AW2.4 runtime checks immediately before its handler, so lost access/authority, Action Gate denial, unavailable credentials or permission-health failure remains terminally denied. Scheduled/delegated execution cannot broaden current authorization. No second scheduler, queue, worker, identity, authority, credential, confirmation or ACS stack was created.
 
@@ -114,12 +115,23 @@ AW2.10 implementation/closure evidence:
 - `tests/postgresPersistence.test.js` includes migration `907` in the persistence baseline;
 - implementation/test HEAD `79fede067c9eec9f15c71008a58848b0fdb7f50c` passed exact-head SG 2.1 CI #8251, including migration, security gate, `npm run check`, web start, worker start and diagnostics; AW2.10 is therefore CLOSED / CI-VERIFIED.
 
+AW2.11 implementation/closure evidence:
+- `src/automation/runtimeFreshDataCollection.js` defines the runtime fresh-data `collect` handler contract and is exported through `src/automation/index.js`;
+- collection is allowed only for typed `collect` steps with `security.protected === true` and a current `securityVerdict.allowed === true` produced by the existing AW2.4 execution-time security seam;
+- the collector receives current task/workflow identity, canonical scope, typed step configuration, current security verdict and trace context, but not stored workflow `inputs` or prior `handoff`, so prepared/stale text cannot be replayed as current evidence by this handler;
+- each execution invokes both execution-time security and `collectCurrent` again; fresh `collectedAt`, data/source metadata and evidence references become the step output/evidence;
+- revoked runtime authority prevents the collector from being called;
+- regression coverage in `tests/runtimeFreshDataCollection.test.js` proves fail-closed prerequisites, no stale-input/handoff exposure, two runs producing distinct fresh evidence, merged security/source evidence and revoked-authority denial;
+- implementation/test HEAD `d632591712118be652710c94a9c7d145b2bdefd0` passed exact-head SG 2.1 CI #8261, including migration, Block 19 security gate, `npm run check`, web start, worker start and diagnostics; AW2.11 is therefore CLOSED / CI-VERIFIED.
+
 Boundary:
 - Automation 2.0 generalized workflows are not yet production-wired/live-accepted as a complete program;
 - `deliver` remains on the existing Delivery Router / execution-security boundary and is not reclassified by AW2.6 as a generic capability mutation, preserving the established self-notification compatibility path;
 - AW2.8 resolves existing targets only and does not broaden authority, invent IDs/attributes, perform fuzzy phrase matching or change AW2.7 mutation semantics;
 - AW2.9 adds patch-not-duplicate regression proof without rewriting production runtime;
-- AW2.10 extends the existing durable version-history record only; it does not implement rollback/restore execution or change scheduler/queue/update semantics; AW2.11 is next; dynamic composition, idempotency and live acceptance remain later stages.
+- AW2.10 extends the existing durable version-history record only; it does not implement rollback/restore execution or change scheduler/queue/update semantics;
+- AW2.11 establishes runtime fresh-collection semantics only; it does not implement the concrete Workspace Activity Collector, which is owned by AW2.12;
+- AW2.12 is next; multi-workspace aggregation, dynamic composition, idempotency and live acceptance remain later stages.
 
 Canonical docs:
 - `../architecture/AUTOMATION_2_0_EXECUTABLE_WORKFLOWS.md`

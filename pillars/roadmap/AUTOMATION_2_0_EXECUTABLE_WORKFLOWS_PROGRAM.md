@@ -1,6 +1,6 @@
 # SG Automation 2.0 — Executable Workflows Program
 
-Status: IMPLEMENTATION IN PROGRESS — AW2.1–AW2.12 CLOSED / CI-VERIFIED; AW2.13 NEXT
+Status: IMPLEMENTATION IN PROGRESS — AW2.1–AW2.13 CLOSED / CI-VERIFIED; AW2.14 NEXT
 
 ## Goal
 
@@ -228,8 +228,25 @@ Implementation/evidence:
 
 Boundary: AW2.12 implements the concrete single-workspace read-only collector only. AW2.13 owns multi-workspace aggregation with independent current authorization and explicit omission semantics.
 
-### AW2.13 — Multi-workspace aggregation
-Aggregate across multiple currently authorized workspaces while checking each resource independently. Lost/unavailable resources must be explicit omissions, not invented zeros unless the metric contract defines zero from authoritative persisted absence.
+### AW2.13 — Multi-workspace aggregation — CLOSED / CI-VERIFIED
+Aggregate across multiple currently authorized workspaces while checking each resource independently. Lost/unavailable resources are explicit omissions rather than invented zeroes.
+
+Implemented boundary:
+- `src/automation/multiWorkspaceActivityAggregator.js` composes over the existing AW2.12 single-workspace collector instead of replacing it;
+- requested workspace identifiers must be non-empty, canonical and unique, and cannot be mixed with a single `source.workspaceId`;
+- each workspace is independently re-checked through the current protected-step security seam before any collection;
+- denied workspaces are never read and are returned with explicit omission evidence;
+- authorized but unavailable workspaces become explicit omissions instead of fabricated zero metrics;
+- totals include only additive authoritative metrics from included workspaces; workspace-local `uniqueActors` remains per-workspace and is not summed as a global unique count;
+- the AW2.11 runtime composition continues to exclude stale workflow inputs and prior handoff from collector context;
+- no scheduler, queue, worker, AW2.12 collector or security stack is duplicated or rewritten.
+
+Implementation/evidence:
+- `src/automation/multiWorkspaceActivityAggregator.js`, exported through `src/automation/index.js`;
+- regression coverage: `tests/multiWorkspaceActivityAggregator.test.js` covers independent per-workspace security, authorized-only aggregation, denied/unavailable omissions, non-additive `uniqueActors`, fail-closed scope validation and AW2.11 composition;
+- implementation/test HEAD `69e7918dcda9d6bd421d0f3fe3dd74bb7418ef4f`; SG 2.1 CI #8286 SUCCESS on that exact HEAD.
+
+Boundary: AW2.13 provides deterministic multi-workspace collection/aggregation only. It does not compose the final user-facing output; AW2.14 owns dynamic composition.
 
 ### AW2.14 — Dynamic composition
 Compose the final user-facing result at execution time from fresh step outputs. AI use, where needed, must go through AI Router with logged cost/reason and may not fabricate deterministic metrics.

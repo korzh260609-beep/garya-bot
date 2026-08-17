@@ -61,7 +61,7 @@ Canonical doc: `17_RENDER_DEPLOYMENT.md`.
 
 ## Automation 2.0 — Executable Workflows
 
-**ACCEPTED ARCHITECTURE / IMPLEMENTATION IN PROGRESS — AW2.1–AW2.12 CLOSED / CI-VERIFIED; AW2.13 NEXT; NOT DEPLOYED / NOT LIVE-VERIFIED AS AUTOMATION 2.0.**
+**ACCEPTED ARCHITECTURE / IMPLEMENTATION IN PROGRESS — AW2.1–AW2.13 CLOSED / CI-VERIFIED; AW2.14 NEXT; NOT DEPLOYED / NOT LIVE-VERIFIED AS AUTOMATION 2.0.**
 
 AW2.1–AW2.12 now provide the additive generalized workflow foundation above the existing durable automation substrate:
 - versioned workflow contract and backward-compatible `self-notification` adapter;
@@ -75,7 +75,8 @@ AW2.1–AW2.12 now provide the additive generalized workflow foundation above th
 - AW2.9 regression coverage proving updates reuse the same canonical automation/task/schedule registrations and do not create/register duplicates;
 - AW2.10 durable version-history evidence covering version/parent, actor, timestamp, patch summary, request/trace provenance, canonical validation result, gate result and full workflow snapshots;
 - AW2.11 execution-time fresh-data `collect` handler contract that requires a current allowed protected-step security verdict, performs collection anew per execution and does not expose stored workflow inputs/prior handoff to the collector as substitute current evidence;
-- AW2.12 concrete single-workspace `workspace-activity` collector that reuses existing TWM persisted activity/analytics semantics, requires current execution security and returns deterministic publication/poll/test/interaction/activity-event evidence with explicit data-window/source metadata.
+- AW2.12 concrete single-workspace `workspace-activity` collector that reuses existing TWM persisted activity/analytics semantics, requires current execution security and returns deterministic publication/poll/test/interaction/activity-event evidence with explicit data-window/source metadata;
+- AW2.13 multi-workspace aggregation over AW2.12 with independent current security re-check per canonical workspace, explicit denied/unavailable omissions, authorized-data-only additive totals and no invalid cross-workspace summation of `uniqueActors`.
 
 AW2.6 does **not** turn the stored envelope into authority. A structurally valid state-changing step still passes the existing AW2.4 runtime checks immediately before its handler, so lost access/authority, Action Gate denial, unavailable credentials or permission-health failure remains terminally denied. Scheduled/delegated execution cannot broaden current authorization. No second scheduler, queue, worker, identity, authority, credential, confirmation or ACS stack was created.
 
@@ -135,6 +136,16 @@ AW2.12 implementation/closure evidence:
 - regression coverage in `tests/workspaceActivityCollector.test.js` proves deterministic evidence/metrics, canonical interaction semantics, denied current security before reads, window/canonical-ID validation, rejection of multi-workspace-shaped input and AW2.11 runtime composition without stale-input reuse;
 - implementation/test HEAD `874f6a07db09858602e3d1ad344f375aa229a59c` passed exact-head SG 2.1 CI #8280, including migration, Block 19 security gate, `npm run check`, web start, worker start and diagnostics; AW2.12 is therefore CLOSED / CI-VERIFIED inside this code/test boundary.
 
+AW2.13 implementation/closure evidence:
+- `src/automation/multiWorkspaceActivityAggregator.js` implements aggregation by deriving one canonical AW2.12 collection step per requested workspace and is exported through `src/automation/index.js`;
+- every workspace receives an independent current `recheckProtectedStep` decision before collection; denied workspaces are not read and are returned as explicit omissions;
+- authorized but unavailable workspaces become explicit `workspace-collection-unavailable` omissions rather than invented zeroes;
+- only additive authoritative metrics are totaled; `uniqueActors` remains workspace-scoped and is deliberately not summed across workspaces;
+- canonical multi-workspace scope validation fails closed for empty, duplicate, ambiguous or invalid workspace identifiers;
+- AW2.11 composition does not expose stored workflow inputs or prior handoff as substitute current evidence;
+- regression coverage in `tests/multiWorkspaceActivityAggregator.test.js` proves independent authorization, authorized-only aggregation, omission semantics, no cross-workspace `uniqueActors` sum, fail-closed scope validation and AW2.11 fresh-data composition;
+- implementation/test HEAD `69e7918dcda9d6bd421d0f3fe3dd74bb7418ef4f` passed exact-head SG 2.1 CI #8286; AW2.13 is therefore CLOSED / CI-VERIFIED inside this code/test boundary.
+
 Boundary:
 - Automation 2.0 generalized workflows are not yet production-wired/live-accepted as a complete program;
 - `deliver` remains on the existing Delivery Router / execution-security boundary and is not reclassified by AW2.6 as a generic capability mutation, preserving the established self-notification compatibility path;
@@ -142,8 +153,9 @@ Boundary:
 - AW2.9 adds patch-not-duplicate regression proof without rewriting production runtime;
 - AW2.10 extends the existing durable version-history record only; it does not implement rollback/restore execution or change scheduler/queue/update semantics;
 - AW2.11 establishes the generic runtime fresh-collection semantics used by concrete collectors;
-- AW2.12 implements the concrete collector for exactly one canonical authorized workspace and reuses existing TWM store/analytics contracts; it does not implement multi-workspace aggregation;
-- AW2.13 is next; multi-workspace aggregation, dynamic composition, idempotency and live acceptance remain later stages.
+- AW2.12 implements the concrete collector for exactly one canonical authorized workspace and reuses existing TWM store/analytics contracts;
+- AW2.13 aggregates that collector across independently re-authorized canonical workspaces, reports denied/unavailable resources explicitly and does not treat workspace-local unique actors as globally additive;
+- AW2.14 is next; dynamic composition, idempotency and live acceptance remain later stages.
 
 Canonical docs:
 - `../architecture/AUTOMATION_2_0_EXECUTABLE_WORKFLOWS.md`

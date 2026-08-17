@@ -1,6 +1,6 @@
 # SG Automation 2.0 — Executable Workflows Program
 
-Status: IMPLEMENTATION IN PROGRESS — AW2.1–AW2.17 CLOSED / CI-VERIFIED; AW2.18 NEXT
+Status: IMPLEMENTATION IN PROGRESS — AW2.1–AW2.18 CLOSED / CI-VERIFIED; AW2.19 NEXT
 
 ## Goal
 
@@ -332,17 +332,26 @@ Implementation/evidence:
 
 Boundary: AW2.17 closes occurrence, materialization, exact-version restart and delivery idempotency continuity. Natural-language lifecycle operations, including restore of an earlier version, remain AW2.18.
 
-### AW2.18 — Natural-language lifecycle
-Support semantic instructions equivalent to:
-- add/remove a part of an existing task;
-- also collect/check something;
-- replace what the task does;
-- change output style;
-- change cadence/time;
-- pause/resume/cancel;
-- restore a previous version.
+### AW2.18 — Natural-language lifecycle — CLOSED / CI-VERIFIED
+Existing executable workflows can now be modified by semantic lifecycle meaning through a strict typed operation contract, while deterministic runtime code owns validation, target uniqueness, authorization and mutation.
 
-No exact phrase list is allowed as the implementation mechanism.
+Implemented boundary:
+- semantic interpretation emits one of `add-step`, `remove-step`, `replace-workflow`, `change-output-style`, `change-trigger`, `pause`, `resume`, `cancel` or `restore-version` through the existing `automation-update` capability;
+- no exact phrase/keyword list is used as the lifecycle mechanism; the AI semantic boundary may express only structured facts actually present in the request;
+- existing AW2.8 scoped selector resolution still identifies exactly one current automation before the operation is compiled;
+- unsupported fields, ambiguous type-only step targets, invalid versions and unavailable historical snapshots fail closed;
+- add/remove/replace/style/trigger keep the canonical `automationId`, validate a complete next workflow and append its monotonic version through the existing AW2.7 atomic mutation path;
+- restore materializes an earlier canonical snapshot as a new current version, preserving history and `automationId`, and records the source version in provenance/patch evidence;
+- every mutation remains behind the existing production Capability/Action Gate path, with current actor/scope and gate result persisted;
+- recurring lifecycle continues through the existing scheduler; one-shot pause/resume/cancel reuses scoped transactional transitions in the existing PostgreSQL task queue;
+- AW2.12 collectors, scheduler, queue, worker, identity, authority, credential and security stacks are not duplicated or rewritten.
+
+Implementation/evidence:
+- `src/automation/workflowNaturalLanguageLifecycle.js`, integration in `workflowUpdate.js`, `productionCapabilities.js`, `productionMeaningInterpreter.js`, `postgresTaskQueue.js` and exports in `src/automation/index.js`;
+- regression coverage: `tests/workflowNaturalLanguageLifecycle.test.js` covers semantic add/remove/replace/style/trigger, stable automation identity and versions, historical restore, recurring/one-shot pause-resume-cancel, fail-closed ambiguity/invalid restore and PostgreSQL scope/durability;
+- implementation/test HEAD `3361e24c4a6f8bb103206a15cedf4896c077a9f1`; SG 2.1 CI #8310 SUCCESS on that exact HEAD.
+
+Boundary: AW2.18 closes natural-language lifecycle and restore inside the existing deterministic mutation/security/runtime seams. It does not replace AW2.19 consolidated regression/security closure or AW2.20 production live acceptance.
 
 ### AW2.19 — Regression and security tests
 Minimum coverage:

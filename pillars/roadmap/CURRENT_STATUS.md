@@ -61,7 +61,7 @@ Canonical doc: `17_RENDER_DEPLOYMENT.md`.
 
 ## Automation 2.0 — Executable Workflows
 
-**ACCEPTED ARCHITECTURE / IMPLEMENTATION IN PROGRESS — AW2.1–AW2.17 CLOSED / CI-VERIFIED; AW2.18 NEXT; NOT DEPLOYED / NOT LIVE-VERIFIED AS AUTOMATION 2.0.**
+**ACCEPTED ARCHITECTURE / IMPLEMENTATION IN PROGRESS — AW2.1–AW2.18 CLOSED / CI-VERIFIED; AW2.19 NEXT; NOT DEPLOYED / NOT LIVE-VERIFIED AS AUTOMATION 2.0.**
 
 AW2.1–AW2.12 now provide the additive generalized workflow foundation above the existing durable automation substrate:
 - versioned workflow contract and backward-compatible `self-notification` adapter;
@@ -80,7 +80,8 @@ AW2.1–AW2.12 now provide the additive generalized workflow foundation above th
 - AW2.14 runtime `compose` handler that builds final user-facing output from the immediately preceding current execution result, preserves partial/omission evidence, renders authoritative metrics deterministically and permits optional narrative only through the existing cost/reason/trace-logged AI Router;
 - AW2.15 deterministic durable-result boundary that accepts honest partial completion, prevents failed/denied/delivery-failed results from becoming false success, classifies terminal versus explicitly temporary failures and reuses the existing PostgreSQL queue bounded exponential backoff/DLQ path;
 - AW2.16 durable per-run execution history keyed by run/occurrence/attempt with ordered step transitions, source evidence, gate decisions, AI provider/model/cost/reason provenance, delivery result and terminal output/error evidence;
-- AW2.17 stable persisted occurrence identity, replay-safe scheduler materialization, exact pinned workflow-version resolution after restart and occurrence-derived durable Delivery Router idempotency.
+- AW2.17 stable persisted occurrence identity, replay-safe scheduler materialization, exact pinned workflow-version resolution after restart and occurrence-derived durable Delivery Router idempotency;
+- AW2.18 typed natural-language lifecycle operations routed through the existing semantic interpreter, `automation-update`, Action Gate, scoped resolution and atomic workflow/runtime mutation, including restore as a new version.
 
 AW2.6 does **not** turn the stored envelope into authority. A structurally valid state-changing step still passes the existing AW2.4 runtime checks immediately before its handler, so lost access/authority, Action Gate denial, unavailable credentials or permission-health failure remains terminally denied. Scheduled/delegated execution cannot broaden current authorization. No second scheduler, queue, worker, identity, authority, credential, confirmation or ACS stack was created.
 
@@ -195,6 +196,18 @@ AW2.17 implementation/closure evidence:
 - regression coverage in `tests/workflowRestartContinuity.test.js` verifies stable occurrence derivation, restart with pinned version, retry with the same external key and no redelivery after success;
 - implementation/test HEAD `3bf821f20e031827e9f74a877c3b8610aebd24c7` passed exact-head SG 2.1 CI #8306; AW2.17 is therefore CLOSED / CI-VERIFIED inside this code/test boundary.
 
+AW2.18 implementation/closure evidence:
+- `src/automation/workflowNaturalLanguageLifecycle.js` defines a strict typed semantic lifecycle contract for `add-step`, `remove-step`, `replace-workflow`, `change-output-style`, `change-trigger`, `pause`, `resume`, `cancel` and `restore-version`;
+- `src/ai/productionMeaningInterpreter.js` maps lifecycle meaning to the existing `automation-update` capability without an exact phrase/keyword table and without inventing selectors, workflow parts, cadence, versions or authority;
+- deterministic compilation happens only after existing scoped semantic target resolution; unsupported fields, missing restore snapshots and ambiguous step targets fail closed, with clarification required where the target is not unique;
+- every accepted semantic lifecycle mutation remains behind the production Capability/Action Gate path and is atomically committed through the existing AW2.7 workflow/runtime transaction;
+- add/remove/replace/style/trigger operations preserve the same canonical `automationId` and create the next monotonic workflow version;
+- restore copies the selected earlier canonical snapshot into a new current version, preserves `automationId`, records `restoredFromVersion` and synchronizes the existing runtime trigger rather than moving history backward;
+- recurring pause/resume/cancel continues through the existing scheduler; one-shot lifecycle now uses scoped transactional transitions in the existing `PostgresTaskQueue`;
+- version provenance, patch summary and Action Gate evidence retain the typed semantic operation;
+- regression coverage in `tests/workflowNaturalLanguageLifecycle.test.js` covers all lifecycle mutation classes, stable identity/versioning, restore, recurring and one-shot runtime reuse, ambiguity/invalid restore denial and durable PostgreSQL one-shot scope/restart behavior;
+- implementation/test HEAD `3361e24c4a6f8bb103206a15cedf4896c077a9f1` passed exact-head SG 2.1 CI #8310; AW2.18 is therefore CLOSED / CI-VERIFIED inside this code/test boundary.
+
 Boundary:
 - Automation 2.0 generalized workflows are not yet production-wired/live-accepted as a complete program;
 - `deliver` remains on the existing Delivery Router / execution-security boundary and is not reclassified by AW2.6 as a generic capability mutation, preserving the established self-notification compatibility path;
@@ -208,7 +221,8 @@ Boundary:
 - AW2.15 prevents false success, preserves explicit partial completion and routes only explicitly temporary failures into the existing bounded durable retry/DLQ mechanism;
 - AW2.16 persists one inspectable run record per occurrence/attempt with ordered step, source, gate, AI/cost, delivery and terminal evidence;
 - AW2.17 keeps one occurrence identity across materialization/retry/restart, resolves the pinned durable version and prevents completed delivery replay;
-- AW2.18 is next; natural-language lifecycle/restore and live acceptance remain later stages.
+- AW2.18 adds semantic lifecycle/restore through existing production mutation and security seams without phrase-table routing or duplicate runtime infrastructure;
+- AW2.19 is next; consolidated regression/security closure and production live acceptance remain later stages.
 
 Canonical docs:
 - `../architecture/AUTOMATION_2_0_EXECUTABLE_WORKFLOWS.md`

@@ -1,6 +1,6 @@
 # SG Automation 2.0 — Executable Workflows Program
 
-Status: IMPLEMENTATION IN PROGRESS — AW2.1–AW2.13 CLOSED / CI-VERIFIED; AW2.14 NEXT
+Status: IMPLEMENTATION IN PROGRESS — AW2.1–AW2.14 CLOSED / CI-VERIFIED; AW2.15 NEXT
 
 ## Goal
 
@@ -248,8 +248,25 @@ Implementation/evidence:
 
 Boundary: AW2.13 provides deterministic multi-workspace collection/aggregation only. It does not compose the final user-facing output; AW2.14 owns dynamic composition.
 
-### AW2.14 — Dynamic composition
-Compose the final user-facing result at execution time from fresh step outputs. AI use, where needed, must go through AI Router with logged cost/reason and may not fabricate deterministic metrics.
+### AW2.14 — Dynamic composition — CLOSED / CI-VERIFIED
+Compose the final user-facing result at execution time from current runtime step outputs while keeping deterministic facts outside AI control.
+
+Implemented boundary:
+- `src/automation/runtimeDynamicComposition.js` provides the protected runtime handler for canonical `compose` steps;
+- the handler accepts only an untruncated immediate runtime handoff from a completed/partial `collect`, `retrieve` or `analyze` step and does not treat stored workflow inputs as current evidence;
+- current data-window metadata, additive totals, per-workspace `uniqueActors` and denied/unavailable omissions are rendered deterministically from the authoritative runtime result;
+- partial source outcome and source evidence remain explicit in the composed result;
+- deterministic mode invokes no AI;
+- optional AI-assisted mode calls only the existing AI Router with task `response-composition`, fixed reason `automation-dynamic-composition`, bounded output, trace/request provenance and existing telemetry/policy/cost enforcement;
+- AI may provide only a neutral numeric-free introduction; it neither receives nor rewrites metric values, and numeric AI claims fail closed;
+- no scheduler, queue, worker, collector, security stack, AI provider path or cost logger is duplicated.
+
+Implementation/evidence:
+- `src/automation/runtimeDynamicComposition.js`, exported through `src/automation/index.js`;
+- regression coverage: `tests/runtimeDynamicComposition.test.js` covers runtime-source enforcement, stale-input exclusion, deterministic metrics, workspace-local unique actors, partial omissions, AI Router reason/cost/trace evidence, numeric-claim rejection and prerequisite failures;
+- implementation/test HEAD `dba4da3defd8ec692e7083d85403792491640404`; SG 2.1 CI #8290 SUCCESS on that exact HEAD.
+
+Boundary: AW2.14 owns runtime composition only. It does not define retry/backoff or delivery-failure handling; AW2.15 owns failure and retry policy.
 
 ### AW2.15 — Failure and retry policy
 Define deterministic handling for:

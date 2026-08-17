@@ -61,7 +61,7 @@ Canonical doc: `17_RENDER_DEPLOYMENT.md`.
 
 ## Automation 2.0 — Executable Workflows
 
-**ACCEPTED ARCHITECTURE / IMPLEMENTATION IN PROGRESS — AW2.1–AW2.13 CLOSED / CI-VERIFIED; AW2.14 NEXT; NOT DEPLOYED / NOT LIVE-VERIFIED AS AUTOMATION 2.0.**
+**ACCEPTED ARCHITECTURE / IMPLEMENTATION IN PROGRESS — AW2.1–AW2.14 CLOSED / CI-VERIFIED; AW2.15 NEXT; NOT DEPLOYED / NOT LIVE-VERIFIED AS AUTOMATION 2.0.**
 
 AW2.1–AW2.12 now provide the additive generalized workflow foundation above the existing durable automation substrate:
 - versioned workflow contract and backward-compatible `self-notification` adapter;
@@ -76,7 +76,8 @@ AW2.1–AW2.12 now provide the additive generalized workflow foundation above th
 - AW2.10 durable version-history evidence covering version/parent, actor, timestamp, patch summary, request/trace provenance, canonical validation result, gate result and full workflow snapshots;
 - AW2.11 execution-time fresh-data `collect` handler contract that requires a current allowed protected-step security verdict, performs collection anew per execution and does not expose stored workflow inputs/prior handoff to the collector as substitute current evidence;
 - AW2.12 concrete single-workspace `workspace-activity` collector that reuses existing TWM persisted activity/analytics semantics, requires current execution security and returns deterministic publication/poll/test/interaction/activity-event evidence with explicit data-window/source metadata;
-- AW2.13 multi-workspace aggregation over AW2.12 with independent current security re-check per canonical workspace, explicit denied/unavailable omissions, authorized-data-only additive totals and no invalid cross-workspace summation of `uniqueActors`.
+- AW2.13 multi-workspace aggregation over AW2.12 with independent current security re-check per canonical workspace, explicit denied/unavailable omissions, authorized-data-only additive totals and no invalid cross-workspace summation of `uniqueActors`;
+- AW2.14 runtime `compose` handler that builds final user-facing output from the immediately preceding current execution result, preserves partial/omission evidence, renders authoritative metrics deterministically and permits optional narrative only through the existing cost/reason/trace-logged AI Router.
 
 AW2.6 does **not** turn the stored envelope into authority. A structurally valid state-changing step still passes the existing AW2.4 runtime checks immediately before its handler, so lost access/authority, Action Gate denial, unavailable credentials or permission-health failure remains terminally denied. Scheduled/delegated execution cannot broaden current authorization. No second scheduler, queue, worker, identity, authority, credential, confirmation or ACS stack was created.
 
@@ -146,6 +147,16 @@ AW2.13 implementation/closure evidence:
 - regression coverage in `tests/multiWorkspaceActivityAggregator.test.js` proves independent authorization, authorized-only aggregation, omission semantics, no cross-workspace `uniqueActors` sum, fail-closed scope validation and AW2.11 fresh-data composition;
 - implementation/test HEAD `69e7918dcda9d6bd421d0f3fe3dd74bb7418ef4f` passed exact-head SG 2.1 CI #8286; AW2.13 is therefore CLOSED / CI-VERIFIED inside this code/test boundary.
 
+AW2.14 implementation/closure evidence:
+- `src/automation/runtimeDynamicComposition.js` implements the protected runtime handler for typed `compose` steps and is exported through `src/automation/index.js`;
+- composition accepts only an untruncated runtime handoff from a completed/partial `collect`, `retrieve` or `analyze` step and rejects stored workflow inputs as source evidence;
+- exact activity totals, workspace-local `uniqueActors`, data-window metadata and omissions are rendered by deterministic code from the runtime source output;
+- partial source outcome remains partial, and source/security evidence is retained through the composition result;
+- deterministic mode makes no AI call; optional AI-assisted mode uses only the existing `aiRouter.route` boundary with fixed `automation-dynamic-composition` reason, trace/request provenance, normal telemetry/cost enforcement and bounded output;
+- AI produces only a neutral numeric-free introduction and cannot receive or rewrite deterministic metrics; numeric AI claims fail closed before the final message is returned;
+- regression coverage in `tests/runtimeDynamicComposition.test.js` covers runtime-only composition, stale-input exclusion, authoritative metrics, per-workspace unique actors, partial omissions, AI Router reason/cost/trace evidence, numeric-claim denial and fail-closed prerequisites;
+- implementation/test HEAD `dba4da3defd8ec692e7083d85403792491640404` passed exact-head SG 2.1 CI #8290; AW2.14 is therefore CLOSED / CI-VERIFIED inside this code/test boundary.
+
 Boundary:
 - Automation 2.0 generalized workflows are not yet production-wired/live-accepted as a complete program;
 - `deliver` remains on the existing Delivery Router / execution-security boundary and is not reclassified by AW2.6 as a generic capability mutation, preserving the established self-notification compatibility path;
@@ -155,7 +166,8 @@ Boundary:
 - AW2.11 establishes the generic runtime fresh-collection semantics used by concrete collectors;
 - AW2.12 implements the concrete collector for exactly one canonical authorized workspace and reuses existing TWM store/analytics contracts;
 - AW2.13 aggregates that collector across independently re-authorized canonical workspaces, reports denied/unavailable resources explicitly and does not treat workspace-local unique actors as globally additive;
-- AW2.14 is next; dynamic composition, idempotency and live acceptance remain later stages.
+- AW2.14 composes final runtime output from current step evidence, keeps deterministic metrics outside AI control and routes optional narrative through the existing logged/costed AI Router;
+- AW2.15 is next; failure/retry policy, idempotency and live acceptance remain later stages.
 
 Canonical docs:
 - `../architecture/AUTOMATION_2_0_EXECUTABLE_WORKFLOWS.md`

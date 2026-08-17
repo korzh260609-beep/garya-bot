@@ -5,6 +5,7 @@ export { WORKFLOW_EXECUTION_SECURITY_CHECKS, isProtectedWorkflowStep, createWork
 export { FRESH_DATA_COLLECTION_STEP_TYPES, isFreshDataCollectionStep, createRuntimeFreshDataCollectHandler } from './runtimeFreshDataCollection.js';
 export { WORKSPACE_ACTIVITY_CAPABILITY, createWorkspaceActivityCollector } from './workspaceActivityCollector.js';
 export { createMultiWorkspaceActivityAggregator } from './multiWorkspaceActivityAggregator.js';
+export { DYNAMIC_COMPOSITION_MODES, DYNAMIC_COMPOSITION_SOURCE_STEP_TYPES, isDynamicCompositionStep, createRuntimeDynamicComposeHandler } from './runtimeDynamicComposition.js';
 export { AUTONOMOUS_READ_ONLY_STEP_TYPES, isAutonomousReadOnlyRequested, evaluateAutonomousReadOnlyPolicy } from './workflowReadOnlyAutonomy.js';
 export { STATE_CHANGING_WORKFLOW_STEP_TYPES, STATE_CHANGE_CONFIRMATION_POLICIES, STATE_CHANGE_DELEGATION_POLICIES, isStateChangingWorkflowStep, evaluateStateChangeExecutionEnvelope } from './workflowStateChangeEnvelope.js';
 export { WORKFLOW_MUTATION_FIELDS, WORKFLOW_LIFECYCLE_ACTIONS, WORKFLOW_SEMANTIC_SELECTOR_FIELDS, WorkflowUpdateError, createWorkflowUpdateCapability } from './workflowUpdate.js';

@@ -79,7 +79,10 @@ export function createDeliveryRouter({ store = createInMemoryDeliveryStore(), tr
   }
   async function recordEvent(request, outcome, data = {}) { observability?.record?.({ eventClass: 'delivery_attempt', channel: outcome === 'delivered' ? 'telemetry' : 'audit', stage: 'delivery-router', traceContext: request.traceContext, outcome, actorRef: request.actorGlobalUserId, data: { deliveryId: request.deliveryId, kind: request.kind, recipientGlobalUserId: request.recipientGlobalUserId, ...data } }); }
   async function route(input) {
-    const request = normalizeRequest(input, idFactory); const duplicate = await store.getByIdempotencyKey(request.idempotencyKey); if (duplicate) return publicResult({ ...duplicate, duplicate: true });
+    const normalized = normalizeRequest(input, idFactory);
+    const duplicate = await store.getByIdempotencyKey(normalized.idempotencyKey);
+    if (duplicate && (duplicate.status === 'delivered' || duplicate.retryable !== true)) return publicResult({ ...duplicate, duplicate: true });
+    const request = duplicate ? Object.freeze({ ...normalized, deliveryId: duplicate.deliveryId }) : normalized;
     const settings = await resolveSettings(request);
     if (request.kind === 'notification') {
       if (settings?.settings?.notifications?.enabled === false) { const record = { ...request, status: 'suppressed', attempts: 0, failureCode: 'notifications-disabled', retryable: false }; await store.put(record); await recordEvent(request, 'suppressed', { reason: record.failureCode }); return publicResult(record); }

@@ -42,7 +42,15 @@ export function createPostgresDeliveryStore({ database } = {}) {
         delivery_id,idempotency_key,kind,actor_global_user_id,recipient_global_user_id,project_scope,transport,target,status,attempts,failure_code,retryable,delivered_at,provider_result,trace_context,metadata,updated_at
       ) VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9,$10,$11,$12,$13,$14::jsonb,$15::jsonb,$16::jsonb,NOW())
       ON CONFLICT(idempotency_key) DO UPDATE SET
-        transport=EXCLUDED.transport,target=EXCLUDED.target,status=EXCLUDED.status,attempts=EXCLUDED.attempts,failure_code=EXCLUDED.failure_code,retryable=EXCLUDED.retryable,delivered_at=EXCLUDED.delivered_at,provider_result=EXCLUDED.provider_result,trace_context=EXCLUDED.trace_context,metadata=EXCLUDED.metadata,updated_at=NOW()
+        transport=CASE WHEN delivery_records.status='delivered' THEN delivery_records.transport ELSE EXCLUDED.transport END,
+        target=CASE WHEN delivery_records.status='delivered' THEN delivery_records.target ELSE EXCLUDED.target END,
+        status=CASE WHEN delivery_records.status='delivered' THEN delivery_records.status ELSE EXCLUDED.status END,
+        attempts=GREATEST(delivery_records.attempts,EXCLUDED.attempts),
+        failure_code=CASE WHEN delivery_records.status='delivered' THEN delivery_records.failure_code ELSE EXCLUDED.failure_code END,
+        retryable=CASE WHEN delivery_records.status='delivered' THEN FALSE ELSE EXCLUDED.retryable END,
+        delivered_at=COALESCE(delivery_records.delivered_at,EXCLUDED.delivered_at),
+        provider_result=COALESCE(delivery_records.provider_result,EXCLUDED.provider_result),
+        trace_context=EXCLUDED.trace_context,metadata=EXCLUDED.metadata,updated_at=NOW()
       RETURNING *`, [
         required(record.deliveryId, 'record.deliveryId'), required(record.idempotencyKey, 'record.idempotencyKey'), required(record.kind, 'record.kind'),
         required(record.actorGlobalUserId, 'record.actorGlobalUserId'), required(record.recipientGlobalUserId, 'record.recipientGlobalUserId'), required(record.projectScope, 'record.projectScope'),

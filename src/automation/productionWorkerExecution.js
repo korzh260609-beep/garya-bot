@@ -1,3 +1,5 @@
+import { deriveWorkflowOccurrenceId, workflowDeliveryIdempotencyKey } from './workflowExecutionContinuity.js';
+
 function taskKind(value) {
   if (typeof value !== 'string' || value.trim() === '') throw new TypeError('task kind is required');
   return value.trim();
@@ -122,6 +124,7 @@ export function createProductionWorkerExecutor({ verifyMode = false, deliveryRou
         error.retryable = false;
         throw error;
       }
+      const occurrenceId = deriveWorkflowOccurrenceId({ taskId, payload, idempotencyKey });
       const result = await deliveryRouter.route({
         kind: 'notification',
         actorGlobalUserId: scope.globalUserId,
@@ -130,13 +133,14 @@ export function createProductionWorkerExecutor({ verifyMode = false, deliveryRou
         message: payload.message,
         originTarget: payload.delivery.originTarget,
         explicitTarget: false,
-        idempotencyKey: `automation-delivery:${taskId}`,
+        idempotencyKey: workflowDeliveryIdempotencyKey({ occurrenceId }),
         locale: payload.delivery.locale ?? null,
         traceContext,
         metadata: {
           originBoundSelfNotification: true,
           automationTaskId: taskId,
           automationAttempt: attempt,
+          occurrenceId,
           taskIdempotencyKey: idempotencyKey ?? null,
           recurrence: payload.recurrence ?? null
         }

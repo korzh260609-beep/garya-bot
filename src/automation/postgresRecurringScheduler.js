@@ -88,8 +88,14 @@ export function createPostgresRecurringScheduler({ database, recurrenceEngine, c
       const firstStatus = approval.required === true && approval.approved !== true
         ? 'waiting_approval'
         : new Date(first.utcInstant) > now ? 'scheduled' : 'queued';
-      await tx.query(`UPDATE tasks SET available_at=$2,status=$3,updated_at=now()
-        WHERE task_id=$1 AND status IN ('queued','scheduled','waiting_approval')`, [template.task_id, first.utcInstant, firstStatus]);
+      const firstOccurrenceId = taskOccurrenceId(scheduleId, 1);
+      const firstPayload = {
+        ...(template.payload ?? {}),
+        occurrenceId: firstOccurrenceId,
+        recurrence: { scheduleId, sequence: 1, scheduledFor: first.utcInstant, localDateTime: first.localDateTime, timeZone, rule: rule.canonical }
+      };
+      await tx.query(`UPDATE tasks SET available_at=$2,status=$3,payload=$4::jsonb,updated_at=now()
+        WHERE task_id=$1 AND status IN ('queued','scheduled','waiting_approval')`, [template.task_id, first.utcInstant, firstStatus, JSON.stringify(firstPayload)]);
 
       const next = await recurrenceEngine.next({ rule, dtstartLocal, timeZone, afterUtc: first.utcInstant });
       const completed = !next;
@@ -243,7 +249,7 @@ export function createPostgresRecurringScheduler({ database, recurrenceEngine, c
     const status = approval.required === true && approval.approved !== true
       ? 'waiting_approval'
       : new Date(occurrence.utcInstant) > now ? 'scheduled' : 'queued';
-    const payload = { ...(template.payload ?? {}), recurrence: { scheduleId: schedule.schedule_id, sequence: occurrence.sequence, scheduledFor: occurrence.utcInstant, localDateTime: occurrence.localDateTime, timeZone: schedule.timezone, rule: schedule.recurrence } };
+    const payload = { ...(template.payload ?? {}), occurrenceId: taskId, recurrence: { scheduleId: schedule.schedule_id, sequence: occurrence.sequence, scheduledFor: occurrence.utcInstant, localDateTime: occurrence.localDateTime, timeZone: schedule.timezone, rule: schedule.recurrence } };
     const inserted = await tx.query(`INSERT INTO tasks(task_id,global_user_id,project_scope,group_scope,thread_scope,status,kind,payload,approval_state,max_attempts,available_at,protected_action,idempotency_key)
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10,$11,$12,$13) ON CONFLICT DO NOTHING RETURNING *`, [taskId, template.global_user_id, template.project_scope, template.group_scope, template.thread_scope, status, template.kind, JSON.stringify(payload), JSON.stringify(approval), template.max_attempts ?? 3, occurrence.utcInstant, Boolean(template.protected_action), `recurrence:${schedule.schedule_id}:${occurrence.sequence}`]);
     if (inserted.rows[0]) await tx.query(`INSERT INTO schedule_occurrences(schedule_id,sequence,scheduled_for,local_datetime,timezone,task_id) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING`, [schedule.schedule_id, occurrence.sequence, occurrence.utcInstant, occurrence.localDateTime, schedule.timezone, taskId]);

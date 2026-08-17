@@ -1,3 +1,4 @@
+import { workflowDeliveryIdempotencyKey } from './workflowExecutionContinuity.js';
 import { createWorkflowDefinition } from './workflowContract.js';
 import { isProtectedWorkflowStep } from './workflowExecutionSecurity.js';
 import { evaluateAutonomousReadOnlyPolicy } from './workflowReadOnlyAutonomy.js';
@@ -186,7 +187,7 @@ export function createWorkflowExecutor({
   if (previewLength >= maxSerializedLength) throw new TypeError('previewLength must be less than maxSerializedLength');
   const bounds = Object.freeze({ maxSerializedLength, previewLength });
 
-  async function executeSteps({ taskId, workflow, traceContext = {}, runId = null } = {}) {
+  async function executeSteps({ taskId, workflow, traceContext = {}, runId = null, occurrenceId = null, attempt = 1 } = {}) {
     const normalizedTaskId = requiredString(taskId, 'taskId');
     const definition = createWorkflowDefinition(workflow);
     const autonomyVerdict = evaluateAutonomousReadOnlyPolicy(definition);
@@ -279,7 +280,9 @@ export function createWorkflowExecutor({
               step,
               stepIndex,
               handoff,
-              traceContext: Object.freeze({ ...traceContext })
+              occurrenceId,
+              attempt,
+              traceContext: Object.freeze({ ...traceContext, occurrenceId })
             }));
           } catch (error) {
             securityVerdict = securityFailureVerdict(error);
@@ -341,7 +344,10 @@ export function createWorkflowExecutor({
           stepIndex,
           handoff,
           securityVerdict,
-          traceContext: Object.freeze({ ...traceContext })
+          occurrenceId,
+          attempt,
+          deliveryIdempotencyKey: step.type === 'deliver' ? workflowDeliveryIdempotencyKey({ occurrenceId, stepIndex }) : null,
+          traceContext: Object.freeze({ ...traceContext, occurrenceId })
         })), bounds, securityEvidenceRefs);
       } catch (error) {
         await stepRunStore.recordStep({
@@ -420,7 +426,7 @@ export function createWorkflowExecutor({
       });
     }
     try {
-      const result = await executeSteps({ ...input, taskId: normalizedTaskId, workflow: definition, runId });
+      const result = await executeSteps({ ...input, taskId: normalizedTaskId, workflow: definition, runId, occurrenceId, attempt });
       const completed = Object.freeze({ ...result, runId, occurrenceId, attempt });
       if (typeof stepRunStore.completeRun === 'function') {
         await stepRunStore.completeRun({

@@ -46,11 +46,14 @@ export function createPostgresTaskQueue({ database, idFactory = randomUUID } = {
     const [globalUserId, projectScope, groupScope, threadScope] = scopeValues(scope);
     positiveInteger(maxAttempts, 'maxAttempts');
     const status = approvalRequired ? 'waiting_approval' : (runAt && new Date(runAt) > new Date() ? 'scheduled' : 'queued');
+    const normalizedPayload = payload && typeof payload === 'object' && !Array.isArray(payload)
+      ? { ...payload, occurrenceId: payload.occurrenceId ?? `task:${taskId}` }
+      : payload;
     return database.transaction(async (tx) => {
       await tx.query('INSERT INTO users(global_user_id) VALUES ($1) ON CONFLICT DO NOTHING', [globalUserId]);
       const result = await tx.query(`INSERT INTO tasks(task_id,global_user_id,project_scope,group_scope,thread_scope,status,kind,payload,approval_state,max_attempts,available_at,protected_action,idempotency_key)
         VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10,COALESCE($11::timestamptz,now()),$12,$13)
-        ON CONFLICT DO NOTHING RETURNING *`, [taskId, globalUserId, projectScope, groupScope, threadScope, status, requiredString(kind, 'kind'), JSON.stringify(payload), JSON.stringify({ required: approvalRequired, approved: false }), maxAttempts, runAt, protectedAction, idempotencyKey]);
+        ON CONFLICT DO NOTHING RETURNING *`, [taskId, globalUserId, projectScope, groupScope, threadScope, status, requiredString(kind, 'kind'), JSON.stringify(normalizedPayload), JSON.stringify({ required: approvalRequired, approved: false }), maxAttempts, runAt, protectedAction, idempotencyKey]);
       if (result.rows[0]) return result.rows[0];
       const existing = await tx.query('SELECT * FROM tasks WHERE task_id=$1 OR ($2::text IS NOT NULL AND idempotency_key=$2) ORDER BY created_at LIMIT 1', [taskId, idempotencyKey]);
       if (!existing.rows[0]) throw new Error('task submission conflict without existing task');

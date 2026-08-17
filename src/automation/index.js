@@ -1,6 +1,7 @@
 export { TASK_STATUSES, createAutomationTask, createDelegatedAgent, createAutomationEvent } from './contracts.js';
 export { WORKFLOW_SCHEMA_VERSION, WORKFLOW_TRIGGER_TYPES, WORKFLOW_STEP_TYPES, assertSupportedWorkflowSchema, assertSupportedWorkflowStepType, createWorkflowStep, createWorkflowDefinition, adaptSelfNotificationTaskToWorkflow } from './workflowContract.js';
 export { WORKFLOW_EXECUTION_OUTCOMES, createWorkflowExecutor } from './workflowExecutor.js';
+export { deriveWorkflowOccurrenceId, workflowDeliveryIdempotencyKey, createRestartContinuousWorkflowExecution } from './workflowExecutionContinuity.js';
 export { WORKFLOW_FAILURE_CLASSES, evaluateDurableExecutionResult, createDurableExecutionOutcomeError } from './workflowFailurePolicy.js';
 export { WORKFLOW_EXECUTION_SECURITY_CHECKS, isProtectedWorkflowStep, createWorkflowExecutionSecurity } from './workflowExecutionSecurity.js';
 export { FRESH_DATA_COLLECTION_STEP_TYPES, isFreshDataCollectionStep, createRuntimeFreshDataCollectHandler } from './runtimeFreshDataCollection.js';

@@ -74,6 +74,22 @@ export function createPostgresWorkflowUpdateStore({ database } = {}) {
     return Object.freeze(result.rows.map(normalizeRecord));
   }
 
+  async function resolveVersion({ automationId, version, scope } = {}) {
+    const [globalUserId, projectScope, groupScope, threadScope] = scopeValues(scope);
+    const normalizedVersion = Number(version);
+    if (!Number.isInteger(normalizedVersion) || normalizedVersion < 1) throw new TypeError('version must be a positive integer');
+    const result = await database.query(`SELECT
+        w.automation_id,w.task_id,w.schedule_id,w.lifecycle_status,v.workflow
+      FROM automation_workflows w
+      JOIN automation_workflow_versions v ON v.automation_id=w.automation_id
+      WHERE w.automation_id=$1 AND v.version=$2
+        AND w.global_user_id=$3 AND w.project_scope=$4
+        AND w.group_scope IS NOT DISTINCT FROM $5
+        AND w.thread_scope IS NOT DISTINCT FROM $6
+      LIMIT 1`, [requiredString(automationId, 'automationId'), normalizedVersion, globalUserId, projectScope, groupScope, threadScope]);
+    return normalizeRecord(result.rows[0] ?? null);
+  }
+
   async function list({ scope, limit = 100 } = {}) {
     const [globalUserId, projectScope, groupScope, threadScope] = scopeValues(scope);
     const bounded = Number.isInteger(limit) && limit > 0 ? Math.min(limit, 201) : 100;
@@ -153,5 +169,5 @@ export function createPostgresWorkflowUpdateStore({ database } = {}) {
     })));
   }
 
-  return Object.freeze({ register, resolve, list, commitMutation, history, atomicRuntimeMutation: true });
+  return Object.freeze({ register, resolve, resolveVersion, list, commitMutation, history, atomicRuntimeMutation: true });
 }

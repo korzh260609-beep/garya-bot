@@ -2,6 +2,7 @@ export { TASK_STATUSES, createAutomationTask, createDelegatedAgent, createAutoma
 export { WORKFLOW_SCHEMA_VERSION, WORKFLOW_TRIGGER_TYPES, WORKFLOW_STEP_TYPES, assertSupportedWorkflowSchema, assertSupportedWorkflowStepType, createWorkflowStep, createWorkflowDefinition, adaptSelfNotificationTaskToWorkflow } from './workflowContract.js';
 export { WORKFLOW_EXECUTION_OUTCOMES, createWorkflowExecutor } from './workflowExecutor.js';
 export { WORKFLOW_EXECUTION_SECURITY_CHECKS, isProtectedWorkflowStep, createWorkflowExecutionSecurity } from './workflowExecutionSecurity.js';
+export { FRESH_DATA_COLLECTION_STEP_TYPES, isFreshDataCollectionStep, createRuntimeFreshDataCollectHandler } from './runtimeFreshDataCollection.js';
 export { AUTONOMOUS_READ_ONLY_STEP_TYPES, isAutonomousReadOnlyRequested, evaluateAutonomousReadOnlyPolicy } from './workflowReadOnlyAutonomy.js';
 export { STATE_CHANGING_WORKFLOW_STEP_TYPES, STATE_CHANGE_CONFIRMATION_POLICIES, STATE_CHANGE_DELEGATION_POLICIES, isStateChangingWorkflowStep, evaluateStateChangeExecutionEnvelope } from './workflowStateChangeEnvelope.js';
 export { WORKFLOW_MUTATION_FIELDS, WORKFLOW_LIFECYCLE_ACTIONS, WORKFLOW_SEMANTIC_SELECTOR_FIELDS, WorkflowUpdateError, createWorkflowUpdateCapability } from './workflowUpdate.js';

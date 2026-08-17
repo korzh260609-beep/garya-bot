@@ -1,3 +1,5 @@
+import { createDurableExecutionOutcomeError, evaluateDurableExecutionResult } from './workflowFailurePolicy.js';
+
 function requiredFunction(value, name) {
   if (typeof value !== 'function') throw new TypeError(`${name} must be a function`);
   return value;
@@ -147,9 +149,11 @@ export function createDurableWorker({
           threadScope: task.thread_scope
         }
       }));
+      const executionEvaluation = evaluateDurableExecutionResult(result);
+      if (!executionEvaluation.accepted) throw createDurableExecutionOutcomeError(executionEvaluation);
       const finalTask = await queue.complete({ taskId: task.task_id, workerId, result });
       completed += 1;
-      event('worker_task_completed', finalTask, 'completed');
+      event('worker_task_completed', finalTask, executionEvaluation.outcome, { workflowOutcome: executionEvaluation.outcome, failureClass: executionEvaluation.failureClass });
       return finalTask;
     } catch (error) {
       failed += 1;

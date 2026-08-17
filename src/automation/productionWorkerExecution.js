@@ -156,6 +156,7 @@ export function createProductionWorkerExecutor({ verifyMode = false, deliveryRou
 
     const error = new Error(`No production executor registered for task kind: ${normalizedKind}`);
     error.code = 'unsupported-production-task-kind';
+    error.retryable = false;
     throw error;
   };
 }

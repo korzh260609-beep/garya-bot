@@ -52,7 +52,8 @@ function normalizeStepResult(value, bounds, securityEvidenceRefs = []) {
     output: boundJson(value.output, { ...bounds, field: 'workflow step result.output' }),
     evidenceRefs: boundJson([...securityEvidenceRefs, ...(value.evidenceRefs ?? [])], { ...bounds, field: 'workflow step result.evidenceRefs' }),
     errorCode: value.errorCode == null ? null : String(value.errorCode),
-    errorMessage: value.errorMessage == null ? null : String(value.errorMessage)
+    errorMessage: value.errorMessage == null ? null : String(value.errorMessage),
+    retryable: value.retryable === true ? true : value.retryable === false ? false : null
   });
 }
 
@@ -64,7 +65,8 @@ function deniedSecurityResult(verdict, bounds) {
     errorCode: verdict?.errorCode == null ? 'execution_security_denied' : String(verdict.errorCode),
     errorMessage: verdict?.errorMessage == null
       ? String(verdict?.reason ?? 'execution-time security re-check denied')
-      : String(verdict.errorMessage)
+      : String(verdict.errorMessage),
+    retryable: false
   });
 }
 
@@ -74,7 +76,8 @@ function policyDeniedResult(verdict, bounds, field, defaultErrorCode, defaultMes
     output: null,
     evidenceRefs: boundJson(verdict?.evidenceRefs ?? [], { ...bounds, field }),
     errorCode: verdict?.errorCode == null ? defaultErrorCode : String(verdict.errorCode),
-    errorMessage: String(verdict?.reason ?? defaultMessage)
+    errorMessage: String(verdict?.reason ?? defaultMessage),
+    retryable: false
   });
 }
 
@@ -251,6 +254,7 @@ export function createWorkflowExecutor({
             outcome: 'denied',
             output: result.output,
             evidenceRefs: result.evidenceRefs,
+            retryable: result.retryable,
             stepRuns: Object.freeze(stepRuns)
           });
         }

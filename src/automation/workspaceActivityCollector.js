@@ -70,29 +70,29 @@ export function createWorkspaceActivityCollector({ workspaceOperationsStore, clo
     const window = normalizeWindow(source, clock);
     const query = Object.freeze({ workspaceId, from: window.from, to: window.to });
 
-    const [publications, polls, tests, interactions, activityEvents] = await Promise.all([
-      countRecords({ ...query, domain: 'content', status: 'published' }),
+    const [polls, tests, interactions, rawActivityEvents] = await Promise.all([
       countRecords({ ...query, domain: 'poll' }),
       countRecords({ ...query, domain: 'test' }),
       aggregateEventActors({ ...query, eventTypes: WORKSPACE_ANALYTICS_INTERACTION_EVENT_TYPES }),
       aggregateEvents(query)
     ]);
+    const activityEvents = Object.fromEntries(
+      Object.entries(rawActivityEvents ?? {})
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([eventType, count]) => [eventType, Number(count)])
+    );
 
     const data = freeze({
       workspaceId,
       window,
-      publications: Number(publications),
+      publications: Number(activityEvents['content.published'] ?? 0),
       polls: Number(polls),
       tests: Number(tests),
       interactions: {
         uniqueActors: Number(interactions?.uniqueActors ?? 0),
         events: Number(interactions?.interactionEvents ?? 0)
       },
-      activityEvents: Object.fromEntries(
-        Object.entries(activityEvents ?? {})
-          .sort(([left], [right]) => left.localeCompare(right))
-          .map(([eventType, count]) => [eventType, Number(count)])
-      )
+      activityEvents
     });
 
     return Object.freeze({

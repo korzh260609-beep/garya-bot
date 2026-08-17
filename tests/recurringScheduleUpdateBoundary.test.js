@@ -98,4 +98,15 @@ test('schedule controls may infer exactly one eligible schedule but never guess 
   assert.equal(ambiguous.status, 'failed');
   assert.equal(ambiguous.error.code, 'schedule-selection-required');
   assert.equal(ambiguous.data.schedules.length, 2);
+  assert.equal(ambiguous.data.candidateCount, 2);
+  assert.deepEqual(ambiguous.data.schedules.map((item) => item.position), [1, 2]);
+  assert.equal(ambiguous.data.schedules.some((item) => 'scheduleId' in item), false);
+  assert.equal(ambiguous.data.message.includes('schedule-1'), false);
+  assert.equal(ambiguous.data.message.includes('schedule-2'), false);
+
+  const selectedSecond = await pause.execute(request({ locale: 'ru', selector: { position: 2 } }));
+  assert.equal(selectedSecond.status, 'success');
+  assert.equal(selectedSecond.data.selectedBy, 'semantic-selector-position');
+  assert.equal(pausedId, 'schedule-2');
+  assert.equal(selectedSecond.data.message.includes('schedule-2'), false);
 });

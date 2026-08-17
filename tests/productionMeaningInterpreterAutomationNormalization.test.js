@@ -78,3 +78,22 @@ test('task-create with explicit non-self kind is never coerced into self-notific
   assert.equal(action.payload.kind, 'external-job');
   assert.equal(action.payload.notificationMessage, undefined);
 });
+
+
+test('schedule-list preserves a structured lifecycle status filter for deterministic capability execution', async () => {
+  const interpreter = createProductionMeaningInterpreter({
+    aiRouter: aiRouterReturning(interpretation({
+      type: 'schedule-list',
+      name: 'schedule-list',
+      actionClass: 'read-only',
+      payload: { statuses: ['active'] }
+    }))
+  });
+
+  const result = await interpreter.interpret({
+    ...canonicalInput(),
+    text: 'Покажи мои активные автоматизации'
+  });
+
+  assert.deepEqual(result.candidateActions[0].payload.statuses, ['active']);
+});

@@ -103,14 +103,169 @@ function dtstartAtLocalTime(dtstartLocal, localTime) {
   return `${date}T${localTime}:00`;
 }
 
-function scheduleListMessage(schedules) {
-  if (schedules.length === 0) return 'Recurring schedules: 0';
+const SCHEDULE_STATUSES = Object.freeze(['active', 'paused', 'cancelled', 'error']);
+
+function scheduleLanguage(locale) {
+  const value = String(locale ?? 'en').toLowerCase();
+  if (value.startsWith('uk')) return 'uk';
+  if (value.startsWith('ru')) return 'ru';
+  return 'en';
+}
+
+function scheduleCopy(locale) {
+  const language = scheduleLanguage(locale);
+  if (language === 'uk') {
+    return Object.freeze({
+      locale: 'uk-UA',
+      heading: (count, activeOnly) => activeOnly ? `Активні автоматизації: ${count}` : `Ваші автоматизації: ${count}`,
+      empty: (activeOnly) => activeOnly ? 'Активних автоматизацій немає.' : 'Автоматизацій немає.',
+      untitled: 'Автоматизація без зазначеного повідомлення',
+      at: 'о',
+      status: 'Статус',
+      schedule: 'Розклад',
+      timezone: 'Часовий пояс',
+      next: 'Наступний запуск',
+      noNext: 'не заплановано',
+      statuses: { active: 'активна', paused: 'призупинена', cancelled: 'скасована', error: 'помилка' }
+    });
+  }
+  if (language === 'ru') {
+    return Object.freeze({
+      locale: 'ru-RU',
+      heading: (count, activeOnly) => activeOnly ? `Активные автоматизации: ${count}` : `Ваши автоматизации: ${count}`,
+      empty: (activeOnly) => activeOnly ? 'Активных автоматизаций нет.' : 'Автоматизаций нет.',
+      untitled: 'Автоматизация без указанного сообщения',
+      at: 'в',
+      status: 'Статус',
+      schedule: 'Расписание',
+      timezone: 'Часовой пояс',
+      next: 'Следующий запуск',
+      noNext: 'не запланирован',
+      statuses: { active: 'активна', paused: 'приостановлена', cancelled: 'отменена', error: 'ошибка' }
+    });
+  }
+  return Object.freeze({
+    locale: 'en-GB',
+    heading: (count, activeOnly) => activeOnly ? `Active automations: ${count}` : `Your automations: ${count}`,
+    empty: (activeOnly) => activeOnly ? 'There are no active automations.' : 'There are no automations.',
+    untitled: 'Automation without a specified message',
+    at: 'at',
+    status: 'Status',
+    schedule: 'Schedule',
+    timezone: 'Time zone',
+    next: 'Next run',
+    noNext: 'not scheduled',
+    statuses: { active: 'active', paused: 'paused', cancelled: 'cancelled', error: 'error' }
+  });
+}
+
+function scheduleStatuses(value) {
+  if (value == null) return null;
+  if (!Array.isArray(value) || value.length === 0) throw new TypeError('input.statuses must be a non-empty array');
+  const statuses = value.map((item) => String(item).trim().toLowerCase());
+  if (statuses.some((status) => !SCHEDULE_STATUSES.includes(status))) throw new TypeError('input.statuses contains an unsupported schedule status');
+  return Object.freeze([...new Set(statuses)]);
+}
+
+function scheduleTitle(schedule, copy) {
+  const raw = schedule.state?.notificationMessage ?? schedule.notificationMessage;
+  const normalized = typeof raw === 'string' ? raw.replace(/\s+/gu, ' ').trim() : '';
+  if (!normalized) return copy.untitled;
+  return normalized.length <= 120 ? normalized : `${normalized.slice(0, 117)}…`;
+}
+
+function recurrenceParts(value) {
+  return Object.fromEntries(String(value ?? '').split(';').flatMap((part) => {
+    const separator = part.indexOf('=');
+    if (separator < 1) return [];
+    return [[part.slice(0, separator).toUpperCase(), part.slice(separator + 1)]];
+  }));
+}
+
+function recurrenceText(value, locale) {
+  const language = scheduleLanguage(locale);
+  const parts = recurrenceParts(value);
+  const interval = Number(parts.INTERVAL ?? 1);
+  const every = Number.isInteger(interval) && interval > 1 ? interval : 1;
+  const weekdays = {
+    en: { MO: 'Mon', TU: 'Tue', WE: 'Wed', TH: 'Thu', FR: 'Fri', SA: 'Sat', SU: 'Sun' },
+    ru: { MO: 'пн', TU: 'вт', WE: 'ср', TH: 'чт', FR: 'пт', SA: 'сб', SU: 'вс' },
+    uk: { MO: 'пн', TU: 'вт', WE: 'ср', TH: 'чт', FR: 'пт', SA: 'сб', SU: 'нд' }
+  };
+  const days = String(parts.BYDAY ?? '').split(',').filter(Boolean).map((day) => weekdays[language][day] ?? day).join(', ');
+
+  if (language === 'ru') {
+    if (parts.FREQ === 'MINUTELY') return every === 1 ? 'каждую минуту' : `каждые ${every} мин.`;
+    if (parts.FREQ === 'HOURLY') return every === 1 ? 'каждый час' : `каждые ${every} ч.`;
+    if (parts.FREQ === 'DAILY') return every === 1 ? 'каждый день' : `каждые ${every} дн.`;
+    if (parts.FREQ === 'WEEKLY') return `${every === 1 ? 'каждую неделю' : `каждые ${every} нед.`}${days ? ` (${days})` : ''}`;
+    if (parts.FREQ === 'MONTHLY') return every === 1 ? 'каждый месяц' : `каждые ${every} мес.`;
+    if (parts.FREQ === 'YEARLY') return every === 1 ? 'каждый год' : `каждые ${every} г.`;
+    return 'повторяющееся';
+  }
+  if (language === 'uk') {
+    if (parts.FREQ === 'MINUTELY') return every === 1 ? 'щохвилини' : `кожні ${every} хв.`;
+    if (parts.FREQ === 'HOURLY') return every === 1 ? 'щогодини' : `кожні ${every} год.`;
+    if (parts.FREQ === 'DAILY') return every === 1 ? 'щодня' : `кожні ${every} дн.`;
+    if (parts.FREQ === 'WEEKLY') return `${every === 1 ? 'щотижня' : `кожні ${every} тиж.`}${days ? ` (${days})` : ''}`;
+    if (parts.FREQ === 'MONTHLY') return every === 1 ? 'щомісяця' : `кожні ${every} міс.`;
+    if (parts.FREQ === 'YEARLY') return every === 1 ? 'щороку' : `кожні ${every} р.`;
+    return 'повторювана';
+  }
+  if (parts.FREQ === 'MINUTELY') return every === 1 ? 'every minute' : `every ${every} minutes`;
+  if (parts.FREQ === 'HOURLY') return every === 1 ? 'every hour' : `every ${every} hours`;
+  if (parts.FREQ === 'DAILY') return every === 1 ? 'every day' : `every ${every} days`;
+  if (parts.FREQ === 'WEEKLY') return `${every === 1 ? 'every week' : `every ${every} weeks`}${days ? ` (${days})` : ''}`;
+  if (parts.FREQ === 'MONTHLY') return every === 1 ? 'every month' : `every ${every} months`;
+  if (parts.FREQ === 'YEARLY') return every === 1 ? 'every year' : `every ${every} years`;
+  return 'recurring';
+}
+
+function timeZoneText(value, locale) {
+  const zone = String(value ?? '').trim();
+  if (!zone) return scheduleLanguage(locale) === 'ru' ? 'не указан' : scheduleLanguage(locale) === 'uk' ? 'не вказаний' : 'not specified';
+  if (zone === 'UTC') return 'UTC';
+  const city = zone.split('/').at(-1).replaceAll('_', ' ');
+  if (city === 'Kyiv') return scheduleLanguage(locale) === 'ru' ? 'Киев' : scheduleLanguage(locale) === 'uk' ? 'Київ' : 'Kyiv';
+  return city;
+}
+
+function nextOccurrenceText(value, timeZone, copy) {
+  if (value == null) return copy.noNext;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return copy.noNext;
+  try {
+    return new Intl.DateTimeFormat(copy.locale, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+      timeZone: timeZone || 'UTC'
+    }).format(date);
+  } catch {
+    return new Intl.DateTimeFormat(copy.locale, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+      timeZone: 'UTC'
+    }).format(date);
+  }
+}
+
+function scheduleListMessage(schedules, { locale = 'en', statuses = null } = {}) {
+  const copy = scheduleCopy(locale);
+  const activeOnly = statuses?.length === 1 && statuses[0] === 'active';
+  if (schedules.length === 0) return copy.empty(activeOnly);
   const lines = schedules.map((schedule, index) => {
     const storedLocalTime = schedule.state?.localTime ?? String(schedule.dtstartLocal ?? '').slice(11, 16);
-    const localTime = storedLocalTime || 'time-unavailable';
-    return `${index + 1}. ${schedule.scheduleId} | ${schedule.status} | ${schedule.recurrence} | ${localTime} (${schedule.timeZone ?? 'timezone-unavailable'}) | next: ${schedule.nextOccurrenceAt ?? 'none'}`;
+    const cadence = recurrenceText(schedule.recurrence, locale);
+    const when = storedLocalTime ? `${cadence} ${copy.at} ${storedLocalTime}` : cadence;
+    return [
+      `${index + 1}. «${scheduleTitle(schedule, copy)}»`,
+      `   ${copy.status}: ${copy.statuses[schedule.status] ?? schedule.status}`,
+      `   ${copy.schedule}: ${when}`,
+      `   ${copy.timezone}: ${timeZoneText(schedule.timeZone, locale)}`,
+      `   ${copy.next}: ${nextOccurrenceText(schedule.nextOccurrenceAt, schedule.timeZone, copy)}`
+    ].join('\n');
   });
-  return `Recurring schedules: ${schedules.length}\n${lines.join('\n')}`;
+  return `${copy.heading(schedules.length, activeOnly)}\n\n${lines.join('\n\n')}`;
 }
 
 export function createTemporalCapabilities({ temporalService, memoryProvider = null, recurringScheduler = null } = {}) {
@@ -166,7 +321,15 @@ export function createTemporalCapabilities({ temporalService, memoryProvider = n
         actionTypes: ['schedule-list'], actionClasses: ['read-only'],
         execute: async (request) => {
           const schedules = await recurringScheduler.list({ scope: scopeFrom(request), limit: request.input?.limit ?? 100 });
-          return { status: 'success', data: { schedules, message: scheduleListMessage(schedules) } };
+          const statuses = scheduleStatuses(request.input?.statuses);
+          const visibleSchedules = statuses ? schedules.filter((schedule) => statuses.includes(schedule.status)) : schedules;
+          return {
+            status: 'success',
+            data: {
+              schedules: visibleSchedules,
+              message: scheduleListMessage(visibleSchedules, { locale: request.input?.locale, statuses })
+            }
+          };
         }
       }),
       capability({

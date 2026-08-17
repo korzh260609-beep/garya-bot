@@ -1,6 +1,6 @@
 # SG Automation 2.0 — Executable Workflows Program
 
-Status: IMPLEMENTATION IN PROGRESS — AW2.1–AW2.10 CLOSED / CI-VERIFIED; AW2.11 NEXT
+Status: IMPLEMENTATION IN PROGRESS — AW2.1–AW2.11 CLOSED / CI-VERIFIED; AW2.12 NEXT
 
 ## Goal
 
@@ -189,8 +189,24 @@ Implementation/evidence:
 
 Boundary: AW2.10 extends the existing AW2.7 durable history record only. It does not change scheduler/queue/update semantics, create a second validator/version store, or implement restore execution. AW2.11 owns runtime fresh-data collection.
 
-### AW2.11 — Runtime fresh-data collection
-Execution-time collectors must fetch current authorized evidence, not replay stale prepared text as current data.
+### AW2.11 — Runtime fresh-data collection — CLOSED / CI-VERIFIED
+Execution-time collectors fetch current authorized evidence at run time rather than replaying stored prepared text as if it were current data.
+
+Implemented boundary:
+- `src/automation/runtimeFreshDataCollection.js` defines the canonical runtime handler for `collect` steps and is exported through `src/automation/index.js`;
+- fresh collection is valid only for typed `collect` steps with `security.protected === true` and a current allowed AW2.4 execution-time security verdict;
+- the underlying collector receives current task/workflow identity, canonical scope, typed step configuration, current security verdict and trace context;
+- stored workflow `inputs` and prior executor `handoff` are deliberately not exposed to the collector, preventing prepared/stale text from being reused as current evidence by this runtime path;
+- every workflow execution calls current security and the collector again; result data, source metadata, collection timestamp and evidence references are produced by that occurrence;
+- revoked current authority denies the protected step before the collector runs;
+- no new scheduler, queue, worker, authority, credential or security stack is introduced.
+
+Implementation/evidence:
+- implementation: `src/automation/runtimeFreshDataCollection.js`, exported through `src/automation/index.js`;
+- regression coverage: `tests/runtimeFreshDataCollection.test.js` covers fail-closed prerequisites, stale input/handoff isolation, repeated recollection with distinct evidence, security/source evidence merge and authority-revocation denial;
+- implementation/test HEAD `d632591712118be652710c94a9c7d145b2bdefd0`; SG 2.1 CI #8261 SUCCESS on that exact HEAD, including migration, Block 19 security gate, `npm run check`, web start, worker start and diagnostics.
+
+Boundary: AW2.11 establishes the generic execution-time fresh-data collection contract only. It does not implement a concrete workspace-activity capability or multi-workspace aggregation. AW2.12 owns Workspace Activity Collector.
 
 ### AW2.12 — Workspace Activity Collector
 Add a read-only capability for authorized workspace activity that returns deterministic persisted/live evidence such as publications, polls, tests, interactions, activity events and data-window metadata.

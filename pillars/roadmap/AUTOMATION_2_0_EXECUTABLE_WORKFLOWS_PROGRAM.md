@@ -1,6 +1,6 @@
 # SG Automation 2.0 — Executable Workflows Program
 
-Status: IMPLEMENTATION IN PROGRESS — AW2.1–AW2.11 CLOSED / CI-VERIFIED; AW2.12 NEXT
+Status: IMPLEMENTATION IN PROGRESS — AW2.1–AW2.12 CLOSED / CI-VERIFIED; AW2.13 NEXT
 
 ## Goal
 
@@ -208,8 +208,25 @@ Implementation/evidence:
 
 Boundary: AW2.11 establishes the generic execution-time fresh-data collection contract only. It does not implement a concrete workspace-activity capability or multi-workspace aggregation. AW2.12 owns Workspace Activity Collector.
 
-### AW2.12 — Workspace Activity Collector
-Add a read-only capability for authorized workspace activity that returns deterministic persisted/live evidence such as publications, polls, tests, interactions, activity events and data-window metadata.
+### AW2.12 — Workspace Activity Collector — CLOSED / CI-VERIFIED
+The concrete read-only `workspace-activity` capability now collects deterministic current/persisted evidence for exactly one canonical authorized Telegram workspace through the existing AW2.11 fresh-data runtime seam.
+
+Implemented boundary:
+- the collector accepts one canonical TWM `workspaceId` and reuses existing `assertWorkspaceId`; multi-workspace input/aggregation is not implemented here;
+- collection requires the current execution-time allowed security verdict and composes with the existing protected `collect` handler, so prepared workflow inputs/prior handoff are not substitutes for current evidence;
+- publication counts come from authoritative `content.published` activity events within the requested event-time window;
+- poll/test counts reuse the existing PostgreSQL workspace domain-record store;
+- interaction metrics reuse the canonical workspace analytics event set (`poll.answer-update`, `test.completed`);
+- activity-event counts are returned deterministically with explicit `{from,to}` data-window metadata, source/persistence metadata and evidence references;
+- no scheduler, queue, worker, database, Resource Authority, Action Gate or other security stack is duplicated.
+
+Implementation/evidence:
+- `src/automation/workspaceActivityCollector.js`, exported through `src/automation/index.js`;
+- existing `src/telegramWorkspace/postgresWorkspaceOperationsStore.js`, `workspaceAnalyticsOperations.js` and `workspaceOperationsContract.js` are reused rather than replaced;
+- regression coverage: `tests/workspaceActivityCollector.test.js` covers deterministic metrics/evidence, canonical interaction semantics, denied current security before storage reads, invalid window/canonical-ID rejection, explicit single-workspace boundary and AW2.11 runtime composition without stale-input reuse;
+- implementation/test HEAD `874f6a07db09858602e3d1ad344f375aa229a59c`; SG 2.1 CI #8280 SUCCESS on that exact HEAD, including migration, Block 19 security gate, `npm run check`, web start, worker start and diagnostics.
+
+Boundary: AW2.12 implements the concrete single-workspace read-only collector only. AW2.13 owns multi-workspace aggregation with independent current authorization and explicit omission semantics.
 
 ### AW2.13 — Multi-workspace aggregation
 Aggregate across multiple currently authorized workspaces while checking each resource independently. Lost/unavailable resources must be explicit omissions, not invented zeros unless the metric contract defines zero from authoritative persisted absence.

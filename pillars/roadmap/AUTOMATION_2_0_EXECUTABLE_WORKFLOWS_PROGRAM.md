@@ -1,6 +1,6 @@
 # SG Automation 2.0 — Executable Workflows Program
 
-Status: IMPLEMENTATION IN PROGRESS — AW2.1–AW2.19 CLOSED / CI-VERIFIED; AW2.20 NEXT
+Status: IMPLEMENTATION IN PROGRESS — AW2.1–AW2.19 CLOSED / CI-VERIFIED; AW2.20 PRODUCTION-WIRED / CI-VERIFIED; LIVE ACCEPTANCE PENDING
 
 ## Goal
 
@@ -380,7 +380,19 @@ Implementation/evidence:
 
 Boundary: AW2.19 closes code/CI regression and security coverage only. It is not deployment or live runtime proof; AW2.20 owns production E2E and live acceptance.
 
-### AW2.20 — Production E2E / live acceptance
+### AW2.20 — Production E2E / live acceptance — PRODUCTION-WIRED / CI-VERIFIED; LIVE ACCEPTANCE PENDING
+
+Production implementation/evidence:
+- `src/automation/productionExecutableWorkflowRuntime.js` assembles the existing pinned-version continuity, Workflow Executor, current execution security, AW2.11–AW2.14 collection/composition, Delivery Router and AW2.16 execution-history seams inside the Render web application runtime;
+- `src/automation/productionWorkerExecution.js` routes workflow-backed `self-notification` tasks to that runtime while retaining the legacy static-message path for tasks without a workflow reference and failing closed when the executable runtime is unavailable;
+- `src/runtime/renderWebApplication.js` injects the existing PostgreSQL workflow/version and execution stores, TWM operations store, live workspace authority, bot permission health, canonical Action Gate, Credential Manager, AI Router and Delivery Router into the existing embedded durable worker;
+- multi-workspace child rechecks inherit only the sanitized parent identity snapshot and still perform an independent force-fresh authority/permission check for each canonical workspace;
+- `tests/automationProductionE2E.test.js` proves pinned version resolution, current per-workspace reauthorization, denied-workspace omission without data reads, fresh deterministic composition, persisted gate/source/delivery/run evidence, worker routing, fail-closed missing runtime and restart-safe occurrence delivery idempotency;
+- implementation HEAD `27cd4442f5057c071d881a9d8f79faaf95b54bcb` passed exact-head SG 2.1 CI #8317;
+- no scheduler, queue, durable worker, workflow store, Identity, Resource Authority, Action Gate, Credential Manager, Delivery Router or security stack was replaced or duplicated.
+
+Boundary: this closes the production code/CI wiring gap only. It does not prove a Render deploy or the real Telegram live scenario below, so AW2.20 and Automation 2.0 remain NOT CLOSED.
+
 Required live scenario:
 1. an existing daily automation sends a message at 07:00;
 2. user instructs SG to add fresh activity information from groups/workspaces where SG/user has authorized access;

@@ -61,7 +61,7 @@ Canonical doc: `17_RENDER_DEPLOYMENT.md`.
 
 ## Automation 2.0 — Executable Workflows
 
-**ACCEPTED ARCHITECTURE / IMPLEMENTATION IN PROGRESS — AW2.1–AW2.19 CLOSED / CI-VERIFIED; AW2.20 NEXT; NOT DEPLOYED / NOT LIVE-VERIFIED AS AUTOMATION 2.0.**
+**ACCEPTED ARCHITECTURE / IMPLEMENTATION IN PROGRESS — AW2.1–AW2.19 CLOSED / CI-VERIFIED; AW2.20 PRODUCTION-WIRED / CI-VERIFIED; LIVE ACCEPTANCE PENDING; NOT DEPLOYED / NOT LIVE-VERIFIED AS AUTOMATION 2.0.**
 
 AW2.1–AW2.12 now provide the additive generalized workflow foundation above the existing durable automation substrate:
 - versioned workflow contract and backward-compatible `self-notification` adapter;
@@ -82,7 +82,8 @@ AW2.1–AW2.12 now provide the additive generalized workflow foundation above th
 - AW2.16 durable per-run execution history keyed by run/occurrence/attempt with ordered step transitions, source evidence, gate decisions, AI provider/model/cost/reason provenance, delivery result and terminal output/error evidence;
 - AW2.17 stable persisted occurrence identity, replay-safe scheduler materialization, exact pinned workflow-version resolution after restart and occurrence-derived durable Delivery Router idempotency;
 - AW2.18 typed natural-language lifecycle operations routed through the existing semantic interpreter, `automation-update`, Action Gate, scoped resolution and atomic workflow/runtime mutation, including restore as a new version;
-- AW2.19 consolidated regression/security evidence across AW2.4–AW2.18, with credential scope/secret isolation and bounded/redacted execution-security snapshots.
+- AW2.19 consolidated regression/security evidence across AW2.4–AW2.18, with credential scope/secret isolation and bounded/redacted execution-security snapshots;
+- AW2.20 production code wiring from the existing durable worker through exact pinned workflow resolution, current per-workspace security, fresh collection, runtime composition, Delivery Router and durable execution history, with live deploy/Telegram acceptance still pending.
 
 AW2.6 does **not** turn the stored envelope into authority. A structurally valid state-changing step still passes the existing AW2.4 runtime checks immediately before its handler, so lost access/authority, Action Gate denial, unavailable credentials or permission-health failure remains terminally denied. Scheduled/delegated execution cannot broaden current authorization. No second scheduler, queue, worker, identity, authority, credential, confirmation or ACS stack was created.
 
@@ -218,8 +219,17 @@ AW2.19 implementation/closure evidence:
 - existing focused evidence remains in `workflowPatchNotDuplicate.test.js`, `runtimeFreshDataCollection.test.js`, `multiWorkspaceActivityAggregator.test.js`, `workflowFailureRetryPolicy.test.js`, `workflowStateChangeEnvelope.test.js`, `workflowRestartContinuity.test.js`, `workflowVersionHistory.test.js` and `workflowNaturalLanguageLifecycle.test.js`;
 - implementation/test HEAD `7af9a9285142e25a73fe4ac792382ac86360051e` passed exact-head SG 2.1 CI #8314; AW2.19 is therefore CLOSED / CI-VERIFIED inside this code/test boundary.
 
+AW2.20 production-wiring evidence:
+- `src/automation/productionExecutableWorkflowRuntime.js` assembles the existing exact-version workflow continuity, Workflow Executor, current security, fresh workspace collection/aggregation, runtime composition, Delivery Router and durable execution-history seams;
+- `src/automation/productionWorkerExecution.js` routes workflow-backed self-notifications into that runtime and fails closed if production workflow execution is unavailable, while preserving the legacy static-message path;
+- `src/runtime/renderWebApplication.js` injects existing PostgreSQL workflow/history stores, TWM operations, live workspace authority, bot permission health, canonical Action Gate, Credential Manager, AI Router and Delivery Router into the existing embedded durable worker;
+- multi-workspace execution performs force-fresh authority/permission checks independently and never reads denied workspace data; transient authority cache entries are removed on success, denial and permission-health error paths;
+- `tests/automationProductionE2E.test.js` covers exact pinned version, fresh current metrics, explicit denied omission, no invalid global unique-actor total, persisted run/gate/source/delivery evidence, fail-closed missing runtime and restart/no-redelivery continuity;
+- implementation HEAD `27cd4442f5057c071d881a9d8f79faaf95b54bcb` passed exact-head SG 2.1 CI #8317;
+- this is production code/CI wiring evidence, not Render deployment or live Telegram acceptance; AW2.20 remains NOT CLOSED.
+
 Boundary:
-- Automation 2.0 generalized workflows are not yet production-wired/live-accepted as a complete program;
+- Automation 2.0 generalized workflows are production-wired in code and CI, but are not yet deployment-confirmed or live-accepted as a complete program;
 - `deliver` remains on the existing Delivery Router / execution-security boundary and is not reclassified by AW2.6 as a generic capability mutation, preserving the established self-notification compatibility path;
 - AW2.8 resolves existing targets only and does not broaden authority, invent IDs/attributes, perform fuzzy phrase matching or change AW2.7 mutation semantics;
 - AW2.9 adds patch-not-duplicate regression proof without rewriting production runtime;
@@ -233,7 +243,7 @@ Boundary:
 - AW2.17 keeps one occurrence identity across materialization/retry/restart, resolves the pinned durable version and prevents completed delivery replay;
 - AW2.18 adds semantic lifecycle/restore through existing production mutation and security seams without phrase-table routing or duplicate runtime infrastructure;
 - AW2.19 closes the consolidated CI regression/security matrix and bounds secret/private evidence at the existing execution-security and Credential Manager seams;
-- AW2.20 is next; production deployment and live E2E acceptance are still required before Automation 2.0 can close as a complete program.
+- AW2.20 production wiring is CI-verified; production deployment and the required live E2E/authority-loss/restart acceptance are still required before AW2.20 and Automation 2.0 can close.
 
 Canonical docs:
 - `../architecture/AUTOMATION_2_0_EXECUTABLE_WORKFLOWS.md`

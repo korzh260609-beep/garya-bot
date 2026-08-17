@@ -91,6 +91,38 @@ export function createPostgresTaskQueue({ database, idFactory = randomUUID } = {
     });
   }
 
+  async function transitionScheduled({ scope, taskId, action, transaction = null } = {}) {
+    const [globalUserId, projectScope, groupScope, threadScope] = scopeValues(scope);
+    if (!['pause','resume','cancel'].includes(action)) throw new TypeError('scheduled task action must be pause, resume or cancel');
+    return inTransaction(database, transaction, async (tx) => {
+      const locked = await tx.query(`SELECT * FROM tasks
+        WHERE task_id=$1 AND global_user_id=$2 AND project_scope=$3
+          AND group_scope IS NOT DISTINCT FROM $4 AND thread_scope IS NOT DISTINCT FROM $5
+        FOR UPDATE`, [requiredString(taskId, 'taskId'), globalUserId, projectScope, groupScope, threadScope]);
+      const task = locked.rows[0];
+      if (!task) return null;
+      if (action === 'pause') {
+        if (!['queued','scheduled','waiting_approval'].includes(task.status)) return null;
+        const result = await tx.query("UPDATE tasks SET status='schedule_paused',lease_owner=NULL,lease_expires_at=NULL,heartbeat_at=NULL,updated_at=now() WHERE task_id=$1 RETURNING *", [task.task_id]);
+        return result.rows[0] ?? null;
+      }
+      if (action === 'resume') {
+        if (task.status !== 'schedule_paused') return null;
+        const approval = task.approval_state ?? {};
+        const nextStatus = approval.required === true && approval.approved !== true ? 'waiting_approval' : new Date(task.available_at) > new Date() ? 'scheduled' : 'queued';
+        const result = await tx.query('UPDATE tasks SET status=$2,updated_at=now() WHERE task_id=$1 RETURNING *', [task.task_id, nextStatus]);
+        return result.rows[0] ?? null;
+      }
+      if (!['queued','scheduled','waiting_approval','schedule_paused'].includes(task.status)) return null;
+      const result = await tx.query("UPDATE tasks SET status='cancelled',cancellation_reason='automation_lifecycle_cancelled',lease_owner=NULL,lease_expires_at=NULL,heartbeat_at=NULL,updated_at=now() WHERE task_id=$1 RETURNING *", [task.task_id]);
+      return result.rows[0] ?? null;
+    });
+  }
+
+  const pauseScheduled = (input) => transitionScheduled({ ...input, action: 'pause' });
+  const resumeScheduled = (input) => transitionScheduled({ ...input, action: 'resume' });
+  const cancelScheduled = (input) => transitionScheduled({ ...input, action: 'cancel' });
+
   async function syncWorkflowTask({ scope, taskId, workflow, allowTerminal = false, transaction = null } = {}) {
     const [globalUserId, projectScope, groupScope, threadScope] = scopeValues(scope);
     if (!workflow || typeof workflow !== 'object' || Array.isArray(workflow)) throw new TypeError('workflow is required');
@@ -230,5 +262,5 @@ export function createPostgresTaskQueue({ database, idFactory = randomUUID } = {
     return result.rows;
   }
 
-  return Object.freeze({ submit, updateScheduled, syncWorkflowTask, releaseDue, approve, cancel, claim, heartbeat, complete, fail, recoverAbandoned, get, listDeadLetters });
+  return Object.freeze({ submit, updateScheduled, pauseScheduled, resumeScheduled, cancelScheduled, syncWorkflowTask, releaseDue, approve, cancel, claim, heartbeat, complete, fail, recoverAbandoned, get, listDeadLetters });
 }

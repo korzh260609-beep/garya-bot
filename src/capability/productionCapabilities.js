@@ -258,6 +258,7 @@ export function createProductionCapabilities({
           scope: workflowScopeFrom(request),
           patch: request.input?.patch ?? {},
           lifecycleAction: request.input?.lifecycleAction ?? null,
+          semanticOperation: request.input?.semanticOperation ?? null,
           expectedVersion: request.input?.expectedVersion ?? null,
           actor: Object.freeze({ ...request.actor, automationUpdateGate: gateEvidence }),
           provenance: Object.freeze({

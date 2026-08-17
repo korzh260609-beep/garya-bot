@@ -1,5 +1,6 @@
 import { createWorkflowDefinition } from './workflowContract.js';
 import { parseRecurrenceRule } from '../temporal/recurrenceEngine.js';
+import { compileWorkflowLifecycleOperation, normalizeWorkflowLifecycleOperation, workflowLifecycleOperationNeedsHistory } from './workflowNaturalLanguageLifecycle.js';
 
 export const WORKFLOW_MUTATION_FIELDS = Object.freeze([
   'trigger',
@@ -229,10 +230,12 @@ function timestamp(clock) {
   return date.toISOString();
 }
 
-function mutationSummary(patch, lifecycleAction) {
+function mutationSummary(patch, lifecycleAction, semanticPlan = null) {
   return Object.freeze({
     fields: Object.freeze(Object.keys(patch).sort()),
-    lifecycleAction
+    lifecycleAction,
+    ...(semanticPlan ? { semanticOperation: semanticPlan.operation.type } : {}),
+    ...(semanticPlan?.restoredFromVersion ? { restoredFromVersion: semanticPlan.restoredFromVersion } : {})
   });
 }
 
@@ -327,23 +330,23 @@ async function updateTrigger({ recurringScheduler, oneShotTaskQueue, record, nex
   return result;
 }
 
-async function applyLifecycleMutation({ recurringScheduler, record, scope, lifecycleAction, transaction }) {
+async function applyLifecycleMutation({ recurringScheduler, oneShotTaskQueue, record, scope, lifecycleAction, transaction }) {
   if (lifecycleAction === null) return null;
   const scheduleId = record.scheduleId ?? null;
-  if (!scheduleId) {
-    throw new WorkflowUpdateError('workflow_update_schedule_required', 'pause/resume/cancel currently require an existing recurring schedule');
+  if (scheduleId) {
+    if (!recurringScheduler) throw new WorkflowUpdateError('workflow_update_scheduler_unavailable', 'scheduler is required for recurring lifecycle mutation');
+    const method = recurringScheduler[lifecycleAction];
+    if (typeof method !== 'function') throw new WorkflowUpdateError('workflow_update_scheduler_unsupported', `scheduler does not support ${lifecycleAction}`);
+    const result = await method({ scope, scheduleId, transaction });
+    if (!result) throw new WorkflowUpdateError('workflow_update_schedule_transition_denied', `schedule ${lifecycleAction} was not applied`);
+    return result;
   }
-  if (!recurringScheduler) {
-    throw new WorkflowUpdateError('workflow_update_scheduler_unavailable', 'scheduler is required for lifecycle mutation');
-  }
-  const method = recurringScheduler[lifecycleAction];
-  if (typeof method !== 'function') {
-    throw new WorkflowUpdateError('workflow_update_scheduler_unsupported', `scheduler does not support ${lifecycleAction}`);
-  }
-  const result = await method({ scope, scheduleId, transaction });
-  if (!result) {
-    throw new WorkflowUpdateError('workflow_update_schedule_transition_denied', `schedule ${lifecycleAction} was not applied`);
-  }
+  const taskId = record.taskId ?? null;
+  if (!taskId) throw new WorkflowUpdateError('workflow_update_task_required', 'one-shot lifecycle mutation requires an existing task');
+  const method = oneShotTaskQueue?.[`${lifecycleAction}Scheduled`];
+  if (typeof method !== 'function') throw new WorkflowUpdateError('workflow_update_one_shot_lifecycle_unsupported', `durable task queue does not support ${lifecycleAction}`);
+  const result = await method({ scope, taskId, transaction });
+  if (!result) throw new WorkflowUpdateError('workflow_update_task_transition_denied', `one-shot task ${lifecycleAction} was not applied`);
   return result;
 }
 
@@ -352,7 +355,7 @@ async function applyRuntimeMutation({ recurringScheduler, oneShotTaskQueue, reco
   const triggerResult = patch.trigger === undefined
     ? null
     : await updateTrigger({ recurringScheduler, oneShotTaskQueue, record, next, scope, transaction });
-  const lifecycleResult = await applyLifecycleMutation({ recurringScheduler, record, scope, lifecycleAction, transaction });
+  const lifecycleResult = await applyLifecycleMutation({ recurringScheduler, oneShotTaskQueue, record, scope, lifecycleAction, transaction });
   const scheduleResult = lifecycleResult ?? (record.scheduleId ? triggerResult : null);
   const oneShotResult = !record.scheduleId && triggerResult ? triggerResult : taskSync;
   return Object.freeze({ schedule: scheduleResult, task: oneShotResult, taskSync });
@@ -378,18 +381,23 @@ export function createWorkflowUpdateCapability({
     scope,
     patch = {},
     lifecycleAction = null,
+    semanticOperation = null,
     expectedVersion = null,
     actor,
     provenance = {}
   } = {}) {
     const normalizedSelector = normalizeSelector(selector);
     const normalizedScope = plainObject(scope, 'scope');
-    const normalizedPatch = normalizePatch(patch);
-    const normalizedLifecycleAction = normalizeLifecycleAction(lifecycleAction);
+    const requestedPatch = normalizePatch(patch);
+    const requestedLifecycleAction = normalizeLifecycleAction(lifecycleAction);
+    const normalizedSemanticOperation = semanticOperation == null ? null : normalizeWorkflowLifecycleOperation(semanticOperation);
     const normalizedProvenance = freezeJson(plainObject(provenance, 'provenance'));
     const globalUserId = actorId(actor);
 
-    if (Object.keys(normalizedPatch).length === 0 && normalizedLifecycleAction === null) {
+    if (normalizedSemanticOperation && (Object.keys(requestedPatch).length > 0 || requestedLifecycleAction !== null)) {
+      throw new WorkflowUpdateError('workflow_update_mutation_ambiguous', 'semanticOperation cannot be combined with patch or lifecycleAction');
+    }
+    if (!normalizedSemanticOperation && Object.keys(requestedPatch).length === 0 && requestedLifecycleAction === null) {
       throw new WorkflowUpdateError('workflow_update_empty_patch', 'workflow mutation must change at least one field or lifecycle state');
     }
 
@@ -401,6 +409,18 @@ export function createWorkflowUpdateCapability({
         `expected workflow version ${expectedVersion}, current version is ${current.version}`
       );
     }
+    const needsHistory = normalizedSemanticOperation ? workflowLifecycleOperationNeedsHistory(normalizedSemanticOperation) : false;
+    if (needsHistory && typeof store.history !== 'function') throw new WorkflowUpdateError('workflow_update_history_unavailable', 'workflow version history is required for restore');
+    const operationHistory = needsHistory ? await store.history({ automationId: current.automationId, limit: 100 }) : [];
+    if (needsHistory && !Array.isArray(operationHistory)) throw new WorkflowUpdateError('workflow_update_history_invalid', 'workflow version history is invalid');
+    const semanticPlan = normalizedSemanticOperation
+      ? compileWorkflowLifecycleOperation({ currentWorkflow: current, operation: normalizedSemanticOperation, history: operationHistory })
+      : null;
+    const normalizedPatch = normalizePatch(semanticPlan?.patch ?? requestedPatch);
+    const normalizedLifecycleAction = normalizeLifecycleAction(semanticPlan?.lifecycleAction ?? requestedLifecycleAction);
+    const mutationProvenance = normalizedSemanticOperation
+      ? freezeJson({ ...normalizedProvenance, semanticOperation: normalizedSemanticOperation.type })
+      : normalizedProvenance;
 
     const canonicalSelector = Object.freeze({ automationId: current.automationId });
     const gateResult = await authorization.authorize(Object.freeze({
@@ -411,7 +431,8 @@ export function createWorkflowUpdateCapability({
       requestedSelector: normalizedSelector,
       currentWorkflow: current,
       patch: normalizedPatch,
-      lifecycleAction: normalizedLifecycleAction
+      lifecycleAction: normalizedLifecycleAction,
+      semanticOperation: normalizedSemanticOperation
     }));
     if (gateResult?.allowed !== true) {
       throw new WorkflowUpdateError(
@@ -422,7 +443,7 @@ export function createWorkflowUpdateCapability({
     }
 
     const now = timestamp(clock);
-    const next = buildNextDefinition(current, normalizedPatch, globalUserId, normalizedProvenance, now);
+    const next = buildNextDefinition(current, normalizedPatch, globalUserId, mutationProvenance, now);
     const runtimeMutation = (transaction) => applyRuntimeMutation({
       recurringScheduler,
       oneShotTaskQueue,
@@ -443,9 +464,9 @@ export function createWorkflowUpdateCapability({
         nextWorkflow: next,
         expectedVersion: current.version,
         actor: freezeJson(plainObject(actor, 'actor')),
-        provenance: normalizedProvenance,
+        provenance: mutationProvenance,
         gateResult: freezeJson(gateResult),
-        patchSummary: mutationSummary(normalizedPatch, normalizedLifecycleAction),
+        patchSummary: mutationSummary(normalizedPatch, normalizedLifecycleAction, semanticPlan),
         lifecycleAction: normalizedLifecycleAction,
         runtimeMutation
       });
@@ -459,9 +480,9 @@ export function createWorkflowUpdateCapability({
         nextWorkflow: next,
         expectedVersion: current.version,
         actor: freezeJson(plainObject(actor, 'actor')),
-        provenance: normalizedProvenance,
+        provenance: mutationProvenance,
         gateResult: freezeJson(gateResult),
-        patchSummary: mutationSummary(normalizedPatch, normalizedLifecycleAction),
+        patchSummary: mutationSummary(normalizedPatch, normalizedLifecycleAction, semanticPlan),
         lifecycleAction: normalizedLifecycleAction,
         scheduleResult: runtimeResult?.schedule ?? null
       });
@@ -477,7 +498,9 @@ export function createWorkflowUpdateCapability({
       workflow: next,
       lifecycleAction: normalizedLifecycleAction,
       schedule: runtimeResult?.schedule ?? null,
-      task: runtimeResult?.task ?? null
+      task: runtimeResult?.task ?? null,
+      semanticOperation: normalizedSemanticOperation?.type ?? null,
+      restoredFromVersion: semanticPlan?.restoredFromVersion ?? null
     });
   }
 

@@ -11,6 +11,7 @@ export { DYNAMIC_COMPOSITION_MODES, DYNAMIC_COMPOSITION_SOURCE_STEP_TYPES, isDyn
 export { AUTONOMOUS_READ_ONLY_STEP_TYPES, isAutonomousReadOnlyRequested, evaluateAutonomousReadOnlyPolicy } from './workflowReadOnlyAutonomy.js';
 export { STATE_CHANGING_WORKFLOW_STEP_TYPES, STATE_CHANGE_CONFIRMATION_POLICIES, STATE_CHANGE_DELEGATION_POLICIES, isStateChangingWorkflowStep, evaluateStateChangeExecutionEnvelope } from './workflowStateChangeEnvelope.js';
 export { WORKFLOW_MUTATION_FIELDS, WORKFLOW_LIFECYCLE_ACTIONS, WORKFLOW_SEMANTIC_SELECTOR_FIELDS, WorkflowUpdateError, createWorkflowUpdateCapability } from './workflowUpdate.js';
+export { WORKFLOW_NATURAL_LANGUAGE_OPERATIONS, WorkflowLifecycleError, normalizeWorkflowLifecycleOperation, workflowLifecycleOperationNeedsHistory, compileWorkflowLifecycleOperation } from './workflowNaturalLanguageLifecycle.js';
 export { createPostgresWorkflowUpdateStore } from './postgresWorkflowUpdateStore.js';
 export { createWorkflowRegisteredTaskStore } from './workflowRegisteredTaskStore.js';
 export { WORKFLOW_RUN_EVENT_TYPES, createPostgresWorkflowExecutionStore } from './postgresWorkflowExecutionStore.js';

@@ -99,8 +99,9 @@ export function createProductionWorkerActionGate({ verifyMode = false, ownerSecu
   };
 }
 
-export function createProductionWorkerExecutor({ verifyMode = false, deliveryRouter = null } = {}) {
+export function createProductionWorkerExecutor({ verifyMode = false, deliveryRouter = null, workflowExecution = null } = {}) {
   if (deliveryRouter !== null && typeof deliveryRouter?.route !== 'function') throw new TypeError('deliveryRouter.route is required');
+  if (workflowExecution !== null && typeof workflowExecution?.execute !== 'function') throw new TypeError('workflowExecution.execute is required');
   return async function productionWorkerExecutor({ taskId, kind, payload, attempt, idempotencyKey, traceContext, scope } = {}) {
     const normalizedKind = taskKind(kind);
     if (verifyMode) return Object.freeze({ verified: true, taskId, kind: normalizedKind, attempt, payload });
@@ -123,6 +124,15 @@ export function createProductionWorkerExecutor({ verifyMode = false, deliveryRou
         error.code = reason;
         error.retryable = false;
         throw error;
+      }
+      if (payload?.workflow != null) {
+        if (!workflowExecution?.execute) {
+          const error = new Error('Executable workflow runtime is unavailable');
+          error.code = 'automation-workflow-runtime-unavailable';
+          error.retryable = false;
+          throw error;
+        }
+        return workflowExecution.execute({ taskId, payload, attempt, idempotencyKey, traceContext, scope });
       }
       const occurrenceId = deriveWorkflowOccurrenceId({ taskId, payload, idempotencyKey });
       const result = await deliveryRouter.route({

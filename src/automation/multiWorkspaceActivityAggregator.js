@@ -107,6 +107,7 @@ export function createMultiWorkspaceActivityAggregator({
         step,
         stepIndex: context.stepIndex,
         handoff: null,
+        parentSecurityVerdict: context.securityVerdict,
         traceContext: context.traceContext ?? {}
       }));
 

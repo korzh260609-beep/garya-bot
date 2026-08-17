@@ -25,6 +25,8 @@ import { createDeploymentDeliveryRouter } from '../delivery/deploymentDeliveryRo
 import { createTelegramDeliveryTransport } from '../delivery/telegramDeliveryTransport.js';
 import { createDiscordDeliveryTransport } from '../delivery/discordDeliveryTransport.js';
 import { createDeploymentAutomationWorker } from '../automation/deploymentAutomationWorker.js';
+import { createProductionExecutableWorkflowRuntime } from '../automation/productionExecutableWorkflowRuntime.js';
+import { createPostgresWorkflowExecutionStore } from '../automation/postgresWorkflowExecutionStore.js';
 import { createProductionTelegramIdentityResolver } from '../identity/productionTelegramIdentityResolver.js';
 import { createProductionDiscordIdentityResolver } from '../identity/productionDiscordIdentityResolver.js';
 import { loadDiscordConfig } from '../discord/discordConfig.js';
@@ -132,8 +134,6 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
   });
   deliveryDeployment.transportRegistry.register(createTelegramDeliveryTransport({ botClient }));
   if (discordRestClient) deliveryDeployment.transportRegistry.register(createDiscordDeliveryTransport({ restClient: discordRestClient }));
-  const automationWorker = createDeploymentAutomationWorker({ harness, deliveryRouter: deliveryDeployment.router, env: effectiveEnv });
-
   const identityResolver = createProductionTelegramIdentityResolver({
     persistence: harness.persistence,
     projectScope: harness.config.projectScope,
@@ -244,6 +244,27 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
         identityResolver
       })
     : null;
+
+  const workflowExecution = telegramWorkspaceOperations?.store && harness.taskStore?.workflowStore
+    ? createProductionExecutableWorkflowRuntime({
+        workflowStore: harness.taskStore.workflowStore,
+        stepRunStore: createPostgresWorkflowExecutionStore({ database: harness.persistence.database }),
+        workspaceOperationsStore: telegramWorkspaceOperations.store,
+        workspaceAuthority: telegramWorkspaceAuthority,
+        botCapabilityService: telegramBotCapabilities,
+        actionGate: harness.actionGate,
+        policyContextResolver: () => harness.policyLayer?.resolve?.() ?? null,
+        credentialManager: harness.credentialManager,
+        deliveryRouter: deliveryDeployment.router,
+        aiRouter: harness.productionAI?.aiRouter ?? null
+      })
+    : null;
+  const automationWorker = createDeploymentAutomationWorker({
+    harness,
+    deliveryRouter: deliveryDeployment.router,
+    workflowExecution,
+    env: effectiveEnv
+  });
 
   const telegramWorkspaceConfiguration = workspaceStore && telegramWorkspaceAuthority && telegramWorkspaceMutationGate
     ? createTelegramWorkspaceConfigurationService({

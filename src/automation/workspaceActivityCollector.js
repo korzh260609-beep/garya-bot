@@ -1,3 +1,5 @@
+import { WORKSPACE_ANALYTICS_INTERACTION_EVENT_TYPES } from '../telegramWorkspace/workspaceAnalyticsOperations.js';
+
 export const WORKSPACE_ACTIVITY_CAPABILITY = 'workspace-activity';
 
 function requiredFunction(value, field) {
@@ -72,7 +74,7 @@ export function createWorkspaceActivityCollector({ workspaceOperationsStore, clo
       countRecords({ ...query, domain: 'content', status: 'published' }),
       countRecords({ ...query, domain: 'poll' }),
       countRecords({ ...query, domain: 'test' }),
-      aggregateEventActors({ ...query, eventTypes: [] }),
+      aggregateEventActors({ ...query, eventTypes: WORKSPACE_ANALYTICS_INTERACTION_EVENT_TYPES }),
       aggregateEvents(query)
     ]);
 

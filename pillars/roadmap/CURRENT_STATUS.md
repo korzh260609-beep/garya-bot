@@ -61,7 +61,7 @@ Canonical doc: `17_RENDER_DEPLOYMENT.md`.
 
 ## Automation 2.0 — Executable Workflows
 
-**ACCEPTED ARCHITECTURE / IMPLEMENTATION IN PROGRESS — AW2.1–AW2.16 CLOSED / CI-VERIFIED; AW2.17 NEXT; NOT DEPLOYED / NOT LIVE-VERIFIED AS AUTOMATION 2.0.**
+**ACCEPTED ARCHITECTURE / IMPLEMENTATION IN PROGRESS — AW2.1–AW2.17 CLOSED / CI-VERIFIED; AW2.18 NEXT; NOT DEPLOYED / NOT LIVE-VERIFIED AS AUTOMATION 2.0.**
 
 AW2.1–AW2.12 now provide the additive generalized workflow foundation above the existing durable automation substrate:
 - versioned workflow contract and backward-compatible `self-notification` adapter;
@@ -79,7 +79,8 @@ AW2.1–AW2.12 now provide the additive generalized workflow foundation above th
 - AW2.13 multi-workspace aggregation over AW2.12 with independent current security re-check per canonical workspace, explicit denied/unavailable omissions, authorized-data-only additive totals and no invalid cross-workspace summation of `uniqueActors`;
 - AW2.14 runtime `compose` handler that builds final user-facing output from the immediately preceding current execution result, preserves partial/omission evidence, renders authoritative metrics deterministically and permits optional narrative only through the existing cost/reason/trace-logged AI Router;
 - AW2.15 deterministic durable-result boundary that accepts honest partial completion, prevents failed/denied/delivery-failed results from becoming false success, classifies terminal versus explicitly temporary failures and reuses the existing PostgreSQL queue bounded exponential backoff/DLQ path;
-- AW2.16 durable per-run execution history keyed by run/occurrence/attempt with ordered step transitions, source evidence, gate decisions, AI provider/model/cost/reason provenance, delivery result and terminal output/error evidence.
+- AW2.16 durable per-run execution history keyed by run/occurrence/attempt with ordered step transitions, source evidence, gate decisions, AI provider/model/cost/reason provenance, delivery result and terminal output/error evidence;
+- AW2.17 stable persisted occurrence identity, replay-safe scheduler materialization, exact pinned workflow-version resolution after restart and occurrence-derived durable Delivery Router idempotency.
 
 AW2.6 does **not** turn the stored envelope into authority. A structurally valid state-changing step still passes the existing AW2.4 runtime checks immediately before its handler, so lost access/authority, Action Gate denial, unavailable credentials or permission-health failure remains terminally denied. Scheduled/delegated execution cannot broaden current authorization. No second scheduler, queue, worker, identity, authority, credential, confirmation or ACS stack was created.
 
@@ -183,6 +184,17 @@ AW2.16 implementation/closure evidence:
 - migration baseline is 36 and includes migration 908;
 - implementation/test HEAD `3f07b629dcbb0f75e92a1288acfd2d37bf6ef6f3` passed exact-head SG 2.1 CI #8300; AW2.16 is therefore CLOSED / CI-VERIFIED inside this code/test boundary.
 
+AW2.17 implementation/closure evidence:
+- one-shot tasks persist `task:<taskId>` occurrence identity and recurring tasks persist deterministic `schedule:<scheduleId>:<sequence>` identity from the first occurrence onward;
+- scheduler materialization keeps its existing deterministic task/idempotency conflicts, so a replay cannot create another task for the same occurrence;
+- `createRestartContinuousWorkflowExecution` reloads exactly the task-pinned `automationId@version` snapshot through the existing PostgreSQL workflow/version store after each process restart and fails closed on missing/mismatched history;
+- Workflow Executor supplies stable occurrence, attempt and per-delivery-step idempotency context while AW2.16 continues to retain a distinct run per attempt;
+- production self-notification delivery uses the occurrence-derived key and persists occurrence evidence in Delivery Router metadata;
+- retryable durable delivery records retain the same delivery ID/key for another attempt; delivered or terminal records are returned as duplicates without a new transport call;
+- PostgreSQL delivery upsert cannot downgrade an already delivered record, and external transport adapters receive the same key on ambiguous retry for provider-side replay protection;
+- regression coverage in `tests/workflowRestartContinuity.test.js` verifies stable occurrence derivation, restart with pinned version, retry with the same external key and no redelivery after success;
+- implementation/test HEAD `3bf821f20e031827e9f74a877c3b8610aebd24c7` passed exact-head SG 2.1 CI #8306; AW2.17 is therefore CLOSED / CI-VERIFIED inside this code/test boundary.
+
 Boundary:
 - Automation 2.0 generalized workflows are not yet production-wired/live-accepted as a complete program;
 - `deliver` remains on the existing Delivery Router / execution-security boundary and is not reclassified by AW2.6 as a generic capability mutation, preserving the established self-notification compatibility path;
@@ -195,7 +207,8 @@ Boundary:
 - AW2.14 composes final runtime output from current step evidence, keeps deterministic metrics outside AI control and routes optional narrative through the existing logged/costed AI Router;
 - AW2.15 prevents false success, preserves explicit partial completion and routes only explicitly temporary failures into the existing bounded durable retry/DLQ mechanism;
 - AW2.16 persists one inspectable run record per occurrence/attempt with ordered step, source, gate, AI/cost, delivery and terminal evidence;
-- AW2.17 is next; stable occurrence idempotency/restart continuity and live acceptance remain later stages.
+- AW2.17 keeps one occurrence identity across materialization/retry/restart, resolves the pinned durable version and prevents completed delivery replay;
+- AW2.18 is next; natural-language lifecycle/restore and live acceptance remain later stages.
 
 Canonical docs:
 - `../architecture/AUTOMATION_2_0_EXECUTABLE_WORKFLOWS.md`

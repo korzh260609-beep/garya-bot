@@ -1,6 +1,6 @@
 # SG Automation 2.0 — Executable Workflows Program
 
-Status: IMPLEMENTATION IN PROGRESS — AW2.1–AW2.16 CLOSED / CI-VERIFIED; AW2.17 NEXT
+Status: IMPLEMENTATION IN PROGRESS — AW2.1–AW2.17 CLOSED / CI-VERIFIED; AW2.18 NEXT
 
 ## Goal
 
@@ -311,11 +311,26 @@ Implementation/evidence:
 
 Boundary: AW2.16 records occurrence/attempt identity supplied to execution but does not yet guarantee stable occurrence derivation, exactly-once delivery or restart replay safety; AW2.17 owns those idempotency and continuity guarantees.
 
-### AW2.17 — Idempotency and restart continuity
-- Stable occurrence identity.
-- Retry/restart must not duplicate external delivery.
-- Durable workflow/version resolution after worker restart.
-- Scheduler materialization remains replay-safe.
+### AW2.17 — Idempotency and restart continuity — CLOSED / CI-VERIFIED
+Each durable occurrence now carries one stable identity across scheduler replay, retry attempts and worker restarts, and every delivery step derives its idempotency key from that occurrence rather than an attempt.
+
+Implemented boundary:
+- one-shot task submission persists a stable occurrence identity; recurring registration/materialization persists deterministic `schedule:<scheduleId>:<sequence>` identity for the template first occurrence and every later occurrence;
+- existing scheduler task/idempotency conflicts remain authoritative, so replaying materialization cannot create a second durable occurrence task;
+- `createRestartContinuousWorkflowExecution` resolves the exact pinned `automationId@version` snapshot from durable workflow history on every worker process, fails closed when it is missing/mismatched and never drifts to a newer workflow after restart;
+- Workflow Executor passes occurrence/attempt and the stable per-delivery-step key to runtime security and handlers while retaining distinct attempt run history;
+- legacy self-notification delivery now uses the same occurrence-derived key and records occurrence evidence in Delivery Router metadata;
+- Delivery Router retries durable records only when explicitly retryable, reuses their original delivery identity/key, returns completed delivery as a duplicate without calling the external adapter again and never downgrades an already delivered PostgreSQL record;
+- external transport adapters receive the stable idempotency key on every ambiguous retry, preserving their provider-side replay protection;
+- no scheduler, queue, worker, workflow store, Delivery Router or retry stack is duplicated.
+
+Implementation/evidence:
+- `src/automation/workflowExecutionContinuity.js`, `postgresRecurringScheduler.js`, `postgresTaskQueue.js`, `workflowExecutor.js`, `productionWorkerExecution.js` and exact-version resolution in `postgresWorkflowUpdateStore.js`;
+- durable delivery continuity in `src/delivery/deliveryRouter.js` and `postgresDeliveryStore.js`;
+- regression coverage in `tests/workflowRestartContinuity.test.js` plus the updated self-notification compatibility assertion;
+- implementation/test HEAD `3bf821f20e031827e9f74a877c3b8610aebd24c7`; SG 2.1 CI #8306 SUCCESS on that exact HEAD.
+
+Boundary: AW2.17 closes occurrence, materialization, exact-version restart and delivery idempotency continuity. Natural-language lifecycle operations, including restore of an earlier version, remain AW2.18.
 
 ### AW2.18 — Natural-language lifecycle
 Support semantic instructions equivalent to:

@@ -51,7 +51,7 @@ test('schedule-list exposes actionable recurring schedule details instead of onl
   const schedule = {
     scheduleId: 'schedule-1', status: 'active', recurrence: 'FREQ=DAILY',
     dtstartLocal: '2026-08-15T07:00:00', timeZone: 'Europe/Kyiv',
-    nextOccurrenceAt: '2026-08-16T04:00:00.000Z', state: { localTime: '07:00' }
+    nextOccurrenceAt: '2026-08-16T04:00:00.000Z', state: { localTime: '07:00', notificationMessage: 'Утреннее напоминание' }
   };
   const recurringScheduler = {
     async list() { return [schedule]; }, async get() { return schedule; }, async update() { return schedule; },
@@ -60,13 +60,17 @@ test('schedule-list exposes actionable recurring schedule details instead of onl
   const capability = createTemporalCapabilities({ temporalService: temporalService(), recurringScheduler })
     .find((item) => item.name === 'schedule-list');
 
-  const result = await capability.execute(request());
+  const result = await capability.execute(request({ locale: 'ru', statuses: ['active'] }));
 
   assert.equal(result.status, 'success');
-  assert.match(result.data.message, /schedule-1/);
-  assert.match(result.data.message, /FREQ=DAILY/);
-  assert.match(result.data.message, /07:00/);
-  assert.match(result.data.message, /Europe\/Kyiv/);
+  assert.equal(result.data.schedules[0].scheduleId, 'schedule-1');
+  assert.match(result.data.message, /«Утреннее напоминание»/);
+  assert.match(result.data.message, /Расписание: каждый день в 07:00/);
+  assert.match(result.data.message, /Часовой пояс: Киев/);
+  assert.equal(result.data.message.includes('schedule-1'), false);
+  assert.equal(result.data.message.includes('FREQ=DAILY'), false);
+  assert.equal(result.data.message.includes('Europe\/Kyiv'), false);
+  assert.equal(result.data.message.includes('2026-08-16T04:00:00.000Z'), false);
 });
 
 test('schedule controls may infer exactly one eligible schedule but never guess among several', async () => {

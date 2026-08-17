@@ -1,4 +1,5 @@
 import { WORKSPACE_ANALYTICS_INTERACTION_EVENT_TYPES } from '../telegramWorkspace/workspaceAnalyticsOperations.js';
+import { assertWorkspaceId } from '../telegramWorkspace/workspaceOperationsContract.js';
 
 export const WORKSPACE_ACTIVITY_CAPABILITY = 'workspace-activity';
 
@@ -66,7 +67,7 @@ export function createWorkspaceActivityCollector({ workspaceOperationsStore, clo
       throw failClosed('workspace activity collection requires current allowed security', 'workspace_activity_security_required');
     }
 
-    const workspaceId = requiredString(source.workspaceId, 'step.source.workspaceId');
+    const workspaceId = assertWorkspaceId(source.workspaceId);
     const window = normalizeWindow(source, clock);
     const query = Object.freeze({ workspaceId, from: window.from, to: window.to });
 

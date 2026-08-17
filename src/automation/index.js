@@ -12,7 +12,7 @@ export { STATE_CHANGING_WORKFLOW_STEP_TYPES, STATE_CHANGE_CONFIRMATION_POLICIES,
 export { WORKFLOW_MUTATION_FIELDS, WORKFLOW_LIFECYCLE_ACTIONS, WORKFLOW_SEMANTIC_SELECTOR_FIELDS, WorkflowUpdateError, createWorkflowUpdateCapability } from './workflowUpdate.js';
 export { createPostgresWorkflowUpdateStore } from './postgresWorkflowUpdateStore.js';
 export { createWorkflowRegisteredTaskStore } from './workflowRegisteredTaskStore.js';
-export { createPostgresWorkflowExecutionStore } from './postgresWorkflowExecutionStore.js';
+export { WORKFLOW_RUN_EVENT_TYPES, createPostgresWorkflowExecutionStore } from './postgresWorkflowExecutionStore.js';
 export { createAutomationEngine } from './automationEngine.js';
 export { PREPARE_ONLY_KINDS, createPrepareOnlyCapability } from './prepareOnly.js';
 export { createPostgresTaskQueue } from './postgresTaskQueue.js';

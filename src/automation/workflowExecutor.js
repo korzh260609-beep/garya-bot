@@ -93,10 +93,65 @@ function securityFailureVerdict(error) {
   });
 }
 
-async function persistDeniedPolicyStep({ stepRunStore, taskId, definition, verdict, bounds, field, defaultErrorCode, defaultMessage }) {
+async function recordRunEventIfSupported(stepRunStore, event) {
+  if (typeof stepRunStore?.recordRunEvent === 'function') await stepRunStore.recordRunEvent(event);
+}
+
+function gateEventPayload(verdict) {
+  return Object.freeze({
+    allowed: verdict?.allowed === true,
+    protected: verdict?.protected === true,
+    failedCheck: verdict?.failedCheck ?? null,
+    reason: verdict?.reason ?? null,
+    errorCode: verdict?.errorCode ?? null,
+    evaluatedAt: verdict?.evaluatedAt ?? null
+  });
+}
+
+async function recordDerivedRuntimeEvents({ stepRunStore, runId, step, stepIndex, result }) {
+  if (['collect', 'retrieve'].includes(step.type)) {
+    await recordRunEventIfSupported(stepRunStore, {
+      runId, eventType: 'source-result', stepIndex,
+      payload: {
+        outcome: result.outcome,
+        collectedAt: result.output?.collectedAt ?? null,
+        sourceMetadata: result.output?.sourceMetadata ?? null,
+        omissions: result.output?.data?.omissions ?? null
+      },
+      evidenceRefs: result.evidenceRefs
+    });
+  }
+  const ai = result.output?.compositionMetadata?.ai;
+  if (ai) {
+    await recordRunEventIfSupported(stepRunStore, {
+      runId, eventType: 'ai-call', stepIndex,
+      payload: {
+        provider: ai.provider ?? null, model: ai.model ?? null, costUsd: ai.costUsd ?? null,
+        reason: ai.reason ?? null, traceId: ai.traceId ?? null, requestId: ai.requestId ?? null,
+        attempts: ai.attempts ?? null, fallbackUsed: ai.fallbackUsed === true
+      },
+      evidenceRefs: result.evidenceRefs
+    });
+  }
+  if (step.type === 'deliver') {
+    const delivery = result.output?.delivery ?? result.output ?? {};
+    await recordRunEventIfSupported(stepRunStore, {
+      runId, eventType: 'delivery-result', stepIndex,
+      payload: {
+        status: delivery.status ?? null, deliveryId: delivery.deliveryId ?? null,
+        failureCode: delivery.failureCode ?? delivery.errorCode ?? null,
+        retryable: delivery.retryable === true
+      },
+      evidenceRefs: result.evidenceRefs
+    });
+  }
+}
+
+async function persistDeniedPolicyStep({ stepRunStore, runId, taskId, definition, verdict, bounds, field, defaultErrorCode, defaultMessage }) {
   const stepIndex = Number.isInteger(verdict.failedStepIndex) ? verdict.failedStepIndex : 0;
   const step = definition.steps[stepIndex] ?? definition.steps[0];
   const baseRecord = Object.freeze({
+    runId,
     taskId,
     automationId: definition.automationId,
     workflowVersion: definition.version,
@@ -131,7 +186,7 @@ export function createWorkflowExecutor({
   if (previewLength >= maxSerializedLength) throw new TypeError('previewLength must be less than maxSerializedLength');
   const bounds = Object.freeze({ maxSerializedLength, previewLength });
 
-  async function execute({ taskId, workflow, traceContext = {} } = {}) {
+  async function executeSteps({ taskId, workflow, traceContext = {}, runId = null } = {}) {
     const normalizedTaskId = requiredString(taskId, 'taskId');
     const definition = createWorkflowDefinition(workflow);
     const autonomyVerdict = evaluateAutonomousReadOnlyPolicy(definition);
@@ -145,6 +200,7 @@ export function createWorkflowExecutor({
     if (autonomyVerdict.applies === true && autonomyVerdict.allowed !== true) {
       const denied = await persistDeniedPolicyStep({
         stepRunStore,
+        runId,
         taskId: normalizedTaskId,
         definition,
         verdict: autonomyVerdict,
@@ -168,6 +224,7 @@ export function createWorkflowExecutor({
     if (stateChangeVerdict.applies === true && stateChangeVerdict.allowed !== true) {
       const denied = await persistDeniedPolicyStep({
         stepRunStore,
+        runId,
         taskId: normalizedTaskId,
         definition,
         verdict: stateChangeVerdict,
@@ -191,6 +248,7 @@ export function createWorkflowExecutor({
     for (let stepIndex = 0; stepIndex < definition.steps.length; stepIndex += 1) {
       const step = definition.steps[stepIndex];
       const baseRecord = Object.freeze({
+        runId,
         taskId: normalizedTaskId,
         automationId: definition.automationId,
         workflowVersion: definition.version,
@@ -227,6 +285,14 @@ export function createWorkflowExecutor({
             securityVerdict = securityFailureVerdict(error);
           }
         }
+
+        await recordRunEventIfSupported(stepRunStore, {
+          runId,
+          eventType: 'gate-decision',
+          stepIndex,
+          payload: gateEventPayload(securityVerdict),
+          evidenceRefs: securityVerdict?.evidenceRefs ?? []
+        });
 
         if (securityVerdict?.allowed !== true) {
           const verdictWithPolicyEvidence = Object.freeze({
@@ -284,18 +350,21 @@ export function createWorkflowExecutor({
           output: null,
           evidenceRefs: [],
           errorCode: error?.code == null ? null : String(error.code),
-          errorMessage: error instanceof Error ? error.message : String(error)
+          errorMessage: error instanceof Error ? error.message : String(error),
+          retryable: error?.retryable === true
         });
         throw error;
       }
 
+      await recordDerivedRuntimeEvents({ stepRunStore, runId, step, stepIndex, result });
       await stepRunStore.recordStep({
         ...baseRecord,
         status: result.outcome,
         output: result.output,
         evidenceRefs: result.evidenceRefs,
         errorCode: result.errorCode,
-        errorMessage: result.errorMessage
+        errorMessage: result.errorMessage,
+        retryable: result.retryable
       });
       stepRuns.push(Object.freeze({ stepIndex, stepType: step.type, ...result }));
 
@@ -308,6 +377,7 @@ export function createWorkflowExecutor({
           outcome: result.outcome,
           output: result.output,
           evidenceRefs: result.evidenceRefs,
+          retryable: result.retryable,
           stepRuns: Object.freeze(stepRuns)
         });
       }
@@ -333,6 +403,44 @@ export function createWorkflowExecutor({
       evidenceRefs: finalStep?.evidenceRefs ?? [],
       stepRuns: Object.freeze(stepRuns)
     });
+  }
+
+  async function execute(input = {}) {
+    const normalizedTaskId = requiredString(input.taskId, 'taskId');
+    const definition = createWorkflowDefinition(input.workflow);
+    const attempt = input.attempt == null ? 1 : positiveInteger(input.attempt, 'attempt');
+    const occurrenceId = requiredString(input.occurrenceId ?? input.traceContext?.occurrenceId ?? normalizedTaskId, 'occurrenceId');
+    const runId = requiredString(input.runId ?? `${occurrenceId}:attempt:${attempt}`, 'runId');
+    if (typeof stepRunStore.startRun === 'function') {
+      await stepRunStore.startRun({
+        runId, taskId: normalizedTaskId, automationId: definition.automationId,
+        workflowVersion: definition.version, occurrenceId, attempt,
+        traceId: input.traceContext?.traceId ?? null,
+        requestId: input.traceContext?.requestId ?? null
+      });
+    }
+    try {
+      const result = await executeSteps({ ...input, taskId: normalizedTaskId, workflow: definition, runId });
+      const completed = Object.freeze({ ...result, runId, occurrenceId, attempt });
+      if (typeof stepRunStore.completeRun === 'function') {
+        await stepRunStore.completeRun({
+          runId, status: result.outcome, output: result.output, evidenceRefs: result.evidenceRefs,
+          errorCode: result.errorCode ?? null, errorMessage: result.errorMessage ?? null,
+          retryable: result.retryable ?? null
+        });
+      }
+      return completed;
+    } catch (error) {
+      if (typeof stepRunStore.completeRun === 'function') {
+        await stepRunStore.completeRun({
+          runId, status: 'failed', output: null, evidenceRefs: [],
+          errorCode: error?.code ?? null,
+          errorMessage: error instanceof Error ? error.message : String(error),
+          retryable: error?.retryable === true
+        });
+      }
+      throw error;
+    }
   }
 
   return Object.freeze({ execute });

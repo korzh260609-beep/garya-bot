@@ -61,7 +61,7 @@ Canonical doc: `17_RENDER_DEPLOYMENT.md`.
 
 ## Automation 2.0 — Executable Workflows
 
-**ACCEPTED ARCHITECTURE / IMPLEMENTATION IN PROGRESS — AW2.1–AW2.18 CLOSED / CI-VERIFIED; AW2.19 NEXT; NOT DEPLOYED / NOT LIVE-VERIFIED AS AUTOMATION 2.0.**
+**ACCEPTED ARCHITECTURE / IMPLEMENTATION IN PROGRESS — AW2.1–AW2.19 CLOSED / CI-VERIFIED; AW2.20 NEXT; NOT DEPLOYED / NOT LIVE-VERIFIED AS AUTOMATION 2.0.**
 
 AW2.1–AW2.12 now provide the additive generalized workflow foundation above the existing durable automation substrate:
 - versioned workflow contract and backward-compatible `self-notification` adapter;
@@ -81,7 +81,8 @@ AW2.1–AW2.12 now provide the additive generalized workflow foundation above th
 - AW2.15 deterministic durable-result boundary that accepts honest partial completion, prevents failed/denied/delivery-failed results from becoming false success, classifies terminal versus explicitly temporary failures and reuses the existing PostgreSQL queue bounded exponential backoff/DLQ path;
 - AW2.16 durable per-run execution history keyed by run/occurrence/attempt with ordered step transitions, source evidence, gate decisions, AI provider/model/cost/reason provenance, delivery result and terminal output/error evidence;
 - AW2.17 stable persisted occurrence identity, replay-safe scheduler materialization, exact pinned workflow-version resolution after restart and occurrence-derived durable Delivery Router idempotency;
-- AW2.18 typed natural-language lifecycle operations routed through the existing semantic interpreter, `automation-update`, Action Gate, scoped resolution and atomic workflow/runtime mutation, including restore as a new version.
+- AW2.18 typed natural-language lifecycle operations routed through the existing semantic interpreter, `automation-update`, Action Gate, scoped resolution and atomic workflow/runtime mutation, including restore as a new version;
+- AW2.19 consolidated regression/security evidence across AW2.4–AW2.18, with credential scope/secret isolation and bounded/redacted execution-security snapshots.
 
 AW2.6 does **not** turn the stored envelope into authority. A structurally valid state-changing step still passes the existing AW2.4 runtime checks immediately before its handler, so lost access/authority, Action Gate denial, unavailable credentials or permission-health failure remains terminally denied. Scheduled/delegated execution cannot broaden current authorization. No second scheduler, queue, worker, identity, authority, credential, confirmation or ACS stack was created.
 
@@ -208,6 +209,15 @@ AW2.18 implementation/closure evidence:
 - regression coverage in `tests/workflowNaturalLanguageLifecycle.test.js` covers all lifecycle mutation classes, stable identity/versioning, restore, recurring and one-shot runtime reuse, ambiguity/invalid restore denial and durable PostgreSQL one-shot scope/restart behavior;
 - implementation/test HEAD `3361e24c4a6f8bb103206a15cedf4896c077a9f1` passed exact-head SG 2.1 CI #8310; AW2.18 is therefore CLOSED / CI-VERIFIED inside this code/test boundary.
 
+AW2.19 implementation/closure evidence:
+- the full `npm run check` suite executes the existing AW2.4–AW2.18 regression files covering patch-in-place, no duplicate registration, fresh collection, authority loss, multiple workspaces, explicit partial failure, state-change denial, retry/restart/idempotency, version history and semantic ambiguity;
+- `src/automation/workflowExecutionSecurity.js` now bounds current-security snapshots by depth, entries and string length, recursively freezes them, redacts sensitive/private keyed values and prevents raw secret material from reaching runtime handlers or persisted history through that evidence seam;
+- the change retains allowed/reason/evidenceRefs and non-sensitive bounded snapshot evidence; it does not bypass or replace Identity, access, Resource Authority, Action Gate, Credential Manager or permission-health checks;
+- `tests/automationWorkflowRegressionSecurity.test.js` proves raw credential values exist only inside the authorized Credential Manager callback, public descriptions/audit evidence exclude secret values and secret references, unsafe secret-bearing metadata is rejected, and cross-user scope is denied before secret-store access;
+- the same AW2.19 regression file proves snapshot redaction/bounds and confirms the AW2.11 fresh collector cannot receive stored private workflow inputs or prior handoff;
+- existing focused evidence remains in `workflowPatchNotDuplicate.test.js`, `runtimeFreshDataCollection.test.js`, `multiWorkspaceActivityAggregator.test.js`, `workflowFailureRetryPolicy.test.js`, `workflowStateChangeEnvelope.test.js`, `workflowRestartContinuity.test.js`, `workflowVersionHistory.test.js` and `workflowNaturalLanguageLifecycle.test.js`;
+- implementation/test HEAD `7af9a9285142e25a73fe4ac792382ac86360051e` passed exact-head SG 2.1 CI #8314; AW2.19 is therefore CLOSED / CI-VERIFIED inside this code/test boundary.
+
 Boundary:
 - Automation 2.0 generalized workflows are not yet production-wired/live-accepted as a complete program;
 - `deliver` remains on the existing Delivery Router / execution-security boundary and is not reclassified by AW2.6 as a generic capability mutation, preserving the established self-notification compatibility path;
@@ -222,7 +232,8 @@ Boundary:
 - AW2.16 persists one inspectable run record per occurrence/attempt with ordered step, source, gate, AI/cost, delivery and terminal evidence;
 - AW2.17 keeps one occurrence identity across materialization/retry/restart, resolves the pinned durable version and prevents completed delivery replay;
 - AW2.18 adds semantic lifecycle/restore through existing production mutation and security seams without phrase-table routing or duplicate runtime infrastructure;
-- AW2.19 is next; consolidated regression/security closure and production live acceptance remain later stages.
+- AW2.19 closes the consolidated CI regression/security matrix and bounds secret/private evidence at the existing execution-security and Credential Manager seams;
+- AW2.20 is next; production deployment and live E2E acceptance are still required before Automation 2.0 can close as a complete program.
 
 Canonical docs:
 - `../architecture/AUTOMATION_2_0_EXECUTABLE_WORKFLOWS.md`

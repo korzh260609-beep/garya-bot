@@ -1,6 +1,6 @@
 # SG Automation 2.0 — Executable Workflows Program
 
-Status: IMPLEMENTATION IN PROGRESS — AW2.1–AW2.18 CLOSED / CI-VERIFIED; AW2.19 NEXT
+Status: IMPLEMENTATION IN PROGRESS — AW2.1–AW2.19 CLOSED / CI-VERIFIED; AW2.20 NEXT
 
 ## Goal
 
@@ -353,19 +353,32 @@ Implementation/evidence:
 
 Boundary: AW2.18 closes natural-language lifecycle and restore inside the existing deterministic mutation/security/runtime seams. It does not replace AW2.19 consolidated regression/security closure or AW2.20 production live acceptance.
 
-### AW2.19 — Regression and security tests
-Minimum coverage:
-- patch existing automation;
-- no duplicate creation;
-- fresh runtime collection;
-- lost authority after creation;
-- multiple workspaces;
-- partial failure;
-- state-changing step without current authority denied;
-- retry/restart/idempotency;
-- version history;
-- semantic ambiguity fails closed;
-- secrets/private data remain bounded.
+### AW2.19 — Regression and security tests — CLOSED / CI-VERIFIED
+The complete CI suite now provides one consolidated regression/security gate for the executable-workflow invariants established in AW2.4–AW2.18.
+
+Covered matrix:
+- patch existing automation and preserve the canonical identity: `tests/workflowPatchNotDuplicate.test.js`, `tests/workflowNaturalLanguageLifecycle.test.js`;
+- no duplicate task/schedule registration: `tests/workflowPatchNotDuplicate.test.js`;
+- current runtime collection and stored-input/handoff isolation: `tests/runtimeFreshDataCollection.test.js`, `tests/automationWorkflowRegressionSecurity.test.js`;
+- lost authority after creation and state-changing execution without current authority denied: `tests/workflowExecutionSecurity.test.js`, `tests/workflowStateChangeEnvelope.test.js`;
+- independent multi-workspace authority, authorized-only aggregation and explicit omissions: `tests/multiWorkspaceActivityAggregator.test.js`;
+- honest partial failure and deterministic temporary/terminal retry classification: `tests/workflowFailureRetryPolicy.test.js`;
+- retry/restart/occurrence and delivery idempotency continuity: `tests/workflowRestartContinuity.test.js`;
+- monotonic version history and invalid-mutation rejection: `tests/workflowVersionHistory.test.js`;
+- semantic lifecycle ambiguity and invalid restore fail closed: `tests/workflowNaturalLanguageLifecycle.test.js`;
+- Credential Manager raw-secret callback confinement, public/audit exclusion, cross-scope denial before secret read, unsafe metadata rejection, bounded/redacted current-security snapshots and private fresh-data isolation: `tests/automationWorkflowRegressionSecurity.test.js`.
+
+Security boundary:
+- `src/automation/workflowExecutionSecurity.js` sanitizes snapshot evidence before it can reach handlers/history, with explicit depth, entry and string bounds, recursive freezing and sensitive/private key redaction;
+- canonical `allowed`, `reason`, `evidenceRefs` and bounded non-sensitive snapshot evidence remain available;
+- raw credentials continue to be resolved only through the existing Credential Manager callback boundary;
+- no scheduler, queue, worker, workflow store, Identity, Resource Authority, Action Gate, Credential Manager, Delivery Router or security stack is duplicated or bypassed.
+
+Implementation/evidence:
+- implementation/test HEAD `7af9a9285142e25a73fe4ac792382ac86360051e`;
+- SG 2.1 CI #8314 SUCCESS on that exact HEAD, including migration, Block 19 security gate, `npm run check`, web start, worker start and diagnostics.
+
+Boundary: AW2.19 closes code/CI regression and security coverage only. It is not deployment or live runtime proof; AW2.20 owns production E2E and live acceptance.
 
 ### AW2.20 — Production E2E / live acceptance
 Required live scenario:

@@ -12,10 +12,49 @@ function requiredFunction(value, field) {
   return value;
 }
 
+const SECURITY_SNAPSHOT_LIMITS = Object.freeze({
+  maxDepth: 6,
+  maxEntries: 64,
+  maxStringLength: 512
+});
+const SENSITIVE_SNAPSHOT_KEY = /(?:secret|token|password|passphrase|authorization|cookie|api[-_]?key|access[-_]?key|private|credential[-_]?value)/i;
+const REDACTED = '[REDACTED]';
+const TRUNCATED = '[TRUNCATED]';
+
 function normalizeEvidenceRefs(value, field) {
   if (value == null) return [];
   if (!Array.isArray(value)) throw new TypeError(`${field}.evidenceRefs must be an array`);
   return value.map((item) => String(item));
+}
+
+function sanitizeSecuritySnapshot(value, { depth = 0, seen = new WeakSet() } = {}) {
+  if (value == null || typeof value === 'boolean' || typeof value === 'number') return value;
+  if (typeof value === 'string') {
+    if (value.length <= SECURITY_SNAPSHOT_LIMITS.maxStringLength) return value;
+    return `${value.slice(0, SECURITY_SNAPSHOT_LIMITS.maxStringLength)}${TRUNCATED}`;
+  }
+  if (typeof value !== 'object') return String(value);
+  if (depth >= SECURITY_SNAPSHOT_LIMITS.maxDepth) return TRUNCATED;
+  if (seen.has(value)) return TRUNCATED;
+  seen.add(value);
+
+  if (Array.isArray(value)) {
+    const items = value
+      .slice(0, SECURITY_SNAPSHOT_LIMITS.maxEntries)
+      .map((item) => sanitizeSecuritySnapshot(item, { depth: depth + 1, seen }));
+    if (value.length > SECURITY_SNAPSHOT_LIMITS.maxEntries) items.push(TRUNCATED);
+    return Object.freeze(items);
+  }
+
+  const sanitized = {};
+  const entries = Object.entries(value);
+  for (const [key, item] of entries.slice(0, SECURITY_SNAPSHOT_LIMITS.maxEntries)) {
+    sanitized[key] = SENSITIVE_SNAPSHOT_KEY.test(key)
+      ? REDACTED
+      : sanitizeSecuritySnapshot(item, { depth: depth + 1, seen });
+  }
+  if (entries.length > SECURITY_SNAPSHOT_LIMITS.maxEntries) sanitized.truncated = true;
+  return Object.freeze(sanitized);
 }
 
 function normalizeVerdict(value, field) {
@@ -24,7 +63,7 @@ function normalizeVerdict(value, field) {
     allowed: value.allowed === true,
     reason: value.reason == null ? null : String(value.reason),
     evidenceRefs: Object.freeze(normalizeEvidenceRefs(value.evidenceRefs, field)),
-    snapshot: value.snapshot ?? null
+    snapshot: value.snapshot == null ? null : sanitizeSecuritySnapshot(value.snapshot)
   });
 }
 

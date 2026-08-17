@@ -1,6 +1,6 @@
 # SG Automation 2.0 — Executable Workflows Program
 
-Status: IMPLEMENTATION IN PROGRESS — AW2.1–AW2.15 CLOSED / CI-VERIFIED; AW2.16 NEXT
+Status: IMPLEMENTATION IN PROGRESS — AW2.1–AW2.16 CLOSED / CI-VERIFIED; AW2.17 NEXT
 
 ## Goal
 
@@ -290,8 +290,26 @@ Implementation/evidence:
 
 Boundary: AW2.15 defines execution failure/retry semantics and reuses existing durable persistence. It does not add the complete per-run history record; AW2.16 owns execution history.
 
-### AW2.16 — Execution history
-Persist each run with automation/version/occurrence, step transitions, sources, outputs, errors, gate decisions, AI calls/cost and delivery result.
+### AW2.16 — Execution history — CLOSED / CI-VERIFIED
+Every Workflow Executor run now has a durable inspectable identity and ordered evidence history instead of only the latest step state for a task.
+
+Implemented boundary:
+- migration 908 creates `automation_workflow_runs` and append-only `automation_workflow_run_events`, backfills existing step records and gives each step snapshot a `run_id`;
+- run identity includes run, task, automation, workflow version, occurrence, attempt, trace and request IDs;
+- run terminal state preserves completed/partial/failed/denied/cancelled outcome, bounded output/evidence, error code/message and retryability;
+- step transitions persist per run without later occurrences or retry attempts overwriting earlier history;
+- typed run events capture current source metadata and omissions, protected-step gate decisions, AI provider/model/cost/reason/trace evidence and final delivery status/failure evidence;
+- Workflow Executor starts and completes history around the existing execution path and closes thrown exceptions as failed runs;
+- execution history can be inspected by run or listed by automation in deterministic order and survives PostgreSQL restart;
+- existing observability remains the system-wide telemetry/audit channel; AW2.16 extends the existing workflow execution store rather than replacing observability or creating a second workflow executor.
+
+Implementation/evidence:
+- `src/persistence/migrations/908_automation_workflow_execution_history.sql`;
+- `src/automation/postgresWorkflowExecutionStore.js` and `workflowExecutor.js`;
+- regression coverage: `tests/workflowExecutionHistory.test.js` plus migration coverage in `tests/postgresPersistence.test.js`;
+- implementation/test HEAD `3f07b629dcbb0f75e92a1288acfd2d37bf6ef6f3`; SG 2.1 CI #8300 SUCCESS on that exact HEAD.
+
+Boundary: AW2.16 records occurrence/attempt identity supplied to execution but does not yet guarantee stable occurrence derivation, exactly-once delivery or restart replay safety; AW2.17 owns those idempotency and continuity guarantees.
 
 ### AW2.17 — Idempotency and restart continuity
 - Stable occurrence identity.

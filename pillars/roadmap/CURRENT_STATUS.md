@@ -61,7 +61,7 @@ Canonical doc: `17_RENDER_DEPLOYMENT.md`.
 
 ## Automation 2.0 — Executable Workflows
 
-**ACCEPTED ARCHITECTURE / IMPLEMENTATION IN PROGRESS — AW2.1–AW2.15 CLOSED / CI-VERIFIED; AW2.16 NEXT; NOT DEPLOYED / NOT LIVE-VERIFIED AS AUTOMATION 2.0.**
+**ACCEPTED ARCHITECTURE / IMPLEMENTATION IN PROGRESS — AW2.1–AW2.16 CLOSED / CI-VERIFIED; AW2.17 NEXT; NOT DEPLOYED / NOT LIVE-VERIFIED AS AUTOMATION 2.0.**
 
 AW2.1–AW2.12 now provide the additive generalized workflow foundation above the existing durable automation substrate:
 - versioned workflow contract and backward-compatible `self-notification` adapter;
@@ -78,7 +78,8 @@ AW2.1–AW2.12 now provide the additive generalized workflow foundation above th
 - AW2.12 concrete single-workspace `workspace-activity` collector that reuses existing TWM persisted activity/analytics semantics, requires current execution security and returns deterministic publication/poll/test/interaction/activity-event evidence with explicit data-window/source metadata;
 - AW2.13 multi-workspace aggregation over AW2.12 with independent current security re-check per canonical workspace, explicit denied/unavailable omissions, authorized-data-only additive totals and no invalid cross-workspace summation of `uniqueActors`;
 - AW2.14 runtime `compose` handler that builds final user-facing output from the immediately preceding current execution result, preserves partial/omission evidence, renders authoritative metrics deterministically and permits optional narrative only through the existing cost/reason/trace-logged AI Router;
-- AW2.15 deterministic durable-result boundary that accepts honest partial completion, prevents failed/denied/delivery-failed results from becoming false success, classifies terminal versus explicitly temporary failures and reuses the existing PostgreSQL queue bounded exponential backoff/DLQ path.
+- AW2.15 deterministic durable-result boundary that accepts honest partial completion, prevents failed/denied/delivery-failed results from becoming false success, classifies terminal versus explicitly temporary failures and reuses the existing PostgreSQL queue bounded exponential backoff/DLQ path;
+- AW2.16 durable per-run execution history keyed by run/occurrence/attempt with ordered step transitions, source evidence, gate decisions, AI provider/model/cost/reason provenance, delivery result and terminal output/error evidence.
 
 AW2.6 does **not** turn the stored envelope into authority. A structurally valid state-changing step still passes the existing AW2.4 runtime checks immediately before its handler, so lost access/authority, Action Gate denial, unavailable credentials or permission-health failure remains terminally denied. Scheduled/delegated execution cannot broaden current authorization. No second scheduler, queue, worker, identity, authority, credential, confirmation or ACS stack was created.
 
@@ -170,6 +171,18 @@ AW2.15 implementation/closure evidence:
 - regression coverage in `tests/workflowFailureRetryPolicy.test.js` covers partial completion, lost authority, temporary/permanent failure, final-delivery false-success prevention, durable-worker queue reuse and ambiguous result denial; existing durable-worker/PostgreSQL tests continue to cover exponential backoff, attempt bounds, lease recovery and DLQ;
 - implementation/test HEAD `abbb90f6a9b2b50282cdc6f9a04e7dd3ed1e0017` passed exact-head SG 2.1 CI #8294; AW2.15 is therefore CLOSED / CI-VERIFIED inside this code/test boundary.
 
+AW2.16 implementation/closure evidence:
+- migration `908_automation_workflow_execution_history.sql` additively creates durable workflow runs/events, backfills legacy step runs, and changes step identity from overwrite-prone `(taskId, stepIndex)` to `(runId, stepIndex)`;
+- every run records `runId`, canonical `automationId`, workflow version, occurrence, attempt, task, trace/request provenance, lifecycle status, output/evidence, error and retryability;
+- `src/automation/postgresWorkflowExecutionStore.js` extends the existing execution store with `startRun`, append-only transition/runtime events, `completeRun`, `getRunHistory` and ordered run listing;
+- Workflow Executor opens/closes the run boundary and attaches deterministic run identity to its result while preserving backward compatibility for in-memory step stores;
+- protected-step gate decisions, current source metadata/omissions, AI provider/model/cost/reason/trace evidence and final delivery status are persisted as bounded typed run events;
+- thrown failures close the run as failed with code/message/retryability; denied/partial/completed workflow results retain their exact terminal status;
+- step outputs/evidence remain bounded and each transition is append-only even though the per-run step snapshot is updated to its latest state;
+- regression coverage in `tests/workflowExecutionHistory.test.js` verifies full runtime evidence, partial outcome, failure closure and PostgreSQL restart persistence with ordered events;
+- migration baseline is 36 and includes migration 908;
+- implementation/test HEAD `3f07b629dcbb0f75e92a1288acfd2d37bf6ef6f3` passed exact-head SG 2.1 CI #8300; AW2.16 is therefore CLOSED / CI-VERIFIED inside this code/test boundary.
+
 Boundary:
 - Automation 2.0 generalized workflows are not yet production-wired/live-accepted as a complete program;
 - `deliver` remains on the existing Delivery Router / execution-security boundary and is not reclassified by AW2.6 as a generic capability mutation, preserving the established self-notification compatibility path;
@@ -181,7 +194,8 @@ Boundary:
 - AW2.13 aggregates that collector across independently re-authorized canonical workspaces, reports denied/unavailable resources explicitly and does not treat workspace-local unique actors as globally additive;
 - AW2.14 composes final runtime output from current step evidence, keeps deterministic metrics outside AI control and routes optional narrative through the existing logged/costed AI Router;
 - AW2.15 prevents false success, preserves explicit partial completion and routes only explicitly temporary failures into the existing bounded durable retry/DLQ mechanism;
-- AW2.16 is next; full execution history, idempotency and live acceptance remain later stages.
+- AW2.16 persists one inspectable run record per occurrence/attempt with ordered step, source, gate, AI/cost, delivery and terminal evidence;
+- AW2.17 is next; stable occurrence idempotency/restart continuity and live acceptance remain later stages.
 
 Canonical docs:
 - `../architecture/AUTOMATION_2_0_EXECUTABLE_WORKFLOWS.md`

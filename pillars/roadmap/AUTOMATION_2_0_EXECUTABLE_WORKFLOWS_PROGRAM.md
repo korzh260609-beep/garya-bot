@@ -1,6 +1,6 @@
 # SG Automation 2.0 — Executable Workflows Program
 
-Status: IMPLEMENTATION IN PROGRESS — AW2.1–AW2.14 CLOSED / CI-VERIFIED; AW2.15 NEXT
+Status: IMPLEMENTATION IN PROGRESS — AW2.1–AW2.15 CLOSED / CI-VERIFIED; AW2.16 NEXT
 
 ## Goal
 
@@ -268,15 +268,27 @@ Implementation/evidence:
 
 Boundary: AW2.14 owns runtime composition only. It does not define retry/backoff or delivery-failure handling; AW2.15 owns failure and retry policy.
 
-### AW2.15 — Failure and retry policy
-Define deterministic handling for:
-- partial source/resource failure;
-- lost authority;
-- temporary API/provider failure;
-- permanent capability failure;
-- final delivery failure;
-- bounded retry/backoff;
-- false-success prevention.
+### AW2.15 — Failure and retry policy — CLOSED / CI-VERIFIED
+Deterministic result classification now prevents failed work from being completed and routes only explicitly temporary failures into the existing bounded durable retry path.
+
+Implemented boundary:
+- completed results are accepted; partial source/resource results are accepted with explicit `partial-resource-failure` classification rather than silently presented as complete data;
+- lost authority/denial, cancellation, invalid/ambiguous results and permanent capability failures are terminal and non-retryable;
+- API/provider or capability failure is retryable only when explicitly marked `retryable === true`;
+- final delivery must expose an explicit delivered/completed status; missing or failed delivery cannot become task success, and temporary delivery failure retains its retryable flag;
+- Workflow Executor preserves structured retryability on failed terminal results and marks security/policy denials non-retryable;
+- durable worker evaluates the returned result before calling `queue.complete`; rejected results are converted into typed errors and handed to the existing `PostgresTaskQueue.fail` path;
+- existing PostgreSQL queue semantics remain authoritative for bounded attempts, exponential backoff cap, explicit deferral, lease recovery and DLQ evidence;
+- unsupported production task kinds are explicitly permanent;
+- no parallel scheduler, queue, worker, retry service or DLQ is introduced.
+
+Implementation/evidence:
+- `src/automation/workflowFailurePolicy.js`, exported through `src/automation/index.js`;
+- `src/automation/durableWorker.js`, `workflowExecutor.js` and `productionWorkerExecution.js` integrate the policy into existing runtime seams;
+- regression coverage: `tests/workflowFailureRetryPolicy.test.js` plus existing `tests/durableWorkers.test.js` covers partial, authority loss, temporary/permanent failure, delivery failure, false-success denial, bounded queue reuse, exponential backoff, attempt exhaustion, lease recovery and DLQ;
+- implementation/test HEAD `abbb90f6a9b2b50282cdc6f9a04e7dd3ed1e0017`; SG 2.1 CI #8294 SUCCESS on that exact HEAD.
+
+Boundary: AW2.15 defines execution failure/retry semantics and reuses existing durable persistence. It does not add the complete per-run history record; AW2.16 owns execution history.
 
 ### AW2.16 — Execution history
 Persist each run with automation/version/occurrence, step transitions, sources, outputs, errors, gate decisions, AI calls/cost and delivery result.

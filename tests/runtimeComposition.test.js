@@ -130,6 +130,8 @@ test('production runtime auto-captures semantic personal facts only after interp
         order.push('semantic');
         return {
           decisionEnvelope: {
+            traceId: 'trace-memory-auto-capture',
+            requestId: 'request-memory-auto-capture',
             decisionType: 'answer',
             intent: 'personal_fact_statement',
             selectedAction: {
@@ -197,6 +199,8 @@ test('production runtime does not auto-capture when semantic interpretation has 
       async process() {
         return {
           decisionEnvelope: {
+            traceId: 'trace-memory-no-candidate',
+            requestId: 'request-memory-no-candidate',
             decisionType: 'answer',
             intent: 'ordinary_conversation',
             selectedAction: { type: 'answer', name: 'compose-answer', actionClass: 'analysis', payload: { memoryCandidates: [] } }

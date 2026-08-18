@@ -159,6 +159,8 @@ export function createLocalProductionHarness({ env = {}, interpretationResolver,
     environment: config.environment,
     revision: config.revision,
     conversationContextStore: conversationDeployment.store,
+    conversationContextService,
+    aiRouter: productionAI?.aiRouter ?? null,
     temporalService,
     observability,
     runtimeEvidenceProvider: async () => Object.freeze({

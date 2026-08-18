@@ -139,6 +139,31 @@ test('numbered workflow selection follows the same visible recurring schedule or
   assert.equal(store.current.find((item) => item.workflow.automationId === 'automation:b').workflow.inputs.message, 'Changed first visible automation');
 });
 
+test('numbered selection chooses from the displayed all-status list before validating explicit active status', async () => {
+  const records = [
+    record({ automationId: 'automation:cancelled-new', taskId: 'task:1', scheduleId: 'schedule:1', message: 'Hello', localTime: '07:00', lifecycleStatus: 'cancelled' }),
+    record({ automationId: 'automation:active', taskId: 'task:2', scheduleId: 'schedule:2', message: 'Hello', localTime: '07:00', lifecycleStatus: 'active' }),
+    record({ automationId: 'automation:cancelled-old', taskId: 'task:3', scheduleId: 'schedule:3', message: 'Old', localTime: '16:55', lifecycleStatus: 'cancelled' })
+  ];
+  const recurringScheduler = {
+    async list() {
+      return [
+        { scheduleId: 'schedule:1', status: 'cancelled' },
+        { scheduleId: 'schedule:2', status: 'active' },
+        { scheduleId: 'schedule:3', status: 'cancelled' }
+      ];
+    }
+  };
+  const { service } = capability(records, recurringScheduler);
+  const result = await service.update({
+    selector: { position: 2, lifecycleStatus: 'active' },
+    scope,
+    patch: { inputs: { message: 'Changed visible automation 2' } },
+    actor
+  });
+  assert.equal(result.automationId, 'automation:active');
+});
+
 test('AW2.8 fails closed with clarification on zero semantic matches before authorization or mutation', async () => {
   const { service, store, auth } = capability([
     record({ automationId: 'automation:morning', taskId: 'task:1', scheduleId: 'schedule:1', message: 'Morning report', localTime: '07:00' })

@@ -199,15 +199,18 @@ async function resolveTarget({ store, selector, scope, recurringScheduler = null
       { candidateCount: candidates.length, clarificationRequired: true }
     );
   }
-  let matches = candidates.filter((record) => semanticRecordMatches(record, selector));
+  let matches;
   if (selector.position != null) {
     if (typeof recurringScheduler?.list !== 'function') {
       throw new WorkflowUpdateError('workflow_update_position_resolution_unavailable', 'numbered automation selection is unavailable', { clarificationRequired: true });
     }
     const schedules = await recurringScheduler.list({ scope, limit: 100 });
-    const byScheduleId = new Map(matches.filter((record) => record.scheduleId).map((record) => [record.scheduleId, record]));
+    const byScheduleId = new Map(candidates.filter((record) => record.scheduleId).map((record) => [record.scheduleId, record]));
     const visibleOrder = schedules.flatMap((schedule) => byScheduleId.has(schedule.scheduleId) ? [byScheduleId.get(schedule.scheduleId)] : []);
-    matches = visibleOrder[selector.position - 1] ? [visibleOrder[selector.position - 1]] : [];
+    const selected = visibleOrder[selector.position - 1] ?? null;
+    matches = selected && semanticRecordMatches(selected, selector) ? [selected] : [];
+  } else {
+    matches = candidates.filter((record) => semanticRecordMatches(record, selector));
   }
   if (matches.length !== 1) throw targetResolutionError(matches.length);
   return matches[0];

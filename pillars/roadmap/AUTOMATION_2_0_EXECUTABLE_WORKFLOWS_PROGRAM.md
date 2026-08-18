@@ -415,6 +415,12 @@ Fourth deployed live attempt, 2026-08-18:
 - the remediation instructs semantic selection to keep the explicit wall-clock target alone unless the user clearly supplies the full existing message;
 - multiple automations at the same time still fail closed and require a user-facing clarification; no fuzzy runtime match or guessed ID is introduced.
 
+Fifth deployed live attempt, 2026-08-18:
+- the user listed three schedules (cancelled, active, cancelled) and selected visible automation 2, but resolution still returned not-found;
+- root cause: semantic fields were filtered before `position`, so the active-status filter reduced the candidates to one and then position 2 indexed past that filtered set;
+- numbered workflow resolution now selects from the exact all-status schedule order shown to the user first, then validates additional explicitly supplied selector fields against that selected record;
+- selection remains scope-bounded and fail-closed when the visible position is absent or its explicit attributes do not match.
+
 Boundary: this closes the production code/CI wiring gap only. It does not prove a Render deploy or the real Telegram live scenario below, so AW2.20 and Automation 2.0 remain NOT CLOSED.
 
 Required live scenario:

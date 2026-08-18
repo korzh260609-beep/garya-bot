@@ -179,6 +179,21 @@ test('semantic update ignores cancelled duplicates and directly selects the one 
   assert.equal(result.automationId, 'automation:active');
 });
 
+test('one exact structured target is not rejected by an imperfect AI description', async () => {
+  const { service, store } = capability([
+    record({ automationId: 'automation:morning', taskId: 'task:1', scheduleId: 'schedule:1', message: 'ДОБРОЕ УТРО МОЙ МОНАРХ', localTime: '07:00' }),
+    record({ automationId: 'automation:evening', taskId: 'task:2', scheduleId: 'schedule:2', message: 'ВЕЧЕРНИЙ ОТЧЁТ', localTime: '19:00' })
+  ]);
+  const result = await service.update({
+    selector: { localTime: '07:00', description: 'привет монарх информация по активности в группах' },
+    scope,
+    patch: { inputs: { message: 'ДОБРОЕ УТРО МОЙ МОНАРХ + АКТИВНОСТЬ' } },
+    actor
+  });
+  assert.equal(result.automationId, 'automation:morning');
+  assert.equal(store.current.find((item) => item.workflow.automationId === 'automation:evening').workflow.version, 1);
+});
+
 test('free-form description selects one active automation without ids, list position or exact stored text', async () => {
   const { service, store } = capability([
     record({ automationId: 'automation:morning', taskId: 'task:1', scheduleId: 'schedule:1', message: 'ПРИВЕТ МОНАРХ', localTime: '07:00' }),

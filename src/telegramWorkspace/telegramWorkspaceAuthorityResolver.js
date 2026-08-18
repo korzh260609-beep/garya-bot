@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 const ACTION_POLICIES = Object.freeze({
   'workspace:view': Object.freeze({ relation: 'can_read', roles: Object.freeze(['OWNER', 'ADMIN', 'EDITOR', 'MODERATOR', 'VIEWER']), sensitive: false }),
+  'workspace:participate': Object.freeze({ relation: 'participates', roles: Object.freeze([]), sensitive: false, membershipOnly: true }),
   'workspace:configure': Object.freeze({ relation: 'administers', roles: Object.freeze(['OWNER', 'ADMIN']), sensitive: true }),
   'workspace:manage': Object.freeze({ relation: 'administers', roles: Object.freeze(['OWNER', 'ADMIN']), sensitive: true }),
   'workspace:publish': Object.freeze({ relation: 'can_publish', roles: Object.freeze(['OWNER', 'ADMIN', 'EDITOR']), sensitive: true }),
@@ -155,7 +156,7 @@ export function createTelegramWorkspaceAuthorityResolver({
 
     const now = clock();
     if (!(now instanceof Date) || Number.isNaN(now.getTime())) throw new TypeError('clock must return a valid Date');
-    if (!policy.sensitive && !forceFresh) {
+    if (!policy.sensitive && !policy.membershipOnly && !forceFresh) {
       const cached = await cachedDecision({ workspace, globalUserId, policy, requestedAction: action, now });
       if (cached) return emit(cached);
     }
@@ -166,6 +167,25 @@ export function createTelegramWorkspaceAuthorityResolver({
 
     const verifiedAt = clock();
     const telegramEvidence = publicTelegramEvidence(telegramMember, verifiedAt);
+    if (policy.membershipOnly) {
+      const activeMember = ['creator', 'administrator', 'member'].includes(telegramEvidence.status)
+        || (telegramEvidence.status === 'restricted' && telegramMember?.is_member === true);
+      if (!activeMember) {
+        return emit(deny({ reason: 'twm-telegram-participation-denied', workspaceId: canonicalWorkspaceId, requestedAction: action, globalUserId, telegramEvidence, verificationTime: verifiedAt.toISOString() }));
+      }
+      return emit(Object.freeze({
+        allowed: true,
+        reason: 'twm-telegram-participation-verified',
+        workspaceId: canonicalWorkspaceId,
+        requestedAction: action,
+        globalUserId,
+        workspaceRole: 'PARTICIPANT',
+        resourceRelation: 'participates',
+        resourceAuthority: null,
+        telegramEvidence,
+        verificationTime: verifiedAt.toISOString()
+      }));
+    }
     const telegramRole = TELEGRAM_AUTHORITY[telegramEvidence.status] ?? null;
     const existing = await workspaceStore.getMember({ workspaceId: canonicalWorkspaceId, globalUserId });
 

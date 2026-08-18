@@ -6,7 +6,9 @@
 
 **HS2 — IMPLEMENTED / CI-VERIFIED / NOT CLOSED.**
 
-**HS3–HS6 — PLANNED / NOT CLOSED.**
+**HS3 — IMPLEMENTED / CI-VERIFIED / NOT CLOSED.**
+
+**HS4–HS6 — PLANNED / NOT CLOSED.**
 
 HS1 implementation evidence:
 
@@ -31,13 +33,31 @@ HS2 implementation evidence:
 - semantic relevance uses SG AI Router with reason `memory2-hybrid-semantic-retrieval`; no direct provider/model bypass is used;
 - exact-key and lexical scores remain part of the combined score and exact-key boosts are preserved;
 - combined ranking also considers confidence, provenance completeness and lifecycle state in addition to the existing trust, confirmation, scope specificity and recency signals;
-- semantic candidate count is capped at 100, query/candidate text is bounded and the normal result record/character budgets are reapplied after reranking;
+- semantic candidate count is capped at 100, query/candidate text is bounded and the normal result record/character output remains bounded;
 - invalid semantic output, unknown candidate IDs or AI Router failure fall back to the original deterministic Memory 2.0 recall result;
 - production AI Router wiring is reuse-only through `src/ai/createProductionAI.js` and `src/ai/runtimeAIRouterBinding.js`;
 - regression coverage is in `tests/memory2HybridSemanticRetrieval.test.js`, including paraphrase retrieval, authorization-before-AI, exact boost preservation and deterministic failure fallback;
 - implementation commit `c8a073a7b65a23aa0601c093d3d81099076112a0` passed SG 2.1 CI #8479 on the exact commit.
 
-HS1 and HS2 remain **NOT CLOSED** because the program status rule requires the consolidated security/live acceptance in HS6 before final closure.
+HS3 implementation evidence:
+
+- one transport-independent orchestration path: `src/history/unifiedHistoricalSearchOrchestrator.js`;
+- orchestration consumes the HS1 plan and checks exact equality with the resolved request `globalUserId` / project / group / thread scope before source access;
+- absent source hints default only to personal Conversation History + User Memory, never broad shared/project retrieval;
+- Conversation History reuses the existing hierarchical semantic retriever;
+- personal, user×group, group, thread and topic-digest retrieval reuse Memory 2.0 hybrid `recall()` with explicit layers and existing authorization/privacy/lifecycle checks;
+- PM3 uses existing authorized Project Memory hybrid retrieval;
+- PDK4 uses existing Development Query Integration;
+- architecture decisions use the existing Project Memory retrieval seam restricted to decision facts;
+- incidents use existing Decision / Incident `findIncidentGuidance()` with advisory-only semantics preserved;
+- every selected source is normalized into a bounded source contract and reports explicit `ok`, `empty`, `failed` or `omitted` state;
+- failures are preserved per source, so a mixed request may return `partial` without inventing evidence;
+- cross-source ranking/deduplication is deliberately not implemented in HS3 and remains HS4;
+- regression coverage in `tests/unifiedHistoricalSearchOrchestrator.test.js`: personal default selection, group/thread resource binding, Conversation History + PM3 + PDK4 composition, scope-broadening rejection, explicit source failure, temporal filtering and incident advisory semantics;
+- implementation code commit `d03e059833326ac8a9274e3b2ea43f01190cc6a5`, regression commit / implementation HEAD `709cc33cfd898a4eaa660a90ecff69307940b986`;
+- SG 2.1 CI #8485 passed SUCCESS on exact implementation HEAD `709cc33cfd898a4eaa660a90ecff69307940b986`.
+
+HS1, HS2 and HS3 remain **NOT CLOSED** because the program status rule requires consolidated security/live acceptance in HS6 before final closure.
 
 This program is the approved additive completion layer for natural-language historical memory search across the existing SG 2.1 memory stack.
 
@@ -64,7 +84,7 @@ Already present and intended for reuse:
 
 1. HS1 — implemented and CI-verified; pending HS6 live acceptance before CLOSED;
 2. HS2 — implemented and CI-verified; pending HS6 consolidated security/live acceptance before CLOSED;
-3. HS3 — unified source orchestration across Conversation History / Memory 2.0 / PM3 / PDK4 / applicable Decision & Incident retrieval;
+3. HS3 — implemented and CI-verified; pending HS6 consolidated security/live acceptance before CLOSED;
 4. HS4 — unified cross-source ranking, deduplication, conflict and supersession merge;
 5. HS5 — last occurrence, timeline, topic evolution and fact-history operations;
 6. HS6 — security/adversarial regression, bounded-cost verification, exact-head CI and Telegram live acceptance.

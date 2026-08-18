@@ -114,7 +114,7 @@ export function createWorkspaceInteractiveTestOperations({ core, botClient } = {
   }
 
   async function start(ctx, { testId } = {}) {
-    await authority(ctx, 'workspace:view', true);
+    await authority(ctx, 'workspace:participate', true);
     const test = await store.getRecord({ workspaceId: ctx.workspaceId, domain: 'test', recordId: assertEntityId(testId, 'testId') });
     if (!test || test.status !== 'active') throw Object.assign(new Error('test unavailable'), { code: 'twm-test-unavailable' });
     const session = await store.createRecord({ workspaceId: ctx.workspaceId, domain: 'submission', recordId: uid('submission'), status: 'in-progress', visibility: 'private', privacyClass: 'private', actorGlobalUserId: ctx.actorGlobalUserId, payload: { sourceDomain: 'test', testId: test.recordId, participantGlobalUserId: ctx.actorGlobalUserId, answers: [], nextQuestionIndex: 0 } });
@@ -122,7 +122,7 @@ export function createWorkspaceInteractiveTestOperations({ core, botClient } = {
   }
 
   async function answer(ctx, { sessionId, optionIndex } = {}) {
-    await authority(ctx, 'workspace:view', true);
+    await authority(ctx, 'workspace:participate', true);
     const session = await store.getRecord({ workspaceId: ctx.workspaceId, domain: 'submission', recordId: assertEntityId(sessionId, 'sessionId') });
     if (!session || session.actorGlobalUserId !== ctx.actorGlobalUserId || session.payload?.participantGlobalUserId !== ctx.actorGlobalUserId) throw Object.assign(new Error('test session denied'), { code: 'twm-test-session-denied' });
     const test = await store.getRecord({ workspaceId: ctx.workspaceId, domain: 'test', recordId: session.payload.testId });

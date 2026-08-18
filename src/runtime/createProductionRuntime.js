@@ -1,5 +1,6 @@
 import { createActionRequest, createActionRequestFromDecision } from '../contracts/action.js';
 import { redactSensitiveText } from '../secrets/redaction.js';
+import { captureSemanticMemoryCandidates } from '../memory2/semanticMemoryCandidatePolicy.js';
 
 function directUserConfirmation(selectedName, selectedPayload, requestInput, traceContext) {
   if (selectedName !== 'task-create') return undefined;
@@ -153,34 +154,45 @@ export function createProductionRuntime({ config, semanticPipeline, actionGate, 
     const context = await languageContextService.resolve({ globalUserId: canonicalInput.identityContext.globalUserId, text: canonicalInput.text, platformLocale: canonicalInput.locale, conversationLanguage: canonicalInput.metadata?.conversationLanguage ?? null, conversationKey: conversationKey(canonicalInput), traceContext: canonicalInput.traceContext, identityContext: canonicalInput.identityContext });
     return Object.freeze({ ...canonicalInput, locale: context.locale ?? canonicalInput.locale, metadata: Object.freeze({ ...(canonicalInput.metadata ?? {}), languageContext: context }) });
   }
-  async function captureMemory(requestInput) {
+  async function captureMemory(requestInput, semantic) {
     if (!memoryCaptureService) return null;
     if (requestInput.metadata?.workspaceRuntimePolicy?.workspaceMemoryEnabled === false && requestInput.scopeContext?.groupScope) {
       return Object.freeze({ status: 'suppressed', persisted: false, reason: 'workspace-memory-disabled' });
     }
-    const memoryCandidate = requestInput.metadata?.memoryCandidate ?? null;
-    if (!memoryCandidate?.key) {
+    const explicitCandidate = requestInput.metadata?.memoryCandidate ?? null;
+    const semanticCandidates = semantic?.decisionEnvelope?.selectedAction?.payload?.memoryCandidates ?? [];
+    const candidates = explicitCandidate?.key ? [explicitCandidate, ...semanticCandidates] : semanticCandidates;
+    if (candidates.length === 0) {
       return Object.freeze({ status: 'suppressed', persisted: false, reason: 'semantic-candidate-required' });
     }
-    try {
-      return await memoryCaptureService.capture({
-        text: requestInput.text,
+    const results = await captureSemanticMemoryCandidates({
+      memoryProvider: memoryCaptureService,
+      request: {
+        input: {
+          text: requestInput.text,
+          conversationContext: {
+            ...(requestInput.metadata?.conversationContext ?? {}),
+            platformMessageId: requestInput.metadata?.platformMessageId ?? null
+          }
+        },
         scope: requestInput.scopeContext,
         actor: requestInput.identityContext,
-        metadata: {
-          sourceId: requestInput.metadata?.platformMessageId ?? requestInput.traceContext.requestId,
-          platformMessageId: requestInput.metadata?.platformMessageId ?? null,
-          transport: requestInput.metadata?.transport ?? 'unknown',
-          conversationId: requestInput.metadata?.conversationContext?.conversationId ?? null,
-          topicId: requestInput.metadata?.conversationContext?.topicId ?? null,
-          memoryCandidate,
-          workspaceRuntimePolicy: requestInput.metadata?.workspaceRuntimePolicy ?? null
-        }
-      });
-    } catch (error) {
-      observability.recordFailure({ traceContext: requestInput.traceContext, stage: 'memory2-capture', reason: redactSensitiveText(error.message), code: error.code ?? 'memory2-capture-failed' });
-      return Object.freeze({ status: 'failed', reason: error.code ?? 'memory2-capture-failed' });
+        traceContext: requestInput.traceContext
+      },
+      candidates
+    });
+    for (const result of results) {
+      if (result.status !== 'failed') continue;
+      observability.recordFailure({ traceContext: requestInput.traceContext, stage: 'memory2-capture', reason: result.reason ?? 'semantic memory capture failed', code: result.reason ?? 'memory2-capture-failed' });
     }
+    const persistedCount = results.filter((result) => result.persisted).length;
+    return Object.freeze({
+      status: results.some((result) => result.status === 'failed') ? 'partial' : 'completed',
+      persisted: persistedCount > 0,
+      persistedCount,
+      candidateCount: results.length,
+      results
+    });
   }
   async function persistResponse(requestInput, response) {
     const conversationContext = requestInput.metadata?.conversationContext;
@@ -218,8 +230,8 @@ export function createProductionRuntime({ config, semanticPipeline, actionGate, 
       const languageContext = requestInput.metadata?.languageContext ?? null;
       if (languageContext) observability.record({ eventClass: 'language_context_resolved', channel: 'telemetry', stage: 'language-context', traceContext, outcome: languageContext.responseLanguage, data: { detectedLanguage: languageContext.messageLanguage, confidence: languageContext.confidence, responseLanguage: languageContext.responseLanguage, detectionSource: languageContext.detectionSource, responseLanguageSource: languageContext.responseLanguageSource, locale: languageContext.locale } });
 
-      const memoryCapture = await captureMemory(requestInput);
       const semantic = await semanticPipeline.process(requestInput);
+      const memoryCapture = await captureMemory(requestInput, semantic);
       observability.record({ eventClass: 'semantic_decision_created', channel: 'telemetry', stage: 'decision-engine', traceContext, outcome: semantic.decisionEnvelope.decisionType, data: { intent: semantic.decisionEnvelope.intent } });
       const selectedName = semantic.decisionEnvelope.selectedAction?.name ?? semantic.decisionEnvelope.selectedAction?.type;
       const selectedPayload = semantic.decisionEnvelope.selectedAction?.payload ?? {};

@@ -41,3 +41,44 @@ test('Block 16.11 runtime resolves bounded conversation context before semantic 
     await harness.runtime.stop();
   }
 });
+
+
+test('production response context restores durable conversation history through the wired service', async () => {
+  const harness = createLocalProductionHarness({ interpretationResolver: (input) => interpretation(input, []) });
+  await harness.runtime.start();
+  try {
+    const first = await harness.transport.send({ userId: 'history-user', sessionId: 'history-session', messageId: 'history-m1', text: 'Моя контрольная фраза — синий маяк.' });
+    const conversationContext = first.response.data.conversationContext;
+    const assembled = await harness.responseContextAssembler.assemble({
+      request: {
+        actor: first.canonicalInput.identityContext,
+        scope: first.canonicalInput.scopeContext,
+        input: {
+          text: 'Что я говорил раньше?',
+          semanticMessage: 'Recall the user previous statement',
+          memoryQuery: 'previous user statement',
+          conversationContext,
+          conversationHistoryQuery: {
+            query: 'контрольная фраза',
+            temporalExpression: null,
+            scope: 'current-conversation',
+            maxRecords: 100
+          }
+        },
+        traceContext: {
+          traceId: 'trace-conversation-history-wiring',
+          requestId: 'request-conversation-history-wiring',
+          environment: 'test',
+          revision: 'test'
+        }
+      },
+      semanticMessage: 'Recall the user previous statement'
+    });
+
+    assert.ok(assembled.conversationHistory);
+    assert.equal(assembled.conversationHistory.scope, 'current-conversation');
+    assert.ok(assembled.conversationHistory.turns.some((turn) => turn.text === 'Моя контрольная фраза — синий маяк.'));
+  } finally {
+    await harness.runtime.stop();
+  }
+});

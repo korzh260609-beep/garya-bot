@@ -74,13 +74,14 @@ function semanticScheduleSelector(request) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
   const recurrence = normalizedRecurrence(raw.recurrence);
   const notificationMessage = normalizedSemanticText(raw.notificationMessage);
+  const description = normalizedSemanticText(raw.description);
   const localTime = raw.localTime == null ? null : normalizedLocalTime(raw.localTime);
   const position = raw.position == null ? null : Number(raw.position);
   if (position != null && (!Number.isInteger(position) || position < 1 || position > 100)) {
     throw new TypeError('input.selector.position must be an integer from 1 to 100');
   }
-  if (!recurrence && !notificationMessage && !localTime && position == null) return null;
-  return Object.freeze({ recurrence, notificationMessage, localTime, position });
+  if (!recurrence && !notificationMessage && !description && !localTime && position == null) return null;
+  return Object.freeze({ recurrence, notificationMessage, description, localTime, position });
 }
 
 function scheduleLocalTime(schedule) {
@@ -99,6 +100,39 @@ function selectorMatchQuality(schedule, selector) {
   return 'exact';
 }
 
+const SCHEDULE_DESCRIPTION_STOP_WORDS = new Set(['automation','task','schedule','change','update','автоматизация','автоматизацию','автоматизации','задача','задачу','задачи','измени','изменить','добавь','добавить','автоматизація','автоматизацію','завдання','зміни','змінити','додай','додати','the','this','that']);
+
+function scheduleDescriptionTokens(value) {
+  return String(value ?? '').toLocaleLowerCase('und').match(/[\p{L}\p{N}]+/gu)?.filter((token) => token.length >= 3 && !SCHEDULE_DESCRIPTION_STOP_WORDS.has(token)) ?? [];
+}
+
+function scheduleDescriptionScore(schedule, description) {
+  const query = [...new Set(scheduleDescriptionTokens(description))];
+  const title = schedule.state?.notificationMessage ?? schedule.notificationMessage ?? '';
+  const candidate = [...new Set(scheduleDescriptionTokens(title))];
+  if (query.length === 0 || candidate.length === 0) return Object.freeze({ score: 0, matches: 0 });
+  const matches = query.filter((left) => candidate.some((right) => {
+    if (left === right) return true;
+    const length = Math.min(left.length, right.length);
+    const prefix = length >= 6 ? 5 : length >= 4 ? 4 : 3;
+    return length >= 3 && left.slice(0, prefix) === right.slice(0, prefix);
+  })).length;
+  return Object.freeze({ score: matches / query.length, matches });
+}
+
+function resolveScheduleDescription(schedules, description) {
+  const ranked = schedules.map((schedule) => ({ schedule, ...scheduleDescriptionScore(schedule, description) }))
+    .filter((item) => item.matches >= 1 && (item.score >= 0.5 || item.matches >= 2))
+    .sort((left, right) => right.score - left.score || right.matches - left.matches);
+  if (ranked.length === 0) return [];
+  const best = ranked[0];
+  const second = ranked[1] ?? null;
+  if (second && best.score - second.score < 0.2 && best.matches === second.matches) {
+    return ranked.filter((item) => best.score - item.score < 0.2 && best.matches === item.matches).map((item) => item.schedule);
+  }
+  return [best.schedule];
+}
+
 async function resolveScheduleTarget({ recurringScheduler, request, statuses = null }) {
   const explicit = providedScheduleId(request);
   if (explicit) return Object.freeze({ scheduleId: explicit, inferred: false, selectedBy: 'schedule-id' });
@@ -114,6 +148,10 @@ async function resolveScheduleTarget({ recurringScheduler, request, statuses = n
     } else {
       candidates = evaluated.filter((item) => item.quality === 'compatible-legacy').map((item) => item.schedule);
       selectedBy = 'semantic-selector-legacy-compatible';
+    }
+    if (selector.description) {
+      candidates = resolveScheduleDescription(candidates, selector.description);
+      selectedBy = 'semantic-description';
     }
     if (selector.position != null) {
       candidates = candidates[selector.position - 1] ? [candidates[selector.position - 1]] : [];

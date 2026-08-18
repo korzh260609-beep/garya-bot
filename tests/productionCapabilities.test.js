@@ -51,7 +51,14 @@ test('automation update returns a useful localized clarification instead of a ge
   const error = Object.assign(new Error('Several existing automations match'), {
     code: 'workflow_update_target_ambiguous',
     retryable: false,
-    details: { matchCount: 2, clarificationRequired: true }
+    details: {
+      matchCount: 2,
+      clarificationRequired: true,
+      choices: [
+        { title: 'ПРИВІТ МОНАРХ', localTime: '07:00' },
+        { title: 'РАНКОВА ПОГОДА', localTime: '08:00' }
+      ]
+    }
   });
   const { registry, executor } = harness({ workflowUpdateService: { async update() { throw error; } } });
   const update = registry.get('automation-update');
@@ -65,7 +72,8 @@ test('automation update returns a useful localized clarification instead of a ge
   const result = await executor.execute({ actionRequest: request, gateDecision: allowed(request) });
   assert.equal(result.status, 'failed');
   assert.equal(result.error.code, 'workflow_update_target_ambiguous');
-  assert.match(result.data.message, /першу.*другу/i);
+  assert.match(result.data.message, /ПРИВІТ МОНАРХ.*07:00/i);
+  assert.match(result.data.message, /Уточніть словами/i);
   assert.equal(result.data.message.includes('Деталі помилки'), false);
 });
 

@@ -427,6 +427,13 @@ Sixth live UX defect, 2026-08-18:
 - ordinary content updates resolve only against operational records, so one active 07:00 automation is selected directly even when a cancelled historical duplicate has the same time/message;
 - pause/resume/cancel keep operation-specific eligible lifecycle states and all resolution remains canonical-scope bounded and fail-closed.
 
+Seventh live UX completion, 2026-08-18:
+- users are not required to know or request automation/task/schedule IDs or a numbered list position;
+- `selector.description` carries a bounded ordinary-language description of the existing target, separated from the requested new behavior;
+- deterministic runtime first applies canonical scope, operational lifecycle and any explicit time/recurrence/message constraints, then ranks normalized description evidence from the stored user-facing automation content;
+- one confident semantic match is updated directly; weak evidence returns not-found without guessing; equally close matches return bounded human-readable message/time choices without internal IDs;
+- the same description path is available to recurring schedule lifecycle controls, and all mutations remain behind the existing Action Gate and stable automation identity/version seams.
+
 Boundary: this closes the production code/CI wiring gap only. It does not prove a Render deploy or the real Telegram live scenario below, so AW2.20 and Automation 2.0 remain NOT CLOSED.
 
 Required live scenario:

@@ -110,3 +110,24 @@ test('schedule controls may infer exactly one eligible schedule but never guess 
   assert.equal(pausedId, 'schedule-2');
   assert.equal(selectedSecond.data.message.includes('schedule-2'), false);
 });
+
+test('schedule lifecycle resolves an ordinary-language description without exposing ids or requiring position', async () => {
+  const schedules = [
+    { scheduleId: 'schedule-greeting', status: 'active', recurrence: 'FREQ=DAILY', dtstartLocal: '2026-08-15T07:00:00', timeZone: 'Europe/Kyiv', state: { notificationMessage: 'ПРИВЕТ МОНАРХ' } },
+    { scheduleId: 'schedule-weather', status: 'active', recurrence: 'FREQ=DAILY', dtstartLocal: '2026-08-15T07:00:00', timeZone: 'Europe/Kyiv', state: { notificationMessage: 'ПРОГНОЗ ПОГОДЫ' } }
+  ];
+  let pausedId = null;
+  const recurringScheduler = {
+    async list() { return schedules; },
+    async get({ scheduleId }) { return schedules.find((item) => item.scheduleId === scheduleId) ?? null; },
+    async update() { return null; },
+    async pause({ scheduleId }) { pausedId = scheduleId; return { ...schedules.find((item) => item.scheduleId === scheduleId), status: 'paused' }; },
+    async resume() { return null; }, async cancel() { return null; }
+  };
+  const pause = createTemporalCapabilities({ temporalService: temporalService(), recurringScheduler }).find((item) => item.name === 'schedule-pause');
+  const result = await pause.execute(request({ locale: 'ru', selector: { description: 'приветствие монарха' } }));
+  assert.equal(result.status, 'success');
+  assert.equal(result.data.selectedBy, 'semantic-description');
+  assert.equal(pausedId, 'schedule-greeting');
+  assert.equal(result.data.message.includes('schedule-greeting'), false);
+});

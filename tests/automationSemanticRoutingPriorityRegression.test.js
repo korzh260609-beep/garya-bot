@@ -34,5 +34,7 @@ test('live existing-task activity mutation precedes generic conversation rules a
   assert.match(instruction, /short unquoted content fragment/i);
   assert.match(instruction, /selector\.localTime/i);
   assert.match(instruction, /full existing message/i);
+  assert.match(instruction, /selector\.description/i);
+  assert.match(instruction, /Never require an automationId, taskId, scheduleId or list position/i);
   assert.equal(JSON.parse(routed.messages[1].content).text, canonicalInput.text);
 });

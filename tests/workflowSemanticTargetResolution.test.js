@@ -179,6 +179,47 @@ test('semantic update ignores cancelled duplicates and directly selects the one 
   assert.equal(result.automationId, 'automation:active');
 });
 
+test('free-form description selects one active automation without ids, list position or exact stored text', async () => {
+  const { service, store } = capability([
+    record({ automationId: 'automation:morning', taskId: 'task:1', scheduleId: 'schedule:1', message: 'ПРИВЕТ МОНАРХ', localTime: '07:00' }),
+    record({ automationId: 'automation:weather', taskId: 'task:2', scheduleId: 'schedule:2', message: 'ПРОГНОЗ ПОГОДЫ', localTime: '07:00' }),
+    record({ automationId: 'automation:evening', taskId: 'task:3', scheduleId: 'schedule:3', message: 'ВЕЧЕРНИЙ ОТЧЁТ', localTime: '19:00' })
+  ]);
+  const result = await service.update({
+    selector: { description: 'утреннее приветствие монарха' },
+    scope,
+    patch: { inputs: { message: 'ПРИВЕТ МОНАРХ + АКТИВНОСТЬ' } },
+    actor
+  });
+  assert.equal(result.automationId, 'automation:morning');
+  assert.equal(store.current.find((item) => item.workflow.automationId === 'automation:weather').workflow.version, 1);
+});
+
+test('free-form description remains fail-closed when two active automations are equally similar', async () => {
+  const { service, auth } = capability([
+    record({ automationId: 'automation:morning', taskId: 'task:1', scheduleId: 'schedule:1', message: 'ПРИВЕТ МОНАРХ УТРОМ', localTime: '07:00' }),
+    record({ automationId: 'automation:evening', taskId: 'task:2', scheduleId: 'schedule:2', message: 'ПРИВЕТ МОНАРХ ВЕЧЕРОМ', localTime: '19:00' })
+  ]);
+  await assert.rejects(
+    service.update({ selector: { description: 'приветствие монарха' }, scope, patch: { inputs: { message: 'changed' } }, actor }),
+    (error) => error.code === 'workflow_update_target_ambiguous'
+      && error.details?.choices?.every((choice) => !('automationId' in choice))
+      && error.details.choices.some((choice) => choice.localTime === '07:00')
+  );
+  assert.equal(auth.calls.length, 0);
+});
+
+test('unrelated free-form description never guesses an active automation', async () => {
+  const { service, auth } = capability([
+    record({ automationId: 'automation:morning', taskId: 'task:1', scheduleId: 'schedule:1', message: 'ПРИВЕТ МОНАРХ', localTime: '07:00' })
+  ]);
+  await assert.rejects(
+    service.update({ selector: { description: 'курс валют вечером' }, scope, patch: { inputs: { message: 'changed' } }, actor }),
+    (error) => error.code === 'workflow_update_target_not_found'
+  );
+  assert.equal(auth.calls.length, 0);
+});
+
 test('AW2.8 fails closed with clarification on zero semantic matches before authorization or mutation', async () => {
   const { service, store, auth } = capability([
     record({ automationId: 'automation:morning', taskId: 'task:1', scheduleId: 'schedule:1', message: 'Morning report', localTime: '07:00' })

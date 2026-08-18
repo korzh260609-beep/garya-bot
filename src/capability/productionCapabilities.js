@@ -45,19 +45,24 @@ function automationUpdateClarification(error, locale) {
   if (error?.details?.clarificationRequired !== true) return null;
   const language = String(locale ?? 'en').toLowerCase();
   const ambiguous = error.code === 'workflow_update_target_ambiguous';
+  const choices = Array.isArray(error?.details?.choices) ? error.details.choices : [];
+  const choiceText = choices.map((choice) => {
+    const time = choice.localTime ? ` в ${choice.localTime}` : '';
+    return `«${choice.title}»${time}`;
+  }).join('; ');
   if (language.startsWith('uk')) {
     return ambiguous
-      ? 'Знайдено кілька однакових автоматизацій. Напишіть, яку змінити: «першу» або «другу».'
-      : 'Потрібну автоматизацію не знайдено. Спочатку попросіть показати активні автоматизації, потім вкажіть її номер.';
+      ? `Знайдено кілька схожих автоматизацій${choiceText ? `: ${choiceText}` : ''}. Уточніть словами, яку саме змінити.`
+      : 'Не вдалося впевнено визначити активну автоматизацію. Опишіть її повідомлення, час або розклад трохи точніше.';
   }
   if (language.startsWith('ru')) {
     return ambiguous
-      ? 'Найдено несколько одинаковых автоматизаций. Напишите, какую изменить: «первую» или «вторую».'
-      : 'Нужная автоматизация не найдена. Сначала попросите показать активные автоматизации, затем укажите её номер.';
+      ? `Найдено несколько похожих автоматизаций${choiceText ? `: ${choiceText}` : ''}. Уточните словами, какую именно изменить.`
+      : 'Не удалось уверенно определить активную автоматизацию. Опишите её сообщение, время или расписание немного точнее.';
   }
   return ambiguous
-    ? 'Several matching automations were found. Say which one to change: the first or the second.'
-    : 'The requested automation was not found. List active automations first, then specify its number.';
+    ? `Several similar automations were found${choiceText ? `: ${choiceText}` : ''}. Describe which one should change.`
+    : 'The active automation could not be identified confidently. Describe its message, time or schedule more precisely.';
 }
 
 function boundedText(value, field, maxLength = 200000) {

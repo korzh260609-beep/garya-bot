@@ -17,6 +17,7 @@ export const WORKFLOW_SEMANTIC_SELECTOR_FIELDS = Object.freeze([
   'timeZone',
   'localTime',
   'notificationMessage',
+  'description',
   'lifecycleStatus'
 ]);
 
@@ -99,6 +100,7 @@ function normalizeSelector(value) {
   if (selector.timeZone != null) normalized.timeZone = requiredString(selector.timeZone, 'selector.timeZone');
   if (selector.localTime != null) normalized.localTime = normalizedLocalTime(selector.localTime, 'selector.localTime');
   if (selector.notificationMessage != null) normalized.notificationMessage = normalizedSemanticText(selector.notificationMessage, 'selector.notificationMessage');
+  if (selector.description != null) normalized.description = normalizedSemanticText(selector.description, 'selector.description');
   if (selector.lifecycleStatus != null) normalized.lifecycleStatus = requiredString(selector.lifecycleStatus, 'selector.lifecycleStatus').toLocaleLowerCase('und');
   if (selector.position != null) {
     const position = Number(selector.position);
@@ -150,6 +152,39 @@ function workflowNotificationMessage(workflow) {
     : null;
 }
 
+const DESCRIPTION_STOP_WORDS = new Set([
+  'automation', 'task', 'workflow', 'reminder', 'schedule', 'change', 'update', 'add', 'remove',
+  'автоматизация', 'автоматизацию', 'автоматизации', 'задача', 'задачу', 'задачи', 'напоминание',
+  'измени', 'изменить', 'добавь', 'добавить', 'убери', 'удали', 'эта', 'эту', 'этой',
+  'автоматизація', 'автоматизацію', 'автоматизації', 'завдання', 'нагадування', 'зміни', 'змінити',
+  'додай', 'додати', 'видали', 'це', 'цю', 'цієї', 'the', 'this', 'that', 'with', 'для', 'про'
+]);
+
+function descriptionTokens(value) {
+  return String(value ?? '').toLocaleLowerCase('und').match(/[\p{L}\p{N}]+/gu)?.filter((token) => token.length >= 3 && !DESCRIPTION_STOP_WORDS.has(token)) ?? [];
+}
+
+function tokenEquivalent(left, right) {
+  if (left === right) return true;
+  const length = Math.min(left.length, right.length);
+  const prefix = length >= 6 ? 5 : length >= 4 ? 4 : 3;
+  return length >= 3 && left.slice(0, prefix) === right.slice(0, prefix);
+}
+
+function workflowDescriptionText(record) {
+  const workflow = createWorkflowDefinition(record.workflow);
+  const values = [workflowNotificationMessage(workflow), workflow.delivery?.title, workflow.delivery?.message];
+  return values.filter((value) => typeof value === 'string' && value.trim() !== '').join(' ');
+}
+
+function descriptionMatch(record, description) {
+  const query = [...new Set(descriptionTokens(description))];
+  const candidate = [...new Set(descriptionTokens(workflowDescriptionText(record)))];
+  if (query.length === 0 || candidate.length === 0) return Object.freeze({ score: 0, matches: 0 });
+  const matches = query.filter((token) => candidate.some((item) => tokenEquivalent(token, item))).length;
+  return Object.freeze({ score: matches / query.length, matches });
+}
+
 function semanticRecordMatches(record, selector) {
   const workflow = createWorkflowDefinition(record.workflow);
   if (selector.automationId && workflow.automationId !== selector.automationId) return false;
@@ -164,7 +199,30 @@ function semanticRecordMatches(record, selector) {
   return true;
 }
 
-function targetResolutionError(matchCount) {
+function humanChoice(record) {
+  const workflow = createWorkflowDefinition(record.workflow);
+  return Object.freeze({
+    title: workflow.inputs?.notificationMessage ?? workflow.inputs?.message ?? 'Автоматизация без названия',
+    localTime: workflowLocalTime(workflow),
+    recurrence: workflowRecurrence(workflow),
+    lifecycleStatus: record.lifecycleStatus ?? null
+  });
+}
+
+function resolveDescriptionMatches(records, description) {
+  const ranked = records.map((record) => ({ record, ...descriptionMatch(record, description) }))
+    .filter((item) => item.matches >= 1 && (item.score >= 0.5 || item.matches >= 2))
+    .sort((left, right) => right.score - left.score || right.matches - left.matches);
+  if (ranked.length === 0) return [];
+  const best = ranked[0];
+  const second = ranked[1] ?? null;
+  if (second && best.score - second.score < 0.2 && best.matches === second.matches) {
+    return ranked.filter((item) => best.score - item.score < 0.2 && best.matches === item.matches).map((item) => item.record);
+  }
+  return [best.record];
+}
+
+function targetResolutionError(matchCount, records = []) {
   if (matchCount === 0) {
     return new WorkflowUpdateError(
       'workflow_update_target_not_found',
@@ -175,7 +233,7 @@ function targetResolutionError(matchCount) {
   return new WorkflowUpdateError(
     'workflow_update_target_ambiguous',
     'Several existing automations match that description in the current scope. Which one do you mean?',
-    { matchCount, clarificationRequired: true }
+    { matchCount, clarificationRequired: true, choices: Object.freeze(records.slice(0, 5).map(humanChoice)) }
   );
 }
 
@@ -221,9 +279,11 @@ async function resolveTarget({ store, selector, scope, recurringScheduler = null
     const selected = visibleOrder[selector.position - 1] ?? null;
     matches = selected && semanticRecordMatches(selected, selector) ? [selected] : [];
   } else {
-    matches = eligibleCandidates.filter((record) => semanticRecordMatches(record, selector));
+    const structuredSelector = Object.freeze(Object.fromEntries(Object.entries(selector).filter(([key]) => key !== 'description')));
+    const structuredMatches = eligibleCandidates.filter((record) => semanticRecordMatches(record, structuredSelector));
+    matches = selector.description ? resolveDescriptionMatches(structuredMatches, selector.description) : structuredMatches;
   }
-  if (matches.length !== 1) throw targetResolutionError(matches.length);
+  if (matches.length !== 1) throw targetResolutionError(matches.length, matches);
   return matches[0];
 }
 

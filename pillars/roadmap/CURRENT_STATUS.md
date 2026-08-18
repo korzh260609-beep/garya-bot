@@ -315,6 +315,16 @@ Known remaining/open acceptance from the current live evidence set includes, as 
 
 Historical rollback/checkpoint evidence such as `../../docs/checkpoints/SG2.1_2026-08-15_1946.md` must remain unchanged and is intentionally historical.
 
+## Telegram Membership & Subscription 2.1
+
+- TMA2.1.1–TMA2.1.3 — **IMPLEMENTED / EXACT-HEAD CI PENDING**: webhook join requests, durable per-user membership state, fail-closed workspace resolution, free approval and production wiring.
+- TMA2.1.4–TMA2.1.5 — **NEXT**: managed join-request link UI and complete Telegram membership reconciliation.
+- TMA2.1.6–TMA2.1.12 — **PLANNED**: monthly Telegram Stars plan/payment lifecycle, expiry reminders and enforcement, administration, recovery/security and live acceptance.
+- Paid access is intentionally disabled until the owner approves price, Stars amount, duration, grace period and refund policy.
+- Direct Telegram administrator adds cannot be intercepted; managed entry requires a private group and a join-request invite link.
+
+Canonical doc: `TELEGRAM_MEMBERSHIP_SUBSCRIPTION_2_1_PROGRAM.md`.
+
 ## SG Access Control System 1.0
 
 **PLANNED / NOT IMPLEMENTED** unless newer code/CI/live evidence explicitly supersedes that state.

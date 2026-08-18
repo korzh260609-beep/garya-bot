@@ -452,6 +452,8 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
         workspaceRegistry: telegramUpdateStore.workspaceRegistry,
         botClient,
         identityResolver,
+        mutationGate: telegramWorkspaceMutationGate,
+        botUserId: telegramConfig.botUserId,
         projectScope: harness.config.projectScope,
         audit: async (event) => {
           const correlation = `twm-membership:${event.workspaceId ?? 'unknown'}:${event.telegramUserId ?? 'unknown'}`;

@@ -69,6 +69,7 @@ export function createTelegramProductionIntegration({
   semanticRouter = null,
   naturalLanguage = null,
   pollUpdates = null,
+  membershipAccess = null,
   observability = null,
   botUserId = null,
   botUsername = null,
@@ -90,6 +91,7 @@ export function createTelegramProductionIntegration({
   if (semanticRouter !== null && typeof semanticRouter?.routeUpdate !== 'function') throw new TypeError('semanticRouter.routeUpdate is required');
   if (naturalLanguage !== null && typeof naturalLanguage?.handleUpdate !== 'function') throw new TypeError('naturalLanguage.handleUpdate is required');
   if (pollUpdates !== null && typeof pollUpdates?.handleUpdate !== 'function') throw new TypeError('pollUpdates.handleUpdate is required');
+  if (membershipAccess !== null && typeof membershipAccess?.handleUpdate !== 'function') throw new TypeError('membershipAccess.handleUpdate is required');
 
   const effectiveSemanticRouter = semanticRouter ?? (typeof naturalLanguage?.routeUpdate === 'function' ? naturalLanguage : null);
   const pending = new Set();
@@ -193,6 +195,19 @@ export function createTelegramProductionIntegration({
     }
   }
 
+  async function processMembershipAccessUpdate(body, claim) {
+    try {
+      const result = await membershipAccess.handleUpdate(body);
+      await updateStore.complete(claim.updateId, result?.handled === false ? 'ignored' : 'completed');
+      recordDiagnosticSensor({ eventClass: 'telegram_membership_access_completed', channel: 'audit', stage: 'telegram-membership-access', outcome: result?.outcome ?? 'handled', data: { updateId: claim.updateId } });
+      return Object.freeze({ ok: true, result });
+    } catch (error) {
+      try { await updateStore.fail(claim.updateId, error.code ?? 'telegram-membership-access-failed'); } catch {}
+      try { observability?.recordFailure?.({ stage: 'telegram-membership-access', reason: redactSensitiveText(error.message), code: error.code ?? 'telegram-membership-access-failed', data: { updateId: claim.updateId } }); } catch {}
+      return Object.freeze({ ok: false, error });
+    }
+  }
+
   async function processPollUpdate(body, claim) {
     try {
       const result = await pollUpdates.handleUpdate(body, claim.updateId);
@@ -279,6 +294,13 @@ export function createTelegramProductionIntegration({
       return Object.freeze({ statusCode: 503, body: { ok: false, code: 'telegram-dedupe-failed' } });
     }
     if (!claim.claimed) return Object.freeze({ statusCode: 200, body: { ok: true, duplicate: true } });
+
+    if (membershipAccess && body.chat_join_request) {
+      if (acknowledgeBeforeProcessing) { trackBackground(processMembershipAccessUpdate(body, claim)); return Object.freeze({ statusCode: 200, body: { ok: true, accepted: true, membershipAccess: true } }); }
+      const processed = await processMembershipAccessUpdate(body, claim);
+      if (processed.ok) return Object.freeze({ statusCode: 200, body: { ok: true, membershipAccess: true } });
+      return Object.freeze({ statusCode: 503, body: { ok: false, code: processed.error.code ?? 'telegram-membership-access-failed' } });
+    }
 
     if (pollUpdates && (body.poll || body.poll_answer)) {
       if (acknowledgeBeforeProcessing) { trackBackground(processPollUpdate(body, claim)); return Object.freeze({ statusCode: 200, body: { ok: true, accepted: true, pollUpdate: true } }); }

@@ -18,7 +18,7 @@ The current production mode is **free approval**. Paid access is not enabled unt
 | TMA2.1.2 | Durable PostgreSQL membership state and migration | Implemented / CI-verified |
 | TMA2.1.3 | Free join-request gate: identify, persist, approve and activate each user independently | Implemented / CI-verified |
 | TMA2.1.4 | Admin UI to create, show and rotate a join-request invite link; show «Присоединиться» | Implemented / CI-verified at HEAD `01c8c4882ee61a944e19f4455eaff5f825022247`, CI #8432 |
-| TMA2.1.5 | Safe legacy baseline and strict membership reconciliation for leave, direct add and rejoin events | Implemented / awaiting exact-head CI and live acceptance: durable baseline/strict policy, observed legacy-member activation, explicit Action Gate protected sealing, privileged exemption and strict removal |
+| TMA2.1.5 | Safe legacy baseline and strict membership reconciliation for leave, direct add and rejoin events | Implemented / CI-verified at HEAD `7d6f00325fe4c37e7f03bd82240fb2fb2ceca0c4`, CI #8440; live acceptance required |
 | TMA2.1.6 | Subscription plans: price, Telegram Stars currency, billing period, grace and exemptions | Blocked on owner product choices |
 | TMA2.1.7 | Payment lifecycle: invoice, pre-checkout validation, successful-payment idempotency and renewal | Planned |
 | TMA2.1.8 | Expiry scheduler and reminders using existing SG durable scheduling/worker seams | Planned |

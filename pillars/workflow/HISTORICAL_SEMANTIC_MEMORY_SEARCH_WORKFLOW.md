@@ -112,7 +112,7 @@ Implementation evidence:
 - Memory 2.0 layer selection remains resource-bound, including explicit omission when group/thread scope is absent;
 - source output is normalized and bounded with explicit `ok`, `empty`, `failed`, `omitted` states;
 - incident results retain advisory-only / live-verification semantics;
-- cross-source ranking/deduplication remains outside HS3 and is reserved for HS4;
+- source-local HS3 results remain present after HS4 merge for diagnostics/evidence inspection;
 - `tests/unifiedHistoricalSearchOrchestrator.test.js` covers personal, group/thread, project-development, mixed failure, temporal-range, scope-broadening and incident cases;
 - implementation HEAD `709cc33cfd898a4eaa660a90ecff69307940b986` passed SG 2.1 CI #8485 on exact HEAD.
 
@@ -126,14 +126,32 @@ Status: **IMPLEMENTED / CI-VERIFIED / NOT CLOSED**; final closure remains gated 
 2. Define deterministic merge ordering/tie-break rules.
 3. Merge duplicate representations of the same supported event/fact.
 4. Preserve source references from all merged representations.
-5. Detect contradictions across current/historical records.
-6. Resolve supersession chains without deleting historical states.
+5. Detect contradictions across comparable current/historical records without inventing semantic conflict between unrelated records.
+6. Resolve/represent supersession chains from existing Memory 2.0 / PM3 lifecycle links without deleting historical states.
 7. Distinguish “true/reported then” from “current now”.
 8. Add current-state versus historical-state query tests.
-9. Add duplicate/digest/message merge tests.
-10. Verify ranking cannot override authorization.
+9. Add duplicate/message/digest merge tests and false-dedup guards.
+10. Verify ranking cannot override authorization and makes no independent retrieval/model call.
 
 Exit gate: SG returns a compact evidence-preserving result set without repeated duplicates or silent conflict flattening.
+
+Implementation evidence:
+
+- deterministic merger: `mergeHistoricalSearchResults()` in `src/history/unifiedHistoricalResultMerger.js`;
+- canonical orchestrator integrates HS4 after selected HS3 source retrieval and returns both `sources` and `merged`;
+- merge input is bounded and includes only already-authorized normalized evidence;
+- ranking factors: source-local relevance, temporal fit, entity fit, scope specificity, trust, confirmation, confidence, provenance quality and lifecycle/currentness;
+- current-state queries favor active/current evidence; explicit historical ranges keep superseded evidence eligible;
+- duplicate suppression is evidence-backed and retains all suppressed references in `duplicateEvidence`;
+- identical text for different explicit entities is not considered sufficient duplicate evidence;
+- unresolved current contradictions remain explicit conflicts; no winner is fabricated and PM3 owner-authority conflict resolution remains canonical;
+- `supersededBy` / `successorMemoryId` links are preserved as explicit supersession chains;
+- failed/omitted source results remain explicit and still make the overall request `partial`;
+- HS4 uses no AI/model call and does not add any authorization/retrieval path;
+- `tests/unifiedHistoricalResultMerger.test.js` covers duplicate suppression, provenance retention, conflicts, supersession, current-state preference, false-dedup protection and partial-source integration;
+- implementation HEAD `7712e2822f7cf7b658cea906ca0ba4a86b4b9a2b` passed SG 2.1 CI #8501 on exact HEAD; migrations, security gate, `npm run check`, web start, worker start and diagnostics all passed.
+
+Status: **IMPLEMENTED / CI-VERIFIED / NOT CLOSED**; final closure remains gated by HS6 consolidated security/live acceptance.
 
 ---
 

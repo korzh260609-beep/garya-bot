@@ -2,7 +2,7 @@
 
 ## Status
 
-Additive Memory 2.0 extension **IN PROGRESS / NOT CLOSED**. HS1 Historical Query Planner and HS2 Memory 2.0 Hybrid Semantic Retrieval are implemented and CI-verified; HS3–HS6 remain planned. Final implementation status is determined by code, tests, exact-head CI and live runtime evidence.
+Additive Memory 2.0 extension **IN PROGRESS / NOT CLOSED**. HS1 Historical Query Planner, HS2 Memory 2.0 Hybrid Semantic Retrieval and HS3 Unified Historical Search Orchestrator are implemented and CI-verified; HS4–HS6 remain planned. Final implementation status is determined by code, tests, exact-head CI and live runtime evidence.
 
 ## Purpose
 
@@ -110,7 +110,16 @@ HS2 implementation: `src/memory2/memory2.js`, `src/memory2/memory2Core.js`, `src
 
 ## Unified source orchestration
 
-The orchestrator selects only sources relevant to the request. It must not query every store unconditionally.
+HS3 is implemented by `createUnifiedHistoricalSearchOrchestrator()` in `src/history/unifiedHistoricalSearchOrchestrator.js`. It consumes the HS1 plan through one transport-independent orchestration path and selects only requested canonical source families; it does not query every store unconditionally.
+
+Canonical source reuse:
+
+- Conversation History -> existing `retrieveLongTermConversationHistory()`;
+- User / User×Group / Group / Thread / Topic Digest -> existing Memory 2.0 `recall()` with explicit layer selection and `includeHistory`;
+- Project Memory 3.0 -> existing authorized Project Memory hybrid retrieval;
+- PDK4 -> existing Development Query Integration;
+- architecture decisions -> existing Project Memory retrieval restricted to `architecture-decision` facts;
+- incidents -> existing Decision / Incident `findIncidentGuidance()` seam, preserving advisory-only semantics.
 
 Examples:
 
@@ -118,6 +127,12 @@ Examples:
 - project feature evolution -> Conversation History + Project Memory 3.0 + PDK4;
 - group decision history -> authorized group/thread memory + matching group Conversation History;
 - incident evolution -> Incident Memory + related project/development evidence.
+
+If HS1 supplies no source hints, HS3 defaults only to personal Conversation History + User Memory; it does not broaden into group/project sources. Group/thread layers are selected only when matching resolved resource scope exists. Plan scope must exactly match the already-resolved request identity/project/group/thread scope before any source query executes.
+
+Each source returns a normalized bounded source result with explicit `ok`, `empty`, `failed` or `omitted` state. Source-local failure is preserved and cannot be silently converted into empty success. HS3 intentionally does not perform cross-source ranking/deduplication; that remains HS4.
+
+HS3 implementation: `src/history/unifiedHistoricalSearchOrchestrator.js`, `tests/unifiedHistoricalSearchOrchestrator.test.js`; implementation HEAD `709cc33cfd898a4eaa660a90ecff69307940b986`, SG 2.1 CI #8485 SUCCESS on exact HEAD.
 
 Source selection cannot broaden authorization.
 
@@ -234,10 +249,12 @@ Implementation is split into HS1–HS6:
 
 1. HS1 — Historical Query Planner — implemented / CI-verified;
 2. HS2 — Memory 2.0 Hybrid Semantic Retrieval — implemented / CI-verified;
-3. HS3 — Unified Historical Search Orchestrator;
+3. HS3 — Unified Historical Search Orchestrator — implemented / CI-verified;
 4. HS4 — Unified Ranking, Deduplication, Conflict & Supersession;
 5. HS5 — Timeline, First/Last Occurrence & Fact History;
 6. HS6 — Security, Regression, Observability & Live Acceptance.
+
+HS1–HS3 remain **NOT CLOSED** until HS6 consolidated security/live acceptance satisfies the program closure rule.
 
 Roadmap: `../roadmap/HISTORICAL_SEMANTIC_MEMORY_SEARCH_PROGRAM.md`.
 Workflow: `../workflow/HISTORICAL_SEMANTIC_MEMORY_SEARCH_WORKFLOW.md`.

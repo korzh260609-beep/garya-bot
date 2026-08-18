@@ -8,7 +8,9 @@
 
 **HS3 — IMPLEMENTED / CI-VERIFIED / NOT CLOSED.**
 
-**HS4–HS6 — PLANNED / NOT CLOSED.**
+**HS4 — IMPLEMENTED / CI-VERIFIED / NOT CLOSED.**
+
+**HS5–HS6 — PLANNED / NOT CLOSED.**
 
 HS1 implementation evidence:
 
@@ -52,12 +54,27 @@ HS3 implementation evidence:
 - incidents use existing Decision / Incident `findIncidentGuidance()` with advisory-only semantics preserved;
 - every selected source is normalized into a bounded source contract and reports explicit `ok`, `empty`, `failed` or `omitted` state;
 - failures are preserved per source, so a mixed request may return `partial` without inventing evidence;
-- cross-source ranking/deduplication is deliberately not implemented in HS3 and remains HS4;
+- HS3 source-local normalized results are retained after HS4 and remain independently inspectable;
 - regression coverage in `tests/unifiedHistoricalSearchOrchestrator.test.js`: personal default selection, group/thread resource binding, Conversation History + PM3 + PDK4 composition, scope-broadening rejection, explicit source failure, temporal filtering and incident advisory semantics;
 - implementation code commit `d03e059833326ac8a9274e3b2ea43f01190cc6a5`, regression commit / implementation HEAD `709cc33cfd898a4eaa660a90ecff69307940b986`;
 - SG 2.1 CI #8485 passed SUCCESS on exact implementation HEAD `709cc33cfd898a4eaa660a90ecff69307940b986`.
 
-HS1, HS2 and HS3 remain **NOT CLOSED** because the program status rule requires consolidated security/live acceptance in HS6 before final closure.
+HS4 implementation evidence:
+
+- deterministic cross-source merger: `src/history/unifiedHistoricalResultMerger.js`;
+- `createUnifiedHistoricalSearchOrchestrator().search()` now returns the original HS3 `sources` plus one bounded HS4 `merged` evidence set;
+- ranking combines source-local relevance, temporal fit, exact/entity fit, scope specificity, trust, confirmation, confidence, provenance quality and lifecycle/currentness;
+- current-state ranking penalizes superseded/expired evidence while explicit historical ranges keep superseded evidence eligible;
+- duplicate suppression uses shared source/provenance references, same entity+value, bounded normalized-content equivalence and digest source references; it does not merge identical text across different explicit entities;
+- every suppressed duplicate remains traceable through `duplicateEvidence` source references;
+- unresolved contradictory current values remain explicit conflict groups; HS4 does not invent a winner or bypass PM3 owner-authority conflict resolution;
+- Memory 2.0 `supersededBy` and PM3/PDK4 `successorMemoryId` are propagated into the normalized contract and exposed as supersession chains without deleting old evidence;
+- source failures/omissions are not flattened: a request remains `partial` even when available sources can be ranked/merged successfully;
+- HS4 is deterministic and makes no AI/model call, so it cannot broaden authorization or create evidence;
+- regression coverage in `tests/unifiedHistoricalResultMerger.test.js`: cross-source duplicate suppression, source-reference preservation, unresolved conflicts, supersession history, current-state preference, false-dedup guard and partial-source integration;
+- implementation HEAD `7712e2822f7cf7b658cea906ca0ba4a86b4b9a2b` passed SG 2.1 CI #8501 SUCCESS on exact HEAD; migrations, security gate, `npm run check`, web start, worker start and diagnostics all passed.
+
+HS1–HS4 remain **NOT CLOSED** because the program status rule requires consolidated security/live acceptance in HS6 before final closure.
 
 This program is the approved additive completion layer for natural-language historical memory search across the existing SG 2.1 memory stack.
 
@@ -85,7 +102,7 @@ Already present and intended for reuse:
 1. HS1 — implemented and CI-verified; pending HS6 live acceptance before CLOSED;
 2. HS2 — implemented and CI-verified; pending HS6 consolidated security/live acceptance before CLOSED;
 3. HS3 — implemented and CI-verified; pending HS6 consolidated security/live acceptance before CLOSED;
-4. HS4 — unified cross-source ranking, deduplication, conflict and supersession merge;
+4. HS4 — implemented and CI-verified; pending HS6 consolidated security/live acceptance before CLOSED;
 5. HS5 — last occurrence, timeline, topic evolution and fact-history operations;
 6. HS6 — security/adversarial regression, bounded-cost verification, exact-head CI and Telegram live acceptance.
 

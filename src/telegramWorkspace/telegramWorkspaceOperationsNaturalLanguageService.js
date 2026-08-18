@@ -157,11 +157,17 @@ export function createTelegramWorkspaceOperationsNaturalLanguageService({
     }
     return allowed;
   }
-  async function contextWorkspace(actor) {
+  async function contextWorkspace(actor, requestedAction = 'workspace:view') {
     if (!['group','supergroup','channel'].includes(actor.chatType)) return null;
     const workspace = await workspaceRegistry.resolveTelegramChatId(actor.chatId);
     if (!workspace) return null;
-    const decision = await authorityResolver.verify({ workspaceId: workspace.workspaceId, telegramUserId: actor.telegramUserId, expectedGlobalUserId: actor.actorGlobalUserId, requestedAction: 'workspace:view', forceFresh: false });
+    const decision = await authorityResolver.verify({
+      workspaceId: workspace.workspaceId,
+      telegramUserId: actor.telegramUserId,
+      expectedGlobalUserId: actor.actorGlobalUserId,
+      requestedAction,
+      forceFresh: requestedAction === 'workspace:participate'
+    });
     return decision?.allowed ? workspace : null;
   }
   async function references(workspaceId) {
@@ -371,9 +377,9 @@ export function createTelegramWorkspaceOperationsNaturalLanguageService({
     const parts = data.split('|');
     const action = parts[1];
     const actor = await identify(update);
-    const workspace = await contextWorkspace(actor);
+    const workspace = await contextWorkspace(actor, 'workspace:participate');
     if (!workspace) {
-      await botClient.answerCallbackQuery({ callbackQueryId: update.callback_query.id, text: 'Тест недоступен в этом workspace', showAlert: true });
+      await botClient.answerCallbackQuery({ callbackQueryId: update.callback_query.id, text: 'Тест доступен только текущим участникам этой группы', showAlert: true });
       return freeze({ handled: true, outcome: 'test-workspace-denied' });
     }
     const ctx = freeze({ workspaceId: workspace.workspaceId, telegramUserId: actor.telegramUserId, actorGlobalUserId: actor.actorGlobalUserId, requestId: `twmt:${idFactory()}`, traceId: `twmt:${idFactory()}` });

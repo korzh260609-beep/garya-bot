@@ -75,3 +75,6 @@ export {
   createTelegramWorkspaceMiniAppHttpHandler,
   TELEGRAM_WORKSPACE_MINI_APP_PATH
 } from './telegramWorkspaceMiniAppHttp.js';
+
+export { createPostgresMembershipAccessStore } from './postgresMembershipAccessStore.js';
+export { createTelegramMembershipAccessService } from './telegramMembershipAccessService.js';

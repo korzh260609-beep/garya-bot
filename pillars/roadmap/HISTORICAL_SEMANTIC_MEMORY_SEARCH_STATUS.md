@@ -2,7 +2,25 @@
 
 ## Current status
 
-**HS1–HS6 — PLANNED / NOT CLOSED.**
+**HS1 — IMPLEMENTED / CI-VERIFIED / NOT CLOSED.**
+
+**HS2–HS6 — PLANNED / NOT CLOSED.**
+
+HS1 implementation evidence:
+
+- transport-independent `src/history/historicalQueryPlanner.js`;
+- semantic planning only through SG AI Router;
+- canonical operations: `search`, `summarize-range`, `first-occurrence`, `last-occurrence`, `timeline`, `fact-history`;
+- semantic subject, entity constraints, source hints and output mode extraction;
+- canonical Temporal Service reuse for single expressions and bounded start/end ranges;
+- Identity / project / group / thread scope accepted only from the already-resolved request, never from model output;
+- source hints are bounded to canonical source types and do not grant authorization;
+- unsupported, ambiguous, low-confidence and unresolved-time interpretations fail closed to clarification;
+- no phrase-table routing and no direct model call bypass;
+- regression coverage in `tests/historicalQueryPlanner.test.js`;
+- implementation commit `d380d935f1384dcaad1e44f9c8da1169cb94f8e3` passed SG 2.1 CI #8475.
+
+HS1 is intentionally **NOT CLOSED** yet because the program status rule also requires the live acceptance consolidated in HS6.
 
 This program is the approved additive completion layer for natural-language historical memory search across the existing SG 2.1 memory stack.
 
@@ -27,7 +45,7 @@ Already present and intended for reuse:
 
 ## Gaps to close
 
-1. HS1 — unified Historical Query Planner;
+1. HS1 — implemented and CI-verified; pending HS6 live acceptance before CLOSED;
 2. HS2 — true hybrid semantic retrieval for Memory 2.0 beyond primarily lexical/token ranking;
 3. HS3 — unified source orchestration across Conversation History / Memory 2.0 / PM3 / PDK4 / applicable Decision & Incident retrieval;
 4. HS4 — unified cross-source ranking, deduplication, conflict and supersession merge;

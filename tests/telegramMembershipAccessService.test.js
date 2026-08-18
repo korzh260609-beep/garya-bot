@@ -2,22 +2,27 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createTelegramMembershipAccessService } from '../src/telegramWorkspace/telegramMembershipAccessService.js';
 
-function fixture({ workspace = { workspaceId: 'workspace-1', telegramChatId: '-100123' }, approvalError = null, membership = null, invite = null } = {}) {
+function fixture({ workspace = { workspaceId: 'workspace-1', telegramChatId: '-100123' }, approvalError = null, membership = null, invite = null, enforcementMode = 'baseline' } = {}) {
   const calls = [];
   const store = {
     async recordRequest(value) { calls.push(['record', value]); return { state: 'requested' }; },
     async activateFree(value) { calls.push(['activate', value]); return { state: 'active', telegramUserId: value.telegramUserId }; },
     async markDeclined(value) { calls.push(['mark-declined', value]); return { state: 'declined' }; },
     async markRemoved(value) { calls.push(['mark-removed', value]); return { state: 'removed' }; },
+    async activateLegacyBaseline(value) { calls.push(['baseline-member', value]); return { state: 'active', metadata: { legacyBaseline: true } }; },
     async get(value) { calls.push(['get', value]); return membership; },
     async getInvite(value) { calls.push(['get-invite', value]); return invite; },
-    async saveInvite(value) { calls.push(['save-invite', value]); return { ...value, version: invite ? 2 : 1 }; }
+    async saveInvite(value) { calls.push(['save-invite', value]); return { ...value, version: invite ? 2 : 1 }; },
+    async ensurePolicy(value) { calls.push(['ensure-policy', value]); return { workspaceId: value.workspaceId, enforcementMode }; },
+    async enableStrict(value) { calls.push(['enable-strict', value]); return { workspaceId: value.workspaceId, enforcementMode: 'strict' }; }
   };
   const botClient = {
     async approveChatJoinRequest(value) { calls.push(['approve', value]); if (approvalError) throw approvalError; },
     async declineChatJoinRequest(value) { calls.push(['decline', value]); },
     async createChatInviteLink(value) { calls.push(['create-invite', value]); return { invite_link: 'https://t.me/+managed' }; },
-    async revokeChatInviteLink(value) { calls.push(['revoke-invite', value]); }
+    async revokeChatInviteLink(value) { calls.push(['revoke-invite', value]); },
+    async banChatMember(value) { calls.push(['ban', value]); },
+    async unbanChatMember(value) { calls.push(['unban', value]); }
   };
   const service = createTelegramMembershipAccessService({
     store,
@@ -92,15 +97,35 @@ test('rotating a link persists the replacement before revoking the old link', as
   assert.deepEqual(calls.map(([name]) => name), ['get-invite', 'gate', 'list', 'create-invite', 'save-invite', 'revoke-invite']);
 });
 
-test('membership lifecycle records leave and observes unmanaged direct adds without removing users', async () => {
+test('membership lifecycle records leave and safely baselines an observed legacy member', async () => {
   const active = { state: 'active' };
   const left = fixture({ membership: active });
   assert.equal((await left.service.handleUpdate(member('left'))).outcome, 'membership-left-recorded');
   assert.deepEqual(left.calls.map(([name]) => name), ['resolve', 'get', 'mark-removed']);
 
   const unmanaged = fixture({ membership: null });
-  assert.equal((await unmanaged.service.handleUpdate(member('member'))).outcome, 'unmanaged-member-observed');
-  assert.deepEqual(unmanaged.calls.map(([name]) => name), ['resolve', 'get']);
+  assert.equal((await unmanaged.service.handleUpdate(member('member'))).outcome, 'legacy-member-baselined');
+  assert.deepEqual(unmanaged.calls.map(([name]) => name), ['resolve', 'get', 'ensure-policy', 'baseline-member']);
+});
+
+test('strict mode removes an unknown direct add but does not permanently ban rejoin', async () => {
+  const { service, calls } = fixture({ membership: null, enforcementMode: 'strict' });
+  assert.equal((await service.handleUpdate(member('member', 81))).outcome, 'unauthorized-direct-add-removed');
+  assert.deepEqual(calls.map(([name]) => name), ['resolve', 'get', 'ensure-policy', 'ban', 'unban']);
+  assert.equal(calls.find(([name]) => name === 'ban')[1].revokeMessages, false);
+});
+
+test('strict mode activation is a confirmed high-risk Action Gate mutation', async () => {
+  const { service, calls } = fixture();
+  const result = await service.enableStrictAccess({
+    workspaceId: 'workspace-1', actorGlobalUserId: 'telegram:1', authority: { allowed: true },
+    traceId: 'trace-strict', requestId: 'request-strict',
+    confirmation: { confirmed: true, requestId: 'request-strict' }
+  });
+  assert.equal(result.policy.enforcementMode, 'strict');
+  assert.deepEqual(calls.map(([name]) => name), ['gate', 'list', 'ensure-policy', 'enable-strict']);
+  assert.equal(calls[0][1].risk, 'high');
+  assert.equal(calls[0][1].confirmationRequired, true);
 });
 
 test('administrators are exempt and unrelated updates are not consumed', async () => {

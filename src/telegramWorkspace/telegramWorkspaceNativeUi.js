@@ -90,7 +90,11 @@ export function createTelegramWorkspaceNativeUi({
   if (typeof authorityResolver?.verify !== 'function') throw new TypeError('authorityResolver.verify is required');
   for (const method of ['getConfig', 'listConfigs', 'applyChange', 'history', 'rollback']) if (typeof configurationService?.[method] !== 'function') throw new TypeError(`configurationService.${method} is required`);
   if (botCapabilityService !== null && typeof botCapabilityService?.getHealth !== 'function') throw new TypeError('botCapabilityService.getHealth is required');
-  if (membershipAccess !== null && typeof membershipAccess?.createJoinRequestLink !== 'function') throw new TypeError('membershipAccess.createJoinRequestLink is required');
+  if (membershipAccess !== null) {
+    for (const method of ['createJoinRequestLink','inspectPolicy','enableStrictAccess']) {
+      if (typeof membershipAccess?.[method] !== 'function') throw new TypeError(`membershipAccess.${method} is required`);
+    }
+  }
   const project = required(projectScope, 'projectScope');
 
   async function identify(update) {
@@ -239,11 +243,35 @@ export function createTelegramWorkspaceNativeUi({
 
   async function showMembershipAccess(update, actor, workspaceId) {
     await requireWorkspace(actor, workspaceId, 'workspace:configure', true);
-    await sendOrEdit(update, '🔐 Доступ и вступление\n\nSG создаст специальную ссылку. Пользователь сначала отправит заявку, после чего SG обработает её отдельно.\n\nПрямое добавление через Telegram не создаёт заявку.', keyboard([
+    const policy = await membershipAccess.inspectPolicy({ workspaceId });
+    const mode = policy.enforcementMode === 'strict'
+      ? 'Строгий режим включён: неизвестные прямые добавления удаляются.'
+      : 'Безопасный baseline: наблюдаемые существующие участники сохраняются, автоудаление выключено.';
+    await sendOrEdit(update, `🔐 Доступ и вступление\n\n${mode}\n\nSG создаст специальную ссылку. Пользователь сначала отправит заявку, после чего SG обработает её отдельно.\n\nПрямое добавление через Telegram не создаёт заявку.`, keyboard([
       [button('Создать или показать ссылку', 'invitep', workspaceId, 'reuse')],
       [button('Заменить старую ссылку', 'invitep', workspaceId, 'rotate')],
+      ...(policy.enforcementMode === 'baseline' ? [[button('Включить строгий режим', 'strictp', workspaceId)]] : []),
       [button('⬅️ Назад', 'w', workspaceId)]
     ]));
+  }
+
+  async function showStrictPreview(update, actor, workspaceId) {
+    await requireWorkspace(actor, workspaceId, 'workspace:configure', true);
+    await sendOrEdit(update, '⚠️ Включить строгий режим?\n\nПосле включения SG будет удалять неизвестных обычных пользователей, добавленных напрямую. Telegram не позволяет боту получить полный список участников: сначала убедись, что законные участники уже были зафиксированы baseline. Администраторы и создатель защищены.', keyboard([
+      [button('✅ Включить строгий режим', 'stricta', workspaceId)],
+      [button('❌ Отмена', 'access', workspaceId)]
+    ]));
+  }
+
+  async function applyStrict(update, actor, workspaceId) {
+    const authority = await requireWorkspace(actor, workspaceId, 'workspace:configure', true);
+    const requestId = `twm-strict:${update.callback_query.id}`;
+    await membershipAccess.enableStrictAccess({
+      workspaceId, actorGlobalUserId: actor.actorGlobalUserId, authority,
+      traceId: `twm-strict:${idFactory()}`, requestId,
+      confirmation: Object.freeze({ confirmed: true, requestId })
+    });
+    await sendOrEdit(update, '✅ Строгий режим включён.\n\nНовые неизвестные прямые добавления будут удаляться. Вступление через управляемую ссылку продолжит работать.', keyboard([[button('⬅️ Доступ и вступление', 'access', workspaceId)]]));
   }
 
   async function showInvitePreview(update, actor, workspaceId, mode) {
@@ -349,6 +377,8 @@ export function createTelegramWorkspaceNativeUi({
       else if (queryParts[0] === 'access') await showMembershipAccess(update, actor, queryParts[1]);
       else if (queryParts[0] === 'invitep') await showInvitePreview(update, actor, queryParts[1], queryParts[2]);
       else if (queryParts[0] === 'invitea') await applyInvite(update, actor, queryParts[1], queryParts[2]);
+      else if (queryParts[0] === 'strictp') await showStrictPreview(update, actor, queryParts[1]);
+      else if (queryParts[0] === 'stricta') await applyStrict(update, actor, queryParts[1]);
       else if (queryParts[0] === 'hist') await showHistory(update, actor, queryParts[1]);
       else if (queryParts[0] === 'hns') await showNamespaceHistory(update, actor, queryParts[1], queryParts[2]);
       else if (queryParts[0] === 'rbp') await showRollbackPreview(update, actor, queryParts[1], queryParts[2], queryParts[3]);

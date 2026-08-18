@@ -40,6 +40,18 @@ function inviteRow(value) {
     version: Number(value.version)
   });
 }
+function policyRow(value) {
+  if (!value) return null;
+  return Object.freeze({
+    workspaceId: value.workspace_id,
+    enforcementMode: value.enforcement_mode,
+    baselineStartedAt: value.baseline_started_at?.toISOString?.() ?? String(value.baseline_started_at),
+    strictEnabledAt: value.strict_enabled_at?.toISOString?.() ?? value.strict_enabled_at ?? null,
+    strictEnabledByGlobalUserId: value.strict_enabled_by_global_user_id ?? null,
+    version: Number(value.version),
+    updatedAt: value.updated_at?.toISOString?.() ?? String(value.updated_at)
+  });
+}
 export function createPostgresMembershipAccessStore(database) {
   if (typeof database?.query !== 'function') throw new TypeError('started PostgreSQL database is required');
   async function recordRequest({ workspaceId, telegramUserId, globalUserId, requestedAt, metadata = {} }) {
@@ -109,5 +121,41 @@ export function createPostgresMembershipAccessStore(database) {
     `, [required(workspaceId,'workspaceId'),required(inviteLink,'inviteLink'),required(inviteName,'inviteName'),required(createdByGlobalUserId,'createdByGlobalUserId'),required(String(createdByTelegramUserId),'createdByTelegramUserId'),iso(at,'at')]);
     return inviteRow(result.rows[0]);
   }
-  return Object.freeze({ recordRequest, activateFree, markDeclined, markRemoved, get, getInvite, saveInvite });
+  async function ensurePolicy({ workspaceId, at }) {
+    const result = await database.query(`
+      INSERT INTO telegram_workspace_membership_policy(workspace_id,baseline_started_at)
+      VALUES($1,$2) ON CONFLICT(workspace_id) DO UPDATE SET workspace_id=EXCLUDED.workspace_id
+      RETURNING *
+    `, [required(workspaceId,'workspaceId'),iso(at,'at')]);
+    return policyRow(result.rows[0]);
+  }
+  async function activateLegacyBaseline({ workspaceId, telegramUserId, globalUserId, observedAt }) {
+    const result = await database.query(`
+      INSERT INTO telegram_workspace_membership_access(
+        workspace_id,telegram_user_id,global_user_id,state,access_mode,requested_at,
+        approved_at,access_starts_at,metadata
+      ) VALUES($1,$2,$3,'active','free',$4,$4,$4,$5::jsonb)
+      ON CONFLICT(workspace_id,telegram_user_id) DO UPDATE SET
+        global_user_id=EXCLUDED.global_user_id,state='active',access_mode='free',
+        approved_at=COALESCE(telegram_workspace_membership_access.approved_at,EXCLUDED.approved_at),
+        access_starts_at=COALESCE(telegram_workspace_membership_access.access_starts_at,EXCLUDED.access_starts_at),
+        access_ends_at=NULL,removed_at=NULL,
+        metadata=telegram_workspace_membership_access.metadata || EXCLUDED.metadata,
+        version=telegram_workspace_membership_access.version+1,updated_at=now()
+      RETURNING *
+    `, [required(workspaceId,'workspaceId'),required(String(telegramUserId),'telegramUserId'),required(globalUserId,'globalUserId'),iso(observedAt,'observedAt'),JSON.stringify({ legacyBaseline: true, baselineSource: 'telegram-chat-member-observation' })]);
+    return row(result.rows[0]);
+  }
+  async function enableStrict({ workspaceId, actorGlobalUserId, at }) {
+    const result = await database.query(`
+      UPDATE telegram_workspace_membership_policy
+      SET enforcement_mode='strict',strict_enabled_at=$2,
+          strict_enabled_by_global_user_id=$3,version=version+1,updated_at=now()
+      WHERE workspace_id=$1 AND enforcement_mode='baseline'
+      RETURNING *
+    `, [required(workspaceId,'workspaceId'),iso(at,'at'),required(actorGlobalUserId,'actorGlobalUserId')]);
+    if (result.rowCount !== 1) throw Object.assign(new Error('membership baseline is already sealed'), { code: 'membership-baseline-already-sealed' });
+    return policyRow(result.rows[0]);
+  }
+  return Object.freeze({ recordRequest, activateFree, activateLegacyBaseline, markDeclined, markRemoved, get, getInvite, saveInvite, ensurePolicy, enableStrict });
 }

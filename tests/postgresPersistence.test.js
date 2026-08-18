@@ -104,6 +104,7 @@ integration('Block 12 upgrades an SG 2.0 database in place without deleting lega
   assert.ok(migrated.applied.includes('908_automation_workflow_execution_history.sql'));
   assert.ok(migrated.applied.includes('911_telegram_membership_access.sql'));
   assert.ok(migrated.applied.includes('912_telegram_membership_invites.sql'));
+  assert.ok(migrated.applied.includes('913_telegram_membership_reconciliation.sql'));
 
   const legacyUser = await database.query("SELECT chat_id,global_user_id FROM users WHERE global_user_id='tg:42'");
   assert.equal(legacyUser.rows[0].chat_id, '42');

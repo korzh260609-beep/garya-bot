@@ -319,7 +319,7 @@ Historical rollback/checkpoint evidence such as `../../docs/checkpoints/SG2.1_20
 
 - TMA2.1.1–TMA2.1.3 — **IMPLEMENTED / CI-VERIFIED** at implementation/test HEAD `4f6bdfffe72dac0888a1843c18b11e7973e5bd0b` by SG 2.1 CI #8406: webhook join requests, durable per-user membership state, fail-closed workspace resolution, free approval and production wiring.
 - TMA2.1.4 — **IMPLEMENTED / CI-VERIFIED** at HEAD `01c8c4882ee61a944e19f4455eaff5f825022247`, CI #8432: private admin UI, Action Gate confirmation, durable managed link, reuse/rotation and «Присоединиться» button.
-- TMA2.1.5 — **PARTIAL / CI-VERIFIED SAFE SLICE**: leave/removal state, managed-member confirmation, admin/creator exemption and direct-add observation. Automatic removal remains disabled until existing legitimate members receive a safe baseline.
+- TMA2.1.5 — **IMPLEMENTED / AWAITING EXACT-HEAD CI + LIVE ACCEPTANCE**: durable baseline/strict policy, safe observed legacy-member activation, explicit high-risk Action Gate sealing, admin/creator/bot exemption and strict removal of unknown direct additions. Telegram cannot enumerate all ordinary members, so the UI warns the owner before strict activation.
 - TMA2.1.6–TMA2.1.12 — **PLANNED**: monthly Telegram Stars plan/payment lifecycle, expiry reminders and enforcement, administration, recovery/security and live acceptance.
 - Paid access is intentionally disabled until the owner approves price, Stars amount, duration, grace period and refund policy.
 - Direct Telegram administrator adds cannot be intercepted; managed entry requires a private group and a join-request invite link.

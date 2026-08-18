@@ -12,12 +12,12 @@ export function createTelegramMembershipAccessService({
   store, workspaceRegistry, botClient, identityResolver, mutationGate, projectScope = 'sg2.1',
   botUserId = null, clock = () => new Date(), audit = async () => {}
 } = {}) {
-  for (const method of ['recordRequest','activateFree','markDeclined','markRemoved','get','getInvite','saveInvite']) {
+  for (const method of ['recordRequest','activateFree','activateLegacyBaseline','markDeclined','markRemoved','get','getInvite','saveInvite','ensurePolicy','enableStrict']) {
     if (typeof store?.[method] !== 'function') throw new TypeError(`store.${method} is required`);
   }
   if (typeof workspaceRegistry?.resolveTelegramChatId !== 'function') throw new TypeError('workspaceRegistry.resolveTelegramChatId is required');
   if (typeof workspaceRegistry?.listWorkspaces !== 'function') throw new TypeError('workspaceRegistry.listWorkspaces is required');
-  for (const method of ['createChatInviteLink','revokeChatInviteLink','approveChatJoinRequest','declineChatJoinRequest']) {
+  for (const method of ['createChatInviteLink','revokeChatInviteLink','approveChatJoinRequest','declineChatJoinRequest','banChatMember','unbanChatMember']) {
     if (typeof botClient?.[method] !== 'function') throw new TypeError(`botClient.${method} is required`);
   }
   if (typeof identityResolver !== 'function') throw new TypeError('identityResolver is required');
@@ -60,6 +60,25 @@ export function createTelegramMembershipAccessService({
     }
     try { await audit({ eventClass: 'telegram_membership_invite', outcome: rotate ? 'rotated' : 'created', workspaceId: id, globalUserId: actorGlobalUserId, telegramUserId: String(actorTelegramUserId) }); } catch {}
     return Object.freeze({ ...saved, reused: false });
+  }
+
+  async function enableStrictAccess({ workspaceId, actorGlobalUserId, authority, traceId, requestId, confirmation }) {
+    const id = required(workspaceId, 'workspaceId');
+    await mutationGate.evaluateDomainMutation({
+      operation: 'membership-strict-enable', domain: 'membership-access', recordId: id,
+      workspaceId: id, actorGlobalUserId, traceId, requestId, risk: 'high',
+      confirmationRequired: true, authority, confirmation, requiredPermission: 'workspace:configure'
+    });
+    await resolveWorkspaceById(id);
+    await store.ensurePolicy({ workspaceId: id, at: clock() });
+    const policy = await store.enableStrict({ workspaceId: id, actorGlobalUserId, at: clock() });
+    try { await audit({ eventClass: 'telegram_membership_policy', outcome: 'strict-enabled', workspaceId: id, globalUserId: actorGlobalUserId }); } catch {}
+    return Object.freeze({ policy, warning: 'Only observed legacy members are baselined; Telegram cannot enumerate all ordinary members.' });
+  }
+
+  async function inspectPolicy({ workspaceId }) {
+    await resolveWorkspaceById(required(workspaceId, 'workspaceId'));
+    return store.ensurePolicy({ workspaceId, at: clock() });
   }
 
   async function handleJoinRequest(request) {
@@ -115,9 +134,28 @@ export function createTelegramMembershipAccessService({
       return Object.freeze({ handled: true, outcome: 'membership-left-recorded' });
     }
     if (!ACTIVE_STATUSES.has(status)) return Object.freeze({ handled: true, outcome: 'membership-status-ignored' });
-    const outcome = membership && ['requested', 'active'].includes(membership.state) ? 'managed-member-confirmed' : 'unmanaged-member-observed';
-    try { await audit({ eventClass: 'telegram_membership_access', outcome, workspaceId: workspace.workspaceId, telegramUserId }); } catch {}
-    return Object.freeze({ handled: true, outcome });
+    if (membership && ['requested', 'active'].includes(membership.state)) {
+      try { await audit({ eventClass: 'telegram_membership_access', outcome: 'managed-member-confirmed', workspaceId: workspace.workspaceId, telegramUserId }); } catch {}
+      return Object.freeze({ handled: true, outcome: 'managed-member-confirmed' });
+    }
+    const policy = await store.ensurePolicy({ workspaceId: workspace.workspaceId, at: clock() });
+    if (policy.enforcementMode === 'baseline') {
+      const identity = await identityResolver({
+        transport: 'telegram',
+        platformFacts: { platform: 'telegram', platformUserId: telegramUserId, platformChatId: chatId,
+          profile: { displayName: [user?.first_name, user?.last_name].filter(Boolean).join(' ').trim() || user?.username || null,
+            firstName: user?.first_name ?? null, lastName: user?.last_name ?? null, username: user?.username ?? null, source: 'telegram' } },
+        scopeFacts: { projectId: project, groupId: chatId, threadId: null }
+      });
+      await store.activateLegacyBaseline({ workspaceId: workspace.workspaceId, telegramUserId,
+        globalUserId: required(identity?.identityContext?.globalUserId, 'resolved globalUserId'), observedAt: clock() });
+      try { await audit({ eventClass: 'telegram_membership_access', outcome: 'legacy-member-baselined', workspaceId: workspace.workspaceId, telegramUserId }); } catch {}
+      return Object.freeze({ handled: true, outcome: 'legacy-member-baselined' });
+    }
+    await botClient.banChatMember({ chatId, userId: telegramUserId, revokeMessages: false });
+    await botClient.unbanChatMember({ chatId, userId: telegramUserId, onlyIfBanned: true });
+    try { await audit({ eventClass: 'telegram_membership_access', outcome: 'unauthorized-direct-add-removed', workspaceId: workspace.workspaceId, telegramUserId }); } catch {}
+    return Object.freeze({ handled: true, outcome: 'unauthorized-direct-add-removed' });
   }
 
   async function handleUpdate(update) {
@@ -125,5 +163,5 @@ export function createTelegramMembershipAccessService({
     if (membershipChange(update)) return handleMembershipChange(membershipChange(update));
     return Object.freeze({ handled: false });
   }
-  return Object.freeze({ handleUpdate, createJoinRequestLink });
+  return Object.freeze({ handleUpdate, createJoinRequestLink, inspectPolicy, enableStrictAccess });
 }

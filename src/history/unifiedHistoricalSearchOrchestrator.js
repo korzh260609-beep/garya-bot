@@ -1,5 +1,6 @@
 import { planHistoricalQuery } from './historicalQueryPlanner.js';
 import { mergeHistoricalSearchResults } from './unifiedHistoricalResultMerger.js';
+import { buildHistoricalOperationResult } from './historicalOperationResult.js';
 import { retrieveLongTermConversationHistory } from '../conversation/longTermConversationHistory.js';
 
 const MEMORY_HINTS = new Set(['user-memory', 'group-memory', 'thread-memory', 'topic-digest']);
@@ -174,7 +175,7 @@ function projectMode(operation) {
   return ['timeline', 'fact-history'].includes(operation) ? 'project_development_evolution' : 'project_development_historical';
 }
 
-export const HISTORICAL_SEARCH_ORCHESTRATOR_CONTRACT_VERSION = 2;
+export const HISTORICAL_SEARCH_ORCHESTRATOR_CONTRACT_VERSION = 3;
 
 export function createUnifiedHistoricalSearchOrchestrator({
   aiRouter,
@@ -201,10 +202,12 @@ export function createUnifiedHistoricalSearchOrchestrator({
         selection: null,
         sources: [],
         merged: null,
+        operationResult: null,
         contract: {
           version: HISTORICAL_SEARCH_ORCHESTRATOR_CONTRACT_VERSION,
-          stage: 'HS4',
+          stage: 'HS5',
           sourceOrchestrationStage: 'HS3',
+          mergeStage: 'HS4',
           authorizationExpanded: false
         }
       });
@@ -320,6 +323,7 @@ export function createUnifiedHistoricalSearchOrchestrator({
     ];
     const partial = sources.some((source) => source.status === 'failed' || source.status === 'omitted');
     const merged = mergeHistoricalSearchResults({ plan, sources });
+    const operationResult = buildHistoricalOperationResult({ plan, merged });
     return freeze({
       status: partial ? 'partial' : 'completed',
       query: plan.query,
@@ -333,17 +337,21 @@ export function createUnifiedHistoricalSearchOrchestrator({
       },
       sources,
       merged,
+      operationResult,
       contract: {
         version: HISTORICAL_SEARCH_ORCHESTRATOR_CONTRACT_VERSION,
-        stage: 'HS4',
+        stage: 'HS5',
         sourceOrchestrationStage: 'HS3',
+        mergeStage: 'HS4',
+        historicalOperationStage: operationResult ? 'HS5' : null,
         normalized: true,
         crossSourceRanking: true,
         crossSourceDeduplication: true,
         conflictsPreserved: true,
         supersessionPreserved: true,
         authorizationExpanded: false,
-        sourceFailuresExplicit: true
+        sourceFailuresExplicit: true,
+        historicalOperationsDeterministic: true
       }
     });
   }

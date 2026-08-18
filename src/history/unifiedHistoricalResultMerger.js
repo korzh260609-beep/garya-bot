@@ -137,7 +137,11 @@ function duplicateRelation(left, right) {
   if (left.entityKey && right.entityKey && normalizedText(left.entityKey) === normalizedText(right.entityKey) && valueFingerprint(left) === valueFingerprint(right)) return 'same-entity-value';
   const leftText = normalizedText(left.text);
   const rightText = normalizedText(right.text);
-  if (leftText && rightText && leftText === rightText) return 'same-normalized-content';
+  if (leftText && rightText && leftText === rightText) {
+    const leftEntity = normalizedText(left.entityKey);
+    const rightEntity = normalizedText(right.entityKey);
+    if ((!leftEntity && !rightEntity) || (leftEntity && leftEntity === rightEntity)) return 'same-normalized-content';
+  }
   const leftDigestSources = new Set(Array.isArray(left.value?.sourceIds) ? left.value.sourceIds.map(String) : []);
   const rightDigestSources = new Set(Array.isArray(right.value?.sourceIds) ? right.value.sourceIds.map(String) : []);
   if (right.sourceId && leftDigestSources.has(String(right.sourceId))) return 'digest-source-reference';
@@ -148,7 +152,13 @@ function successorId(item) {
   return item.metadata?.successorMemoryId ?? item.metadata?.supersededBy ?? item.metadata?.successorSourceId ?? null;
 }
 function isCurrent(item) { return item.lifecycle == null || ['active', 'temporary'].includes(item.lifecycle); }
-function conflictKey(item) { return item.entityKey ? normalizedText(item.entityKey) : null; }
+function conflictKey(item) {
+  if (!item.entityKey || item.source === 'conversation-history' || item.source === 'incident-memory') return null;
+  const entity = normalizedText(item.entityKey);
+  if (!entity) return null;
+  const family = item.source === 'memory2' ? 'memory' : normalizedText(item.kind ?? 'fact');
+  return `${family}|${entity}`;
+}
 function publicItem(entry, rank) {
   return freeze({
     rank,

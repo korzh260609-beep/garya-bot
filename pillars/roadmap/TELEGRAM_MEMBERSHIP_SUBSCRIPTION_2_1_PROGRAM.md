@@ -36,6 +36,9 @@ Implementation/test evidence: TMA2.1.1–TMA2.1.3 HEAD `4f6bdfffe72dac0888a1843c
 - A request is resolved against the canonical Telegram workspace registry.
 - Unknown workspaces are declined; SG never creates an access grant from an unregistered chat.
 - The Telegram identity is resolved through the existing production Identity boundary.
+- Every managed join request indexes or refreshes the Telegram identity before access activation, assigns/reuses the canonical Global ID, and stores that Global ID with the workspace membership. Observed legacy members use the same identity path.
+- Messages, commands, polls and other Telegram interactions that SG actually receives continue through the existing transport Identity, Conversation Context and Memory boundaries; membership does not create a parallel profile or memory system.
+- Telegram does not expose silent activity or a complete ordinary-member list, so SG can track only users and events delivered to the bot.
 - Pending and active states are persisted per `(workspace_id, telegram_user_id)`; one participant cannot complete or close another participant's membership flow.
 - Telegram approval failure records a declined state and never reports active membership.
 - Payment secrets and provider calls are not introduced in the free stage.

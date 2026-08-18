@@ -168,6 +168,54 @@ function automationCreatedMessage({ schedule, task, locale }) {
   return schedule ? `Automation created. Next execution: ${next ?? 'not determined'}.` : `Task created. Execution: ${next ?? 'scheduled'}.`;
 }
 
+const TERMINAL_TASK_STATUSES = new Set(['completed', 'failed', 'cancelled']);
+
+function taskDescription(task) {
+  const payload = task?.payload ?? {};
+  const value = payload.notificationMessage ?? payload.message ?? payload.title
+    ?? payload.delivery?.message ?? payload.automation?.description ?? task?.kind ?? null;
+  const text = typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') : '';
+  return text || 'Задача без описания';
+}
+
+function taskWhen(task) {
+  const payload = task?.payload ?? {};
+  return payload.localTime ?? payload.runAt ?? payload.temporalExpression
+    ?? task?.availableAt ?? null;
+}
+
+function requestedTaskHistory(input = {}) {
+  if (input.includeHistory === true) return true;
+  const statuses = Array.isArray(input.statuses) ? input.statuses.map((value) => String(value).toLowerCase()) : [];
+  return statuses.some((status) => TERMINAL_TASK_STATUSES.has(status));
+}
+
+function taskListMessage(tasks, { locale, includeHistory = false } = {}) {
+  const language = String(locale ?? 'ru').toLowerCase();
+  if (tasks.length === 0) {
+    if (language.startsWith('uk')) return includeHistory ? 'Завдань не знайдено.' : 'Активних завдань зараз немає.';
+    if (language.startsWith('en')) return includeHistory ? 'No tasks found.' : 'There are no active tasks right now.';
+    return includeHistory ? 'Задачи не найдены.' : 'Активных задач сейчас нет.';
+  }
+  const title = language.startsWith('uk')
+    ? (includeHistory ? 'Завдання:' : 'Активні завдання:')
+    : language.startsWith('en')
+      ? (includeHistory ? 'Tasks:' : 'Active tasks:')
+      : (includeHistory ? 'Задачи:' : 'Активные задачи:');
+  const statusNames = language.startsWith('uk')
+    ? { queued: 'очікує', running: 'виконується', retry_wait: 'очікує повтору', completed: 'виконано', failed: 'помилка', cancelled: 'скасовано' }
+    : language.startsWith('en')
+      ? { queued: 'queued', running: 'running', retry_wait: 'waiting to retry', completed: 'completed', failed: 'failed', cancelled: 'cancelled' }
+      : { queued: 'ожидает', running: 'выполняется', retry_wait: 'ждёт повтора', completed: 'выполнена', failed: 'ошибка', cancelled: 'отменена' };
+  const lines = tasks.map((task, index) => {
+    const when = taskWhen(task);
+    const timing = when ? ` — ${when}` : '';
+    const status = statusNames[task.status] ?? task.status;
+    return `${index + 1}. «${taskDescription(task)}»${timing} — ${status}`;
+  });
+  return [title, ...lines].join('\n');
+}
+
 export function createInMemoryProductionTaskStore() {
   const tasks = new Map();
   const sameScope = (task, scope) => task.scope.userScope === scope.userScope
@@ -311,7 +359,20 @@ export function createProductionCapabilities({
       actionTypes: ['task-list'], actionClasses: ['read-only'],
       execute: async (request) => {
         const tasks = await taskStore.list({ scope: scopeFrom(request) });
-        return { status: 'success', data: { tasks, message: `Tasks: ${tasks.length}` } };
+        const includeHistory = requestedTaskHistory(request.input);
+        const requestedStatuses = Array.isArray(request.input?.statuses)
+          ? new Set(request.input.statuses.map((value) => String(value).toLowerCase()))
+          : null;
+        const visibleTasks = tasks.filter((task) => requestedStatuses
+          ? requestedStatuses.has(String(task.status).toLowerCase())
+          : includeHistory || !TERMINAL_TASK_STATUSES.has(String(task.status).toLowerCase()));
+        return {
+          status: 'success',
+          data: {
+            tasks: visibleTasks,
+            message: taskListMessage(visibleTasks, { locale: request.input?.locale, includeHistory })
+          }
+        };
       }
     }),
     capability({

@@ -2,7 +2,7 @@
 
 ## Status
 
-**IN PROGRESS / NOT CLOSED.** HS1 and HS2 are implemented and CI-verified. HS3–HS6 remain planned. This is an additive Memory 2.0 extension. M1–M9 remain CLOSED and must not be reopened or replaced.
+**IN PROGRESS / NOT CLOSED.** HS1, HS2 and HS3 are implemented and CI-verified. HS4–HS6 remain planned. This is an additive Memory 2.0 extension. M1–M9 remain CLOSED and must not be reopened or replaced.
 
 ## Goal
 
@@ -30,7 +30,7 @@ Required reuse:
 ```text
 HS1 Historical Query Planner [IMPLEMENTED / CI-VERIFIED]
 -> HS2 Memory 2.0 Hybrid Semantic Retrieval [IMPLEMENTED / CI-VERIFIED]
--> HS3 Unified Historical Search Orchestrator
+-> HS3 Unified Historical Search Orchestrator [IMPLEMENTED / CI-VERIFIED]
 -> HS4 Ranking / Dedup / Conflict / Supersession
 -> HS5 Timeline / First / Last / Fact History
 -> HS6 Security / Regression / Observability / Live Acceptance
@@ -135,12 +135,30 @@ Select and query only the relevant canonical memory/history sources for one user
 
 ## Acceptance criteria
 
-- [ ] personal questions do not query unrelated shared/project stores by default;
-- [ ] project-development questions can combine Conversation History + PM3 + PDK4;
-- [ ] group/thread questions remain resource-bound;
-- [ ] source selection never broadens authorization;
-- [ ] one request returns normalized source results through one orchestration contract;
-- [ ] every source failure is explicit and cannot be converted into invented evidence.
+- [x] personal questions do not query unrelated shared/project stores by default;
+- [x] project-development questions can combine Conversation History + PM3 + PDK4;
+- [x] group/thread questions remain resource-bound;
+- [x] source selection never broadens authorization;
+- [x] one request returns normalized source results through one orchestration contract;
+- [x] every source failure is explicit and cannot be converted into invented evidence.
+
+Implementation evidence:
+
+- one orchestration entry: `createUnifiedHistoricalSearchOrchestrator().search()` in `src/history/unifiedHistoricalSearchOrchestrator.js`;
+- HS1 plan scope must exactly equal resolved request identity/project/group/thread scope before any source is queried;
+- no-source-hint fallback is bounded to Conversation History + User Memory only;
+- Conversation History reuses `retrieveLongTermConversationHistory()`;
+- personal/shared/topic facts reuse Memory 2.0 `recall()` with explicit authorized layers and `includeHistory: true`;
+- PM3 reuses authorized Project Memory hybrid retrieval;
+- PDK4 reuses Development Query Integration;
+- decision search reuses Project Memory retrieval restricted to `architecture-decision` facts;
+- incident search reuses canonical `findIncidentGuidance()` and preserves advisory-only semantics;
+- normalized source results preserve `ok`, `empty`, `failed` and `omitted` states with bounded evidence;
+- HS3 does not perform HS4 cross-source ranking or deduplication;
+- regression suite: `tests/unifiedHistoricalSearchOrchestrator.test.js` covers personal default selection, group/thread scope, PM3+PDK4 mixed retrieval, fail-closed scope mismatch, explicit source failure, temporal filtering and incident advisory semantics;
+- implementation HEAD `709cc33cfd898a4eaa660a90ecff69307940b986`, SG 2.1 CI #8485 SUCCESS on exact HEAD.
+
+HS3 is implemented and CI-verified but remains **NOT CLOSED** until HS6 consolidated security/live acceptance under the program closure rule.
 
 ---
 

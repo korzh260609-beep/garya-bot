@@ -70,8 +70,8 @@ integration('Block 12 upgrades an SG 2.0 database in place without deleting lega
   `);
 
   const migrated = await runMigrations(database);
-  assert.equal(migrated.applied.length, 37);
-  assert.equal(migrated.total, 37);
+  assert.equal(migrated.applied.length, 38);
+  assert.equal(migrated.total, 38);
   assert.ok(migrated.applied.includes('000_legacy_scope_preflight.sql'));
   assert.ok(migrated.applied.includes('020_universal_diagnostics.sql'));
   assert.ok(migrated.applied.includes('165_temporal_context.sql'));
@@ -103,6 +103,7 @@ integration('Block 12 upgrades an SG 2.0 database in place without deleting lega
   assert.ok(migrated.applied.includes('907_automation_workflow_version_validation.sql'));
   assert.ok(migrated.applied.includes('908_automation_workflow_execution_history.sql'));
   assert.ok(migrated.applied.includes('911_telegram_membership_access.sql'));
+  assert.ok(migrated.applied.includes('912_telegram_membership_invites.sql'));
 
   const legacyUser = await database.query("SELECT chat_id,global_user_id FROM users WHERE global_user_id='tg:42'");
   assert.equal(legacyUser.rows[0].chat_id, '42');
@@ -141,7 +142,7 @@ integration('Block 12 PostgreSQL persistence is durable, isolated and atomic', a
 
   const migrationRepeat = await runMigrations(database);
   assert.deepEqual(migrationRepeat.applied, []);
-  assert.equal(migrationRepeat.total, 37);
+  assert.equal(migrationRepeat.total, 38);
 
   const suffix = randomUUID();
   const scope = { globalUserId: `user:${suffix}`, projectScope: 'sg2.1', groupScope: 'group:1', threadScope: 'thread:1' };

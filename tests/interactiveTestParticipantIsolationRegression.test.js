@@ -67,23 +67,29 @@ test('two group participants get isolated private test sessions and one completi
 
   assert.equal(first.outcome, 'interactive-test-started');
   assert.equal(second.outcome, 'interactive-test-started');
-  assert.equal(first.privateDelivery, true);
-  assert.equal(second.privateDelivery, true);
-  assert.deepEqual(sent.map((row) => String(row.chatId)), ['101', '202']);
-  assert.equal(sent.some((row) => String(row.chatId) === '-1001'), false);
+  assert.equal(first.participantSession, true);
+  assert.equal(second.participantSession, true);
+  assert.deepEqual(sent.map((row) => String(row.chatId)), ['-1001', '-1001']);
+  assert.match(sent[0].text, /Тест для User 101/u);
+  assert.match(sent[1].text, /Тест для User 202/u);
+  assert.notEqual(sent[0].replyMarkup.inline_keyboard[0][0].callback_data, sent[1].replyMarkup.inline_keyboard[0][0].callback_data);
   assert.equal(edited.length, 0);
 
   const completed = await service.handleInteractiveTestCallback(callbackUpdate({
     userId: '202',
     data: 'twmt|a|session-2|0',
-    chatId: '202',
-    chatType: 'private',
+    chatId: '-1001',
+    chatType: 'supergroup',
     messageId: 102
   }));
 
   assert.equal(completed.outcome, 'interactive-test-completed');
+  assert.equal(completed.participantSession, true);
   assert.equal(edited.length, 1);
-  assert.equal(String(edited[0].chatId), '202');
-  assert.equal(edited.some((row) => String(row.chatId) === '101' || String(row.chatId) === '-1001'), false);
-  assert.match(answered.at(-1).text, /Тест завершён/u);
+  assert.equal(String(edited[0].chatId), '-1001');
+  assert.equal(edited[0].messageId, 102);
+  assert.match(edited[0].text, /Завершена только сессия: User 202/u);
+  assert.match(edited[0].text, /Общий тест остаётся открыт для остальных участников/u);
+  assert.doesNotMatch(edited[0].text, /User 101/u);
+  assert.match(answered.at(-1).text, /Ваша сессия теста завершена/u);
 });

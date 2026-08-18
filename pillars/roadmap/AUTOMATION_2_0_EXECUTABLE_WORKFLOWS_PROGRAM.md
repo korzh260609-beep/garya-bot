@@ -409,6 +409,12 @@ Third deployed live attempt, 2026-08-18:
 - the remediation places the structured `automation-update` / `add-workspace-activity` contract before all generic conversation guidance and records the exact Russian live message as a regression input;
 - no phrase-table router, new authority source or security bypass is introduced; deterministic scoped resolution and execution-time authority checks remain authoritative.
 
+Fourth deployed live attempt, 2026-08-18:
+- executable routing succeeded, but deterministic target resolution returned zero matches;
+- root cause: the interpreter combined the explicit `07:00` target with a short unquoted content fragment as if that fragment were the complete stored notification message, while selector fields intentionally use exact conjunction;
+- the remediation instructs semantic selection to keep the explicit wall-clock target alone unless the user clearly supplies the full existing message;
+- multiple automations at the same time still fail closed and require a user-facing clarification; no fuzzy runtime match or guessed ID is introduced.
+
 Boundary: this closes the production code/CI wiring gap only. It does not prove a Render deploy or the real Telegram live scenario below, so AW2.20 and Automation 2.0 remain NOT CLOSED.
 
 Required live scenario:

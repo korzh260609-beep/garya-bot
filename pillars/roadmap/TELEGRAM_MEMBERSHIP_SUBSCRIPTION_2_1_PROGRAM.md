@@ -17,8 +17,8 @@ The current production mode is **free approval**. Paid access is not enabled unt
 | TMA2.1.1 | Telegram join-request contract, bot permissions and fail-closed workspace resolution | Implemented / CI-verified |
 | TMA2.1.2 | Durable PostgreSQL membership state and migration | Implemented / CI-verified |
 | TMA2.1.3 | Free join-request gate: identify, persist, approve and activate each user independently | Implemented / CI-verified |
-| TMA2.1.4 | Admin command/UI to create and rotate a join-request invite link; show “Подписаться/Присоединиться” | Planned |
-| TMA2.1.5 | Membership reconciliation for leave, kick, ban, rejoin and group migration events | Planned |
+| TMA2.1.4 | Admin UI to create, show and rotate a join-request invite link; show «Присоединиться» | Implemented / CI-verified at HEAD `01c8c4882ee61a944e19f4455eaff5f825022247`, CI #8432 |
+| TMA2.1.5 | Membership reconciliation for leave, kick, ban, rejoin and group migration events | Partial / CI-verified: leave/removal recording, managed-member confirmation, privileged exemption and unmanaged-member observation; enforcement awaits safe legacy-member baseline |
 | TMA2.1.6 | Subscription plans: price, Telegram Stars currency, billing period, grace and exemptions | Blocked on owner product choices |
 | TMA2.1.7 | Payment lifecycle: invoice, pre-checkout validation, successful-payment idempotency and renewal | Planned |
 | TMA2.1.8 | Expiry scheduler and reminders using existing SG durable scheduling/worker seams | Planned |
@@ -27,7 +27,7 @@ The current production mode is **free approval**. Paid access is not enabled unt
 | TMA2.1.11 | Owner/admin controls, membership list, manual grant/revoke and diagnostics | Planned |
 | TMA2.1.12 | Security regression, exact-head CI, deployment and two-account live acceptance | Planned |
 
-Implementation/test evidence: HEAD `4f6bdfffe72dac0888a1843c18b11e7973e5bd0b` passed exact-head SG 2.1 CI #8406.
+Implementation/test evidence: TMA2.1.1–TMA2.1.3 HEAD `4f6bdfffe72dac0888a1843c18b11e7973e5bd0b` passed CI #8406; TMA2.1.4 and the safe TMA2.1.5 slice HEAD `01c8c4882ee61a944e19f4455eaff5f825022247` passed CI #8432.
 
 ## Current implementation contract
 

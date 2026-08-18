@@ -403,6 +403,12 @@ Second deployed live attempt, 2026-08-18:
 - the remediation keeps ambiguity fail-closed, exposes a localized safe clarification, accepts an explicit one-based position and maps it through the same recurring-schedule order shown to the user, never through internal ID ordering;
 - AW2.20 remains NOT CLOSED pending exact-head CI, re-deploy and successful live execution.
 
+Third deployed live attempt, 2026-08-18:
+- after one duplicate was removed, the exact deployed HEAD still answered conversationally instead of invoking `automation-update`;
+- root cause: the specialized executable mutation rule was appended after the large general semantic boundary, allowing the model to prioritize a generic capability explanation and invent missing-access limitations;
+- the remediation places the structured `automation-update` / `add-workspace-activity` contract before all generic conversation guidance and records the exact Russian live message as a regression input;
+- no phrase-table router, new authority source or security bypass is introduced; deterministic scoped resolution and execution-time authority checks remain authoritative.
+
 Boundary: this closes the production code/CI wiring gap only. It does not prove a Render deploy or the real Telegram live scenario below, so AW2.20 and Automation 2.0 remain NOT CLOSED.
 
 Required live scenario:

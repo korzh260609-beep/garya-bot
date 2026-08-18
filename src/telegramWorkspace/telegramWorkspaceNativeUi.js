@@ -37,6 +37,7 @@ function callback(parts) {
 }
 function keyboard(rows) { return { inline_keyboard: rows }; }
 function button(text, ...parts) { return { text, callback_data: callback(parts) }; }
+function urlButton(text, url) { return { text, url: required(url, 'button url') }; }
 function parseCallback(data) {
   if (typeof data !== 'string' || !data.startsWith('twm|')) return null;
   return data.split('|').slice(1);
@@ -78,6 +79,7 @@ export function createTelegramWorkspaceNativeUi({
   authorityResolver,
   configurationService,
   botCapabilityService = null,
+  membershipAccess = null,
   projectScope = 'sg2.1',
   idFactory = () => randomUUID(),
   audit = async () => {}
@@ -88,6 +90,7 @@ export function createTelegramWorkspaceNativeUi({
   if (typeof authorityResolver?.verify !== 'function') throw new TypeError('authorityResolver.verify is required');
   for (const method of ['getConfig', 'listConfigs', 'applyChange', 'history', 'rollback']) if (typeof configurationService?.[method] !== 'function') throw new TypeError(`configurationService.${method} is required`);
   if (botCapabilityService !== null && typeof botCapabilityService?.getHealth !== 'function') throw new TypeError('botCapabilityService.getHealth is required');
+  if (membershipAccess !== null && typeof membershipAccess?.createJoinRequestLink !== 'function') throw new TypeError('membershipAccess.createJoinRequestLink is required');
   const project = required(projectScope, 'projectScope');
 
   async function identify(update) {
@@ -157,6 +160,7 @@ export function createTelegramWorkspaceNativeUi({
       [button('📣 Публикации', 'menu', workspaceId, 'publication')],
       [button('🧠 Расширенные настройки', 'menu', workspaceId, 'advanced')],
       [button('👥 Участники и роли', 'menu', workspaceId, 'members')],
+      ...(membershipAccess ? [[button('🔐 Доступ и вступление', 'access', workspaceId)]] : []),
       [button('📜 История / откат', 'hist', workspaceId), button('🩺 Диагностика', 'diag', workspaceId)],
       [button('⬅️ К списку', 'list')]
     ]));
@@ -233,6 +237,46 @@ export function createTelegramWorkspaceNativeUi({
     await sendOrEdit(update, `✅ Сохранено\n\n${preset.label}\nВерсия: ${applied.config.version}`, keyboard([[button('⬅️ К настройкам', 'w', workspaceId)]]));
   }
 
+  async function showMembershipAccess(update, actor, workspaceId) {
+    await requireWorkspace(actor, workspaceId, 'workspace:configure', true);
+    await sendOrEdit(update, '🔐 Доступ и вступление\n\nSG создаст специальную ссылку. Пользователь сначала отправит заявку, после чего SG обработает её отдельно.\n\nПрямое добавление через Telegram не создаёт заявку.', keyboard([
+      [button('Создать или показать ссылку', 'invitep', workspaceId, 'reuse')],
+      [button('Заменить старую ссылку', 'invitep', workspaceId, 'rotate')],
+      [button('⬅️ Назад', 'w', workspaceId)]
+    ]));
+  }
+
+  async function showInvitePreview(update, actor, workspaceId, mode) {
+    await requireWorkspace(actor, workspaceId, 'workspace:configure', true);
+    const rotate = mode === 'rotate';
+    await sendOrEdit(update, rotate
+      ? 'Заменить ссылку?\n\nСтарая управляемая ссылка будет отключена после создания новой.'
+      : 'Создать ссылку для заявок на вступление?\n\nЕсли ссылка уже существует, SG покажет её повторно.', keyboard([
+      [button('✅ Подтвердить', 'invitea', workspaceId, rotate ? 'rotate' : 'reuse')],
+      [button('❌ Отмена', 'access', workspaceId)]
+    ]));
+  }
+
+  async function applyInvite(update, actor, workspaceId, mode) {
+    const authority = await requireWorkspace(actor, workspaceId, 'workspace:configure', true);
+    const requestId = `twm-invite:${update.callback_query.id}`;
+    const result = await membershipAccess.createJoinRequestLink({
+      workspaceId,
+      actorGlobalUserId: actor.actorGlobalUserId,
+      actorTelegramUserId: actor.telegramUserId,
+      authority,
+      traceId: `twm-invite:${idFactory()}`,
+      requestId,
+      confirmation: Object.freeze({ confirmed: true, requestId }),
+      rotate: mode === 'rotate'
+    });
+    await sendOrEdit(update, `✅ Ссылка готова\n\nПользователь нажимает «Присоединиться» и отправляет заявку.\n\n${result.inviteLink}`, keyboard([
+      [urlButton('Присоединиться', result.inviteLink)],
+      [button('🔄 Заменить ссылку', 'invitep', workspaceId, 'rotate')],
+      [button('⬅️ К настройкам', 'w', workspaceId)]
+    ]));
+  }
+
   async function showHistory(update, actor, workspaceId) {
     await requireWorkspace(actor, workspaceId);
     const configs = await configurationService.listConfigs({ workspaceId, actorGlobalUserId: actor.actorGlobalUserId, telegramUserId: actor.telegramUserId });
@@ -302,6 +346,9 @@ export function createTelegramWorkspaceNativeUi({
       else if (queryParts[0] === 'menu') await showSection(update, actor, queryParts[1], queryParts[2]);
       else if (queryParts[0] === 'preview') await showPreview(update, actor, queryParts[1], queryParts.slice(2).join('|'));
       else if (queryParts[0] === 'apply') await applyPreset(update, actor, queryParts[1], queryParts.slice(2).join('|'));
+      else if (queryParts[0] === 'access') await showMembershipAccess(update, actor, queryParts[1]);
+      else if (queryParts[0] === 'invitep') await showInvitePreview(update, actor, queryParts[1], queryParts[2]);
+      else if (queryParts[0] === 'invitea') await applyInvite(update, actor, queryParts[1], queryParts[2]);
       else if (queryParts[0] === 'hist') await showHistory(update, actor, queryParts[1]);
       else if (queryParts[0] === 'hns') await showNamespaceHistory(update, actor, queryParts[1], queryParts[2]);
       else if (queryParts[0] === 'rbp') await showRollbackPreview(update, actor, queryParts[1], queryParts[2], queryParts[3]);

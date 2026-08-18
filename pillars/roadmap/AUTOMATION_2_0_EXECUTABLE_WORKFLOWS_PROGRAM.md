@@ -440,6 +440,12 @@ Eighth live UX remediation, 2026-08-18:
 - when explicit structured evidence such as one exact local time yields exactly one operational candidate, an imperfect supplementary AI description cannot discard that target;
 - description scoring remains necessary when structured evidence leaves several candidates, and weak or tied description evidence still fails closed with a human-readable clarification.
 
+Ninth live UX remediation, 2026-08-18:
+- canonical user task listing reads workflow records, not legacy execution rows with technical statuses and timestamps;
+- scoped operational legacy recurring schedules are adopted lazily into the existing workflow/version store using their stable taskId and scheduleId;
+- adoption is bounded to the current canonical scope and only active, paused or error schedules with real stored notification content are eligible;
+- after adoption the same automation can be resolved, versioned and updated through the existing Action Gate path; no duplicate task or schedule is created.
+
 Boundary: this closes the production code/CI wiring gap only. It does not prove a Render deploy or the real Telegram live scenario below, so AW2.20 and Automation 2.0 remain NOT CLOSED.
 
 Required live scenario:

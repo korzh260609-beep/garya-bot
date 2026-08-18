@@ -159,6 +159,10 @@ export function createTelegramBotApiClient({
       ...(memberLimit == null ? {} : { member_limit: Number(memberLimit) }),
       creates_join_request: createsJoinRequest === true
     }),
+    revokeChatInviteLink: ({ chatId, inviteLink }) => call('revokeChatInviteLink', {
+      chat_id: chatId,
+      invite_link: requiredString(inviteLink, 'telegram invite link')
+    }),
     approveChatJoinRequest: ({ chatId, userId }) => call('approveChatJoinRequest', {
       chat_id: chatId,
       user_id: Number(userId)

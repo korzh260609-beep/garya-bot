@@ -3,6 +3,7 @@ import { resolveElapsedInterval } from './elapsedInterval.js';
 import { createPostgresWorkflowUpdateStore } from '../automation/postgresWorkflowUpdateStore.js';
 import { createWorkflowUpdateCapability } from '../automation/workflowUpdate.js';
 import { createWorkflowRegisteredTaskStore } from '../automation/workflowRegisteredTaskStore.js';
+import { createWorkflowDefinition } from '../automation/workflowContract.js';
 
 const SUB_DAILY_INTERVAL_MS = Object.freeze({ MINUTELY: 60_000, HOURLY: 3_600_000 });
 
@@ -150,7 +151,87 @@ export function createTemporalTaskStore({ taskStore, temporalService, recurringS
 
   if (!taskStore.database?.query || !taskStore.taskQueue || !recurringScheduler) return coreStore;
   const workflowStore = createPostgresWorkflowUpdateStore({ database: taskStore.database });
-  const workflowUpdateService = createWorkflowUpdateCapability({ store: workflowStore, authorization: productionWorkflowAuthorization(), recurringScheduler: workflowSchedulerAdapter(recurringScheduler), oneShotTaskQueue: taskStore.taskQueue });
+  const schedulerAdapter = workflowSchedulerAdapter(recurringScheduler);
+  const baseWorkflowUpdateService = createWorkflowUpdateCapability({ store: workflowStore, authorization: productionWorkflowAuthorization(), recurringScheduler: schedulerAdapter, oneShotTaskQueue: taskStore.taskQueue });
+
+  async function adoptLegacySchedules({ scope }) {
+    const workflowScope = {
+      globalUserId: scope.globalUserId ?? scope.userScope,
+      projectScope: scope.projectScope,
+      groupScope: scope.groupScope ?? null,
+      threadScope: scope.threadScope ?? null
+    };
+    const schedulerScope = { ...workflowScope, userScope: workflowScope.globalUserId };
+    const [registered, schedules] = await Promise.all([
+      workflowStore.list({ scope: workflowScope, limit: 201 }),
+      recurringScheduler.list({ scope: schedulerScope, limit: 100 })
+    ]);
+    const knownSchedules = new Set(registered.map((record) => record.scheduleId).filter(Boolean));
+    let adopted = 0;
+    for (const schedule of schedules) {
+      if (knownSchedules.has(schedule.scheduleId) || !['active', 'paused', 'error'].includes(schedule.status)) continue;
+      const task = await coreStore.get({ scope: schedulerScope, taskId: schedule.taskId });
+      const message = schedule.state?.notificationMessage
+        ?? task?.payload?.notificationMessage
+        ?? task?.payload?.message
+        ?? null;
+      if (typeof message !== 'string' || message.trim() === '') continue;
+      const createdAt = task?.createdAt ? new Date(task.createdAt).toISOString() : new Date().toISOString();
+      const workflow = createWorkflowDefinition({
+        automationId: schedule.state?.automationId ?? schedule.taskId,
+        version: Number.isInteger(schedule.state?.workflowVersion) && schedule.state.workflowVersion > 0 ? schedule.state.workflowVersion : 1,
+        trigger: {
+          type: 'recurring',
+          recurrence: {
+            rule: schedule.recurrence,
+            timeZone: schedule.timeZone,
+            dtstartLocal: schedule.dtstartLocal
+          }
+        },
+        steps: [
+          { type: 'compose', mode: 'static-message', input: 'message' },
+          { type: 'deliver', mode: 'legacy-self-notification' }
+        ],
+        inputs: { message: message.trim() },
+        delivery: task?.payload?.delivery ?? {},
+        executionPolicy: { maxAttempts: task?.maxAttempts ?? 3, protectedAction: true, confirmationRequired: false },
+        scope: workflowScope,
+        createdBy: workflowScope.globalUserId,
+        updatedBy: workflowScope.globalUserId,
+        createdAt,
+        updatedAt: createdAt,
+        provenance: { source: 'legacy-schedule-adoption', legacyTaskId: schedule.taskId, legacyScheduleId: schedule.scheduleId }
+      });
+      await workflowStore.register({ workflow, taskId: schedule.taskId, scheduleId: schedule.scheduleId });
+      adopted += 1;
+    }
+    return adopted;
+  }
+
+  const workflowUpdateService = Object.freeze({
+    async update(request) {
+      try {
+        return await baseWorkflowUpdateService.update(request);
+      } catch (error) {
+        if (error?.code !== 'workflow_update_target_not_found') throw error;
+        const adopted = await adoptLegacySchedules({ scope: request.scope });
+        if (adopted === 0) throw error;
+        return baseWorkflowUpdateService.update(request);
+      }
+    },
+    history: (request) => baseWorkflowUpdateService.history(request)
+  });
   const registeredStore = createWorkflowRegisteredTaskStore({ taskStore: coreStore, workflowStore });
-  return Object.freeze({ create: registeredStore.create, list: registeredStore.list, get: registeredStore.get, cancel: registeredStore.cancel, workflowStore, workflowUpdateService });
+  return Object.freeze({
+    create: registeredStore.create,
+    list: registeredStore.list,
+    get: registeredStore.get,
+    cancel: registeredStore.cancel,
+    workflowStore,
+    workflowUpdateService,
+    async listWorkflows({ scope, limit = 100 }) {
+      await adoptLegacySchedules({ scope });
+      return workflowStore.list({ scope, limit });
+    }
+  });
 }

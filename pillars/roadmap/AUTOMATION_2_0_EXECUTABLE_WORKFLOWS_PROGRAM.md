@@ -434,6 +434,12 @@ Seventh live UX completion, 2026-08-18:
 - one confident semantic match is updated directly; weak evidence returns not-found without guessing; equally close matches return bounded human-readable message/time choices without internal IDs;
 - the same description path is available to recurring schedule lifecycle controls, and all mutations remain behind the existing Action Gate and stable automation identity/version seams.
 
+Eighth live UX remediation, 2026-08-18:
+- a generic request for current tasks must return the localized list of active tasks with user-facing descriptions, timing and status, never only an internal count;
+- completed, failed and cancelled task history is hidden by default and remains available only when the user explicitly requests those statuses/history;
+- when explicit structured evidence such as one exact local time yields exactly one operational candidate, an imperfect supplementary AI description cannot discard that target;
+- description scoring remains necessary when structured evidence leaves several candidates, and weak or tied description evidence still fails closed with a human-readable clarification.
+
 Boundary: this closes the production code/CI wiring gap only. It does not prove a Render deploy or the real Telegram live scenario below, so AW2.20 and Automation 2.0 remain NOT CLOSED.
 
 Required live scenario:

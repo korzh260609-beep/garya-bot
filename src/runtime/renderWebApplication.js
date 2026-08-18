@@ -307,6 +307,35 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
       })
     : null;
 
+  const telegramMembershipAccessStore = workspaceStore
+    ? createPostgresMembershipAccessStore(harness.persistence.database)
+    : null;
+  const telegramMembershipAccess = telegramMembershipAccessStore && telegramUpdateStore.workspaceRegistry
+    ? createTelegramMembershipAccessService({
+        store: telegramMembershipAccessStore,
+        workspaceRegistry: telegramUpdateStore.workspaceRegistry,
+        botClient,
+        identityResolver,
+        mutationGate: telegramWorkspaceMutationGate,
+        botUserId: telegramConfig.botUserId,
+        projectScope: harness.config.projectScope,
+        audit: async (event) => {
+          const correlation = `twm-membership:${event.workspaceId ?? 'unknown'}:${event.telegramUserId ?? 'unknown'}`;
+          return harness.observability.record({
+            eventClass: 'audit_event',
+            channel: 'audit',
+            stage: 'telegram-membership-access',
+            traceContext: { traceId: correlation, requestId: correlation, environment: harness.config.environment, revision: harness.config.revision },
+            actorRef: event.globalUserId ?? null,
+            outcome: event.outcome ?? 'unknown',
+            reason: event.reason ?? null,
+            data: { membershipEventClass: event.eventClass, workspaceId: event.workspaceId, telegramUserId: event.telegramUserId }
+          });
+        }
+      })
+    : null;
+
+
   const telegramWorkspaceNativeUi = telegramWorkspaceConfiguration && telegramUpdateStore.workspaceRegistry
     ? createTelegramWorkspaceNativeUi({
         botClient,
@@ -315,6 +344,7 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
         authorityResolver: telegramWorkspaceAuthority,
         configurationService: telegramWorkspaceConfiguration,
         botCapabilityService: telegramBotCapabilities,
+        membershipAccess: telegramMembershipAccess,
         projectScope: harness.config.projectScope,
         audit: async (event) => {
           const correlation = `twm1.8:${event.actorGlobalUserId ?? 'unknown'}:${event.action ?? 'ui'}`;
@@ -443,33 +473,6 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
       })
     : null;
 
-  const telegramMembershipAccessStore = workspaceStore
-    ? createPostgresMembershipAccessStore(harness.persistence.database)
-    : null;
-  const telegramMembershipAccess = telegramMembershipAccessStore && telegramUpdateStore.workspaceRegistry
-    ? createTelegramMembershipAccessService({
-        store: telegramMembershipAccessStore,
-        workspaceRegistry: telegramUpdateStore.workspaceRegistry,
-        botClient,
-        identityResolver,
-        mutationGate: telegramWorkspaceMutationGate,
-        botUserId: telegramConfig.botUserId,
-        projectScope: harness.config.projectScope,
-        audit: async (event) => {
-          const correlation = `twm-membership:${event.workspaceId ?? 'unknown'}:${event.telegramUserId ?? 'unknown'}`;
-          return harness.observability.record({
-            eventClass: 'audit_event',
-            channel: 'audit',
-            stage: 'telegram-membership-access',
-            traceContext: { traceId: correlation, requestId: correlation, environment: harness.config.environment, revision: harness.config.revision },
-            actorRef: event.globalUserId ?? null,
-            outcome: event.outcome ?? 'unknown',
-            reason: event.reason ?? null,
-            data: { membershipEventClass: event.eventClass, workspaceId: event.workspaceId, telegramUserId: event.telegramUserId }
-          });
-        }
-      })
-    : null;
 
   const integration = createTelegramProductionIntegration({
     credentialManager: harness.credentialManager,

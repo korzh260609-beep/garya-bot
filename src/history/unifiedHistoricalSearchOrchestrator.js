@@ -1,4 +1,5 @@
 import { planHistoricalQuery } from './historicalQueryPlanner.js';
+import { mergeHistoricalSearchResults } from './unifiedHistoricalResultMerger.js';
 import { retrieveLongTermConversationHistory } from '../conversation/longTermConversationHistory.js';
 
 const MEMORY_HINTS = new Set(['user-memory', 'group-memory', 'thread-memory', 'topic-digest']);
@@ -100,7 +101,14 @@ function normalizeMemory2(result, range) {
     entityKey: record.key ?? null, text: typeof record.value === 'string' ? record.value : JSON.stringify(record.value ?? null),
     value: record.value, relevance: record.recallScore, trust: record.trust, confirmed: record.confirmed,
     confidence: record.confidence, lifecycle: record.lifecycleState, provenance: record.provenance,
-    metadata: { layer: record.layer, privacyClass: record.privacyClass, tags: record.tags ?? [] }
+    metadata: {
+      layer: record.layer,
+      privacyClass: record.privacyClass,
+      tags: record.tags ?? [],
+      supersededBy: record.supersededBy ?? null,
+      semanticFingerprint: record.semanticFingerprint ?? null,
+      recordVersion: record.recordVersion ?? null
+    }
   })).filter((item) => timestampInRange(item.timestamp, range));
 }
 function normalizeProjectResults(source, result, range) {
@@ -113,7 +121,17 @@ function normalizeProjectResults(source, result, range) {
       text: JSON.stringify(record.fact ?? {}), value: record.fact ?? null, relevance: item.score,
       trust: record.trust, confirmed: record.confirmed, confidence: record.confidence,
       lifecycle: record.lifecycleState, provenance: record.source,
-      metadata: { namespace: record.namespace ?? null, semanticScore: item.semanticScore ?? null, lexicalScore: item.lexicalScore ?? null, exactScore: item.exactScore ?? null, relationExpanded: item.relationExpanded === true }
+      metadata: {
+        namespace: record.namespace ?? null,
+        semanticScore: item.semanticScore ?? null,
+        lexicalScore: item.lexicalScore ?? null,
+        exactScore: item.exactScore ?? null,
+        relationExpanded: item.relationExpanded === true,
+        successorMemoryId: record.successorMemoryId ?? null,
+        supersededAt: record.supersededAt ?? null,
+        semanticFingerprint: record.semanticFingerprint ?? null,
+        confirmationState: record.confirmationState ?? null
+      }
     });
   }).filter((item) => timestampInRange(item.timestamp, range));
 }
@@ -124,7 +142,15 @@ function normalizeDevelopmentContext(context, range) {
     entityKey: fact.entityKey ?? null, text: JSON.stringify(fact.factData ?? {}), value: fact.factData ?? null,
     relevance: fact.retrieval?.score ?? null, trust: fact.trust, confirmed: fact.confirmed,
     confidence: fact.confidence, lifecycle: fact.lifecycleState, provenance: fact.provenance,
-    metadata: { namespace: fact.namespace ?? null, currentness: fact.currentness ?? null, conflict: fact.conflict ?? null }
+    metadata: {
+      namespace: fact.namespace ?? null,
+      currentness: fact.currentness ?? null,
+      conflict: fact.conflict ?? null,
+      successorMemoryId: fact.successorMemoryId ?? null,
+      supersededAt: fact.supersededAt ?? null,
+      semanticFingerprint: fact.semanticFingerprint ?? null,
+      confirmationState: fact.confirmationState ?? null
+    }
   })).filter((item) => timestampInRange(item.timestamp, range));
 }
 function normalizeIncidents(result, range) {
@@ -148,7 +174,7 @@ function projectMode(operation) {
   return ['timeline', 'fact-history'].includes(operation) ? 'project_development_evolution' : 'project_development_historical';
 }
 
-export const HISTORICAL_SEARCH_ORCHESTRATOR_CONTRACT_VERSION = 1;
+export const HISTORICAL_SEARCH_ORCHESTRATOR_CONTRACT_VERSION = 2;
 
 export function createUnifiedHistoricalSearchOrchestrator({
   aiRouter,
@@ -168,7 +194,20 @@ export function createUnifiedHistoricalSearchOrchestrator({
     if (!request?.actor?.globalUserId || !request?.scope?.projectScope) throw new TypeError('HS3 requires resolved request identity and project scope');
     const plan = await planner({ aiRouter, temporalService, request, query });
     if (plan?.status === 'clarification-required') {
-      return freeze({ status: 'clarification-required', query: text(query, 2000), plan: clone(plan), selection: null, sources: [], contract: { version: HISTORICAL_SEARCH_ORCHESTRATOR_CONTRACT_VERSION, stage: 'HS3', authorizationExpanded: false } });
+      return freeze({
+        status: 'clarification-required',
+        query: text(query, 2000),
+        plan: clone(plan),
+        selection: null,
+        sources: [],
+        merged: null,
+        contract: {
+          version: HISTORICAL_SEARCH_ORCHESTRATOR_CONTRACT_VERSION,
+          stage: 'HS4',
+          sourceOrchestrationStage: 'HS3',
+          authorizationExpanded: false
+        }
+      });
     }
     if (plan?.status !== 'planned') throw new TypeError('Historical Query Planner returned unsupported plan status');
     if (!sameScope(plan.scope, request)) {
@@ -280,6 +319,7 @@ export function createUnifiedHistoricalSearchOrchestrator({
       ...(hints.filter((hint) => PROJECT_HINTS.has(hint)))
     ];
     const partial = sources.some((source) => source.status === 'failed' || source.status === 'omitted');
+    const merged = mergeHistoricalSearchResults({ plan, sources });
     return freeze({
       status: partial ? 'partial' : 'completed',
       query: plan.query,
@@ -292,11 +332,16 @@ export function createUnifiedHistoricalSearchOrchestrator({
         authorizationScopeSource: 'resolved-request-only'
       },
       sources,
+      merged,
       contract: {
         version: HISTORICAL_SEARCH_ORCHESTRATOR_CONTRACT_VERSION,
-        stage: 'HS3',
+        stage: 'HS4',
+        sourceOrchestrationStage: 'HS3',
         normalized: true,
-        crossSourceRanking: false,
+        crossSourceRanking: true,
+        crossSourceDeduplication: true,
+        conflictsPreserved: true,
+        supersessionPreserved: true,
         authorizationExpanded: false,
         sourceFailuresExplicit: true
       }

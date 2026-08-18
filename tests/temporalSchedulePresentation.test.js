@@ -80,17 +80,24 @@ test('schedule list presents active automations as localized user information wi
   assert.equal(result.data.message.includes('Старый тест'), false);
 });
 
-test('schedule list keeps cancelled schedules available when no semantic status filter was requested', async () => {
+test('schedule list shows only active automations by default', async () => {
   const capability = scheduleListCapability(schedules);
   const result = await capability.execute(request({ locale: 'uk' }));
 
-  assert.equal(result.data.schedules.length, 3);
-  assert.match(result.data.message, /^Ваші автоматизації: 3/);
+  assert.equal(result.data.schedules.length, 2);
+  assert.match(result.data.message, /^Активні автоматизації: 2/);
+  assert.equal(result.data.message.includes('Старый тест'), false);
+  assert.equal(result.data.message.includes(schedules[2].scheduleId), false);
+});
+
+test('schedule list keeps cancelled automations available only through an explicit status request', async () => {
+  const capability = scheduleListCapability(schedules);
+  const result = await capability.execute(request({ locale: 'uk', statuses: ['cancelled'] }));
+
+  assert.equal(result.data.schedules.length, 1);
+  assert.match(result.data.message, /^Ваші автоматизації: 1/);
   assert.match(result.data.message, /«Старый тест»/);
   assert.match(result.data.message, /Статус: скасована/);
-  assert.match(result.data.message, /Розклад: кожні 3 хв. о 16:55/);
-  assert.equal(result.data.message.includes(schedules[2].scheduleId), false);
-  assert.equal(result.data.message.includes('FREQ=MINUTELY'), false);
 });
 
 test('schedule list rejects unsupported semantic status filters', async () => {

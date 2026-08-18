@@ -179,7 +179,16 @@ function targetResolutionError(matchCount) {
   );
 }
 
-async function resolveTarget({ store, selector, scope, recurringScheduler = null }) {
+function eligibleLifecycleStatuses({ selector, lifecycleAction, semanticOperation }) {
+  if (selector.lifecycleStatus) return Object.freeze([selector.lifecycleStatus]);
+  const operation = semanticOperation?.type ?? lifecycleAction ?? null;
+  if (operation === 'pause') return Object.freeze(['active']);
+  if (operation === 'resume') return Object.freeze(['paused']);
+  if (operation === 'cancel') return Object.freeze(['active', 'paused', 'error']);
+  return Object.freeze(['active', 'paused', 'error']);
+}
+
+async function resolveTarget({ store, selector, scope, recurringScheduler = null, lifecycleAction = null, semanticOperation = null }) {
   if (!hasSemanticSelector(selector)) {
     const matches = await store.resolve({ selector, scope });
     if (!Array.isArray(matches) || matches.length !== 1) throw targetResolutionError(Array.isArray(matches) ? matches.length : null);
@@ -199,18 +208,20 @@ async function resolveTarget({ store, selector, scope, recurringScheduler = null
       { candidateCount: candidates.length, clarificationRequired: true }
     );
   }
+  const eligibleStatuses = eligibleLifecycleStatuses({ selector, lifecycleAction, semanticOperation });
+  const eligibleCandidates = candidates.filter((record) => eligibleStatuses.includes(String(record.lifecycleStatus ?? '').toLocaleLowerCase('und')));
   let matches;
   if (selector.position != null) {
     if (typeof recurringScheduler?.list !== 'function') {
       throw new WorkflowUpdateError('workflow_update_position_resolution_unavailable', 'numbered automation selection is unavailable', { clarificationRequired: true });
     }
     const schedules = await recurringScheduler.list({ scope, limit: 100 });
-    const byScheduleId = new Map(candidates.filter((record) => record.scheduleId).map((record) => [record.scheduleId, record]));
+    const byScheduleId = new Map(eligibleCandidates.filter((record) => record.scheduleId).map((record) => [record.scheduleId, record]));
     const visibleOrder = schedules.flatMap((schedule) => byScheduleId.has(schedule.scheduleId) ? [byScheduleId.get(schedule.scheduleId)] : []);
     const selected = visibleOrder[selector.position - 1] ?? null;
     matches = selected && semanticRecordMatches(selected, selector) ? [selected] : [];
   } else {
-    matches = candidates.filter((record) => semanticRecordMatches(record, selector));
+    matches = eligibleCandidates.filter((record) => semanticRecordMatches(record, selector));
   }
   if (matches.length !== 1) throw targetResolutionError(matches.length);
   return matches[0];
@@ -421,7 +432,14 @@ export function createWorkflowUpdateCapability({
       throw new WorkflowUpdateError('workflow_update_empty_patch', 'workflow mutation must change at least one field or lifecycle state');
     }
 
-    const record = await resolveTarget({ store, selector: normalizedSelector, scope: normalizedScope, recurringScheduler });
+    const record = await resolveTarget({
+      store,
+      selector: normalizedSelector,
+      scope: normalizedScope,
+      recurringScheduler,
+      lifecycleAction: requestedLifecycleAction,
+      semanticOperation: normalizedSemanticOperation
+    });
     const current = createWorkflowDefinition(record.workflow);
     if (expectedVersion != null && expectedVersion !== current.version) {
       throw new WorkflowUpdateError(

@@ -421,6 +421,12 @@ Fifth deployed live attempt, 2026-08-18:
 - numbered workflow resolution now selects from the exact all-status schedule order shown to the user first, then validates additional explicitly supplied selector fields against that selected record;
 - selection remains scope-bounded and fail-closed when the visible position is absent or its explicit attributes do not match.
 
+Sixth live UX defect, 2026-08-18:
+- an ordinary request for current tasks exposed cancelled schedules, and semantic update resolution treated a cancelled duplicate as a valid target candidate;
+- default schedule listing now exposes active automations only; other lifecycle states remain available through an explicit status request;
+- ordinary content updates resolve only against operational records, so one active 07:00 automation is selected directly even when a cancelled historical duplicate has the same time/message;
+- pause/resume/cancel keep operation-specific eligible lifecycle states and all resolution remains canonical-scope bounded and fail-closed.
+
 Boundary: this closes the production code/CI wiring gap only. It does not prove a Render deploy or the real Telegram live scenario below, so AW2.20 and Automation 2.0 remain NOT CLOSED.
 
 Required live scenario:

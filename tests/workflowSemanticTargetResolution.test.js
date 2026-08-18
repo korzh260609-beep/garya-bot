@@ -139,7 +139,7 @@ test('numbered workflow selection follows the same visible recurring schedule or
   assert.equal(store.current.find((item) => item.workflow.automationId === 'automation:b').workflow.inputs.message, 'Changed first visible automation');
 });
 
-test('numbered selection chooses from the displayed all-status list before validating explicit active status', async () => {
+test('numbered selection follows the default active-only user list', async () => {
   const records = [
     record({ automationId: 'automation:cancelled-new', taskId: 'task:1', scheduleId: 'schedule:1', message: 'Hello', localTime: '07:00', lifecycleStatus: 'cancelled' }),
     record({ automationId: 'automation:active', taskId: 'task:2', scheduleId: 'schedule:2', message: 'Hello', localTime: '07:00', lifecycleStatus: 'active' }),
@@ -156,9 +156,24 @@ test('numbered selection chooses from the displayed all-status list before valid
   };
   const { service } = capability(records, recurringScheduler);
   const result = await service.update({
-    selector: { position: 2, lifecycleStatus: 'active' },
+    selector: { position: 1 },
     scope,
-    patch: { inputs: { message: 'Changed visible automation 2' } },
+    patch: { inputs: { message: 'Changed active automation 1' } },
+    actor
+  });
+  assert.equal(result.automationId, 'automation:active');
+});
+
+test('semantic update ignores cancelled duplicates and directly selects the one operational automation', async () => {
+  const records = [
+    record({ automationId: 'automation:cancelled', taskId: 'task:1', scheduleId: 'schedule:1', message: 'ПРИВЕТ МОНАРХ', localTime: '07:00', lifecycleStatus: 'cancelled' }),
+    record({ automationId: 'automation:active', taskId: 'task:2', scheduleId: 'schedule:2', message: 'ПРИВЕТ МОНАРХ', localTime: '07:00', lifecycleStatus: 'active' })
+  ];
+  const { service } = capability(records);
+  const result = await service.update({
+    selector: { localTime: '07:00' },
+    scope,
+    semanticOperation: { type: 'add-step', data: { step: { type: 'compose', config: { template: 'Добавь свежую активность в доступных группах' } } } },
     actor
   });
   assert.equal(result.automationId, 'automation:active');

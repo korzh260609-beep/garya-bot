@@ -349,8 +349,9 @@ export function createTemporalCapabilities({ temporalService, memoryProvider = n
         actionTypes: ['schedule-list'], actionClasses: ['read-only'],
         execute: async (request) => {
           const schedules = await recurringScheduler.list({ scope: scopeFrom(request), limit: request.input?.limit ?? 100 });
-          const statuses = scheduleStatuses(request.input?.statuses);
-          const visibleSchedules = statuses ? schedules.filter((schedule) => statuses.includes(schedule.status)) : schedules;
+          const requestedStatuses = scheduleStatuses(request.input?.statuses);
+          const statuses = requestedStatuses ?? Object.freeze(['active']);
+          const visibleSchedules = schedules.filter((schedule) => statuses.includes(schedule.status));
           return {
             status: 'success',
             data: {

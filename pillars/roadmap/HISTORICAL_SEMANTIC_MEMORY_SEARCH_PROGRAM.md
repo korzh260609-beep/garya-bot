@@ -2,7 +2,7 @@
 
 ## Status
 
-**PLANNED / NOT CLOSED.** This is an additive Memory 2.0 extension. M1–M9 remain CLOSED and must not be reopened or replaced.
+**IN PROGRESS / NOT CLOSED.** HS1 and HS2 are implemented and CI-verified. HS3–HS6 remain planned. This is an additive Memory 2.0 extension. M1–M9 remain CLOSED and must not be reopened or replaced.
 
 ## Goal
 
@@ -28,8 +28,8 @@ Required reuse:
 ## Program order
 
 ```text
-HS1 Historical Query Planner
--> HS2 Memory 2.0 Hybrid Semantic Retrieval
+HS1 Historical Query Planner [IMPLEMENTED / CI-VERIFIED]
+-> HS2 Memory 2.0 Hybrid Semantic Retrieval [IMPLEMENTED / CI-VERIFIED]
 -> HS3 Unified Historical Search Orchestrator
 -> HS4 Ranking / Dedup / Conflict / Supersession
 -> HS5 Timeline / First / Last / Fact History
@@ -64,12 +64,14 @@ Convert free-form historical questions into a bounded structured search plan.
 
 ## Acceptance criteria
 
-- [ ] “Что мы обсуждали месяц назад про машину?” resolves topic + relative time + search;
-- [ ] “Когда я впервые говорил про Haldex?” resolves first-occurrence;
-- [ ] “Покажи как менялось решение по памяти СГ за год” resolves timeline + range;
-- [ ] unsupported/ambiguous intent fails closed to a concise clarification;
-- [ ] no internal IDs are required from the user;
-- [ ] interpretation is transport-independent.
+- [x] “Что мы обсуждали месяц назад про машину?” resolves topic + relative time + search;
+- [x] “Когда я впервые говорил про Haldex?” resolves first-occurrence;
+- [x] “Покажи как менялось решение по памяти СГ за год” resolves timeline + range;
+- [x] unsupported/ambiguous intent fails closed to a concise clarification;
+- [x] no internal IDs are required from the user;
+- [x] interpretation is transport-independent.
+
+Implementation evidence: `src/history/historicalQueryPlanner.js`, `tests/historicalQueryPlanner.test.js`; implementation commit `d380d935f1384dcaad1e44f9c8da1169cb94f8e3`, SG 2.1 CI #8475 SUCCESS.
 
 ---
 
@@ -92,12 +94,25 @@ Upgrade Memory 2.0 from primarily lexical/token recall to hybrid semantic retrie
 
 ## Acceptance criteria
 
-- [ ] semantically equivalent wording finds the same authorized fact without exact token overlap;
-- [ ] authorization occurs before semantic content reaches AI;
-- [ ] superseded/expired facts remain excluded from ordinary recall but available in authorized historical mode;
-- [ ] AI failure has a bounded deterministic fallback;
-- [ ] no direct model calls bypass AI Router;
-- [ ] user/group/thread/project isolation regression remains green.
+- [x] semantically equivalent wording finds the same authorized fact without exact token overlap;
+- [x] authorization occurs before semantic content reaches AI;
+- [x] superseded/expired facts remain excluded from ordinary recall but available in authorized historical mode through the existing `includeHistory` contract;
+- [x] AI failure has a bounded deterministic fallback;
+- [x] no direct model calls bypass AI Router;
+- [x] user/group/thread/project isolation regression remains green.
+
+Implementation evidence:
+
+- canonical entry remains `createMemory2Service().recall()`; no parallel RecallEngine;
+- deterministic core and authorization boundary remain in `src/memory2/memory2Core.js`;
+- hybrid semantic reranking is `src/memory2/hybridSemanticRecall.js`;
+- semantic processing receives only bounded results returned by the existing authorized core recall;
+- exact/lexical ranking signals are retained and combined with semantic relevance plus confidence/provenance/lifecycle evidence signals;
+- SG AI Router is used with normal policy/telemetry/cost handling and deterministic fallback on route/output failure;
+- regression suite: `tests/memory2HybridSemanticRetrieval.test.js`;
+- implementation commit `c8a073a7b65a23aa0601c093d3d81099076112a0`, SG 2.1 CI #8479 SUCCESS on exact commit.
+
+HS2 is implemented and CI-verified but remains **NOT CLOSED** until HS6 consolidated security/live acceptance under the program closure rule.
 
 ---
 

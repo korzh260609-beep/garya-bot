@@ -54,6 +54,8 @@ Do not create a competing memory database, RecallEngine, identity layer, permiss
 
 Exit gate: natural historical requests reliably become one bounded structured plan without changing authorization.
 
+Status: **IMPLEMENTED / CI-VERIFIED / NOT CLOSED**; final closure remains gated by HS6 live acceptance.
+
 ---
 
 ## HS2 workflow — Memory 2.0 Hybrid Semantic Retrieval
@@ -70,6 +72,19 @@ Exit gate: natural historical requests reliably become one bounded structured pl
 10. Run user/group/thread/project isolation regressions.
 
 Exit gate: semantically equivalent questions can find authorized Memory 2.0 facts without exact-word dependence and without weakening privacy or boundedness.
+
+Implementation evidence:
+
+- canonical entry is still `createMemory2Service().recall()`;
+- core authorization and deterministic ranking are preserved in `src/memory2/memory2Core.js`;
+- semantic reranking is implemented in `src/memory2/hybridSemanticRecall.js` over at most 100 already-authorized candidates;
+- semantic calls use SG AI Router only with reason `memory2-hybrid-semantic-retrieval`;
+- exact/lexical boosts are retained; confidence/provenance/lifecycle evidence is added to the combined score;
+- invalid AI output and AI Router failure return the deterministic core recall result;
+- `tests/memory2HybridSemanticRetrieval.test.js` covers semantic paraphrase, authorization-before-AI, exact boost preservation and fallback;
+- implementation commit `c8a073a7b65a23aa0601c093d3d81099076112a0` passed SG 2.1 CI #8479 on exact commit.
+
+Status: **IMPLEMENTED / CI-VERIFIED / NOT CLOSED**; final closure remains gated by HS6 consolidated security/live acceptance.
 
 ---
 

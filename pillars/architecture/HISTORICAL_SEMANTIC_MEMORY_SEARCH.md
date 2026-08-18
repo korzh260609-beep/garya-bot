@@ -2,7 +2,7 @@
 
 ## Status
 
-Planned additive Memory 2.0 extension. This document defines the target architecture only; implementation status is determined by code, tests, exact-head CI and live runtime evidence.
+Additive Memory 2.0 extension **IN PROGRESS / NOT CLOSED**. HS1 Historical Query Planner and HS2 Memory 2.0 Hybrid Semantic Retrieval are implemented and CI-verified; HS3–HS6 remain planned. Final implementation status is determined by code, tests, exact-head CI and live runtime evidence.
 
 ## Purpose
 
@@ -87,9 +87,11 @@ Ordinary conversational context may remain short and bounded independently.
 
 ## Memory 2.0 semantic retrieval rule
 
-Memory 2.0 recall must evolve from primarily lexical/token scoring into hybrid semantic retrieval while preserving deterministic and policy-first behavior.
+Memory 2.0 recall uses hybrid semantic retrieval while preserving deterministic and policy-first behavior.
 
-Ranking inputs may include:
+The canonical implementation remains `createMemory2Service().recall()`; HS2 does **not** introduce a second RecallEngine. The original authorization and deterministic ranking implementation is retained as the core/fallback path. Semantic ranking is applied only to a bounded candidate set that has already passed the existing Memory 2.0 scope/privacy/lifecycle authorization boundary.
+
+Ranking inputs include:
 
 - exact key/entity/topic match;
 - lexical relevance;
@@ -98,12 +100,13 @@ Ranking inputs may include:
 - confirmation state;
 - confidence;
 - lifecycle state;
-- temporal fit;
-- freshness/recency when relevant;
+- temporal fit/recency through the existing core signals;
 - scope specificity;
 - provenance quality.
 
-Semantic analysis must use the approved AI Router or approved retrieval infrastructure only. No direct model bypass is allowed.
+Semantic analysis uses the approved SG AI Router only. The model may score only supplied authorized candidate IDs and cannot broaden scope or create evidence. Invalid output, unknown IDs or AI Router failure return the deterministic core recall result. Candidate count, query text, candidate text and final record/character output remain bounded.
+
+HS2 implementation: `src/memory2/memory2.js`, `src/memory2/memory2Core.js`, `src/memory2/hybridSemanticRecall.js`, `tests/memory2HybridSemanticRetrieval.test.js`.
 
 ## Unified source orchestration
 
@@ -229,8 +232,8 @@ Large archive processing must reuse hierarchical bounded retrieval and AI Router
 
 Implementation is split into HS1–HS6:
 
-1. HS1 — Historical Query Planner;
-2. HS2 — Memory 2.0 Hybrid Semantic Retrieval;
+1. HS1 — Historical Query Planner — implemented / CI-verified;
+2. HS2 — Memory 2.0 Hybrid Semantic Retrieval — implemented / CI-verified;
 3. HS3 — Unified Historical Search Orchestrator;
 4. HS4 — Unified Ranking, Deduplication, Conflict & Supersession;
 5. HS5 — Timeline, First/Last Occurrence & Fact History;
@@ -238,4 +241,3 @@ Implementation is split into HS1–HS6:
 
 Roadmap: `../roadmap/HISTORICAL_SEMANTIC_MEMORY_SEARCH_PROGRAM.md`.
 Workflow: `../workflow/HISTORICAL_SEMANTIC_MEMORY_SEARCH_WORKFLOW.md`.
-Memory foundation: `MEMORY_2_0.md`.

@@ -47,6 +47,28 @@ test('Block 16 registers the complete initial production capability set', () => 
   }
 });
 
+test('automation update returns a useful localized clarification instead of a generic execution error', async () => {
+  const error = Object.assign(new Error('Several existing automations match'), {
+    code: 'workflow_update_target_ambiguous',
+    retryable: false,
+    details: { matchCount: 2, clarificationRequired: true }
+  });
+  const { registry, executor } = harness({ workflowUpdateService: { async update() { throw error; } } });
+  const update = registry.get('automation-update');
+  const request = requestFor(update, {
+    payload: {
+      locale: 'uk-UA',
+      selector: { localTime: '07:00' },
+      semanticOperation: { type: 'add-workspace-activity', data: { workspaceSelection: 'authorized-current' } }
+    }
+  });
+  const result = await executor.execute({ actionRequest: request, gateDecision: allowed(request) });
+  assert.equal(result.status, 'failed');
+  assert.equal(result.error.code, 'workflow_update_target_ambiguous');
+  assert.match(result.data.message, /першу.*другу/i);
+  assert.equal(result.data.message.includes('Деталі помилки'), false);
+});
+
 test('memory write and read remain isolated to the request scope', async () => {
   const { registry, executor } = harness();
   const write = registry.get('memory-write');

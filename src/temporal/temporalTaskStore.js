@@ -101,6 +101,7 @@ function productionWorkflowAuthorization() {
 function workflowSchedulerAdapter(scheduler) {
   const adapt = (input) => ({ ...input, scope: { ...input.scope, userScope: input.scope?.userScope ?? input.scope?.globalUserId } });
   return Object.freeze({
+    list: (input) => scheduler.list(adapt(input)),
     update: (input) => scheduler.update(adapt(input)),
     pause: (input) => scheduler.pause(adapt(input)),
     resume: (input) => scheduler.resume(adapt(input)),

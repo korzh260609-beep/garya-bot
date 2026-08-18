@@ -41,6 +41,25 @@ function requiredText(value, field) {
   return value.trim();
 }
 
+function automationUpdateClarification(error, locale) {
+  if (error?.details?.clarificationRequired !== true) return null;
+  const language = String(locale ?? 'en').toLowerCase();
+  const ambiguous = error.code === 'workflow_update_target_ambiguous';
+  if (language.startsWith('uk')) {
+    return ambiguous
+      ? 'Знайдено кілька однакових автоматизацій. Напишіть, яку змінити: «першу» або «другу».'
+      : 'Потрібну автоматизацію не знайдено. Спочатку попросіть показати активні автоматизації, потім вкажіть її номер.';
+  }
+  if (language.startsWith('ru')) {
+    return ambiguous
+      ? 'Найдено несколько одинаковых автоматизаций. Напишите, какую изменить: «первую» или «вторую».'
+      : 'Нужная автоматизация не найдена. Сначала попросите показать активные автоматизации, затем укажите её номер.';
+  }
+  return ambiguous
+    ? 'Several matching automations were found. Say which one to change: the first or the second.'
+    : 'The requested automation was not found. List active automations first, then specify its number.';
+}
+
 function boundedText(value, field, maxLength = 200000) {
   const text = requiredText(value, field);
   if (text.length > maxLength) throw new RangeError(`${field} exceeds ${maxLength} characters`);
@@ -253,21 +272,32 @@ export function createProductionCapabilities({
           projectScope: request.scope.projectScope,
           requestId: request.traceContext.requestId
         });
-        const result = await workflowUpdateService.update({
-          selector: request.input?.selector,
-          scope: workflowScopeFrom(request),
-          patch: request.input?.patch ?? {},
-          lifecycleAction: request.input?.lifecycleAction ?? null,
-          semanticOperation: request.input?.semanticOperation ?? null,
-          expectedVersion: request.input?.expectedVersion ?? null,
-          actor: Object.freeze({ ...request.actor, automationUpdateGate: gateEvidence }),
-          provenance: Object.freeze({
-            source: 'production-capability',
-            capability: 'automation-update',
-            requestId: request.traceContext.requestId,
-            traceId: request.traceContext.traceId
-          })
-        });
+        let result;
+        try {
+          result = await workflowUpdateService.update({
+            selector: request.input?.selector,
+            scope: workflowScopeFrom(request),
+            patch: request.input?.patch ?? {},
+            lifecycleAction: request.input?.lifecycleAction ?? null,
+            semanticOperation: request.input?.semanticOperation ?? null,
+            expectedVersion: request.input?.expectedVersion ?? null,
+            actor: Object.freeze({ ...request.actor, automationUpdateGate: gateEvidence }),
+            provenance: Object.freeze({
+              source: 'production-capability',
+              capability: 'automation-update',
+              requestId: request.traceContext.requestId,
+              traceId: request.traceContext.traceId
+            })
+          });
+        } catch (error) {
+          const clarification = automationUpdateClarification(error, request.input?.locale);
+          if (!clarification) throw error;
+          return {
+            status: 'failed',
+            data: { message: clarification },
+            error: { code: error.code, message: error.message, retryable: false }
+          };
+        }
         return { status: 'success', data: { ...result, message: `Автоматизация обновлена. Версия: ${result.version}.` } };
       }
     }),

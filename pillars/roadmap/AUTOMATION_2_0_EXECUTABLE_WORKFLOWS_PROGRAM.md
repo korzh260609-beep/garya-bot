@@ -397,6 +397,12 @@ First deployed live attempt, 2026-08-18:
 - the remediation adds the typed `add-workspace-activity` operation, symbolic `authorized-current` execution-time resolution, preserved original notification text, current authority filtering plus AW2.13 per-workspace rechecks, user-facing workspace titles instead of internal IDs, and end-to-end regression coverage;
 - this is a live-found defect remediation, not final acceptance: exact-head CI, re-deploy and the complete live scenario below are still mandatory.
 
+Second deployed live attempt, 2026-08-18:
+- semantic routing reached the protected update action, but multiple/not-found target clarification was flattened into a generic capability failure;
+- the prompt already allowed “first/second”, but workflow target validation rejected `selector.position`, so the advertised recovery path was incomplete;
+- the remediation keeps ambiguity fail-closed, exposes a localized safe clarification, accepts an explicit one-based position and maps it through the same recurring-schedule order shown to the user, never through internal ID ordering;
+- AW2.20 remains NOT CLOSED pending exact-head CI, re-deploy and successful live execution.
+
 Boundary: this closes the production code/CI wiring gap only. It does not prove a Render deploy or the real Telegram live scenario below, so AW2.20 and Automation 2.0 remain NOT CLOSED.
 
 Required live scenario:

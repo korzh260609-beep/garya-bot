@@ -75,12 +75,13 @@ function authorization() {
   };
 }
 
-function capability(records) {
+function capability(records, recurringScheduler = null) {
   const store = memoryStore(records);
   const auth = authorization();
   const service = createWorkflowUpdateCapability({
     store,
     authorization: auth,
+    recurringScheduler,
     clock: () => new Date('2026-08-16T15:00:00.000Z')
   });
   return { service, store, auth };
@@ -116,6 +117,26 @@ test('AW2.8 resolves one existing automation from structured semantic target att
   assert.deepEqual(auth.calls[0].selector, { automationId: 'automation:morning' });
   assert.equal(auth.calls[0].requestedSelector.localTime, '07:00');
   assert.equal(auth.calls[0].requestedSelector.recurrence, 'FREQ=DAILY');
+});
+
+test('numbered workflow selection follows the same visible recurring schedule order and never guesses by internal id order', async () => {
+  const records = [
+    record({ automationId: 'automation:a', taskId: 'task:1', scheduleId: 'schedule:1', message: 'Same', localTime: '07:00' }),
+    record({ automationId: 'automation:b', taskId: 'task:2', scheduleId: 'schedule:2', message: 'Same', localTime: '07:00' })
+  ];
+  const recurringScheduler = {
+    async list() { return [{ scheduleId: 'schedule:2' }, { scheduleId: 'schedule:1' }]; }
+  };
+  const { service, store } = capability(records, recurringScheduler);
+  const result = await service.update({
+    selector: { localTime: '07:00', notificationMessage: 'Same', position: 1 },
+    scope,
+    patch: { inputs: { message: 'Changed first visible automation' } },
+    actor
+  });
+  assert.equal(result.automationId, 'automation:b');
+  assert.equal(store.current.find((item) => item.workflow.automationId === 'automation:a').workflow.version, 1);
+  assert.equal(store.current.find((item) => item.workflow.automationId === 'automation:b').workflow.inputs.message, 'Changed first visible automation');
 });
 
 test('AW2.8 fails closed with clarification on zero semantic matches before authorization or mutation', async () => {

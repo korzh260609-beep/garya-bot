@@ -21,6 +21,7 @@ export const WORKFLOW_SEMANTIC_SELECTOR_FIELDS = Object.freeze([
 ]);
 
 const WORKFLOW_ID_SELECTOR_FIELDS = Object.freeze(['automationId', 'taskId', 'scheduleId']);
+const WORKFLOW_POSITION_SELECTOR_FIELD = 'position';
 const SEMANTIC_CANDIDATE_LIMIT = 200;
 
 export class WorkflowUpdateError extends Error {
@@ -82,7 +83,7 @@ function normalizedRecurrence(value, field) {
 
 function normalizeSelector(value) {
   const selector = plainObject(value, 'selector');
-  const allowed = [...WORKFLOW_ID_SELECTOR_FIELDS, ...WORKFLOW_SEMANTIC_SELECTOR_FIELDS];
+  const allowed = [...WORKFLOW_ID_SELECTOR_FIELDS, ...WORKFLOW_SEMANTIC_SELECTOR_FIELDS, WORKFLOW_POSITION_SELECTOR_FIELD];
   const normalized = {};
   for (const key of WORKFLOW_ID_SELECTOR_FIELDS) {
     if (selector[key] != null) normalized[key] = requiredString(selector[key], `selector.${key}`);
@@ -99,6 +100,13 @@ function normalizeSelector(value) {
   if (selector.localTime != null) normalized.localTime = normalizedLocalTime(selector.localTime, 'selector.localTime');
   if (selector.notificationMessage != null) normalized.notificationMessage = normalizedSemanticText(selector.notificationMessage, 'selector.notificationMessage');
   if (selector.lifecycleStatus != null) normalized.lifecycleStatus = requiredString(selector.lifecycleStatus, 'selector.lifecycleStatus').toLocaleLowerCase('und');
+  if (selector.position != null) {
+    const position = Number(selector.position);
+    if (!Number.isInteger(position) || position < 1 || position > 100) {
+      throw new WorkflowUpdateError('workflow_update_selector_invalid', 'selector.position must be an integer from 1 to 100');
+    }
+    normalized.position = position;
+  }
   const unsupported = Object.keys(selector).filter((key) => !allowed.includes(key));
   if (unsupported.length) {
     throw new WorkflowUpdateError('workflow_update_selector_invalid', `unsupported selector fields: ${unsupported.join(', ')}`);
@@ -110,7 +118,7 @@ function normalizeSelector(value) {
 }
 
 function hasSemanticSelector(selector) {
-  return WORKFLOW_SEMANTIC_SELECTOR_FIELDS.some((field) => selector[field] != null);
+  return WORKFLOW_SEMANTIC_SELECTOR_FIELDS.some((field) => selector[field] != null) || selector.position != null;
 }
 
 function workflowRecurrence(workflow) {
@@ -171,7 +179,7 @@ function targetResolutionError(matchCount) {
   );
 }
 
-async function resolveTarget({ store, selector, scope }) {
+async function resolveTarget({ store, selector, scope, recurringScheduler = null }) {
   if (!hasSemanticSelector(selector)) {
     const matches = await store.resolve({ selector, scope });
     if (!Array.isArray(matches) || matches.length !== 1) throw targetResolutionError(Array.isArray(matches) ? matches.length : null);
@@ -191,7 +199,16 @@ async function resolveTarget({ store, selector, scope }) {
       { candidateCount: candidates.length, clarificationRequired: true }
     );
   }
-  const matches = candidates.filter((record) => semanticRecordMatches(record, selector));
+  let matches = candidates.filter((record) => semanticRecordMatches(record, selector));
+  if (selector.position != null) {
+    if (typeof recurringScheduler?.list !== 'function') {
+      throw new WorkflowUpdateError('workflow_update_position_resolution_unavailable', 'numbered automation selection is unavailable', { clarificationRequired: true });
+    }
+    const schedules = await recurringScheduler.list({ scope, limit: 100 });
+    const byScheduleId = new Map(matches.filter((record) => record.scheduleId).map((record) => [record.scheduleId, record]));
+    const visibleOrder = schedules.flatMap((schedule) => byScheduleId.has(schedule.scheduleId) ? [byScheduleId.get(schedule.scheduleId)] : []);
+    matches = visibleOrder[selector.position - 1] ? [visibleOrder[selector.position - 1]] : [];
+  }
   if (matches.length !== 1) throw targetResolutionError(matches.length);
   return matches[0];
 }
@@ -401,7 +418,7 @@ export function createWorkflowUpdateCapability({
       throw new WorkflowUpdateError('workflow_update_empty_patch', 'workflow mutation must change at least one field or lifecycle state');
     }
 
-    const record = await resolveTarget({ store, selector: normalizedSelector, scope: normalizedScope });
+    const record = await resolveTarget({ store, selector: normalizedSelector, scope: normalizedScope, recurringScheduler });
     const current = createWorkflowDefinition(record.workflow);
     if (expectedVersion != null && expectedVersion !== current.version) {
       throw new WorkflowUpdateError(
@@ -507,7 +524,7 @@ export function createWorkflowUpdateCapability({
   async function history({ selector, scope, limit = 50 } = {}) {
     if (typeof store.history !== 'function') throw new TypeError('workflow update store.history is required');
     const normalizedSelector = normalizeSelector(selector);
-    const record = await resolveTarget({ store, selector: normalizedSelector, scope: plainObject(scope, 'scope') });
+    const record = await resolveTarget({ store, selector: normalizedSelector, scope: plainObject(scope, 'scope'), recurringScheduler });
     return store.history({ automationId: record.workflow.automationId, limit });
   }
 

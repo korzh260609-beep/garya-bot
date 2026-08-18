@@ -265,6 +265,16 @@ Canonical docs:
 
 M1–M9 — **CLOSED**. Production semantic auto-capture ordering and Telegram personal-fact persistence were repaired at HEAD `5e2381e0af61be9eaabf373a09606de781aa0f1c`, SG 2.1 CI #8455 SUCCESS: semantic interpretation now precedes bounded Memory 2.0 capture; source-bound personal candidates are persisted as private reported memory and no-candidate conversation remains suppressed.
 
+Full memory-path audit at HEAD `b119e9a948c4b08d0e2b009a0b7011eabb87b1c6`, SG 2.1 CI #8461 SUCCESS:
+- bounded recent conversation context and durable conversation archive/history;
+- private user memory and user × group memory;
+- authority-bound shared group and thread memory;
+- topic digests, lifecycle, conflict/supersession and restart integrity;
+- Project Memory 3.0 and Project Development Knowledge 4.0;
+- durable self-knowledge and user settings/preferences;
+- temporal context and runtime/external evidence remain separate bounded context sources rather than user facts.
+The audit repaired the missing production wiring from the durable conversation-history service and AI-backed hierarchical retrieval into response-context assembly. Live deployment acceptance remains required.
+
 ### Project Memory 3.0
 
 PM3.1–PM3.12 — **CLOSED**.

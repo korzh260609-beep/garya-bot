@@ -81,6 +81,25 @@ export function createTelegramMembershipAccessService({
     return store.ensurePolicy({ workspaceId, at: clock() });
   }
 
+  async function resolveMemberIdentity({ user, chatId, workspaceId, source }) {
+    const telegramUserId = required(String(user?.id), 'Telegram member user.id');
+    const identity = await identityResolver({
+      transport: 'telegram',
+      platformFacts: {
+        platform: 'telegram', platformUserId: telegramUserId, platformChatId: chatId,
+        profile: {
+          displayName: [user?.first_name, user?.last_name].filter(Boolean).join(' ').trim() || user?.username || null,
+          firstName: user?.first_name ?? null, lastName: user?.last_name ?? null,
+          username: user?.username ?? null, languageCode: user?.language_code ?? null, source: 'telegram'
+        }
+      },
+      scopeFacts: { projectId: project, groupId: chatId, threadId: null }
+    });
+    const globalUserId = required(identity?.identityContext?.globalUserId, 'resolved globalUserId');
+    try { await audit({ eventClass: 'telegram_membership_identity', outcome: 'identity-indexed', workspaceId, globalUserId, telegramUserId, source }); } catch {}
+    return Object.freeze({ globalUserId, telegramUserId });
+  }
+
   async function handleJoinRequest(request) {
     const chatId = required(String(request.chat?.id), 'chatJoinRequest.chat.id');
     const telegramUserId = required(String(request.from?.id), 'chatJoinRequest.from.id');
@@ -89,19 +108,9 @@ export function createTelegramMembershipAccessService({
       await botClient.declineChatJoinRequest({ chatId, userId: telegramUserId });
       return Object.freeze({ handled: true, outcome: 'unknown-workspace-declined' });
     }
-    const identity = await identityResolver({
-      transport: 'telegram',
-      platformFacts: {
-        platform: 'telegram', platformUserId: telegramUserId, platformChatId: chatId,
-        profile: {
-          displayName: [request.from?.first_name, request.from?.last_name].filter(Boolean).join(' ').trim() || request.from?.username || null,
-          firstName: request.from?.first_name ?? null, lastName: request.from?.last_name ?? null,
-          username: request.from?.username ?? null, languageCode: request.from?.language_code ?? null, source: 'telegram'
-        }
-      },
-      scopeFacts: { projectId: project, groupId: chatId, threadId: null }
+    const { globalUserId } = await resolveMemberIdentity({
+      user: request.from, chatId, workspaceId: workspace.workspaceId, source: 'chat-join-request'
     });
-    const globalUserId = required(identity?.identityContext?.globalUserId, 'resolved globalUserId');
     const requestedAt = request.date ? new Date(Number(request.date) * 1000) : clock();
     await store.recordRequest({
       workspaceId: workspace.workspaceId, telegramUserId, globalUserId, requestedAt,
@@ -140,15 +149,11 @@ export function createTelegramMembershipAccessService({
     }
     const policy = await store.ensurePolicy({ workspaceId: workspace.workspaceId, at: clock() });
     if (policy.enforcementMode === 'baseline') {
-      const identity = await identityResolver({
-        transport: 'telegram',
-        platformFacts: { platform: 'telegram', platformUserId: telegramUserId, platformChatId: chatId,
-          profile: { displayName: [user?.first_name, user?.last_name].filter(Boolean).join(' ').trim() || user?.username || null,
-            firstName: user?.first_name ?? null, lastName: user?.last_name ?? null, username: user?.username ?? null, source: 'telegram' } },
-        scopeFacts: { projectId: project, groupId: chatId, threadId: null }
+      const identity = await resolveMemberIdentity({
+        user, chatId, workspaceId: workspace.workspaceId, source: 'chat-member-baseline'
       });
       await store.activateLegacyBaseline({ workspaceId: workspace.workspaceId, telegramUserId,
-        globalUserId: required(identity?.identityContext?.globalUserId, 'resolved globalUserId'), observedAt: clock() });
+        globalUserId: identity.globalUserId, observedAt: clock() });
       try { await audit({ eventClass: 'telegram_membership_access', outcome: 'legacy-member-baselined', workspaceId: workspace.workspaceId, telegramUserId }); } catch {}
       return Object.freeze({ handled: true, outcome: 'legacy-member-baselined' });
     }

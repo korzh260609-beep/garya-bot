@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createTelegramMembershipAccessService } from '../src/telegramWorkspace/telegramMembershipAccessService.js';
 
-function fixture({ workspace = { workspaceId: 'workspace-1', telegramChatId: '-100123' }, approvalError = null, membership = null, invite = null, enforcementMode = 'baseline' } = {}) {
+function fixture({ workspace = { workspaceId: 'workspace-1', telegramChatId: '-100123' }, approvalError = null, membership = null, invite = null, enforcementMode = 'baseline', identityResolver = null } = {}) {
   const calls = [];
   const store = {
     async recordRequest(value) { calls.push(['record', value]); return { state: 'requested' }; },
@@ -31,7 +31,7 @@ function fixture({ workspace = { workspaceId: 'workspace-1', telegramChatId: '-1
       async listWorkspaces() { calls.push(['list']); return workspace ? [workspace] : []; }
     },
     botClient,
-    identityResolver: async ({ platformFacts }) => ({ identityContext: { globalUserId: `telegram:${platformFacts.platformUserId}` } }),
+    identityResolver: identityResolver ?? (async ({ platformFacts }) => ({ identityContext: { globalUserId: `usr_${String(platformFacts.platformUserId).padStart(16, '0')}` } })),
     mutationGate: { async evaluateDomainMutation(value) { calls.push(['gate', value]); return { outcome: 'allow' }; } },
     botUserId: '999',
     clock: () => new Date('2026-08-18T12:00:00.000Z')
@@ -50,7 +50,23 @@ test('free join request is persisted, approved and activated for the requesting 
   const result = await service.handleUpdate(request(77));
   assert.equal(result.outcome, 'approved-free');
   assert.deepEqual(calls.map(([name]) => name), ['resolve', 'record', 'approve', 'activate']);
-  assert.equal(calls[1][1].globalUserId, 'telegram:77');
+  assert.equal(calls[1][1].globalUserId, 'usr_0000000000000077');
+});
+
+test('join request indexes the Telegram profile in canonical identity and group scope before activation', async () => {
+  const resolutions = [];
+  const { service, calls } = fixture({
+    identityResolver: async (value) => {
+      resolutions.push(value);
+      return { identityContext: { globalUserId: 'usr_1234567890abcdef' } };
+    }
+  });
+  await service.handleUpdate(request(77));
+  assert.equal(resolutions.length, 1);
+  assert.equal(resolutions[0].platformFacts.platformUserId, '77');
+  assert.equal(resolutions[0].platformFacts.profile.username, 'member77');
+  assert.deepEqual(resolutions[0].scopeFacts, { projectId: 'sg2.1', groupId: '-100123', threadId: null });
+  assert.equal(calls.find(([name]) => name === 'record')[1].globalUserId, 'usr_1234567890abcdef');
 });
 
 test('requests for an unregistered Telegram workspace fail closed', async () => {

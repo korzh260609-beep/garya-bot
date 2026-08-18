@@ -263,7 +263,7 @@ Canonical docs:
 
 ### Memory 2.0
 
-M1–M9 — **CLOSED**.
+M1–M9 — **CLOSED**. Production semantic auto-capture ordering and Telegram personal-fact persistence were repaired at HEAD `5e2381e0af61be9eaabf373a09606de781aa0f1c`, SG 2.1 CI #8455 SUCCESS: semantic interpretation now precedes bounded Memory 2.0 capture; source-bound personal candidates are persisted as private reported memory and no-candidate conversation remains suppressed.
 
 ### Project Memory 3.0
 

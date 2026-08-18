@@ -379,42 +379,32 @@ export function createTelegramWorkspaceOperationsNaturalLanguageService({
     const ctx = freeze({ workspaceId: workspace.workspaceId, telegramUserId: actor.telegramUserId, actorGlobalUserId: actor.actorGlobalUserId, requestId: `twmt:${idFactory()}`, traceId: `twmt:${idFactory()}` });
     if (action === 's' && parts[2]) {
       const result = await operationsService.startInteractiveTest(ctx, { testId: parts[2] });
-      let privateDelivery = true;
-      try {
-        await botClient.sendMessage({ chatId: actor.telegramUserId, text: result.text, replyMarkup: result.replyMarkup });
-      } catch {
-        privateDelivery = false;
-        await botClient.sendMessage({ chatId: update.callback_query.message.chat.id, text: result.text, replyToMessageId: update.callback_query.message.message_id, replyMarkup: result.replyMarkup });
-      }
-      await botClient.answerCallbackQuery({
-        callbackQueryId: update.callback_query.id,
-        text: privateDelivery ? 'Тест открыт в личных сообщениях' : 'Тест начат отдельной сессией'
+      const participant = actor.platformFacts?.profile?.displayName ?? actor.platformFacts?.profile?.username ?? `участника ${actor.telegramUserId}`;
+      await botClient.answerCallbackQuery({ callbackQueryId: update.callback_query.id, text: 'Ваша отдельная сессия теста начата' });
+      await botClient.sendMessage({
+        chatId: update.callback_query.message.chat.id,
+        text: `Тест для ${participant}\n\n${result.text}`,
+        replyToMessageId: update.callback_query.message.message_id,
+        replyMarkup: result.replyMarkup
       });
-      return freeze({ handled: true, outcome: 'interactive-test-started', privateDelivery });
+      return freeze({ handled: true, outcome: 'interactive-test-started', participantSession: true });
     }
     if (action === 'a' && parts[2] && parts[3] !== undefined) {
       const result = await operationsService.answerInteractiveTest(ctx, { sessionId: parts[2], optionIndex: Number(parts[3]) });
-      const callbackChat = update.callback_query.message.chat;
-      const privateSessionMessage = callbackChat?.type === 'private' && String(callbackChat.id) === actor.telegramUserId;
-      if (privateSessionMessage) {
-        await botClient.answerCallbackQuery({ callbackQueryId: update.callback_query.id, text: result.completed ? 'Тест завершён' : 'Ответ сохранён' });
-        await botClient.editMessageText({ chatId: callbackChat.id, messageId: update.callback_query.message.message_id, text: result.text, replyMarkup: result.replyMarkup });
-      } else {
-        let privateDelivery = true;
-        try {
-          await botClient.sendMessage({ chatId: actor.telegramUserId, text: result.text, replyMarkup: result.replyMarkup });
-        } catch {
-          privateDelivery = false;
-          await botClient.sendMessage({ chatId: callbackChat.id, text: result.text, replyToMessageId: update.callback_query.message.message_id, replyMarkup: result.replyMarkup });
-        }
-        await botClient.answerCallbackQuery({
-          callbackQueryId: update.callback_query.id,
-          text: result.completed
-            ? (privateDelivery ? 'Ваш результат отправлен в личку' : 'Ваш тест завершён')
-            : (privateDelivery ? 'Следующий вопрос отправлен в личку' : 'Ответ сохранён')
-        });
-      }
-      return freeze({ handled: true, outcome: result.completed ? 'interactive-test-completed' : 'interactive-test-answer-recorded' });
+      const participant = actor.platformFacts?.profile?.displayName ?? actor.platformFacts?.profile?.username ?? `участник ${actor.telegramUserId}`;
+      await botClient.answerCallbackQuery({
+        callbackQueryId: update.callback_query.id,
+        text: result.completed ? 'Ваша сессия теста завершена' : 'Ваш ответ сохранён'
+      });
+      await botClient.editMessageText({
+        chatId: update.callback_query.message.chat.id,
+        messageId: update.callback_query.message.message_id,
+        text: result.completed
+          ? `${result.text}\n\nЗавершена только сессия: ${participant}. Общий тест остаётся открыт для остальных участников.`
+          : `Тест для ${participant}\n\n${result.text}`,
+        replyMarkup: result.replyMarkup
+      });
+      return freeze({ handled: true, outcome: result.completed ? 'interactive-test-completed' : 'interactive-test-answer-recorded', participantSession: true });
     }
     throw Object.assign(new Error('invalid interactive test callback'), { code: 'twm-test-callback-invalid' });
   }

@@ -168,11 +168,14 @@ function automationCreatedMessage({ schedule, task, locale }) {
   return schedule ? `Automation created. Next execution: ${next ?? 'not determined'}.` : `Task created. Execution: ${next ?? 'scheduled'}.`;
 }
 
-const TERMINAL_TASK_STATUSES = new Set(['completed', 'failed', 'cancelled']);
+const TERMINAL_TASK_STATUSES = new Set(['completed', 'failed', 'cancelled', 'stopped']);
 
 function taskDescription(task) {
   const payload = task?.payload ?? {};
-  const value = payload.notificationMessage ?? payload.message ?? payload.title
+  const workflow = task?.workflow ?? {};
+  const value = workflow.inputs?.notificationMessage ?? workflow.inputs?.message
+    ?? workflow.delivery?.title ?? workflow.delivery?.message
+    ?? payload.notificationMessage ?? payload.message ?? payload.title
     ?? payload.delivery?.message ?? payload.automation?.description ?? task?.kind ?? null;
   const text = typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') : '';
   return text || 'Задача без описания';
@@ -180,8 +183,15 @@ function taskDescription(task) {
 
 function taskWhen(task) {
   const payload = task?.payload ?? {};
-  return payload.localTime ?? payload.runAt ?? payload.temporalExpression
-    ?? task?.availableAt ?? null;
+  const trigger = task?.workflow?.trigger ?? {};
+  const local = trigger.dtstartLocal ?? trigger.recurrence?.dtstartLocal ?? null;
+  const localTime = typeof local === 'string' ? local.match(/T(\d{2}:\d{2})/)?.[1] ?? null : null;
+  return localTime ?? trigger.runAt ?? payload.localTime ?? payload.runAt
+    ?? payload.temporalExpression ?? task?.availableAt ?? null;
+}
+
+function taskStatus(task) {
+  return String(task?.lifecycleStatus ?? task?.status ?? 'unknown').toLowerCase();
 }
 
 function requestedTaskHistory(input = {}) {
@@ -203,14 +213,15 @@ function taskListMessage(tasks, { locale, includeHistory = false } = {}) {
       ? (includeHistory ? 'Tasks:' : 'Active tasks:')
       : (includeHistory ? 'Задачи:' : 'Активные задачи:');
   const statusNames = language.startsWith('uk')
-    ? { queued: 'очікує', running: 'виконується', retry_wait: 'очікує повтору', completed: 'виконано', failed: 'помилка', cancelled: 'скасовано' }
+    ? { active: 'активне', paused: 'призупинено', error: 'помилка', queued: 'очікує', scheduled: 'заплановано', running: 'виконується', retry_wait: 'очікує повтору', completed: 'виконано', failed: 'помилка', cancelled: 'скасовано', stopped: 'зупинено' }
     : language.startsWith('en')
-      ? { queued: 'queued', running: 'running', retry_wait: 'waiting to retry', completed: 'completed', failed: 'failed', cancelled: 'cancelled' }
-      : { queued: 'ожидает', running: 'выполняется', retry_wait: 'ждёт повтора', completed: 'выполнена', failed: 'ошибка', cancelled: 'отменена' };
+      ? { active: 'active', paused: 'paused', error: 'error', queued: 'queued', scheduled: 'scheduled', running: 'running', retry_wait: 'waiting to retry', completed: 'completed', failed: 'failed', cancelled: 'cancelled', stopped: 'stopped' }
+      : { active: 'активна', paused: 'приостановлена', error: 'ошибка', queued: 'ожидает', scheduled: 'запланирована', running: 'выполняется', retry_wait: 'ждёт повтора', completed: 'выполнена', failed: 'ошибка', cancelled: 'отменена', stopped: 'остановлена' };
   const lines = tasks.map((task, index) => {
     const when = taskWhen(task);
     const timing = when ? ` — ${when}` : '';
-    const status = statusNames[task.status] ?? task.status;
+    const canonicalStatus = taskStatus(task);
+    const status = statusNames[canonicalStatus] ?? canonicalStatus;
     return `${index + 1}. «${taskDescription(task)}»${timing} — ${status}`;
   });
   return [title, ...lines].join('\n');
@@ -358,14 +369,17 @@ export function createProductionCapabilities({
       name: 'task-list', description: 'List tasks in the current scope.',
       actionTypes: ['task-list'], actionClasses: ['read-only'],
       execute: async (request) => {
-        const tasks = await taskStore.list({ scope: scopeFrom(request) });
+        const scope = scopeFrom(request);
+        const tasks = typeof taskStore.listWorkflows === 'function'
+          ? await taskStore.listWorkflows({ scope, limit: request.input?.limit ?? 100 })
+          : await taskStore.list({ scope });
         const includeHistory = requestedTaskHistory(request.input);
         const requestedStatuses = Array.isArray(request.input?.statuses)
           ? new Set(request.input.statuses.map((value) => String(value).toLowerCase()))
           : null;
         const visibleTasks = tasks.filter((task) => requestedStatuses
-          ? requestedStatuses.has(String(task.status).toLowerCase())
-          : includeHistory || !TERMINAL_TASK_STATUSES.has(String(task.status).toLowerCase()));
+          ? requestedStatuses.has(taskStatus(task))
+          : includeHistory || !TERMINAL_TASK_STATUSES.has(taskStatus(task)));
         return {
           status: 'success',
           data: {

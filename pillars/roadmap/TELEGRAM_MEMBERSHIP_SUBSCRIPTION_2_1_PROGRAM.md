@@ -14,9 +14,9 @@ The current production mode is **free approval**. Paid access is not enabled unt
 
 | Stage | Deliverable | Status |
 |---|---|---|
-| TMA2.1.1 | Telegram join-request contract, bot permissions and fail-closed workspace resolution | Implemented; CI pending |
-| TMA2.1.2 | Durable PostgreSQL membership state and migration | Implemented; CI pending |
-| TMA2.1.3 | Free join-request gate: identify, persist, approve and activate each user independently | Implemented; CI pending |
+| TMA2.1.1 | Telegram join-request contract, bot permissions and fail-closed workspace resolution | Implemented / CI-verified |
+| TMA2.1.2 | Durable PostgreSQL membership state and migration | Implemented / CI-verified |
+| TMA2.1.3 | Free join-request gate: identify, persist, approve and activate each user independently | Implemented / CI-verified |
 | TMA2.1.4 | Admin command/UI to create and rotate a join-request invite link; show “Подписаться/Присоединиться” | Planned |
 | TMA2.1.5 | Membership reconciliation for leave, kick, ban, rejoin and group migration events | Planned |
 | TMA2.1.6 | Subscription plans: price, Telegram Stars currency, billing period, grace and exemptions | Blocked on owner product choices |
@@ -26,6 +26,8 @@ The current production mode is **free approval**. Paid access is not enabled unt
 | TMA2.1.10 | Refunds, disputes, duplicate events and recovery/restart continuity | Planned |
 | TMA2.1.11 | Owner/admin controls, membership list, manual grant/revoke and diagnostics | Planned |
 | TMA2.1.12 | Security regression, exact-head CI, deployment and two-account live acceptance | Planned |
+
+Implementation/test evidence: HEAD `4f6bdfffe72dac0888a1843c18b11e7973e5bd0b` passed exact-head SG 2.1 CI #8406.
 
 ## Current implementation contract
 

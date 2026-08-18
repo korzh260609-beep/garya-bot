@@ -281,7 +281,10 @@ async function resolveTarget({ store, selector, scope, recurringScheduler = null
   } else {
     const structuredSelector = Object.freeze(Object.fromEntries(Object.entries(selector).filter(([key]) => key !== 'description')));
     const structuredMatches = eligibleCandidates.filter((record) => semanticRecordMatches(record, structuredSelector));
-    matches = selector.description ? resolveDescriptionMatches(structuredMatches, selector.description) : structuredMatches;
+    const hasExplicitStructuredEvidence = Object.keys(structuredSelector).length > 0;
+    matches = selector.description && !(hasExplicitStructuredEvidence && structuredMatches.length === 1)
+      ? resolveDescriptionMatches(structuredMatches, selector.description)
+      : structuredMatches;
   }
   if (matches.length !== 1) throw targetResolutionError(matches.length, matches);
   return matches[0];

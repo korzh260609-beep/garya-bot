@@ -295,7 +295,7 @@ export function createTelegramProductionIntegration({
     }
     if (!claim.claimed) return Object.freeze({ statusCode: 200, body: { ok: true, duplicate: true } });
 
-    if (membershipAccess && body.chat_join_request) {
+    if (membershipAccess && (body.chat_join_request || body.chat_member)) {
       if (acknowledgeBeforeProcessing) { trackBackground(processMembershipAccessUpdate(body, claim)); return Object.freeze({ statusCode: 200, body: { ok: true, accepted: true, membershipAccess: true } }); }
       const processed = await processMembershipAccessUpdate(body, claim);
       if (processed.ok) return Object.freeze({ statusCode: 200, body: { ok: true, membershipAccess: true } });

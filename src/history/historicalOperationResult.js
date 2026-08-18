@@ -113,17 +113,26 @@ function occurrence(kind, items) {
     evidence: freeze([evidenceRef(selected), ...(selected.duplicateEvidence ?? []).map((duplicate) => freeze({ source: duplicate.source ?? null, sourceId: duplicate.sourceId ?? null, timestamp: duplicate.timestamp ?? null, provenance: clone(duplicate.provenance ?? null) }))])
   });
 }
-function sameFactSubject(left, right) {
-  const a = String(left?.entityKey ?? '').trim().toLowerCase();
-  const b = String(right?.entityKey ?? '').trim().toLowerCase();
-  if (a && b) return a === b;
-  return true;
+function normalizedEntity(value) { return String(value ?? '').trim().toLowerCase(); }
+function sameFactSubject(seed, item) {
+  const seedEntity = normalizedEntity(seed?.entityKey);
+  const itemEntity = normalizedEntity(item?.entityKey);
+  if (seedEntity) return itemEntity === seedEntity;
+  return !itemEntity;
 }
-function factHistory(items) {
-  const entries = chronological(items);
-  if (!entries.length) return freeze({ status: 'empty', subject: null, firstOccurrence: null, firstConfirmedFact: null, latestSupportedUpdate: null, states: [], currentState: null });
+function chainForRelated(merged, sourceIds) {
+  return freeze((merged?.supersessionChains ?? []).filter((chain) => {
+    const from = chain?.from?.sourceId == null ? null : String(chain.from.sourceId);
+    const to = chain?.to?.sourceId == null ? null : String(chain.to.sourceId);
+    return (from && sourceIds.has(from)) || (to && sourceIds.has(to));
+  }).map((chain) => clone(chain)));
+}
+function factHistory(merged) {
+  const entries = chronological(merged.items);
+  if (!entries.length) return freeze({ status: 'empty', subject: null, firstOccurrence: null, firstConfirmedFact: null, latestSupportedUpdate: null, states: [], supersessionChains: [], currentState: null });
   const seed = entries.find(({ item }) => item.entityKey)?.item ?? entries[0].item;
   const related = entries.filter(({ item }) => sameFactSubject(seed, item)).slice(0, MAX_FACT_STATES);
+  const sourceIds = new Set(related.map(({ item }) => item.sourceId).filter((id) => id != null).map(String));
   const states = related.map(({ item }) => freeze({
     at: evidenceTime(item),
     value: clone(item.value ?? item.text ?? null),
@@ -145,6 +154,7 @@ function factHistory(items) {
     firstConfirmedFact: firstConfirmed ? humanView(firstConfirmed) : null,
     latestSupportedUpdate: humanView(related.at(-1).item),
     states: freeze(states),
+    supersessionChains: chainForRelated(merged, sourceIds),
     currentState: current ? humanView(current) : null
   });
 }
@@ -159,7 +169,7 @@ export function buildHistoricalOperationResult({ plan, merged } = {}) {
   if (operation === 'timeline') result = buildTimeline(plan, merged.items);
   else if (operation === 'first-occurrence') result = occurrence('first', merged.items);
   else if (operation === 'last-occurrence') result = occurrence('last', merged.items);
-  else if (operation === 'fact-history') result = factHistory(merged.items);
+  else if (operation === 'fact-history') result = factHistory(merged);
   else return null;
 
   return freeze({

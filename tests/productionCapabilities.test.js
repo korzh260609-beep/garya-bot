@@ -147,6 +147,45 @@ test('task list hides terminal history by default and exposes it only when expli
   assert.match(history.data.message, /отменена/i);
 });
 
+test('task list prefers canonical workflows and hides legacy stopped rows', async () => {
+  const canonicalTaskStore = {
+    async create() { return null; },
+    async list() { throw new Error('legacy task rows must not be used when canonical workflows are available'); },
+    async get() { return null; },
+    async cancel() { return null; },
+    async listWorkflows() {
+      return [
+        {
+          lifecycleStatus: 'active',
+          workflow: {
+            trigger: { type: 'recurring', recurrence: { rule: 'FREQ=DAILY', dtstartLocal: '2026-08-18T07:00:00' } },
+            inputs: { message: 'ПРИВЕТ МОНАРХ' },
+            delivery: {}
+          }
+        },
+        {
+          lifecycleStatus: 'cancelled',
+          workflow: {
+            trigger: { type: 'recurring', recurrence: { rule: 'FREQ=DAILY', dtstartLocal: '2026-08-18T08:00:00' } },
+            inputs: { message: 'СТАРАЯ ЗАДАЧА' },
+            delivery: {}
+          }
+        }
+      ];
+    }
+  };
+  const { registry, executor } = harness({ taskStore: canonicalTaskStore });
+  const list = registry.get('task-list');
+  const request = requestFor(list, { payload: { locale: 'ru' } });
+  const result = await executor.execute({ actionRequest: request, gateDecision: allowed(request) });
+  assert.equal(result.data.tasks.length, 1);
+  assert.match(result.data.message, /ПРИВЕТ МОНАРХ/i);
+  assert.match(result.data.message, /07:00/i);
+  assert.match(result.data.message, /активна/i);
+  assert.equal(result.data.message.includes('unknown'), false);
+  assert.equal(result.data.message.includes('СТАРАЯ ЗАДАЧА'), false);
+});
+
 test('real source failure remains visible and cannot become fabricated success', async () => {
   const { registry, executor } = harness({
     sourceRetriever: async () => ({ ok: false, code: 'upstream-down', message: 'Source unavailable', retryable: true })

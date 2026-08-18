@@ -2,7 +2,7 @@
 
 ## Status
 
-**IN PROGRESS / NOT CLOSED.** HS1, HS2 and HS3 are implemented and CI-verified. HS4–HS6 remain planned. This is an additive Memory 2.0 extension. M1–M9 remain CLOSED and must not be reopened or replaced.
+**IN PROGRESS / NOT CLOSED.** HS1, HS2, HS3 and HS4 are implemented and CI-verified. HS5–HS6 remain planned. This is an additive Memory 2.0 extension. M1–M9 remain CLOSED and must not be reopened or replaced.
 
 ## Goal
 
@@ -31,7 +31,7 @@ Required reuse:
 HS1 Historical Query Planner [IMPLEMENTED / CI-VERIFIED]
 -> HS2 Memory 2.0 Hybrid Semantic Retrieval [IMPLEMENTED / CI-VERIFIED]
 -> HS3 Unified Historical Search Orchestrator [IMPLEMENTED / CI-VERIFIED]
--> HS4 Ranking / Dedup / Conflict / Supersession
+-> HS4 Ranking / Dedup / Conflict / Supersession [IMPLEMENTED / CI-VERIFIED]
 -> HS5 Timeline / First / Last / Fact History
 -> HS6 Security / Regression / Observability / Live Acceptance
 ```
@@ -154,7 +154,7 @@ Implementation evidence:
 - decision search reuses Project Memory retrieval restricted to `architecture-decision` facts;
 - incident search reuses canonical `findIncidentGuidance()` and preserves advisory-only semantics;
 - normalized source results preserve `ok`, `empty`, `failed` and `omitted` states with bounded evidence;
-- HS3 does not perform HS4 cross-source ranking or deduplication;
+- source-local normalized results remain available unchanged after HS4 merge;
 - regression suite: `tests/unifiedHistoricalSearchOrchestrator.test.js` covers personal default selection, group/thread scope, PM3+PDK4 mixed retrieval, fail-closed scope mismatch, explicit source failure, temporal filtering and incident advisory semantics;
 - implementation HEAD `709cc33cfd898a4eaa660a90ecff69307940b986`, SG 2.1 CI #8485 SUCCESS on exact HEAD.
 
@@ -170,7 +170,7 @@ Merge heterogeneous results into one evidence-preserving historical answer set.
 
 ## Ranking factors
 
-- semantic relevance;
+- semantic/source-local relevance;
 - temporal match;
 - exact entity/key match;
 - scope specificity;
@@ -182,12 +182,30 @@ Merge heterogeneous results into one evidence-preserving historical answer set.
 
 ## Acceptance criteria
 
-- [ ] duplicate representations from message + memory + digest do not appear as repeated user results;
-- [ ] conflicting facts remain visible as conflicts;
-- [ ] supersession chains distinguish past truth-state from current state;
-- [ ] historical queries may return superseded evidence when it was valid/reported in the requested period;
-- [ ] current-state queries prefer current supported values;
-- [ ] merge retains source references for verification.
+- [x] duplicate representations from message + memory + digest do not appear as repeated user results;
+- [x] conflicting facts remain visible as conflicts;
+- [x] supersession chains distinguish past truth-state from current state;
+- [x] historical queries may return superseded evidence when it was valid/reported in the requested period;
+- [x] current-state queries prefer current supported values;
+- [x] merge retains source references for verification.
+
+Implementation evidence:
+
+- deterministic cross-source merge is `mergeHistoricalSearchResults()` in `src/history/unifiedHistoricalResultMerger.js`;
+- canonical `createUnifiedHistoricalSearchOrchestrator().search()` returns both original HS3 `sources` and bounded HS4 `merged` evidence;
+- ranking combines relevance, temporal fit, entity fit, scope specificity, trust, confirmation, confidence, provenance quality and lifecycle/currentness;
+- duplicate suppression requires evidence-backed equivalence: shared source/provenance reference, same explicit entity+value, safe normalized content for the same/no explicit entity, or digest source linkage;
+- identical text across different explicit entities is not treated as a duplicate;
+- suppressed duplicates remain traceable through `duplicateEvidence`;
+- contradictory current values stay explicit `unresolved` conflicts and HS4 never invents an authority winner;
+- Memory 2.0 `supersededBy` and PM3/PDK4 `successorMemoryId` are propagated to supersession chains while historical records remain retrievable;
+- current-state ranking favors active/current supported evidence; explicit historical ranges keep superseded evidence eligible;
+- source-local `failed`/`omitted` states remain explicit and keep the overall result `partial` even when available evidence merges successfully;
+- HS4 performs no AI call and cannot expand authorization;
+- regression suite: `tests/unifiedHistoricalResultMerger.test.js`;
+- implementation HEAD `7712e2822f7cf7b658cea906ca0ba4a86b4b9a2b`, SG 2.1 CI #8501 SUCCESS on exact HEAD; migrations, security gate, `npm run check`, web start, worker start and diagnostics all passed.
+
+HS4 is implemented and CI-verified but remains **NOT CLOSED** until HS6 consolidated security/live acceptance under the program closure rule.
 
 ---
 

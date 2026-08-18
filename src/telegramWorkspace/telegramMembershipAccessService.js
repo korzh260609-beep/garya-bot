@@ -9,7 +9,7 @@ const PRIVILEGED_STATUSES = new Set(['administrator', 'creator']);
 const LEFT_STATUSES = new Set(['left', 'kicked']);
 
 export function createTelegramMembershipAccessService({
-  store, workspaceRegistry, botClient, identityResolver, projectScope = 'sg2.1',
+  store, workspaceRegistry, botClient, identityResolver, mutationGate, projectScope = 'sg2.1',
   botUserId = null, clock = () => new Date(), audit = async () => {}
 } = {}) {
   for (const method of ['recordRequest','activateFree','markDeclined','markRemoved','get','getInvite','saveInvite']) {
@@ -21,6 +21,7 @@ export function createTelegramMembershipAccessService({
     if (typeof botClient?.[method] !== 'function') throw new TypeError(`botClient.${method} is required`);
   }
   if (typeof identityResolver !== 'function') throw new TypeError('identityResolver is required');
+  if (typeof mutationGate?.evaluateDomainMutation !== 'function') throw new TypeError('mutationGate.evaluateDomainMutation is required');
   const project = required(projectScope, 'projectScope');
 
   async function resolveWorkspaceById(workspaceId) {
@@ -29,10 +30,17 @@ export function createTelegramMembershipAccessService({
     return workspace;
   }
 
-  async function createJoinRequestLink({ workspaceId, actorGlobalUserId, actorTelegramUserId, rotate = false }) {
+  async function createJoinRequestLink({ workspaceId, actorGlobalUserId, actorTelegramUserId, authority, traceId, requestId, confirmation, rotate = false }) {
     const id = required(workspaceId, 'workspaceId');
     const existing = await store.getInvite({ workspaceId: id });
     if (existing && !rotate) return Object.freeze({ ...existing, reused: true });
+    await mutationGate.evaluateDomainMutation({
+      operation: rotate ? 'membership-invite-rotate' : 'membership-invite-create',
+      domain: 'membership-invite', recordId: id, workspaceId: id,
+      actorGlobalUserId, traceId, requestId, risk: 'medium',
+      confirmationRequired: true, authority, confirmation,
+      requiredPermission: 'workspace:configure'
+    });
     const workspace = await resolveWorkspaceById(id);
     const chatId = required(String(workspace.telegramChatId), 'workspace.telegramChatId');
     const inviteName = 'SG managed membership';

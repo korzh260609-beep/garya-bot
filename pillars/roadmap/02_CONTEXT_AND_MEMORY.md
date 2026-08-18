@@ -30,18 +30,20 @@ Memory 2.0 M1–M9 remains the completed canonical durable memory foundation. Hi
 
 ## Historical & Semantic Memory Search extension
 
-The next memory-completeness program is HS1–HS6:
+The memory-completeness program is HS1–HS6:
 
-1. HS1 — Historical Query Planner;
-2. HS2 — Memory 2.0 Hybrid Semantic Retrieval;
-3. HS3 — Unified Historical Search Orchestrator;
-4. HS4 — Unified Ranking, Deduplication, Conflict & Supersession;
-5. HS5 — Timeline, First/Last Occurrence & Fact History;
-6. HS6 — Security, Regression, Observability & Live Acceptance.
+1. HS1 — Historical Query Planner — **IMPLEMENTED / CI-VERIFIED / NOT CLOSED**;
+2. HS2 — Memory 2.0 Hybrid Semantic Retrieval — **IMPLEMENTED / CI-VERIFIED / NOT CLOSED**;
+3. HS3 — Unified Historical Search Orchestrator — **IMPLEMENTED / CI-VERIFIED / NOT CLOSED**;
+4. HS4 — Unified Ranking, Deduplication, Conflict & Supersession — **IMPLEMENTED / CI-VERIFIED / NOT CLOSED**;
+5. HS5 — Timeline, First/Last Occurrence & Fact History — **PLANNED / NOT CLOSED**;
+6. HS6 — Security, Regression, Observability & Live Acceptance — **PLANNED / NOT CLOSED**.
 
 Target user behavior includes natural-language retrieval across authorized retained history by meaning, time and topic, including questions such as what was discussed months/years ago, first/last occurrence, topic evolution and fact history without requiring internal IDs or exact wording.
 
 This extension reuses Conversation History, Memory 2.0, Temporal Service, Project Memory 3.0, PDK4, bounded response context, AI Router and existing Identity/Scope/Authority boundaries. No parallel RecallEngine or second memory store is permitted.
+
+HS4 implementation is deterministic cross-source ranking/merge over already-authorized HS3 normalized results. It preserves source failures, duplicate evidence references, explicit conflicts and existing Memory 2.0 / PM3 supersession links without creating an AI or authority bypass. Implementation HEAD `7712e2822f7cf7b658cea906ca0ba4a86b4b9a2b` passed SG 2.1 CI #8501 SUCCESS on exact HEAD.
 
 Canonical documents:
 - `../architecture/HISTORICAL_SEMANTIC_MEMORY_SEARCH.md`

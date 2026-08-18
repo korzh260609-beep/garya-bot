@@ -110,6 +110,9 @@ test('task create, list, status and cancellation are operational and scoped', as
   const listRequest = requestFor(list);
   const listed = await executor.execute({ actionRequest: listRequest, gateDecision: allowed(listRequest) });
   assert.equal(listed.data.tasks.length, 1);
+  assert.match(listed.data.message, /Активные задачи/i);
+  assert.match(listed.data.message, /test/i);
+  assert.equal(listed.data.message.includes('Tasks: 1'), false);
 
   const status = registry.get('task-status');
   const statusRequest = requestFor(status, { payload: { taskId: 'task-1' } });
@@ -120,6 +123,28 @@ test('task create, list, status and cancellation are operational and scoped', as
   const cancelRequest = requestFor(cancel, { payload: { taskId: 'task-1' } });
   const cancelled = await executor.execute({ actionRequest: cancelRequest, gateDecision: allowed(cancelRequest) });
   assert.equal(cancelled.data.task.status, 'cancelled');
+});
+
+test('task list hides terminal history by default and exposes it only when explicitly requested', async () => {
+  const { registry, executor } = harness();
+  const create = registry.get('task-create');
+  const cancel = registry.get('task-cancel');
+  const list = registry.get('task-list');
+  const createRequest = requestFor(create, { payload: { taskId: 'task-history', title: 'Историческая задача' } });
+  await executor.execute({ actionRequest: createRequest, gateDecision: allowed(createRequest) });
+  const cancelRequest = requestFor(cancel, { payload: { taskId: 'task-history' } });
+  await executor.execute({ actionRequest: cancelRequest, gateDecision: allowed(cancelRequest) });
+
+  const currentRequest = requestFor(list, { payload: { locale: 'ru' } });
+  const current = await executor.execute({ actionRequest: currentRequest, gateDecision: allowed(currentRequest) });
+  assert.equal(current.data.tasks.length, 0);
+  assert.match(current.data.message, /Активных задач сейчас нет/i);
+
+  const historyRequest = requestFor(list, { payload: { locale: 'ru', statuses: ['cancelled'] } });
+  const history = await executor.execute({ actionRequest: historyRequest, gateDecision: allowed(historyRequest) });
+  assert.equal(history.data.tasks.length, 1);
+  assert.match(history.data.message, /Историческая задача/i);
+  assert.match(history.data.message, /отменена/i);
 });
 
 test('real source failure remains visible and cannot become fabricated success', async () => {

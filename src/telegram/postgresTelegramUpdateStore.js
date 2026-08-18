@@ -8,7 +8,7 @@ function requiredUpdateId(value) {
 }
 
 function updateType(update) {
-  return ['message', 'edited_message', 'channel_post', 'edited_channel_post', 'callback_query', 'my_chat_member']
+  return ['message', 'edited_message', 'channel_post', 'edited_channel_post', 'callback_query', 'my_chat_member', 'chat_member', 'chat_join_request']
     .find((key) => update?.[key]) ?? 'unknown';
 }
 
@@ -38,8 +38,8 @@ export function createPostgresTelegramUpdateStore(database) {
     if (workspaceDiscovery) await workspaceDiscovery.ingest(update);
 
     const message = messageFrom(update);
-    const membershipChat = update?.my_chat_member?.chat ?? null;
-    const membershipUser = update?.my_chat_member?.from ?? null;
+    const membershipChat = update?.my_chat_member?.chat ?? update?.chat_member?.chat ?? update?.chat_join_request?.chat ?? null;
+    const membershipUser = update?.my_chat_member?.from ?? update?.chat_member?.from ?? update?.chat_join_request?.from ?? null;
     const result = await database.query(`
       INSERT INTO telegram_updates(update_id, update_type, chat_id, user_id, message_id, status)
       VALUES ($1, $2, $3, $4, $5, 'processing')

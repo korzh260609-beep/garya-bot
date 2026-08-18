@@ -103,6 +103,21 @@ Status: **IMPLEMENTED / CI-VERIFIED / NOT CLOSED**; final closure remains gated 
 
 Exit gate: one historical request can safely combine the required canonical memory sources through one orchestration path.
 
+Implementation evidence:
+
+- one transport-independent orchestration entry: `createUnifiedHistoricalSearchOrchestrator().search()`;
+- plan identity/project/group/thread scope is compared to resolved request scope before any retrieval; mismatch fails closed;
+- no source hints defaults only to personal Conversation History + User Memory;
+- Conversation History, Memory 2.0, PM3, PDK4 and Decision / Incident paths reuse existing canonical seams;
+- Memory 2.0 layer selection remains resource-bound, including explicit omission when group/thread scope is absent;
+- source output is normalized and bounded with explicit `ok`, `empty`, `failed`, `omitted` states;
+- incident results retain advisory-only / live-verification semantics;
+- cross-source ranking/deduplication remains outside HS3 and is reserved for HS4;
+- `tests/unifiedHistoricalSearchOrchestrator.test.js` covers personal, group/thread, project-development, mixed failure, temporal-range, scope-broadening and incident cases;
+- implementation HEAD `709cc33cfd898a4eaa660a90ecff69307940b986` passed SG 2.1 CI #8485 on exact HEAD.
+
+Status: **IMPLEMENTED / CI-VERIFIED / NOT CLOSED**; final closure remains gated by HS6 consolidated security/live acceptance.
+
 ---
 
 ## HS4 workflow — Unified Ranking, Deduplication, Conflict & Supersession

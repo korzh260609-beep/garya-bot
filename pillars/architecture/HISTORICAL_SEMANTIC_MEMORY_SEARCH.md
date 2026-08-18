@@ -2,7 +2,7 @@
 
 ## Status
 
-Additive Memory 2.0 extension **IN PROGRESS / NOT CLOSED**. HS1 Historical Query Planner, HS2 Memory 2.0 Hybrid Semantic Retrieval and HS3 Unified Historical Search Orchestrator are implemented and CI-verified; HS4–HS6 remain planned. Final implementation status is determined by code, tests, exact-head CI and live runtime evidence.
+Additive Memory 2.0 extension **IN PROGRESS / NOT CLOSED**. HS1 Historical Query Planner, HS2 Memory 2.0 Hybrid Semantic Retrieval, HS3 Unified Historical Search Orchestrator and HS4 Unified Ranking / Deduplication / Conflict / Supersession are implemented and CI-verified; HS5–HS6 remain planned. Final implementation status is determined by code, tests, exact-head CI and live runtime evidence.
 
 ## Purpose
 
@@ -130,7 +130,7 @@ Examples:
 
 If HS1 supplies no source hints, HS3 defaults only to personal Conversation History + User Memory; it does not broaden into group/project sources. Group/thread layers are selected only when matching resolved resource scope exists. Plan scope must exactly match the already-resolved request identity/project/group/thread scope before any source query executes.
 
-Each source returns a normalized bounded source result with explicit `ok`, `empty`, `failed` or `omitted` state. Source-local failure is preserved and cannot be silently converted into empty success. HS3 intentionally does not perform cross-source ranking/deduplication; that remains HS4.
+Each source returns a normalized bounded source result with explicit `ok`, `empty`, `failed` or `omitted` state. Source-local failure is preserved and cannot be silently converted into empty success. HS3 source results remain independently available after HS4 merging.
 
 HS3 implementation: `src/history/unifiedHistoricalSearchOrchestrator.js`, `tests/unifiedHistoricalSearchOrchestrator.test.js`; implementation HEAD `709cc33cfd898a4eaa660a90ecff69307940b986`, SG 2.1 CI #8485 SUCCESS on exact HEAD.
 
@@ -138,26 +138,36 @@ Source selection cannot broaden authorization.
 
 ## Unified ranking and merge
 
-Results from different stores must be normalized into one internal result contract containing at least:
+HS4 is implemented by deterministic `mergeHistoricalSearchResults()` in `src/history/unifiedHistoricalResultMerger.js` and is invoked by the canonical `createUnifiedHistoricalSearchOrchestrator().search()` path after all selected source-local retrieval has completed.
 
-- source type/layer;
-- source ID;
-- timestamp/range;
-- scope;
-- content/summary;
-- semantic score;
-- temporal score;
-- trust/confidence;
-- confirmation/lifecycle state;
-- provenance;
-- supersession/conflict references;
-- verification state.
+The orchestrator returns both:
 
-Duplicate representations of the same event/fact must be merged rather than repeated to the user.
+- original normalized HS3 `sources`, including explicit source failures/omissions;
+- one bounded HS4 `merged` evidence set for downstream reasoning/output.
+
+Results from different stores are ranked using:
+
+- source-local relevance / semantic relevance;
+- temporal fit against the requested historical range;
+- exact entity/topic fit;
+- scope specificity;
+- trust;
+- confirmation state;
+- confidence;
+- provenance quality;
+- lifecycle/currentness.
+
+HS4 is deterministic and performs no model call. It receives only evidence that already passed HS1/HS3 source/scope selection and source-local authorization, therefore ranking cannot broaden authorization.
+
+Duplicate representations are suppressed only with bounded evidence-backed equivalence signals such as shared source/provenance references, same explicit entity plus same value, safe normalized-content equivalence for the same/no explicit entity, or topic-digest source references. A suppressed representation is not discarded: its source reference is retained in `duplicateEvidence`.
+
+Identical text attached to two different explicit entities is **not** sufficient to merge them.
+
+HS4 implementation: `src/history/unifiedHistoricalResultMerger.js`, integration in `src/history/unifiedHistoricalSearchOrchestrator.js`, regression suite `tests/unifiedHistoricalResultMerger.test.js`; implementation HEAD `7712e2822f7cf7b658cea906ca0ba4a86b4b9a2b`, SG 2.1 CI #8501 SUCCESS on exact HEAD.
 
 ## Conflict and supersession rule
 
-Historical search must preserve the distinction between:
+Historical search preserves the distinction between:
 
 - what was believed/reported at a past time;
 - what later changed;
@@ -165,7 +175,11 @@ Historical search must preserve the distinction between:
 
 A later value may supersede an older value without erasing the historical record.
 
-For a historical question, old superseded evidence may be correct for the requested date and must remain retrievable under authorized history mode.
+Memory 2.0 `supersededBy` and PM3/PDK4 `successorMemoryId` are propagated into the normalized historical result contract. HS4 exposes supersession chains and does not rewrite source lifecycle state.
+
+For a historical question, old superseded evidence may be correct for the requested date and remains eligible under authorized history mode. For a current-state query, active/current supported evidence receives a stronger lifecycle/currentness score than superseded/expired evidence.
+
+Contradictory current values are preserved as explicit unresolved conflict groups. HS4 does not invent a winner and does not replace PM3's existing authority-controlled conflict resolution. A supersession chain is treated as historical evolution rather than flattened into a current contradiction.
 
 ## Timeline rule
 
@@ -243,6 +257,8 @@ Deterministic scope/time filtering occurs before expensive semantic processing.
 
 Large archive processing must reuse hierarchical bounded retrieval and AI Router accounting. Every AI call remains logged with provider/model/reason/cost/trace according to existing SG policy.
 
+HS4 itself makes no AI calls and is bounded to a capped normalized input/result set.
+
 ## Program
 
 Implementation is split into HS1–HS6:
@@ -250,11 +266,11 @@ Implementation is split into HS1–HS6:
 1. HS1 — Historical Query Planner — implemented / CI-verified;
 2. HS2 — Memory 2.0 Hybrid Semantic Retrieval — implemented / CI-verified;
 3. HS3 — Unified Historical Search Orchestrator — implemented / CI-verified;
-4. HS4 — Unified Ranking, Deduplication, Conflict & Supersession;
-5. HS5 — Timeline, First/Last Occurrence & Fact History;
-6. HS6 — Security, Regression, Observability & Live Acceptance.
+4. HS4 — Unified Ranking, Deduplication, Conflict & Supersession — implemented / CI-verified;
+5. HS5 — Timeline, First/Last Occurrence & Fact History — planned;
+6. HS6 — Security, Regression, Observability & Live Acceptance — planned.
 
-HS1–HS3 remain **NOT CLOSED** until HS6 consolidated security/live acceptance satisfies the program closure rule.
+HS1–HS4 remain **NOT CLOSED** until HS6 consolidated security/live acceptance satisfies the program closure rule.
 
 Roadmap: `../roadmap/HISTORICAL_SEMANTIC_MEMORY_SEARCH_PROGRAM.md`.
 Workflow: `../workflow/HISTORICAL_SEMANTIC_MEMORY_SEARCH_WORKFLOW.md`.

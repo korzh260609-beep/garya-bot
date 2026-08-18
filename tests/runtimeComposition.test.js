@@ -118,3 +118,109 @@ test('shutdown rejects new requests after readiness is removed', async () => {
   await assert.rejects(() => harness.transport.send({ text: 'late request', userId: 'gary', projectId: 'sg2.1' }), /runtime is not ready/);
   assert.equal(harness.runtime.health().phase, 'stopped');
 });
+
+
+test('production runtime auto-captures semantic personal facts only after interpretation', async () => {
+  const order = [];
+  const captures = [];
+  const runtime = createProductionRuntime({
+    config: { environment: 'test', revision: 'memory-auto-capture-test', shutdownTimeoutMs: 1000 },
+    semanticPipeline: {
+      async process() {
+        order.push('semantic');
+        return {
+          decisionEnvelope: {
+            decisionType: 'answer',
+            intent: 'personal_fact_statement',
+            selectedAction: {
+              type: 'answer',
+              name: 'compose-answer',
+              actionClass: 'analysis',
+              payload: {
+                memoryCandidates: [
+                  { key: 'vehicle.freelander-2', value: 'must-not-be-trusted', scopeKind: 'user', shared: false, tags: ['vehicle'] },
+                  { key: 'vehicle.passat-b5', value: 'must-not-be-trusted', scopeKind: 'user', shared: false, tags: ['vehicle'] }
+                ]
+              }
+            }
+          },
+          responsePlan: { mode: 'answer', message: 'Понял.', requiresConfirmation: false, preparedAction: null }
+        };
+      }
+    },
+    memoryCaptureService: {
+      async capture(input) {
+        order.push('capture');
+        captures.push(input);
+        return { status: 'written', persisted: true };
+      }
+    },
+    actionGate: {
+      evaluate() {
+        return { outcome: 'allow', authorized: true, reasons: [], checks: { resourceAuthority: null } };
+      }
+    },
+    capabilityExecutor: {
+      async execute() {
+        return { status: 'success', capability: 'compose-answer', durationMs: 1, costUsd: 0, data: { message: 'Понял.' } };
+      }
+    },
+    observability: { record() {}, recordFailure() {} }
+  });
+  await runtime.start();
+  const response = await runtime.handle({
+    text: 'У меня Freelander 2 2008 года и Passat B5 1998 года.',
+    locale: 'ru',
+    identityContext: { globalUserId: 'usr-monarch', roles: ['monarch'], grants: [], authenticationLevel: 'verified' },
+    scopeContext: { userScope: 'usr-monarch', projectScope: 'sg2.1', groupScope: null, threadScope: null },
+    traceContext: { traceId: 'trace-memory-auto-capture', requestId: 'request-memory-auto-capture', environment: 'test', revision: 'test' },
+    metadata: { transport: 'telegram', platformMessageId: 'telegram-message-1' }
+  });
+  await runtime.stop();
+
+  assert.deepEqual(order, ['semantic', 'capture', 'capture']);
+  assert.equal(captures.length, 2);
+  assert.deepEqual(captures.map((item) => item.metadata.memoryCandidate.key), ['vehicle.freelander-2', 'vehicle.passat-b5']);
+  assert.ok(captures.every((item) => item.text === 'У меня Freelander 2 2008 года и Passat B5 1998 года.'));
+  assert.ok(captures.every((item) => item.metadata.memoryCandidate.value === 'У меня Freelander 2 2008 года и Passat B5 1998 года.'));
+  assert.ok(captures.every((item) => item.metadata.memoryCandidate.scopeKind === 'user'));
+  assert.ok(captures.every((item) => item.metadata.memoryCandidate.shared === false));
+  assert.equal(response.data.memoryCapture.persisted, true);
+  assert.equal(response.data.memoryCapture.persistedCount, 2);
+});
+
+test('production runtime does not auto-capture when semantic interpretation has no memory candidates', async () => {
+  let captures = 0;
+  const runtime = createProductionRuntime({
+    config: { environment: 'test', revision: 'memory-no-candidate-test', shutdownTimeoutMs: 1000 },
+    semanticPipeline: {
+      async process() {
+        return {
+          decisionEnvelope: {
+            decisionType: 'answer',
+            intent: 'ordinary_conversation',
+            selectedAction: { type: 'answer', name: 'compose-answer', actionClass: 'analysis', payload: { memoryCandidates: [] } }
+          },
+          responsePlan: { mode: 'answer', message: 'Хорошо.', requiresConfirmation: false, preparedAction: null }
+        };
+      }
+    },
+    memoryCaptureService: { async capture() { captures += 1; return { status: 'written', persisted: true }; } },
+    actionGate: { evaluate() { return { outcome: 'allow', authorized: true, reasons: [], checks: { resourceAuthority: null } }; } },
+    capabilityExecutor: { async execute() { return { status: 'success', capability: 'compose-answer', durationMs: 1, costUsd: 0, data: { message: 'Хорошо.' } }; } },
+    observability: { record() {}, recordFailure() {} }
+  });
+  await runtime.start();
+  const response = await runtime.handle({
+    text: 'Как дела?',
+    locale: 'ru',
+    identityContext: { globalUserId: 'usr-monarch', roles: ['monarch'], grants: [], authenticationLevel: 'verified' },
+    scopeContext: { userScope: 'usr-monarch', projectScope: 'sg2.1', groupScope: null, threadScope: null },
+    traceContext: { traceId: 'trace-memory-no-candidate', requestId: 'request-memory-no-candidate', environment: 'test', revision: 'test' },
+    metadata: { transport: 'telegram', platformMessageId: 'telegram-message-2' }
+  });
+  await runtime.stop();
+
+  assert.equal(captures, 0);
+  assert.equal(response.data.memoryCapture.reason, 'semantic-candidate-required');
+});

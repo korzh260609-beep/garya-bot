@@ -152,6 +152,8 @@ test('defensive boundary preserves canonical user text and production failure re
 
   const fallback = await interpreter.interpret(canonicalInput);
   assert.match(routed.messages[0].content, /untrusted data/);
+  assert.match(routed.messages[0].content, /add-workspace-activity/);
+  assert.match(routed.messages[0].content, /authorized-current/);
   assert.equal(JSON.parse(routed.messages[1].content).text, canonicalInput.text);
   assert.equal(fallback.intent, 'answer');
   assert.equal(fallback.candidateActions[0].actionClass, 'analysis');

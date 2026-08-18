@@ -73,6 +73,22 @@ test('AW2.14 deterministically composes current runtime metrics without stored w
   assert.deepEqual(result.evidenceRefs, ['workspace:activity', 'composition:runtime-source', 'composition:deterministic-facts']);
 });
 
+test('dynamic composition preserves an explicitly configured notification prefix and uses workspace titles instead of internal ids', async () => {
+  const handler = createRuntimeDynamicComposeHandler({ clock: () => '2026-08-17T15:00:01.000Z' });
+  const value = context({ data: {
+    workspaces: [{ workspaceId: W1, workspaceTitle: 'Монаршая группа', data: { interactions: { uniqueActors: 4 } } }],
+    omissions: [],
+    totals: { publications: 3, polls: 0, tests: 0, interactionEvents: 4, activityEvents: {} }
+  } });
+  value.workflow.inputs.message = 'ПРИВЕТ МОНАРХ';
+  value.step.composition.prefixInput = 'message';
+  const result = await handler(value);
+  assert.match(result.output.message, /^ПРИВЕТ МОНАРХ/);
+  assert.match(result.output.message, /Монаршая группа/);
+  assert.equal(result.output.message.includes(W1), false);
+  assert.ok(result.evidenceRefs.includes('composition:static-prefix'));
+});
+
 test('AW2.14 preserves partial outcome and renders denied or unavailable workspaces as explicit omissions', async () => {
   const handler = createRuntimeDynamicComposeHandler();
   const data = {

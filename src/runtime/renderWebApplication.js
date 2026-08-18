@@ -250,6 +250,7 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
         workflowStore: harness.taskStore.workflowStore,
         stepRunStore: createPostgresWorkflowExecutionStore({ database: harness.persistence.database }),
         workspaceOperationsStore: telegramWorkspaceOperations.store,
+        workspaceRegistry: telegramUpdateStore.workspaceRegistry,
         workspaceAuthority: telegramWorkspaceAuthority,
         botCapabilityService: telegramBotCapabilities,
         actionGate: harness.actionGate,

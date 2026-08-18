@@ -2,6 +2,7 @@ import { createWorkflowStep } from './workflowContract.js';
 
 export const WORKFLOW_NATURAL_LANGUAGE_OPERATIONS = Object.freeze([
   'add-step',
+  'add-workspace-activity',
   'remove-step',
   'replace-workflow',
   'change-output-style',
@@ -102,6 +103,48 @@ function addStep(current, data) {
   return { patch: { steps }, lifecycleAction: null };
 }
 
+function addWorkspaceActivity(current, data) {
+  exactKeys(data, ['workspaceSelection', 'heading'], 'add-workspace-activity.data');
+  if (data.workspaceSelection !== 'authorized-current') {
+    throw new WorkflowLifecycleError('workflow_lifecycle_invalid', 'add-workspace-activity requires workspaceSelection=authorized-current');
+  }
+  const heading = data.heading == null ? 'Активность в доступных группах' : String(data.heading).trim();
+  if (!heading || heading.length > 120) {
+    throw new WorkflowLifecycleError('workflow_lifecycle_invalid', 'add-workspace-activity heading must be a non-empty string up to 120 characters');
+  }
+  const steps = current.steps.map((item) => jsonClone(item, 'workflow step'));
+  const composeIndexes = steps.flatMap((step, index) => step.type === 'compose' ? [index] : []);
+  const deliverIndexes = steps.flatMap((step, index) => step.type === 'deliver' ? [index] : []);
+  if (composeIndexes.length !== 1 || deliverIndexes.length !== 1 || composeIndexes[0] > deliverIndexes[0]) {
+    throw new WorkflowLifecycleError(
+      'workflow_lifecycle_activity_shape_ambiguous',
+      'workspace activity can be added only when one compose step precedes one delivery step',
+      { clarificationRequired: true }
+    );
+  }
+  if (steps.some((step) => step.type === 'collect' && step.source?.capability === 'workspace-activity')) {
+    throw new WorkflowLifecycleError('workflow_lifecycle_activity_already_present', 'workspace activity is already configured');
+  }
+  const composeIndex = composeIndexes[0];
+  const currentCompose = steps[composeIndex];
+  const prefixInput = typeof currentCompose.input === 'string' && currentCompose.input.trim() !== ''
+    ? currentCompose.input.trim()
+    : 'message';
+  steps.splice(composeIndex, 1,
+    createWorkflowStep({
+      type: 'collect',
+      security: { protected: true },
+      source: { capability: 'workspace-activity', workspaceSelection: 'authorized-current' }
+    }),
+    createWorkflowStep({
+      type: 'compose',
+      security: { protected: true },
+      composition: { mode: 'deterministic', heading, prefixInput }
+    })
+  );
+  return { patch: { steps }, lifecycleAction: null };
+}
+
 function removeStep(current, data) {
   exactKeys(data, ['target'], 'remove-step.data');
   const steps = current.steps.map((item) => jsonClone(item, 'workflow step'));
@@ -166,6 +209,7 @@ export function compileWorkflowLifecycleOperation({ currentWorkflow, operation, 
   const normalized = normalizeWorkflowLifecycleOperation(operation);
   switch (normalized.type) {
     case 'add-step': return Object.freeze({ ...addStep(current, normalized.data), operation: normalized });
+    case 'add-workspace-activity': return Object.freeze({ ...addWorkspaceActivity(current, normalized.data), operation: normalized });
     case 'remove-step': return Object.freeze({ ...removeStep(current, normalized.data), operation: normalized });
     case 'replace-workflow': return Object.freeze({ ...replaceWorkflow(normalized.data), operation: normalized });
     case 'change-output-style': return Object.freeze({ ...changeOutputStyle(current, normalized.data), operation: normalized });

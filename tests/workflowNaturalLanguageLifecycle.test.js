@@ -103,6 +103,20 @@ test('AW2.18 compiles semantic add/remove/replace/style/trigger operations witho
   assert.equal(f.commits.every((commit) => commit.patchSummary.semanticOperation != null), true);
 });
 
+test('live automation update compiles authorized-current activity into collect, dynamic compose and delivery without workspace ids', () => {
+  const compiled = compileWorkflowLifecycleOperation({
+    currentWorkflow: workflow(),
+    operation: { type: 'add-workspace-activity', data: { workspaceSelection: 'authorized-current' } }
+  });
+  assert.deepEqual(compiled.patch.steps.map((step) => step.type), ['collect', 'compose', 'deliver']);
+  assert.deepEqual(compiled.patch.steps[0].source, {
+    capability: 'workspace-activity',
+    workspaceSelection: 'authorized-current'
+  });
+  assert.equal(compiled.patch.steps[1].composition.prefixInput, 'message');
+  assert.equal(compiled.patch.steps[1].security.protected, true);
+});
+
 test('AW2.18 restores an earlier snapshot as a new version without changing automation identity', async () => {
   const f = fixture();
   const result = await f.service.update({

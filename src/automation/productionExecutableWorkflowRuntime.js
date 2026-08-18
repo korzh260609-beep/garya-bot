@@ -252,6 +252,7 @@ export function createProductionExecutableWorkflowRuntime({
   workflowStore,
   stepRunStore,
   workspaceOperationsStore,
+  workspaceRegistry = null,
   workspaceAuthority,
   botCapabilityService,
   actionGate,
@@ -264,6 +265,7 @@ export function createProductionExecutableWorkflowRuntime({
   required(workflowStore?.resolveVersion, 'workflowStore.resolveVersion');
   required(stepRunStore?.recordStep, 'stepRunStore.recordStep');
   required(workspaceOperationsStore, 'workspaceOperationsStore');
+  if (workspaceRegistry != null) required(workspaceRegistry?.listWorkspaces, 'workspaceRegistry.listWorkspaces');
   required(workspaceAuthority?.verify, 'workspaceAuthority.verify');
   required(botCapabilityService?.checkCapabilities, 'botCapabilityService.checkCapabilities');
   required(actionGate?.evaluate, 'actionGate.evaluate');
@@ -283,11 +285,60 @@ export function createProductionExecutableWorkflowRuntime({
     collectWorkspaceActivity,
     recheckProtectedStep: (context) => executionSecurity.recheckProtectedStep(context)
   });
+
+  async function resolveAuthorizedCurrentWorkspaces(context) {
+    if (context.step?.source?.workspaceSelection !== 'authorized-current') return context;
+    if (workspaceRegistry == null) {
+      const error = new Error('authorized-current workspace selection requires the workspace registry');
+      error.code = 'authorized_workspace_registry_unavailable';
+      error.retryable = false;
+      throw error;
+    }
+    const identity = identityFor(context);
+    const candidates = await workspaceRegistry.listWorkspaces({ limit: 500 });
+    const authorized = [];
+    for (const workspace of candidates) {
+      if (['DISCONNECTED', 'REVOKED'].includes(workspace.lifecycleState)) continue;
+      try {
+        const decision = await workspaceAuthority.verify({
+          workspaceId: workspace.workspaceId,
+          telegramUserId: identity.telegramUserId,
+          expectedGlobalUserId: identity.globalUserId,
+          requestedAction: 'workspace:view',
+          forceFresh: true
+        });
+        if (decision?.allowed === true) authorized.push(workspace);
+      } catch {}
+    }
+    if (authorized.length === 0) {
+      const error = new Error('no currently authorized Telegram workspaces are available');
+      error.code = 'authorized_workspace_activity_unavailable';
+      error.retryable = false;
+      throw error;
+    }
+    return Object.freeze({
+      ...context,
+      step: Object.freeze({
+        ...context.step,
+        source: Object.freeze({
+          ...context.step.source,
+          workspaceIds: Object.freeze(authorized.map((workspace) => workspace.workspaceId)),
+          workspaceLabels: Object.freeze(Object.fromEntries(authorized.map((workspace) => [
+            workspace.workspaceId,
+            workspace.title || workspace.username || 'Группа Telegram'
+          ])))
+        })
+      })
+    });
+  }
   const collect = createRuntimeFreshDataCollectHandler({
     clock,
-    collectCurrent: (context) => Array.isArray(context.step?.source?.workspaceIds)
-      ? multiWorkspaceActivity(context)
-      : collectWorkspaceActivity(context)
+    collectCurrent: async (context) => {
+      const resolved = await resolveAuthorizedCurrentWorkspaces(context);
+      return Array.isArray(resolved.step?.source?.workspaceIds)
+        ? multiWorkspaceActivity(resolved)
+        : collectWorkspaceActivity(resolved);
+    }
   });
   const dynamicCompose = createRuntimeDynamicComposeHandler({ aiRouter, clock });
   const executor = createWorkflowExecutor({

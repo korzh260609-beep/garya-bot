@@ -391,6 +391,12 @@ Production implementation/evidence:
 - implementation HEAD `27cd4442f5057c071d881a9d8f79faaf95b54bcb` passed exact-head SG 2.1 CI #8317;
 - no scheduler, queue, durable worker, workflow store, Identity, Resource Authority, Action Gate, Credential Manager, Delivery Router or security stack was replaced or duplicated.
 
+First deployed live attempt, 2026-08-18:
+- the operator confirmed deployment and invoked the required modification using “groups where you are”;
+- SG refused instead of updating because the semantic contract could not express a safe current-authorized workspace set and `add-step` could not atomically produce the required collect → dynamic compose chain;
+- the remediation adds the typed `add-workspace-activity` operation, symbolic `authorized-current` execution-time resolution, preserved original notification text, current authority filtering plus AW2.13 per-workspace rechecks, user-facing workspace titles instead of internal IDs, and end-to-end regression coverage;
+- this is a live-found defect remediation, not final acceptance: exact-head CI, re-deploy and the complete live scenario below are still mandatory.
+
 Boundary: this closes the production code/CI wiring gap only. It does not prove a Render deploy or the real Telegram live scenario below, so AW2.20 and Automation 2.0 remain NOT CLOSED.
 
 Required live scenario:

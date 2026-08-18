@@ -7,7 +7,7 @@ const W1 = 'tgw_aw220one';
 const W2 = 'tgw_aw220two';
 const OCCURRENCE = 'schedule:aw220:42';
 
-function workflow() {
+function workflow({ symbolic = false } = {}) {
   return {
     schemaVersion: 1,
     automationId: 'automation:aw220',
@@ -22,18 +22,18 @@ function workflow() {
         security: { protected: true },
         source: {
           capability: 'workspace-activity',
-          workspaceIds: [W1, W2],
+          ...(symbolic ? { workspaceSelection: 'authorized-current' } : { workspaceIds: [W1, W2] }),
           dataWindow: { from: '2026-08-17T00:00:00.000Z', to: '2026-08-17T20:00:00.000Z' }
         }
       },
       {
         type: 'compose',
         security: { protected: true },
-        composition: { mode: 'deterministic', heading: 'Current workspace activity' }
+        composition: { mode: 'deterministic', heading: 'Current workspace activity', ...(symbolic ? { prefixInput: 'message' } : {}) }
       },
       { type: 'deliver', mode: 'legacy-self-notification' }
     ],
-    inputs: { message: 'stale prepared text must never be delivered' },
+    inputs: { message: symbolic ? 'ПРИВЕТ МОНАРХ' : 'stale prepared text must never be delivered' },
     delivery: {
       originTarget: { transport: 'telegram', address: '1001' },
       recipientGlobalUserId: 'user:aw220',
@@ -65,7 +65,7 @@ function memoryRunStore() {
   };
 }
 
-function runtimeFixture() {
+function runtimeFixture({ symbolic = false } = {}) {
   const resolved = [];
   const authorityCalls = [];
   const actionGateCalls = [];
@@ -73,7 +73,15 @@ function runtimeFixture() {
   const deliveries = [];
   const deliveredByKey = new Map();
   const stepRunStore = memoryRunStore();
-  const definition = workflow();
+  const definition = workflow({ symbolic });
+  const workspaceRegistry = {
+    async listWorkspaces() {
+      return [
+        { workspaceId: W1, title: 'Монаршая группа', lifecycleState: 'ACTIVE' },
+        { workspaceId: W2, title: 'Закрытая группа', lifecycleState: 'ACTIVE' }
+      ];
+    }
+  };
 
   const workflowStore = {
     async resolveVersion(request) {
@@ -155,6 +163,7 @@ function runtimeFixture() {
     workflowStore,
     stepRunStore,
     workspaceOperationsStore,
+    ...(symbolic ? { workspaceRegistry } : {}),
     workspaceAuthority,
     botCapabilityService,
     actionGate,
@@ -173,6 +182,26 @@ function runtimeFixture() {
     stepRunStore
   };
 }
+
+test('live phrase workspace selection resolves only current authorized groups, rechecks them and hides internal ids', async () => {
+  const fixture = runtimeFixture({ symbolic: true });
+  const result = await fixture.createRuntime().execute({
+    taskId: 'task:aw220',
+    payload: { workflow: { automationId: 'automation:aw220', version: 2 }, occurrenceId: 'schedule:aw220:symbolic' },
+    attempt: 1,
+    idempotencyKey: 'task-occurrence:aw220:symbolic',
+    traceContext: { traceId: 'trace:aw220:symbolic', requestId: 'request:aw220:symbolic' },
+    scope: { globalUserId: 'user:aw220', projectScope: 'sg2.1' }
+  });
+  assert.equal(result.outcome, 'completed');
+  assert.equal(fixture.authorityCalls.filter((call) => call.workspaceId === W1 && call.forceFresh === true).length >= 2, true);
+  assert.equal(fixture.workspaceReads.some((call) => call.workspaceId === W2), false);
+  assert.equal(fixture.deliveries.length, 1);
+  assert.match(fixture.deliveries[0].message, /^ПРИВЕТ МОНАРХ/);
+  assert.match(fixture.deliveries[0].message, /Монаршая группа/);
+  assert.equal(fixture.deliveries[0].message.includes(W1), false);
+  assert.equal(fixture.deliveries[0].message.includes(W2), false);
+});
 
 test('AW2.20 production workflow resolves the pinned version, reauthorizes each workspace, uses fresh data and delivers once across restart', async () => {
   const fixture = runtimeFixture();

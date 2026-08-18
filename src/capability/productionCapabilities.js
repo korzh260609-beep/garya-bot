@@ -268,7 +268,7 @@ export function createProductionCapabilities({
             traceId: request.traceContext.traceId
           })
         });
-        return { status: 'success', data: { ...result, message: `Automation ${result.automationId} updated to version ${result.version}.` } };
+        return { status: 'success', data: { ...result, message: `Автоматизация обновлена. Версия: ${result.version}.` } };
       }
     }),
     capability({

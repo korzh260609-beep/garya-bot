@@ -71,9 +71,10 @@ function renderActivityData(data, collectedAt) {
     lines.push('Workspaces:');
     for (const entry of data.workspaces) {
       const workspaceId = optionalText(entry?.workspaceId, 'workspace.workspaceId', 200);
+      const workspaceLabel = optionalText(entry?.workspaceTitle, 'workspace.workspaceTitle', 200) ?? workspaceId;
       const uniqueActors = entry?.data?.interactions?.uniqueActors;
       const suffix = uniqueActors == null ? '' : `; unique actors: ${metric(uniqueActors, `workspace.${workspaceId}.uniqueActors`)}`;
-      lines.push(`- ${workspaceId}${suffix}`);
+      lines.push(`- ${workspaceLabel}${suffix}`);
     }
   } else if (data.workspaceId && data.interactions?.uniqueActors != null) {
     lines.push(`Workspace ${optionalText(data.workspaceId, 'data.workspaceId', 200)} unique actors: ${metric(data.interactions.uniqueActors, 'data.interactions.uniqueActors')}`);
@@ -83,9 +84,10 @@ function renderActivityData(data, collectedAt) {
     lines.push('Omissions:');
     for (const omission of data.omissions) {
       const workspaceId = optionalText(omission?.workspaceId, 'omission.workspaceId', 200);
+      const workspaceLabel = optionalText(omission?.workspaceTitle, 'omission.workspaceTitle', 200) ?? workspaceId;
       const reason = optionalText(omission?.reason ?? 'unavailable', 'omission.reason', 300);
       const errorCode = optionalText(omission?.errorCode, 'omission.errorCode', 200);
-      lines.push(`- ${workspaceId}: ${reason}${errorCode ? ` (${errorCode})` : ''}`);
+      lines.push(`- ${workspaceLabel}: ${reason}${errorCode ? ` (${errorCode})` : ''}`);
     }
   }
 
@@ -127,6 +129,7 @@ function normalizeComposition(step) {
   return Object.freeze({
     mode,
     heading: optionalText(config.heading, 'step.composition.heading', 120) ?? 'Workspace activity',
+    prefixInput: optionalText(config.prefixInput, 'step.composition.prefixInput', 100),
     audience: optionalText(config.audience, 'step.composition.audience', 200),
     tone: optionalText(config.tone, 'step.composition.tone', 100),
     specialty: optionalText(config.ai?.specialty, 'step.composition.ai.specialty', 100) ?? 'reasoning',
@@ -179,11 +182,17 @@ export function createRuntimeDynamicComposeHandler({ aiRouter = null, clock = ()
 
     let intro = null;
     let ai = null;
+    const prefix = config.prefixInput == null ? null : optionalText(
+      context.workflow?.inputs?.[config.prefixInput],
+      `workflow.inputs.${config.prefixInput}`,
+      4000
+    );
     const evidenceRefs = [
       ...(source.evidenceRefs ?? []),
       'composition:runtime-source',
       'composition:deterministic-facts'
     ];
+    if (prefix) evidenceRefs.push('composition:static-prefix');
     if (config.mode === 'ai-assisted') {
       if (aiRouter == null) throw failClosed('AI-assisted dynamic composition requires AI Router', 'dynamic_composition_ai_router_required');
       const traceId = optionalText(context.traceContext?.traceId, 'traceContext.traceId', 300);
@@ -230,7 +239,7 @@ export function createRuntimeDynamicComposeHandler({ aiRouter = null, clock = ()
     return Object.freeze({
       outcome: source.outcome,
       output: Object.freeze({
-        message: [intro, config.heading, deterministicBody].filter(Boolean).join('\n\n'),
+        message: [prefix, intro, config.heading, deterministicBody].filter(Boolean).join('\n\n'),
         authoritativeFacts,
         compositionMetadata: Object.freeze({
           mode: config.mode,

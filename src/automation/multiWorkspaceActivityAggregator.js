@@ -40,9 +40,15 @@ function workspaceStep(step, workspaceId) {
   });
 }
 
-function omissionFromVerdict(workspaceId, verdict) {
+function workspaceTitle(source, workspaceId) {
+  const title = source?.workspaceLabels?.[workspaceId];
+  return typeof title === 'string' && title.trim() !== '' ? title.trim() : null;
+}
+
+function omissionFromVerdict(workspaceId, verdict, title = null) {
   return Object.freeze({
     workspaceId,
+    ...(title ? { workspaceTitle: title } : {}),
     reason: verdict?.reason ?? 'workspace-current-security-denied',
     failedCheck: verdict?.failedCheck ?? null,
     errorCode: verdict?.errorCode ?? null,
@@ -50,9 +56,10 @@ function omissionFromVerdict(workspaceId, verdict) {
   });
 }
 
-function omissionFromError(workspaceId, error) {
+function omissionFromError(workspaceId, error, title = null) {
   return Object.freeze({
     workspaceId,
+    ...(title ? { workspaceTitle: title } : {}),
     reason: 'workspace-collection-unavailable',
     failedCheck: null,
     errorCode: error?.code ?? 'workspace_collection_unavailable',
@@ -96,6 +103,7 @@ export function createMultiWorkspaceActivityAggregator({
     const evidenceRefs = [];
 
     for (const workspaceId of workspaceIds) {
+      const title = workspaceTitle(source, workspaceId);
       const step = workspaceStep(context.step, workspaceId);
       const securityVerdict = await recheckOne(Object.freeze({
         taskId: context.taskId,
@@ -112,7 +120,7 @@ export function createMultiWorkspaceActivityAggregator({
       }));
 
       if (securityVerdict?.allowed !== true) {
-        omissions.push(omissionFromVerdict(workspaceId, securityVerdict));
+        omissions.push(omissionFromVerdict(workspaceId, securityVerdict, title));
         continue;
       }
 
@@ -134,6 +142,7 @@ export function createMultiWorkspaceActivityAggregator({
 
         workspaces.push(Object.freeze({
           workspaceId,
+          ...(title ? { workspaceTitle: title } : {}),
           data,
           sourceMetadata: result.sourceMetadata ?? null,
           evidenceRefs: Object.freeze([...(result.evidenceRefs ?? [])])
@@ -146,7 +155,7 @@ export function createMultiWorkspaceActivityAggregator({
         evidenceRefs.push(...(securityVerdict.evidenceRefs ?? []), ...(result.evidenceRefs ?? []));
       } catch (error) {
         if (error?.code === 'multi_workspace_collector_contract_invalid' || error instanceof TypeError) throw error;
-        omissions.push(omissionFromError(workspaceId, error));
+        omissions.push(omissionFromError(workspaceId, error, title));
       }
     }
 

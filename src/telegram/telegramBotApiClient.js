@@ -152,6 +152,32 @@ export function createTelegramBotApiClient({
       ...(useIndependentChatPermissions == null ? {} : { use_independent_chat_permissions: useIndependentChatPermissions === true }),
       ...(untilDate == null ? {} : { until_date: Number(untilDate) })
     }),
+    createChatInviteLink: ({ chatId, name = null, expireDate = null, memberLimit = null, createsJoinRequest = false }) => call('createChatInviteLink', {
+      chat_id: chatId,
+      ...(name == null ? {} : { name: String(name).slice(0, 32) }),
+      ...(expireDate == null ? {} : { expire_date: Number(expireDate) }),
+      ...(memberLimit == null ? {} : { member_limit: Number(memberLimit) }),
+      creates_join_request: createsJoinRequest === true
+    }),
+    approveChatJoinRequest: ({ chatId, userId }) => call('approveChatJoinRequest', {
+      chat_id: chatId,
+      user_id: Number(userId)
+    }),
+    declineChatJoinRequest: ({ chatId, userId }) => call('declineChatJoinRequest', {
+      chat_id: chatId,
+      user_id: Number(userId)
+    }),
+    banChatMember: ({ chatId, userId, untilDate = null, revokeMessages = false }) => call('banChatMember', {
+      chat_id: chatId,
+      user_id: Number(userId),
+      ...(untilDate == null ? {} : { until_date: Number(untilDate) }),
+      revoke_messages: revokeMessages === true
+    }),
+    unbanChatMember: ({ chatId, userId, onlyIfBanned = true }) => call('unbanChatMember', {
+      chat_id: chatId,
+      user_id: Number(userId),
+      only_if_banned: onlyIfBanned === true
+    }),
     editMessageText: ({ chatId, messageId, text, replyMarkup = null }) => call('editMessageText', {
       chat_id: chatId,
       message_id: messageId,
@@ -176,7 +202,7 @@ export function createTelegramBotApiClient({
           : { type: 'default' }
       });
     },
-    setWebhook: ({ url, secretToken, allowedUpdates = ['message', 'edited_message', 'channel_post', 'edited_channel_post', 'callback_query', 'my_chat_member', 'poll', 'poll_answer'] }) => call('setWebhook', {
+    setWebhook: ({ url, secretToken, allowedUpdates = ['message', 'edited_message', 'channel_post', 'edited_channel_post', 'callback_query', 'my_chat_member', 'chat_join_request', 'chat_member', 'poll', 'poll_answer'] }) => call('setWebhook', {
       url: requiredString(url, 'webhook url'),
       secret_token: requiredString(secretToken, 'webhook secret'),
       allowed_updates: allowedUpdates,

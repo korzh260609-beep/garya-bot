@@ -52,9 +52,12 @@ import {
   createPostgresProjectMemoryStore,
   createProjectMemoryHybridRetrieval,
   createProjectMemoryContextGuard,
-  createProjectMemoryAIRouterIntegration
+  createProjectMemoryAIRouterIntegration,
+  createProjectMemoryTemporalHistory,
+  createProjectDecisionIncidentMemory
 } from '../projectMemory/index.js';
 import { createDevelopmentQueryIntegration } from '../projectDevelopmentKnowledge/index.js';
+import { createUnifiedHistoricalSearchOrchestrator } from '../history/unifiedHistoricalSearchOrchestrator.js';
 import { BUILT_IN_DOMAIN_PERMISSIONS } from '../domains/builtInDomains.js';
 import { createProductionControlPlane } from './productionControlPlane.js';
 import { createProductionRuntime } from './createProductionRuntime.js';
@@ -68,6 +71,25 @@ function createProjectMemoryRequestAuthorizer() {
     && actor.projectMemoryAuthorization.projectScope === projectKey
     && actor.projectMemoryAuthorization.actorGlobalUserId === actor.globalUserId
     && (operation === 'read' || operation === 'context-read');
+}
+function projectMemoryAuthorizedActor(actor, projectKey) {
+  if (!actor?.globalUserId) throw new TypeError('historical Project Memory requires resolved actor');
+  return Object.freeze({
+    ...actor,
+    projectMemoryAuthorization: Object.freeze({
+      source: 'resolved-request-scope',
+      projectScope: projectKey,
+      actorGlobalUserId: actor.globalUserId
+    })
+  });
+}
+function historicalProjectRetrieval(retrieval) {
+  if (!retrieval?.search) return null;
+  return Object.freeze({
+    search(input) {
+      return retrieval.search({ ...input, actor: projectMemoryAuthorizedActor(input.actor, input.projectKey) });
+    }
+  });
 }
 
 export function createLocalProductionHarness({ env = {}, interpretationResolver, fetchImpl = globalThis.fetch, clock = () => new Date() } = {}) {
@@ -126,6 +148,33 @@ export function createLocalProductionHarness({ env = {}, interpretationResolver,
   const projectMemoryContextGuard = persistence ? createProjectMemoryContextGuard({ database: persistence.database, authorize: projectMemoryAuthorize, retrieval: projectMemoryRetrieval, clock }) : null;
   const projectMemoryIntegration = persistence ? createProjectMemoryAIRouterIntegration({ retrieval: projectMemoryRetrieval, contextGuard: projectMemoryContextGuard, aiRouter: productionAI?.aiRouter ?? null }) : null;
   const developmentQueryIntegration = persistence ? createDevelopmentQueryIntegration({ projectMemoryIntegration, retrieval: projectMemoryRetrieval, contextGuard: projectMemoryContextGuard }) : null;
+  const historicalProjectMemoryRetrieval = historicalProjectRetrieval(projectMemoryRetrieval);
+  const projectMemoryTemporalHistory = persistence ? createProjectMemoryTemporalHistory({ store: projectMemoryStore, database: persistence.database, clock }) : null;
+  const projectDecisionIncidentMemory = persistence ? createProjectDecisionIncidentMemory({
+    retrieval: historicalProjectMemoryRetrieval,
+    temporalHistory: projectMemoryTemporalHistory,
+    authorize: ({ actor, projectKey, operation }) => {
+      const marker = actor?.projectMemoryAuthorization;
+      return marker?.source === 'resolved-request-scope'
+        && marker.projectScope === projectKey
+        && marker.actorGlobalUserId === actor.globalUserId
+        && ['decision-read', 'decision-history-read', 'incident-guidance-read'].includes(operation);
+    }
+  }) : null;
+  const historicalDecisionIncidentMemory = projectDecisionIncidentMemory ? Object.freeze({
+    findIncidentGuidance(input) {
+      return projectDecisionIncidentMemory.findIncidentGuidance({ ...input, actor: projectMemoryAuthorizedActor(input.actor, input.projectKey) });
+    }
+  }) : null;
+  const historicalSearch = createUnifiedHistoricalSearchOrchestrator({
+    aiRouter: productionAI?.aiRouter ?? null,
+    temporalService,
+    conversationHistoryStore: conversationDeployment.store,
+    memory2: memory2Service,
+    projectMemoryRetrieval: historicalProjectMemoryRetrieval,
+    pdk4: developmentQueryIntegration,
+    decisionIncidentMemory: historicalDecisionIncidentMemory
+  });
   const languageDetector = productionAI?.aiRouter ? createAILanguageDetector({ aiRouter: productionAI.aiRouter }) : null;
   const languageContextService = createLanguageContextService({ store: languageStore, detector: languageDetector, fallbackLanguage: env.SG_FALLBACK_LANGUAGE ?? 'en' });
   const recurrenceEngine = createRecurrenceEngine({ temporalService });
@@ -170,12 +219,13 @@ export function createLocalProductionHarness({ env = {}, interpretationResolver,
       memory2: { enabled: true },
       projectMemory3: { enabled: Boolean(projectMemoryIntegration), aiRouterIntegrated: Boolean(projectMemoryIntegration), trustedSourceKinds: ['github'], renderConnectorTrusted: false },
       projectDevelopmentKnowledge4: { enabled: Boolean(developmentQueryIntegration), queryIntegrated: Boolean(developmentQueryIntegration) },
+      historicalSemanticMemorySearch: { wired: true, aiRouterAvailable: Boolean(productionAI?.aiRouter), stage: 'HS6' },
       ownerSecurity: ownerSecurityGateway.status(),
       revision: config.revision,
       environment: config.environment
     })
   });
-  const conversationResponder = createLanguageAwareConversationResponder({ aiRouter: productionAI?.aiRouter ?? null, responseContextAssembler, projectMemoryIntegration, developmentQueryIntegration });
+  const conversationResponder = createLanguageAwareConversationResponder({ aiRouter: productionAI?.aiRouter ?? null, responseContextAssembler, projectMemoryIntegration, developmentQueryIntegration, historicalSearch, observability });
   const selfKnowledgeResource = Object.freeze({
     async start() {
       await selfKnowledgeBuilder.rebuild({ sourceRevision: config.revision, commitSha: config.revision, environment: config.environment, reason: 'runtime-startup', metadata: { block: 'memory-2.0' } });
@@ -197,7 +247,7 @@ export function createLocalProductionHarness({ env = {}, interpretationResolver,
 
   const domainDispatcher = async ({ domainId, capability, input, request }) => controlPlane.domainRuntime.execute({ domainId, capability, input, identityContext: request.actor, scopeContext: request.scope, traceContext: enrichTrace(request.traceContext, config), gateDecision: request.gateDecision });
   const capabilities = Object.freeze([
-    ...createProductionCapabilities({ memoryProvider, taskStore, conversationResponder, domainDispatcher, sourceRetriever: async ({ sourceId, query }) => sourceId === 'local-fixture' ? { ok: true, message: 'Approved local source retrieved', query, data: { sourceId, query }, sources: [sourceId] } : { ok: false, code: 'source-not-approved', message: 'Source is not approved', retryable: false, sources: [] }, repositoryAnalyzer: async ({ mode, files = [] }) => ({ mode, files: [...files], findings: [], mutated: false, message: 'Repository analysis completed in read/prepare-only mode', sources: ['repository-read-source'] }), diagnosticsProvider: async () => ({ status: 'ready', revision: config.revision, environment: config.environment, capabilityCount: capabilityNames.length, languageContext: 'ready', conversationContext: 'ready', userSettings: 'ready', memory2: await memory2Service.diagnostics({ scope: { userScope: ownerSecurityConfig.monarchGlobalUserId ?? 'diagnostic', projectScope: config.projectScope }, actor: { globalUserId: ownerSecurityConfig.monarchGlobalUserId ?? 'diagnostic', roles: ownerSecurityConfig.monarchGlobalUserId ? ['monarch'] : ['guest'], grants: [] } }), projectMemory3: { enabled: Boolean(projectMemoryIntegration), aiRouterIntegrated: Boolean(projectMemoryIntegration), guardedContextOnly: true, renderConnectorTrusted: false }, projectDevelopmentKnowledge4: { enabled: Boolean(developmentQueryIntegration), queryIntegrated: Boolean(developmentQueryIntegration) }, selfKnowledge: (await selfKnowledgeService.getSnapshot({ environment: config.environment }))?.validationStatus ?? 'unavailable', responseContext: 'ready', ownerSecurity: ownerSecurityGateway.status(), policyLayer: 'ready', featureFlags: 'ready', internalEventBus: 'ready', contractVersioning: 'ready', domainRuntime: 'ready', credentialBoundary: 'ready', credentialProviders: credentialDeployment.providers, connectionRegistry: 'ready', connectionIds: connectionDeployment.connectionIds, resourceAuthority: 'ready' }) }),
+    ...createProductionCapabilities({ memoryProvider, taskStore, conversationResponder, domainDispatcher, sourceRetriever: async ({ sourceId, query }) => sourceId === 'local-fixture' ? { ok: true, message: 'Approved local source retrieved', query, data: { sourceId, query }, sources: [sourceId] } : { ok: false, code: 'source-not-approved', message: 'Source is not approved', retryable: false, sources: [] }, repositoryAnalyzer: async ({ mode, files = [] }) => ({ mode, files: [...files], findings: [], mutated: false, message: 'Repository analysis completed in read/prepare-only mode', sources: ['repository-read-source'] }), diagnosticsProvider: async () => ({ status: 'ready', revision: config.revision, environment: config.environment, capabilityCount: capabilityNames.length, languageContext: 'ready', conversationContext: 'ready', userSettings: 'ready', memory2: await memory2Service.diagnostics({ scope: { userScope: ownerSecurityConfig.monarchGlobalUserId ?? 'diagnostic', projectScope: config.projectScope }, actor: { globalUserId: ownerSecurityConfig.monarchGlobalUserId ?? 'diagnostic', roles: ownerSecurityConfig.monarchGlobalUserId ? ['monarch'] : ['guest'], grants: [] } }), projectMemory3: { enabled: Boolean(projectMemoryIntegration), aiRouterIntegrated: Boolean(projectMemoryIntegration), guardedContextOnly: true, renderConnectorTrusted: false }, projectDevelopmentKnowledge4: { enabled: Boolean(developmentQueryIntegration), queryIntegrated: Boolean(developmentQueryIntegration) }, historicalSemanticMemorySearch: { wired: true, aiRouterAvailable: Boolean(productionAI?.aiRouter), stage: 'HS6' }, selfKnowledge: (await selfKnowledgeService.getSnapshot({ environment: config.environment }))?.validationStatus ?? 'unavailable', responseContext: 'ready', ownerSecurity: ownerSecurityGateway.status(), policyLayer: 'ready', featureFlags: 'ready', internalEventBus: 'ready', contractVersioning: 'ready', domainRuntime: 'ready', credentialBoundary: 'ready', credentialProviders: credentialDeployment.providers, connectionRegistry: 'ready', connectionIds: connectionDeployment.connectionIds, resourceAuthority: 'ready' }) }),
     ...memory2Capabilities,
     ...temporalCapabilities, ...languageCapabilities, ...userSettingsCapabilities
   ]);
@@ -211,5 +261,5 @@ export function createLocalProductionHarness({ env = {}, interpretationResolver,
   runtime = createProductionRuntime({ config, semanticPipeline, actionGate, capabilityRegistry, capabilityExecutor, domainRuntime: controlPlane.domainRuntime, observability, languageContextService, conversationContextService, userSettingsService, policyLayer, resourceAuthorityRegistry, memoryCaptureService: memory2Service, resources });
   const identityResolver = async ({ platformFacts, scopeFacts }) => { const globalUserId = `${platformFacts.platform}:${platformFacts.platformUserId}`; const roles = ['monarch']; const grants = [...capabilityNames.map((name) => `capability:${name}`), 'memory:group:write', 'memory:project:write', 'memory:confirm', 'memory:promote', ...BUILT_IN_DOMAIN_PERMISSIONS]; if (persistence) { await persistence.repositories.identities.link({ platform: platformFacts.platform, platformUserId: platformFacts.platformUserId, globalUserId, metadata: { fixture: true } }); await persistence.repositories.access.grantRole({ globalUserId, projectScope: scopeFacts.projectId ?? config.projectScope, role: 'monarch' }); for (const grantName of grants) await persistence.repositories.access.grantPermission({ globalUserId, projectScope: scopeFacts.projectId ?? config.projectScope, grantName }); } return { identityContext: createIdentityContext({ globalUserId, platform: platformFacts.platform, platformUserId: platformFacts.platformUserId, linkStatus: persistence ? 'linked' : 'local-fixture', roles, grants, authenticationLevel: 'verified' }), scopeContext: createScopeContext({ userScope: globalUserId, projectScope: scopeFacts.projectId ?? config.projectScope, groupScope: scopeFacts.groupId ?? null, threadScope: scopeFacts.threadId ?? null, allowedCapabilities: capabilityNames }) }; };
   const transport = createLocalInterfaceHarness({ identityResolver, requestHandler: runtime.handle });
-  return Object.freeze({ config, runtime, transport, observability, store, memoryProvider, memory2Service, memory2Store, memory2Capabilities, persistence, productionAI, projectMemoryStore, projectMemoryRetrieval, projectMemoryContextGuard, projectMemoryIntegration, developmentQueryIntegration, capabilities, capabilityRegistry, durableTaskQueue, taskStore, temporalService, recurrenceEngine, recurringScheduler, languageStore, languageDetector, languageContextService, languageCapabilities, userSettingsService, settingsStore, userSettingsCapabilities, capabilityNames, policyLayer, featureFlags, featureFlagStore, credentialManager, credentialAccessContext, credentialProviders: credentialDeployment.providers, connectionRegistry, connectionAccessContext, connectionStore: connectionDeployment.store, connectionIds: connectionDeployment.connectionIds, resourceAuthorityRegistry, resourceAuthorityAccessContext, resourceAuthorityStore: authorityDeployment.store, conversationContextService, conversationContextStore: conversationDeployment.store, selfKnowledgeStore, selfKnowledgeService, selfKnowledgeBuilder, selfKnowledgeSources, responseContextAssembler, ownerSecurityConfig, securityPolicyRegistry, ownerSecurityGateway, actionGate, eventBus: controlPlane.eventBus, eventStore: controlPlane.eventStore, contractVersioning: controlPlane.contractVersioning, contractQuarantineStore: controlPlane.contractQuarantineStore, domainRegistry: controlPlane.domainRegistry, domainRuntime: controlPlane.domainRuntime, domainPermissions: BUILT_IN_DOMAIN_PERMISSIONS });
+  return Object.freeze({ config, runtime, transport, observability, store, memoryProvider, memory2Service, memory2Store, memory2Capabilities, persistence, productionAI, projectMemoryStore, projectMemoryRetrieval, projectMemoryContextGuard, projectMemoryIntegration, developmentQueryIntegration, historicalSearch, projectMemoryTemporalHistory, projectDecisionIncidentMemory, capabilities, capabilityRegistry, durableTaskQueue, taskStore, temporalService, recurrenceEngine, recurringScheduler, languageStore, languageDetector, languageContextService, languageCapabilities, userSettingsService, settingsStore, userSettingsCapabilities, capabilityNames, policyLayer, featureFlags, featureFlagStore, credentialManager, credentialAccessContext, credentialProviders: credentialDeployment.providers, connectionRegistry, connectionAccessContext, connectionStore: connectionDeployment.store, connectionIds: connectionDeployment.connectionIds, resourceAuthorityRegistry, resourceAuthorityAccessContext, resourceAuthorityStore: authorityDeployment.store, conversationContextService, conversationContextStore: conversationDeployment.store, selfKnowledgeStore, selfKnowledgeService, selfKnowledgeBuilder, selfKnowledgeSources, responseContextAssembler, ownerSecurityConfig, securityPolicyRegistry, ownerSecurityGateway, actionGate, eventBus: controlPlane.eventBus, eventStore: controlPlane.eventStore, contractVersioning: controlPlane.contractVersioning, contractQuarantineStore: controlPlane.contractQuarantineStore, domainRegistry: controlPlane.domainRegistry, domainRuntime: controlPlane.domainRuntime, domainPermissions: BUILT_IN_DOMAIN_PERMISSIONS });
 }

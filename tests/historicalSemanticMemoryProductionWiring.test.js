@@ -83,6 +83,27 @@ test('HS6 production wiring: historical semantic request uses unified search and
   assert.equal(serializedTelemetry.includes('Обсуждали архитектуру памяти.'), false);
 });
 
+test('HS6 production wiring: project historical semantic intent uses unified historical search', async () => {
+  let searchCalls = 0;
+  const historicalSearch = {
+    async search({ query }) {
+      searchCalls += 1;
+      assert.equal(query, 'Как развивалась память СГ?');
+      return historicalResult();
+    }
+  };
+  const aiRouter = { async route() { return { text: 'История развития памяти найдена.' }; } };
+  const responder = createLanguageAwareConversationResponder({ aiRouter, responseContextAssembler, historicalSearch });
+  const projectHistory = request({
+    text: 'Как развивалась память СГ?',
+    semanticIntent: 'project_development_evolution',
+    conversationHistoryQuery: null
+  });
+  const answer = await responder({ text: 'Как развивалась память СГ?', request: projectHistory });
+  assert.equal(answer, 'История развития памяти найдена.');
+  assert.equal(searchCalls, 1);
+});
+
 test('HS6 production wiring: ordinary conversation does not invoke historical planner/search', async () => {
   let searchCalls = 0;
   const historicalSearch = { async search() { searchCalls += 1; return historicalResult(); } };

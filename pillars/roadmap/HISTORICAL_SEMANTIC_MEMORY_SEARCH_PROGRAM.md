@@ -2,7 +2,7 @@
 
 ## Status
 
-**IN PROGRESS / NOT CLOSED.** HS1, HS2, HS3 and HS4 are implemented and CI-verified. HS5–HS6 remain planned. This is an additive Memory 2.0 extension. M1–M9 remain CLOSED and must not be reopened or replaced.
+**IN PROGRESS / NOT CLOSED.** HS1, HS2, HS3, HS4 and HS5 are implemented and CI-verified. HS6 remains planned. This is an additive Memory 2.0 extension. M1–M9 remain CLOSED and must not be reopened or replaced.
 
 ## Goal
 
@@ -32,7 +32,7 @@ HS1 Historical Query Planner [IMPLEMENTED / CI-VERIFIED]
 -> HS2 Memory 2.0 Hybrid Semantic Retrieval [IMPLEMENTED / CI-VERIFIED]
 -> HS3 Unified Historical Search Orchestrator [IMPLEMENTED / CI-VERIFIED]
 -> HS4 Ranking / Dedup / Conflict / Supersession [IMPLEMENTED / CI-VERIFIED]
--> HS5 Timeline / First / Last / Fact History
+-> HS5 Timeline / First / Last / Fact History [IMPLEMENTED / CI-VERIFIED]
 -> HS6 Security / Regression / Observability / Live Acceptance
 ```
 
@@ -228,12 +228,26 @@ Provide chronological and provenance-aware historical reasoning over stored evid
 
 ## Acceptance criteria
 
-- [ ] “когда впервые” returns earliest source-verified occurrence;
-- [ ] “когда последний раз” returns latest supported occurrence;
-- [ ] “как менялось” returns chronological evidence-backed evolution;
-- [ ] timeline never invents events for empty periods;
-- [ ] fact history exposes provenance/trust/confirmation/supersession state internally;
-- [ ] user-facing output stays human-readable and does not expose IDs/scores by default.
+- [x] “когда впервые” returns earliest source-verified occurrence;
+- [x] “когда последний раз” returns latest supported occurrence;
+- [x] “как менялось” returns chronological evidence-backed evolution;
+- [x] timeline never invents events for empty periods;
+- [x] fact history exposes provenance/trust/confirmation/supersession state internally;
+- [x] user-facing output stays human-readable and does not expose IDs/scores by default.
+
+Implementation evidence:
+
+- deterministic operation layer: `buildHistoricalOperationResult()` in `src/history/historicalOperationResult.js`;
+- canonical orchestrator invokes HS5 only for `timeline`, `first-occurrence`, `last-occurrence` and `fact-history`; ordinary searches preserve the HS4 top-level contract;
+- timeline ordering uses source/evidence timestamps rather than HS4 rank order and only groups periods represented by real evidence;
+- first/last occurrence select the earliest/latest source-supported evidence chronologically;
+- fact history retains lifecycle, trust, confirmation, confidence, provenance and supersession chains while restricting states to the selected fact subject;
+- human-facing occurrence/timeline views omit internal IDs and scores by default while internal evidence references remain retained;
+- Conversation History retrieval receives operation context required by historical operations;
+- regression suite: `tests/historicalOperationResult.test.js` plus existing HS3/HS4 compatibility regressions;
+- compatibility fix HEAD `c2a1b0b33dbf4d599be1a3ec49bf226105257456` passed SG 2.1 CI #8524 SUCCESS on exact HEAD; migrations, security gate, `npm run check`, web start, worker start and diagnostics all passed.
+
+HS5 is **IMPLEMENTED / CI-VERIFIED / NOT CLOSED**. Final closure remains gated by HS6 consolidated security, observability and live acceptance.
 
 ---
 

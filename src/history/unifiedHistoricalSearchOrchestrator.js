@@ -205,7 +205,7 @@ export function createUnifiedHistoricalSearchOrchestrator({
         operationResult: null,
         contract: {
           version: HISTORICAL_SEARCH_ORCHESTRATOR_CONTRACT_VERSION,
-          stage: 'HS5',
+          stage: 'HS4',
           sourceOrchestrationStage: 'HS3',
           mergeStage: 'HS4',
           authorizationExpanded: false
@@ -340,7 +340,7 @@ export function createUnifiedHistoricalSearchOrchestrator({
       operationResult,
       contract: {
         version: HISTORICAL_SEARCH_ORCHESTRATOR_CONTRACT_VERSION,
-        stage: 'HS5',
+        stage: operationResult ? 'HS5' : 'HS4',
         sourceOrchestrationStage: 'HS3',
         mergeStage: 'HS4',
         historicalOperationStage: operationResult ? 'HS5' : null,

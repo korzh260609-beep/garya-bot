@@ -170,6 +170,20 @@ Status: **IMPLEMENTED / CI-VERIFIED / NOT CLOSED**; final closure remains gated 
 
 Exit gate: SG can answer “when first/last”, “how it changed” and “show history” with chronological source-verified evidence.
 
+Implementation evidence:
+
+- deterministic operation layer is `buildHistoricalOperationResult()` in `src/history/historicalOperationResult.js`;
+- `createUnifiedHistoricalSearchOrchestrator().search()` attaches an HS5 `operationResult` only for supported historical operations and keeps ordinary non-operation search compatible with the HS4 top-level contract;
+- timeline events are ordered by source/evidence timestamps, grouped only where evidence exists, and never fabricate empty periods;
+- first/last occurrence uses actual evidence chronology rather than HS4 ranking order;
+- fact history exposes lifecycle, trust, confirmation, confidence, provenance and supersession chains for the selected fact subject;
+- human-facing output omits internal IDs/scores by default while internal evidence remains traceable;
+- Conversation History operation context is propagated through the existing retrieval seam;
+- regression suite `tests/historicalOperationResult.test.js` plus existing HS3/HS4 tests verifies chronological operations and backward compatibility;
+- compatibility fix HEAD `c2a1b0b33dbf4d599be1a3ec49bf226105257456` passed SG 2.1 CI #8524 SUCCESS on exact HEAD, including migrations, security gate, `npm run check`, web start, worker start and diagnostics.
+
+Status: **IMPLEMENTED / CI-VERIFIED / NOT CLOSED**; final closure remains gated by HS6 consolidated security/live acceptance.
+
 ---
 
 ## HS6 workflow — Security, Regression, Observability & Live Acceptance

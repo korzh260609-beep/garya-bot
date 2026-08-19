@@ -28,7 +28,19 @@ function historicalResult() {
       items: [{ source: 'conversation-history', kind: 'conversation-turn', sourceId: 'internal-message-id', timestamp: '2025-08-19T10:00:00.000Z', text: 'Обсуждали архитектуру памяти.', lifecycle: null, provenance: { conversationId: 'internal-conversation-id' } }]
     }],
     merged: { items: [{ source: 'conversation-history', kind: 'conversation-turn', sourceId: 'internal-message-id', timestamp: '2025-08-19T10:00:00.000Z', text: 'Обсуждали архитектуру памяти.', lifecycle: null }] },
-    operationResult: { kind: 'HistoricalTimeline', human: { title: 'История', entries: ['2025-08-19 — обсуждали архитектуру памяти'] } },
+    operationResult: {
+      operation: 'timeline',
+      result: {
+        status: 'available', grouping: 'month', emptyPeriodsFabricated: false,
+        events: [{
+          at: '2025-08-19T10:00:00.000Z',
+          event: { date: '2025-08-19T10:00:00.000Z', source: 'Conversation History', subject: null, summary: 'Обсуждали архитектуру памяти.' },
+          lifecycle: null, confirmationState: null,
+          evidence: [{ source: 'conversation-history', sourceId: 'operation-secret-id', provenance: { conversationId: 'operation-secret-conversation' } }]
+        }]
+      },
+      contract: { stage: 'HS5', internalEvidenceRetained: true, internalIdsExposedByDefault: false }
+    },
     contract: { version: 3, stage: 'HS5', authorizationExpanded: false }
   };
 }
@@ -73,6 +85,8 @@ test('HS6 production wiring: historical semantic request uses unified search and
   assert.ok(historyMessage);
   assert.match(historyMessage.content, /Обсуждали архитектуру памяти/);
   assert.equal(historyMessage.content.includes('internal-message-id'), false);
+  assert.equal(historyMessage.content.includes('operation-secret-id'), false);
+  assert.equal(historyMessage.content.includes('operation-secret-conversation'), false);
   const events = observability.list({ channel: 'telemetry' }).filter((event) => event.stage === 'historical-semantic-search');
   assert.equal(events.length, 1);
   assert.equal(events[0].outcome, 'completed');

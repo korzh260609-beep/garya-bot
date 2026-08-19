@@ -62,6 +62,56 @@ function boundedHistoricalItem(item) {
   });
 }
 
+function safeHistoricalOperationResult(operationResult) {
+  if (!operationResult?.result) return null;
+  const operation = operationResult.operation ?? null;
+  const source = operationResult.result;
+  if (operation === 'first-occurrence' || operation === 'last-occurrence') {
+    return Object.freeze({ operation, result: Object.freeze({ status: source.status ?? null, occurrence: source.occurrence ?? null }) });
+  }
+  if (operation === 'timeline') {
+    const events = (source.events ?? []).slice(0, 80).map((entry) => Object.freeze({
+      at: entry.at ?? null,
+      event: entry.event ?? null,
+      lifecycle: entry.lifecycle ?? null,
+      confirmationState: entry.confirmationState ?? null
+    }));
+    return Object.freeze({
+      operation,
+      result: Object.freeze({
+        status: source.status ?? null,
+        grouping: source.grouping ?? null,
+        events: Object.freeze(events),
+        emptyPeriodsFabricated: source.emptyPeriodsFabricated === true
+      })
+    });
+  }
+  if (operation === 'fact-history') {
+    const states = (source.states ?? []).slice(0, 80).map((state) => Object.freeze({
+      at: state.at ?? null,
+      value: state.value ?? null,
+      lifecycle: state.lifecycle ?? null,
+      trust: state.trust ?? null,
+      confirmed: state.confirmed ?? null,
+      confidence: state.confidence ?? null,
+      confirmationState: state.confirmationState ?? null
+    }));
+    return Object.freeze({
+      operation,
+      result: Object.freeze({
+        status: source.status ?? null,
+        subject: source.subject ?? null,
+        firstOccurrence: source.firstOccurrence ?? null,
+        firstConfirmedFact: source.firstConfirmedFact ?? null,
+        latestSupportedUpdate: source.latestSupportedUpdate ?? null,
+        currentState: source.currentState ?? null,
+        states: Object.freeze(states)
+      })
+    });
+  }
+  return null;
+}
+
 function historicalModelContext(result) {
   if (!result) return null;
   const sources = (result.sources ?? []).slice(0, 9).map((source) => Object.freeze({
@@ -85,7 +135,7 @@ function historicalModelContext(result) {
     clarification: result.plan?.clarification ?? result.clarification ?? null,
     sources: Object.freeze(sources),
     merged: result.merged ? Object.freeze({ items: Object.freeze(mergedItems) }) : null,
-    operationResult: result.operationResult ?? null,
+    operationResult: safeHistoricalOperationResult(result.operationResult),
     contract: Object.freeze({
       version: result.contract?.version ?? null,
       stage: result.contract?.stage ?? null,

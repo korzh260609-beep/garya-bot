@@ -2,7 +2,7 @@
 
 ## Status
 
-Additive Memory 2.0 extension **IN PROGRESS / NOT CLOSED**. HS1 Historical Query Planner, HS2 Memory 2.0 Hybrid Semantic Retrieval, HS3 Unified Historical Search Orchestrator and HS4 Unified Ranking / Deduplication / Conflict / Supersession are implemented and CI-verified; HS5–HS6 remain planned. Final implementation status is determined by code, tests, exact-head CI and live runtime evidence.
+Additive Memory 2.0 extension **IN PROGRESS / NOT CLOSED**. HS1 Historical Query Planner, HS2 Memory 2.0 Hybrid Semantic Retrieval, HS3 Unified Historical Search Orchestrator, HS4 Unified Ranking / Deduplication / Conflict / Supersession and HS5 Timeline / First-Last Occurrence / Fact History are implemented and CI-verified; HS6 remains planned. Final implementation status is determined by code, tests, exact-head CI and live runtime evidence.
 
 ## Purpose
 
@@ -195,26 +195,31 @@ date/time
 -> current state where requested
 ```
 
-Timeline may group by day/week/month when requested, but grouping must not fabricate events for empty periods.
+Timeline may group by day/week/month/year when requested or selected by bounded deterministic grouping, but grouping must not fabricate events for empty periods.
+
+HS5 implements this rule through `buildHistoricalOperationResult()` in `src/history/historicalOperationResult.js`. Timeline events are ordered by actual evidence timestamps rather than HS4 relevance rank and preserve internal source references, lifecycle, confirmation and supersession state.
 
 ## First / last occurrence rule
 
-`first-occurrence` and `last-occurrence` must identify the earliest/latest source-verified material that actually discusses or establishes the requested subject.
+`first-occurrence` and `last-occurrence` identify the earliest/latest source-supported material that actually represents the requested subject after authorized retrieval and HS4 evidence normalization/merge.
 
-A keyword mention alone is insufficient if semantic verification shows the subject was not actually discussed.
+HS5 selects occurrences by evidence chronology, not rank order. Human-facing occurrence output contains readable date/source/subject/summary fields and omits internal IDs/scores by default; internal evidence references remain retained for diagnostics/verification.
 
 ## Fact-history rule
 
-For a durable fact SG must be able to expose, when authorized:
+For a durable fact SG exposes, when authorized:
 
 - first source occurrence;
-- memory creation time;
 - source/provenance;
 - trust/confidence at each state;
 - confirmation changes;
 - supersession chain;
 - current/expired/archived state;
 - last supported update.
+
+HS5 reconstructs fact history from the selected entity's normalized evidence states and existing supersession links. It does not mix unrelated explicit entities into one fact history.
+
+HS5 implementation: `src/history/historicalOperationResult.js`, integration in `src/history/unifiedHistoricalSearchOrchestrator.js`, Conversation History operation support in `src/conversation/longTermConversationHistory.js`, regression suite `tests/historicalOperationResult.test.js`. Ordinary non-operation historical search preserves the HS4 top-level `contract.stage`; supported HS5 operations promote the response to HS5 and expose `historicalOperationStage: 'HS5'`. Compatibility fix HEAD `c2a1b0b33dbf4d599be1a3ec49bf226105257456` passed SG 2.1 CI #8524 SUCCESS on exact HEAD, including migrations, security gate, `npm run check`, web start, worker start and diagnostics.
 
 ## Temporal reasoning
 
@@ -257,7 +262,7 @@ Deterministic scope/time filtering occurs before expensive semantic processing.
 
 Large archive processing must reuse hierarchical bounded retrieval and AI Router accounting. Every AI call remains logged with provider/model/reason/cost/trace according to existing SG policy.
 
-HS4 itself makes no AI calls and is bounded to a capped normalized input/result set.
+HS4 and HS5 operation construction themselves make no AI calls and are bounded to capped normalized input/result sets.
 
 ## Program
 
@@ -267,10 +272,10 @@ Implementation is split into HS1–HS6:
 2. HS2 — Memory 2.0 Hybrid Semantic Retrieval — implemented / CI-verified;
 3. HS3 — Unified Historical Search Orchestrator — implemented / CI-verified;
 4. HS4 — Unified Ranking, Deduplication, Conflict & Supersession — implemented / CI-verified;
-5. HS5 — Timeline, First/Last Occurrence & Fact History — planned;
+5. HS5 — Timeline, First/Last Occurrence & Fact History — implemented / CI-verified;
 6. HS6 — Security, Regression, Observability & Live Acceptance — planned.
 
-HS1–HS4 remain **NOT CLOSED** until HS6 consolidated security/live acceptance satisfies the program closure rule.
+HS1–HS5 remain **NOT CLOSED** until HS6 consolidated security/live acceptance satisfies the program closure rule.
 
 Roadmap: `../roadmap/HISTORICAL_SEMANTIC_MEMORY_SEARCH_PROGRAM.md`.
 Workflow: `../workflow/HISTORICAL_SEMANTIC_MEMORY_SEARCH_WORKFLOW.md`.

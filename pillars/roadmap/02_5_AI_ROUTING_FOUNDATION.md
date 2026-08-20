@@ -3,7 +3,7 @@
 ## Status
 Implementation complete on `dev/sg2.1-semantic`. Exit gate is satisfied only when CI is green for the final Block 2.5 commit.
 
-Adaptive AI Routing 2.0 (AR2) is an **accepted extension with implementation in progress** over this completed foundation. AR2.1 has local code and test evidence but remains NOT CLOSED until exact-HEAD CI succeeds; AR2.2–AR2.10 remain planned.
+Adaptive AI Routing 2.0 (AR2) is an **accepted extension with implementation in progress** over this completed foundation. AR2.1 is implemented, exact-HEAD CI-verified and closed at `e9e0d053`; AR2.2 has local implementation evidence and remains NOT CLOSED until exact-HEAD CI succeeds; AR2.3–AR2.10 remain planned.
 
 ## Goal
 Connect the first production reasoning model through a replaceable, observable and cost-controlled AI routing layer before Decision Engine development begins.
@@ -154,8 +154,8 @@ Usage/cost records remain privacy- and scope-bounded observability/accounting ev
 Telegram, Discord, Web/API, Email, voice and the future native SG interface all use the same routing and usage-accounting policy. Transport may supply bounded metadata but does not choose model tier or pricing truth.
 
 ### AR2 implementation sequence
-- **AR2.1 — Routing Contract:** IMPLEMENTED LOCALLY / LOCAL CHECK VERIFIED / NOT CI-VERIFIED / NOT CLOSED. Adds bounded routing metadata/task-class contract while preserving current AI request compatibility.
-- **AR2.2 — Tier-aware Model Registry:** add tier/capabilities/supported reasoning efforts/priority without hard-coding provider product names into business logic.
+- **AR2.1 — Routing Contract:** IMPLEMENTED / CI-VERIFIED / CLOSED. Adds bounded routing metadata/task-class contract while preserving current AI request compatibility. Evidence: `e9e0d053`, SG 2.1 CI #8643 SUCCESS.
+- **AR2.2 — Tier-aware Model Registry:** IMPLEMENTED LOCALLY / LOCAL CHECK VERIFIED / NOT CI-VERIFIED / NOT CLOSED. Adds tier/capabilities/supported reasoning efforts/default effort/priority without hard-coding provider product names into business logic.
 - **AR2.3 — Deterministic L0 Gate:** formalize no-LLM execution for known deterministic paths before paid AI routing.
 - **AR2.4 — Task Assessment:** deterministic assessment of complexity/risk/ambiguity/reasoning/tool/context signals.
 - **AR2.5 — Tier Selector:** minimum-sufficient tier selection with hard min/max overrides and bounded score policy.

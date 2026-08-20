@@ -6,22 +6,24 @@ import { createMemory2Service } from '../src/memory2/memory2.js';
 
 const databaseUrl = process.env.DATABASE_URL;
 
-function scope() {
-  return { userScope: 'hs6-restart-user', globalUserId: 'hs6-restart-user', projectScope: 'sg2.1', groupScope: null, threadScope: null };
+function scope(globalUserId) {
+  return { userScope: globalUserId, globalUserId, projectScope: 'sg2.1', groupScope: null, threadScope: null };
 }
 
-function actor() {
-  return { globalUserId: 'hs6-restart-user', roles: ['citizen'], grants: [], authenticationLevel: 'verified' };
+function actor(globalUserId) {
+  return { globalUserId, roles: ['citizen'], grants: [], authenticationLevel: 'verified' };
 }
 
 test('HS6: PostgreSQL Memory 2.0 evidence survives database client restart and remains recallable', { skip: !databaseUrl }, async () => {
   const memoryId = `hs6-restart-${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const key = `hs6-restart-key-${memoryId}`;
+  const globalUserId = `hs6-restart-user-${memoryId}`;
   const value = 'durable historical evidence across process restart';
 
   const firstDatabase = createPostgresDatabase({ connectionString: databaseUrl, ssl: false, applicationName: 'hs6-restart-write' });
   await firstDatabase.start();
   try {
+    await firstDatabase.query('INSERT INTO users(global_user_id, profile) VALUES ($1, $2::jsonb)', [globalUserId, '{}']);
     const firstService = createMemory2Service({
       store: createPostgresMemory2Store({ database: firstDatabase }),
       clock: () => new Date('2026-08-19T12:00:00.000Z')
@@ -30,8 +32,8 @@ test('HS6: PostgreSQL Memory 2.0 evidence survives database client restart and r
       id: memoryId,
       key,
       value,
-      scope: scope(),
-      actor: actor(),
+      scope: scope(globalUserId),
+      actor: actor(globalUserId),
       confirmed: true,
       trust: 'confirmed',
       provenance: { sourceType: 'test', sourceId: memoryId, sourceTimestamp: '2025-08-19T12:00:00.000Z' }
@@ -48,8 +50,8 @@ test('HS6: PostgreSQL Memory 2.0 evidence survives database client restart and r
       clock: () => new Date('2026-08-19T12:01:00.000Z')
     });
     const recalled = await secondService.recall({
-      scope: scope(),
-      actor: actor(),
+      scope: scope(globalUserId),
+      actor: actor(globalUserId),
       query: 'durable historical evidence',
       keys: [key],
       includeHistory: true,
@@ -62,7 +64,7 @@ test('HS6: PostgreSQL Memory 2.0 evidence survives database client restart and r
     assert.equal(restored.confirmed, true);
     assert.equal(restored.provenance.sourceTimestamp, '2025-08-19T12:00:00.000Z');
   } finally {
-    await secondDatabase.query('DELETE FROM memory_records WHERE memory_id=$1', [memoryId]);
+    await secondDatabase.query('DELETE FROM users WHERE global_user_id=$1', [globalUserId]);
     await secondDatabase.close();
   }
 });

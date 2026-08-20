@@ -10,6 +10,7 @@ import {
 } from './productionPolicy.js';
 import { createDeterministicTaskAssessor } from './taskAssessment.js';
 import { createTierSelector } from './tierSelector.js';
+import { createReasoningEffortSelector } from './reasoningEffortSelector.js';
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const RESPONSE_CONTEXT_TRUNCATION_MARKER = '\n...[SG_CONTEXT_TRUNCATED_TO_INPUT_BUDGET]...\n';
@@ -160,6 +161,7 @@ export function createAIRouter({
   deterministicGate = null,
   taskAssessor = createDeterministicTaskAssessor(),
   tierSelector = createTierSelector(),
+  reasoningEffortSelector = createReasoningEffortSelector(),
   timeoutMs = 30_000,
   maxRetries = 1,
   retryDelayMs = 100,
@@ -168,6 +170,7 @@ export function createAIRouter({
   if (deterministicGate && typeof deterministicGate.tryExecute !== 'function') throw new TypeError('deterministicGate.tryExecute is required');
   if (!taskAssessor || typeof taskAssessor.assess !== 'function') throw new TypeError('taskAssessor.assess is required');
   if (!tierSelector || typeof tierSelector.select !== 'function') throw new TypeError('tierSelector.select is required');
+  if (!reasoningEffortSelector || typeof reasoningEffortSelector.select !== 'function') throw new TypeError('reasoningEffortSelector.select is required');
   const providerMap = new Map(Object.entries(providers ?? {}).map(([name, provider]) => [name, assertAIProvider(provider)]));
 
   function enforcePolicy({ model, request, role }) {
@@ -200,7 +203,7 @@ export function createAIRouter({
     return evidence;
   }
 
-  async function callModel(model, request, fallbackUsed, role) {
+  async function callModel(model, request, fallbackUsed, role, reasoningEffortSelection) {
     const provider = providerMap.get(model.provider);
     if (!provider) throw new AIProviderError(`AI provider is not registered: ${model.provider}`, { code: 'AI_PROVIDER_NOT_REGISTERED' });
     let lastError;
@@ -227,6 +230,7 @@ export function createAIRouter({
           provider: model.provider,
           model: model.model,
           tier: model.tier,
+          reasoningEffort: reasoningEffortSelection.effort,
           latencyMs: raw.latencyMs ?? Date.now() - startedAt,
           costUsd: raw.costUsd ?? estimateCost(model, raw.usage),
           traceId: activeRequest.traceContext.traceId,
@@ -281,7 +285,7 @@ export function createAIRouter({
         assessment,
         trustedRoutingPolicy: input.trustedRoutingPolicy ?? null,
       });
-      const request = createAIRequest({
+      let request = createAIRequest({
         ...input,
         routing: { ...(input.routing ?? {}), assessment, tierSelection },
         maxOutputTokens: input.maxOutputTokens ?? defaultOutputBudget(input, policy),
@@ -310,8 +314,23 @@ export function createAIRouter({
         selectedTier: primary.tier, provider: primary.provider, model: primary.model,
         specialty: selectionRequirements.specialty, requiredCapabilities: selectionRequirements.requiredCapabilities,
       });
+      const selectReasoningEffort = (model) => reasoningEffortSelector.select({
+        tier: request.routing.tierSelection.tier, assessment: request.routing.assessment, model,
+        requestedEffort: request.routing.reasoningEffort, trustedRoutingPolicy: input.trustedRoutingPolicy ?? null,
+      });
+      const applyReasoningEffort = (selection) => createAIRequest({
+        ...request,
+        metadata: { ...request.metadata, ...(selection.effort ? { reasoningEffort: selection.effort } : {}) },
+        routing: { ...request.routing, reasoningEffortSelection: selection },
+      });
+      const primaryEffort = selectReasoningEffort(primary);
+      request = applyReasoningEffort(primaryEffort);
+      telemetry?.record?.({
+        type: 'ai.reasoning-effort.selected', traceId: request.traceContext.traceId, requestId: request.traceContext.requestId,
+        taskClass: request.routing.taskClass, selectedTier: primary.tier, ...primaryEffort,
+      });
       try {
-        return await callModel(primary, request, false, role);
+        return await callModel(primary, request, false, role, primaryEffort);
       } catch (primaryError) {
         if (primaryError instanceof ProductionAiPolicyError || !primary.fallbackId) throw primaryError;
         telemetry?.record?.({
@@ -324,7 +343,14 @@ export function createAIRouter({
           reason: request.reason,
           primaryErrorCode: primaryError.code ?? 'AI_PROVIDER_ERROR',
         });
-        return callModel(registry.select({ ...selectionRequirements, preferredModelId: primary.fallbackId }), request, true, role);
+        const fallback = registry.select({ ...selectionRequirements, preferredModelId: primary.fallbackId });
+        const fallbackEffort = selectReasoningEffort(fallback);
+        const fallbackRequest = applyReasoningEffort(fallbackEffort);
+        telemetry?.record?.({
+          type: 'ai.reasoning-effort.selected', traceId: fallbackRequest.traceContext.traceId, requestId: fallbackRequest.traceContext.requestId,
+          taskClass: fallbackRequest.routing.taskClass, selectedTier: fallback.tier, fallbackUsed: true, ...fallbackEffort,
+        });
+        return callModel(fallback, fallbackRequest, true, role, fallbackEffort);
       }
     },
   });

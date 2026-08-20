@@ -55,6 +55,7 @@ export function createAIRoutingContract(input = {}, fallback = {}) {
   }
   const assessment = input.assessment == null ? null : createTaskAssessment(object(input.assessment, 'routing.assessment').signals);
   const tierSelection = input.tierSelection == null ? null : Object.freeze({ ...object(input.tierSelection, 'routing.tierSelection') });
+  const reasoningEffortSelection = input.reasoningEffortSelection == null ? null : Object.freeze({ ...object(input.reasoningEffortSelection, 'routing.reasoningEffortSelection') });
   return Object.freeze({
     taskClass,
     specialty,
@@ -64,6 +65,7 @@ export function createAIRoutingContract(input = {}, fallback = {}) {
     reasoningEffort: optionalEnum(input.reasoningEffort, AI_REASONING_EFFORTS, 'routing.reasoningEffort'),
     ...(assessment ? { assessment } : {}),
     ...(tierSelection ? { tierSelection } : {}),
+    ...(reasoningEffortSelection ? { reasoningEffortSelection } : {}),
   });
 }
 function structuredJsonText(value) {
@@ -99,6 +101,7 @@ export function createAIResult(input) {
     provider: string(input.provider, 'provider'),
     model: string(input.model, 'model'),
     ...(input.tier == null ? {} : { tier: optionalEnum(input.tier, ['L1', 'L2', 'L3'], 'tier') }),
+    ...(input.reasoningEffort == null ? {} : { reasoningEffort: optionalEnum(input.reasoningEffort, AI_REASONING_EFFORTS, 'reasoningEffort') }),
     latencyMs: nonNegative(input.latencyMs, 'latencyMs'),
     usage: Object.freeze({
       inputTokens: nonNegative(input.usage?.inputTokens, 'usage.inputTokens'),

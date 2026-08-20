@@ -1,7 +1,7 @@
 # SG 2.1 — GITHUB DEVELOPMENT WORKSPACE 3.0 WORKFLOW
 
 ## Status
-**IMPLEMENTATION IN PROGRESS. GH3.1–GH3.7 CLOSED / CI-VERIFIED; GH3.8 IMPLEMENTED / NOT CI-VERIFIED / NOT CLOSED.**
+**IMPLEMENTATION IN PROGRESS. GH3.1–GH3.8 CLOSED / CI-VERIFIED.**
 
 No GH3 stage is CLOSED from documentation alone.
 
@@ -63,7 +63,7 @@ Implemented with deterministic coverage for exact-head run/job inspection, stale
 ### GH3.8 — Transport-Neutral Orchestrator
 Wire one internal GH3 service into transport-independent semantic intent/capability handling. Telegram, Discord, Web/API and native UI adapters may format input/output only. Prove equivalent task creation/status/resume behavior through at least two transports.
 
-Implemented with deterministic coverage for structured semantic routing, actor/project ownership, idempotent creation, status/resume behavior and equivalent Telegram/Web API results through one internal service. Durable persistence/restart reconciliation remains GH3.9 scope. Exact-HEAD CI closure is pending.
+Implemented with deterministic coverage for structured semantic routing, actor/project ownership, idempotent creation, status/resume behavior and equivalent Telegram/Web API results through one internal service. Durable persistence/restart reconciliation remains GH3.9 scope. Closed on exact implementation HEAD `1005fe8cbc510c23ebb30fd4a326cf47d43e95a4` by SG 2.1 CI #8579 `SUCCESS` on Node.js 22.
 
 ### GH3.9 — Durable Task State & Restart Continuity
 Persist/reload/reconcile task state. Test process restart during plan, after commit, while CI runs, after failed CI and before delivery; prove no duplicate commit/PR/comment/workflow dispatch.

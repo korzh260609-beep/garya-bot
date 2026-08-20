@@ -1,7 +1,7 @@
 # SG 2.1 — GITHUB DEVELOPMENT WORKSPACE 3.0 PROGRAM
 
 ## Status
-**IMPLEMENTATION IN PROGRESS. GH3.1–GH3.7 CLOSED / CI-VERIFIED; GH3.8 IMPLEMENTED / NOT CI-VERIFIED / NOT CLOSED; GH3.9–GH3.12 NOT IMPLEMENTED.**
+**IMPLEMENTATION IN PROGRESS. GH3.1–GH3.8 CLOSED / CI-VERIFIED; GH3.9–GH3.12 NOT IMPLEMENTED.**
 
 GitHub Development Workspace 3.0 (`GH3`) is the canonical transport-neutral program that lets SG inspect GitHub globally and perform complete, durable development work in explicitly authorized repositories.
 
@@ -109,7 +109,9 @@ Closure evidence: exact implementation HEAD `9db540f14a79a2016c7a4916b4c3303d8a6
 ### GH3.8 — Transport-Neutral Development Orchestrator
 Expose one internal development service to Telegram, Discord, Web, API, Email, the future native SG interface and later transports. Transports carry authenticated actor/context and render results; they do not implement GitHub behavior.
 
-Implementation evidence: `src/githubDevelopment/githubDevelopmentOrchestrator.js` and `tests/githubDevelopmentOrchestrator.test.js`. The internal service owns structured create/status/resume operations and semantic-command routing while transport adapters supply only canonical identity, scope, trace and presentation. Task ownership is bound to verified Global ID and project scope, transport metadata cannot widen authority, exact retries are idempotent and Telegram/Web API acceptance proves equivalent behavior. Durable PostgreSQL state and restart reconciliation remain GH3.9 scope. Exact-HEAD CI closure is pending.
+Implementation evidence: `src/githubDevelopment/githubDevelopmentOrchestrator.js` and `tests/githubDevelopmentOrchestrator.test.js`. The internal service owns structured create/status/resume operations and semantic-command routing while transport adapters supply only canonical identity, scope, trace and presentation. Task ownership is bound to verified Global ID and project scope, transport metadata cannot widen authority, exact retries are idempotent and Telegram/Web API acceptance proves equivalent behavior. Durable PostgreSQL state and restart reconciliation remain GH3.9 scope.
+
+Closure evidence: exact implementation HEAD `1005fe8cbc510c23ebb30fd4a326cf47d43e95a4`, SG 2.1 CI #8579 `SUCCESS` on Node.js 22.
 
 ### GH3.9 — Durable Development Task State & Restart Continuity
 Persist task intent, actor/project/repository scope, branch, baseline/current HEAD, mutation plan, changed paths, commits, PR, CI runs/jobs, failure analysis, approvals, idempotency keys, completion condition and next action. Resume from verified GitHub state after restart and reconcile divergence before continuing.

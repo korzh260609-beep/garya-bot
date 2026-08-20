@@ -347,7 +347,7 @@ Canonical doc: `SG_ACCESS_CONTROL_SYSTEM_1_0_PROGRAM.md`.
 
 ## GitHub Development Workspace 3.0
 
-**IMPLEMENTATION IN PROGRESS. GH3.1–GH3.8 CLOSED / CI-VERIFIED; GH3.9–GH3.12 NOT IMPLEMENTED.**
+**IMPLEMENTATION IN PROGRESS. GH3.1–GH3.8 CLOSED / CI-VERIFIED; GH3.9 IMPLEMENTED / NOT CI-VERIFIED / NOT CLOSED; GH3.10–GH3.12 NOT IMPLEMENTED.**
 
 GH3 is the accepted transport-neutral program for two distinct capabilities:
 
@@ -387,6 +387,8 @@ GH3.7 closure evidence: exact implementation HEAD `9db540f14a79a2016c7a4916b4c33
 GH3.8 now provides one transport-neutral GitHub development orchestrator for structured semantic create/status/resume operations. Verified Global ID/project scope owns the task; adapters cannot change authority, and Telegram/Web API paths produce equivalent results. Durable restart state remains GH3.9 scope.
 
 GH3.8 closure evidence: exact implementation HEAD `1005fe8cbc510c23ebb30fd4a326cf47d43e95a4`, SG 2.1 CI #8579 `SUCCESS` on Node.js 22.
+
+GH3.9 now provides versioned PostgreSQL development-task checkpoints, idempotency history and restart reconciliation. Resume rechecks current authority and live GitHub identity/state before continuing and does not repeat recorded external actions. Exact-HEAD CI closure is pending.
 
 Canonical docs:
 - `GITHUB_DEVELOPMENT_WORKSPACE_3_0_PROGRAM.md`;

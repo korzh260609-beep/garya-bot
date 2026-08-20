@@ -1,7 +1,7 @@
 # SG 2.1 — GITHUB DEVELOPMENT WORKSPACE 3.0 WORKFLOW
 
 ## Status
-**IMPLEMENTATION IN PROGRESS. GH3.1–GH3.8 CLOSED / CI-VERIFIED.**
+**IMPLEMENTATION IN PROGRESS. GH3.1–GH3.8 CLOSED / CI-VERIFIED; GH3.9 IMPLEMENTED / NOT CI-VERIFIED / NOT CLOSED.**
 
 No GH3 stage is CLOSED from documentation alone.
 
@@ -67,6 +67,8 @@ Implemented with deterministic coverage for structured semantic routing, actor/p
 
 ### GH3.9 — Durable Task State & Restart Continuity
 Persist/reload/reconcile task state. Test process restart during plan, after commit, while CI runs, after failed CI and before delivery; prove no duplicate commit/PR/comment/workflow dispatch.
+
+Implemented with PostgreSQL task/checkpoint/version/idempotency state and deterministic restart coverage for authority recheck, live GitHub reconciliation, scope/repository divergence and suppression of completed external actions. Exact-HEAD CI closure is pending.
 
 ### GH3.10 — PM3/PDK4 Integration
 Route verified source events through existing PDK4/PM3 contracts. Test provenance, idempotency, temporal updates, conflict visibility, no raw-secret storage and no false promotion from implemented/CI to deployed/live.

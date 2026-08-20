@@ -1,7 +1,7 @@
 # SG 2.1 — GITHUB DEVELOPMENT WORKSPACE 3.0 PROGRAM
 
 ## Status
-**IMPLEMENTATION IN PROGRESS. GH3.1–GH3.8 CLOSED / CI-VERIFIED; GH3.9–GH3.12 NOT IMPLEMENTED.**
+**IMPLEMENTATION IN PROGRESS. GH3.1–GH3.8 CLOSED / CI-VERIFIED; GH3.9 IMPLEMENTED / NOT CI-VERIFIED / NOT CLOSED; GH3.10–GH3.12 NOT IMPLEMENTED.**
 
 GitHub Development Workspace 3.0 (`GH3`) is the canonical transport-neutral program that lets SG inspect GitHub globally and perform complete, durable development work in explicitly authorized repositories.
 
@@ -115,6 +115,8 @@ Closure evidence: exact implementation HEAD `1005fe8cbc510c23ebb30fd4a326cf47d43
 
 ### GH3.9 — Durable Development Task State & Restart Continuity
 Persist task intent, actor/project/repository scope, branch, baseline/current HEAD, mutation plan, changed paths, commits, PR, CI runs/jobs, failure analysis, approvals, idempotency keys, completion condition and next action. Resume from verified GitHub state after restart and reconcile divergence before continuing.
+
+Implementation evidence: `src/persistence/migrations/914_github_development_tasks.sql`, `src/githubDevelopment/postgresGitHubDevelopmentTaskStore.js` and `tests/githubDevelopmentRestartContinuity.test.js`. Versioned PostgreSQL checkpoints retain the complete task plus bounded progress, idempotency keys and next action. Resume reloads durable state, rechecks actor/project authority, reconciles live repository identity/state and suppresses already completed external actions. Optimistic version conflicts and scope/repository divergence fail closed. Exact-HEAD CI closure is pending.
 
 ### GH3.10 — PM3/PDK4 Trusted Development Evidence Integration
 Normalize verified GitHub outcomes into existing PDK4/PM3 ingestion contracts. GH3 must not create a parallel project-memory store, self-confirm model output, or claim deployed/live state from repository/CI evidence alone.

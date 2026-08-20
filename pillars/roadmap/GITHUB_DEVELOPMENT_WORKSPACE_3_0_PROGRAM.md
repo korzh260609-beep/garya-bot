@@ -1,7 +1,7 @@
 # SG 2.1 — GITHUB DEVELOPMENT WORKSPACE 3.0 PROGRAM
 
 ## Status
-**IMPLEMENTATION IN PROGRESS. GH3.1 IMPLEMENTED / NOT CI-VERIFIED / NOT CLOSED; GH3.2–GH3.12 NOT IMPLEMENTED.**
+**IMPLEMENTATION IN PROGRESS. GH3.1 CLOSED / CI-VERIFIED; GH3.2 IMPLEMENTED / NOT CI-VERIFIED / NOT CLOSED; GH3.3–GH3.12 NOT IMPLEMENTED.**
 
 GitHub Development Workspace 3.0 (`GH3`) is the canonical transport-neutral program that lets SG inspect GitHub globally and perform complete, durable development work in explicitly authorized repositories.
 
@@ -62,8 +62,12 @@ Define transport-neutral repository, ref, revision, development-task, proposed-c
 
 Implementation evidence: `src/githubDevelopment/githubDevelopmentContract.js`, `src/githubDevelopment/githubCapabilityRegistry.js` and `tests/githubDevelopmentContract.test.js`. The registry defines names/risk/default policy only; it does not grant actor authority or claim provider execution is available.
 
+Closure evidence: exact HEAD `243bb8835f65ba51cb9bd1e31ce599f4a5d25d5c`, SG 2.1 CI #8553 `SUCCESS`.
+
 ### GH3.2 — GitHub App Authentication & Connection Binding
 Implement short-lived GitHub App installation authentication, approved repository selection, credential isolation/rotation, permission discovery and fail-closed connection health. Raw keys/tokens never enter prompts, memory or ordinary telemetry.
+
+Implementation evidence: `src/githubDevelopment/githubAppConnectionProvider.js` and `tests/githubAppConnectionProvider.test.js`. The provider composes the existing External Connections Registry and Credential Manager, creates bounded short-lived installation tokens inside the secret callback, enforces installation-selected repositories and discovered provider permissions, supports cache invalidation on rotation, and records explicit connection health.
 
 ### GH3.3 — Global Public GitHub Discovery
 Implement bounded public repository/code/commit/issue/PR/user/release/documentation search with pagination, rate-limit handling, provenance, freshness, license visibility and result qualification. Private discovery requires explicit authorized connection scope.

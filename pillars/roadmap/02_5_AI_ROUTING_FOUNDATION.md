@@ -85,7 +85,7 @@ AR2 extends the existing AI Router rather than creating a second router. Its goa
 Concrete provider/model names are configuration, not business logic. The registry exposes tiers/capabilities/specialties; environment/configuration binds those tiers to current provider models. Replacing Luna/Terra/Sol or adding Claude/DeepSeek/local models must not require Semantic Kernel or domain-logic changes.
 
 ### Routing flow
-`Canonical request → semantic/capability resolution → deterministic-vs-AI gate → task assessment → tier selection → specialty/capability match → reasoning-effort selection → existing AIRouter/provider call → validation → bounded semantic escalation if required → result`
+`Canonical request → semantic/capability resolution → deterministic-vs-AI gate → task assessment → tier selection → specialty/capability match → reasoning-effort selection → existing AIRouter/provider call → usage accounting → validation → bounded semantic escalation if required → result`
 
 ### Task assessment signals
 AR2 may deterministically evaluate bounded signals including:
@@ -127,14 +127,31 @@ Escalation is bounded (normally L1→L2 or L2→L3, at most one or two promotion
 ### Validation
 Validation is deterministic first: schema, required fields, tool/evidence presence, identifiers, contract invariants and task-specific checks. Model-based critique is optional and cannot replace deterministic validation where deterministic truth is available.
 
-### Cost and context policy
-Before a paid call SG should reduce avoidable context through authorized retrieval, filtering, deduplication, relevance ranking and bounded context assembly. Cost policy records estimated and actual cost and may enforce role/budget limits, but cost optimization cannot force a model below the minimum reliable tier.
+### Cost, usage accounting and mutable pricing
+Before a paid call SG should reduce avoidable context through authorized retrieval, filtering, deduplication, relevance ranking and bounded context assembly.
+
+AR2.10 must account for AI use at three levels:
+- **call-level:** provider/model/tier/reasoning effort plus input, cached input, output, reasoning and other provider-exposed billable units/tokens, fallback/escalation markers and monetary cost;
+- **request/task-level:** aggregate every model call belonging to one user request/task, including fallback/escalation, into total token usage and total cost;
+- **aggregate-level:** authorized day/week/month views by model/provider/tier/task class/user-role/workspace/project, including tier distribution, escalation rate and cost metrics.
+
+Pricing is deliberately mutable. Exact provider prices, exchange rates, user credit conversion, markups/discounts, budget thresholds and routing weights are configuration/policy and may be corrected over time. They MUST NOT be hard-coded as permanent architectural constants.
+
+The pricing catalog must be versioned/effective-dated. At minimum it should preserve provider/model/billable category/rate/currency/effective-from/effective-to/version/source. A tariff change creates a new pricing version rather than rewriting the old one.
+
+Every completed billable call must retain the pricing version/snapshot used at execution time so historical costs remain reproducible. New pricing MUST NOT silently recalculate old calls. If a historical rate was wrong, correction is represented explicitly as adjustment/reconciliation evidence, preserving original and corrected values.
+
+When providers expose authoritative post-call usage, those units take precedence over pre-call estimates. If authoritative provider billing amounts become available later, SG may reconcile calculated cost against provider-reported cost while preserving both and their provenance.
+
+Technical provider/model usage accounting is canonical evidence. Future commercial charging (AI credits, subscriptions, free allowances, role/workspace budgets, markup/discounts) is a mutable policy layer above that evidence and cannot rewrite underlying historical provider consumption/cost records.
 
 ### Security and authority boundaries
 AR2 does not own identity, access, resource authority, Action Gate, Owner/Monarch Security, credentials, delivery policy or durable memory truth. Denied/unauthorized paths terminate before paid AI execution where existing architecture requires that. Selected model/tier cannot grant authority, bypass gates or mutate protected state directly.
 
+Usage/cost records remain privacy- and scope-bounded observability/accounting evidence; they do not become identity or authorization truth.
+
 ### Transport independence
-Telegram, Discord, Web/API, Email, voice and the future native SG interface all use the same routing policy. Transport may supply bounded metadata but does not choose model tier.
+Telegram, Discord, Web/API, Email, voice and the future native SG interface all use the same routing and usage-accounting policy. Transport may supply bounded metadata but does not choose model tier or pricing truth.
 
 ### AR2 implementation sequence
 - **AR2.1 — Routing Contract:** add bounded routing metadata/task-class contract while preserving current AI request compatibility.
@@ -146,7 +163,7 @@ Telegram, Discord, Web/API, Email, voice and the future native SG interface all 
 - **AR2.7 — Reasoning Effort Selector:** select bounded effort independently from model tier and propagate through existing provider metadata.
 - **AR2.8 — Validation:** deterministic/task-specific output validation and confidence contract.
 - **AR2.9 — Semantic Escalation:** bounded L1→L2→L3 promotion distinct from provider fallback; preserve original request, retrieved evidence, prior result and escalation reason.
-- **AR2.10 — Cost Intelligence & Observability:** record tier, assessment, effort, routing reason, validation, escalation, estimated/actual cost and routing distribution/escalation-rate metrics.
+- **AR2.10 — Cost Intelligence, Usage Accounting & Observability:** implement call/request/aggregate token and cost accounting, mutable versioned pricing, immutable historical rate snapshots, provider-cost reconciliation readiness, tier/effort/routing/validation/fallback/escalation telemetry and efficiency metrics.
 
 ### Implementation discipline
 Each AR2.x stage follows existing SG development protocol:

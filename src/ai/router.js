@@ -8,6 +8,7 @@ import {
   estimateAiRequestCostUsd,
   resolveAiRole,
 } from './productionPolicy.js';
+import { createDeterministicTaskAssessor } from './taskAssessment.js';
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const RESPONSE_CONTEXT_TRUNCATION_MARKER = '\n...[SG_CONTEXT_TRUNCATED_TO_INPUT_BUDGET]...\n';
@@ -156,12 +157,14 @@ export function createAIRouter({
   telemetry = null,
   policy = null,
   deterministicGate = null,
+  taskAssessor = createDeterministicTaskAssessor(),
   timeoutMs = 30_000,
   maxRetries = 1,
   retryDelayMs = 100,
 }) {
   if (!registry?.select || !registry?.get) throw new TypeError('registry is required');
   if (deterministicGate && typeof deterministicGate.tryExecute !== 'function') throw new TypeError('deterministicGate.tryExecute is required');
+  if (!taskAssessor || typeof taskAssessor.assess !== 'function') throw new TypeError('taskAssessor.assess is required');
   const providerMap = new Map(Object.entries(providers ?? {}).map(([name, provider]) => [name, assertAIProvider(provider)]));
 
   function enforcePolicy({ model, request, role }) {
@@ -264,9 +267,22 @@ export function createAIRouter({
         const deterministic = await deterministicGate.tryExecute(input);
         if (deterministic?.handled === true) return deterministic;
       }
+      const assessment = await taskAssessor.assess({
+        taskClass: input.routing?.taskClass ?? input.task,
+        signals: input.taskAssessmentSignals ?? {},
+        traceContext: input.traceContext,
+      });
       const request = createAIRequest({
         ...input,
+        routing: { ...(input.routing ?? {}), assessment },
         maxOutputTokens: input.maxOutputTokens ?? defaultOutputBudget(input, policy),
+      });
+      telemetry?.record?.({
+        type: 'ai.task.assessed',
+        traceId: request.traceContext.traceId,
+        requestId: request.traceContext.requestId,
+        taskClass: request.routing.taskClass,
+        assessment: request.routing.assessment,
       });
       const role = resolveAiRole(input);
       const primary = registry.select({ specialty: input.specialty ?? 'reasoning', preferredModelId: input.preferredModelId });

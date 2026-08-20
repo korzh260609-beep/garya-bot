@@ -1,4 +1,5 @@
 import { AIOutputValidationError } from './errors.js';
+import { createTaskAssessment } from './taskAssessment.js';
 
 export const AI_ROUTING_TIERS = Object.freeze(['L0', 'L1', 'L2', 'L3']);
 export const AI_REASONING_EFFORTS = Object.freeze(['none', 'low', 'medium', 'high', 'xhigh', 'max']);
@@ -52,6 +53,7 @@ export function createAIRoutingContract(input = {}, fallback = {}) {
   if (minimumTier && maximumTier && AI_ROUTING_TIERS.indexOf(minimumTier) > AI_ROUTING_TIERS.indexOf(maximumTier)) {
     throw new TypeError('routing.minimumTier cannot exceed routing.maximumTier');
   }
+  const assessment = input.assessment == null ? null : createTaskAssessment(object(input.assessment, 'routing.assessment').signals);
   return Object.freeze({
     taskClass,
     specialty,
@@ -59,6 +61,7 @@ export function createAIRoutingContract(input = {}, fallback = {}) {
     minimumTier,
     maximumTier,
     reasoningEffort: optionalEnum(input.reasoningEffort, AI_REASONING_EFFORTS, 'routing.reasoningEffort'),
+    ...(assessment ? { assessment } : {}),
   });
 }
 function structuredJsonText(value) {

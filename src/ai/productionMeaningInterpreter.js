@@ -60,6 +60,7 @@ const SEMANTIC_SCHEMA = Object.freeze({
 });
 
 const AUTOMATION_ROUTING_PRIORITY = `PRIORITY AUTOMATION ROUTING RULES:
+- A request to list SG's actual stored tasks/automations in the current scope means operational task retrieval, not an explanation of SG capabilities, project duties, modules or abstract functions. For a general list select task-list/read-only; select schedule-list only when the user explicitly limits the request to recurring schedules. Never invent list items.
 - A request to modify what an existing task/automation sends or does is an executable state change, never a conversational capability explanation.
 - When the requested modification adds current activity from Telegram groups/workspaces where SG and the user currently have authorized access, select automation-update and emit payload.semanticOperation={"type":"add-workspace-activity","data":{"workspaceSelection":"authorized-current"}}.
 - Identify the existing target only from attributes the user actually supplied, such as its current localTime or notificationMessage. Do not require workspace IDs, do not claim that SG lacks a group list, and do not replace execution with compose-answer merely because activity must be collected later.
@@ -85,6 +86,40 @@ function buildUserPayload(canonicalInput) {
 }
 function nonEmptyString(value) {
   return typeof value === 'string' && value.trim() !== '';
+}
+function normalizedRoutingText(value) {
+  return String(value ?? '').trim().toLowerCase().replace(/\s+/gu, ' ');
+}
+function isExplicitOperationalTaskListRequest(canonicalInput) {
+  const text = normalizedRoutingText(canonicalInput?.text);
+  if (!text) return false;
+
+  const mentionsTask = ['задач', 'завдан', 'автоматизац', 'автоматизован', 'automation', 'task'].some((token) => text.includes(token));
+  const asksForList = ['список', 'перечисл', 'покажи', 'какие', 'дай список', 'перелік', 'покажи', 'які', 'list', 'show', 'which'].some((token) => text.includes(token));
+  if (!mentionsTask || !asksForList) return false;
+
+  const explicitlyRecurring = ['повторяющ', 'регулярн', 'рекуррент', 'расписан', 'щоденн', 'щотиж', 'регуляр', 'recurring', 'schedule'].some((token) => text.includes(token));
+  if (explicitlyRecurring) return false;
+
+  const projectTaskContext = ['задачи проекта', 'задач проекта', 'завдання проекту', 'завдань проекту', 'project tasks'].some((token) => text.includes(token));
+  const negatesProjectContext = ['не проекта', 'не про проект', 'не проект', 'не проєкту', 'не про проєкт', 'not project'].some((token) => text.includes(token));
+  return !projectTaskContext || negatesProjectContext;
+}
+function canonicalizeOperationalTaskListInterpretation(interpretation, canonicalInput) {
+  if (!isExplicitOperationalTaskListRequest(canonicalInput)) return interpretation;
+  return Object.freeze({
+    ...interpretation,
+    goal: 'list-operational-tasks',
+    intent: 'task-list',
+    uncertainty: 0,
+    missingInformation: Object.freeze([]),
+    clarificationQuestion: null,
+    subsystemRequest: null,
+    candidateActions: Object.freeze([
+      Object.freeze({ type: 'task-list', name: 'task-list', actionClass: 'read-only', payload: Object.freeze({}) })
+    ]),
+    rationale: 'Deterministic routing: explicit operational task-list request must query the scoped task store.'
+  });
 }
 function deterministicExactTemporalExpression(canonicalInput) {
   const resolution = canonicalInput?.metadata?.temporalResolution;
@@ -152,7 +187,8 @@ export function createProductionMeaningInterpreter({ aiRouter, fallbackOnFailure
       });
       try {
         const result = await aiRouter.route({ task: 'semantic-interpretation', specialty: 'semantic-interpretation', reason: 'Interpret canonical user meaning for Semantic Kernel', traceContext: canonicalInput.traceContext, identityContext: canonicalInput.identityContext, role: canonicalInput.identityContext?.roles?.[0] ?? 'guest', messages: [{ role: 'system', content: `${AUTOMATION_ROUTING_PRIORITY}\n\n${boundary.system}\n\nRecurring automation identifiers are internal. Never ask the user to read, copy or choose a scheduleId. If the user explicitly refers to a numbered automation from a previously displayed list (for example first, second or number 2), put that one-based number in payload.selector.position. Use position only when the user expressed it; never invent it. The scoped resolver must still fail closed when no explicit position or other selector uniquely identifies a target.` }, { role: 'user', content: boundary.user }], responseFormat: { name: 'semantic_interpretation', jsonSchema: SEMANTIC_SCHEMA, strict: false }, metadata: { locale: canonicalInput.locale, languageContext: canonicalInput.metadata?.languageContext ?? null, roles: canonicalInput.identityContext?.roles ?? [], context: userPayload } });
-        return createSemanticInterpretation(canonicalizeAutomationInterpretation(parseStructuredAIOutput(result), canonicalInput));
+        const parsed = canonicalizeAutomationInterpretation(parseStructuredAIOutput(result), canonicalInput);
+        return createSemanticInterpretation(canonicalizeOperationalTaskListInterpretation(parsed, canonicalInput));
       } catch (error) {
         if (!fallbackOnFailure) throw error;
         return createFallbackInterpretation(error, canonicalInput);

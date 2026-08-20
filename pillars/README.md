@@ -41,6 +41,7 @@ Active files:
 - `IDENTITY_AND_SCOPE.md`
 - `OBSERVABILITY.md`
 - `TRANSPORTS_AND_AI_ROUTING.md`
+- `ADAPTIVE_AI_ROUTING_2_0.md` — accepted planned AR2 architecture for L0 deterministic execution, L1/L2/L3 model tiers, minimum-sufficient intelligence, reasoning-effort selection, validation and bounded semantic escalation
 - `LANGUAGE_AND_LOCALE_CONTEXT.md`
 - `FOUNDATIONAL_CONTROL_LAYERS.md`
 - `SELF_KNOWLEDGE.md`
@@ -57,7 +58,7 @@ Active files:
 - `00_PRINCIPLES_AND_GATES.md`
 - `01_SEMANTIC_KERNEL.md`
 - `02_CONTEXT_AND_MEMORY.md`
-- `02_5_AI_ROUTING_FOUNDATION.md`
+- `02_5_AI_ROUTING_FOUNDATION.md` — completed AI routing foundation plus accepted planned AR2.1–AR2.10 extension contract
 - `03_DECISION_ENGINE.md`
 - `04_ACTION_GATE.md`
 - `05_CAPABILITY_SYSTEM.md`
@@ -124,7 +125,9 @@ Workflow defines implementation procedure and does not store per-block runtime h
 
 ## Cross-cutting programs and extensions
 
-Memory 2.0, Project Memory 3.0, Project Development Knowledge 4.0, Telegram Workspace Manager 1.0, SG Access Control System 1.0, Automation 2.0, GitHub Development Workspace 3.0 and Universal Diagnostics are cross-cutting programs/extensions and do not renumber the canonical Blocks 0–19.
+Memory 2.0, Project Memory 3.0, Project Development Knowledge 4.0, Telegram Workspace Manager 1.0, SG Access Control System 1.0, Automation 2.0, GitHub Development Workspace 3.0, Universal Diagnostics and Adaptive AI Routing 2.0 are cross-cutting programs/extensions and do not renumber the canonical Blocks 0–19.
+
+Adaptive AI Routing 2.0 is not a second AI router. It extends the completed Block 2.5 AI Routing Foundation with a deterministic L0/no-LLM gate, L1/L2/L3 capability tiers, deterministic task assessment, minimum-sufficient model selection, independent reasoning-effort selection, deterministic-first validation, bounded semantic escalation and richer routing/cost telemetry. Concrete provider model names remain configuration. Provider fallback remains distinct from semantic escalation. AR2 cannot bypass Access, Resource Authority, Action Gate, Owner Security, credentials, memory trust or transport boundaries. AR2 documentation is accepted architecture only until AR2.1–AR2.10 receive code/test/exact-HEAD CI evidence.
 
 Project Memory 3.0 is not a replacement for Memory 2.0. It specializes the `Project Memory` domain using trusted-source ingestion, candidate/confirmation policy, deduplication, conflict handling, temporal supersession, relations, hybrid retrieval and guarded project-context injection. It remains separate from System Self Knowledge and live diagnostics. Render must not be treated as a live Project Memory source until a real Render Connector is implemented and verified.
 

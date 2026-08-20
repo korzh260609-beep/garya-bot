@@ -1,7 +1,7 @@
 # SG 2.1 — GITHUB DEVELOPMENT WORKSPACE 3.0 WORKFLOW
 
 ## Status
-**IMPLEMENTATION IN PROGRESS. GH3.1 CLOSED / CI-VERIFIED; GH3.2 IMPLEMENTED / NOT CI-VERIFIED / NOT CLOSED.**
+**IMPLEMENTATION IN PROGRESS. GH3.1–GH3.2 CLOSED / CI-VERIFIED.**
 
 No GH3 stage is CLOSED from documentation alone.
 
@@ -33,7 +33,7 @@ Implemented in code and deterministic tests. Closed on exact HEAD `243bb8835f65b
 ### GH3.2 — GitHub App Authentication & Connection Binding
 Implement short-lived installation authentication through Credential Manager/Connections Registry. Test token caching/expiry, repository selection, permission discovery, rotation/failure and secret redaction.
 
-Implemented with deterministic tests for connection-first denial, private-key isolation, JWT installation-token exchange, expiry-aware cache, rotation invalidation, repository selection, provider permissions, health and secret-safe results. Exact-head CI remains required before closure.
+Implemented with deterministic tests for connection-first denial, private-key isolation, JWT installation-token exchange, expiry-aware cache, rotation invalidation, repository selection, provider permissions, health and secret-safe results. Closed on exact HEAD `310aaf6b25ead13d3cb9ee32e0cf836b682aef30` by SG 2.1 CI #8555 `SUCCESS`.
 
 ### GH3.3 — Global Public GitHub Discovery
 Implement bounded global public search and authorized private discovery. Test pagination, rate limits, no-result/partial-result qualification, provenance/currentness, license visibility, injection-resistant result handling and no mutation.

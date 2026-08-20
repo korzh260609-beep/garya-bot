@@ -11,6 +11,7 @@ import {
 import { createDeterministicTaskAssessor } from './taskAssessment.js';
 import { createTierSelector } from './tierSelector.js';
 import { createReasoningEffortSelector } from './reasoningEffortSelector.js';
+import { createDeterministicOutputValidator } from './outputValidator.js';
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const RESPONSE_CONTEXT_TRUNCATION_MARKER = '\n...[SG_CONTEXT_TRUNCATED_TO_INPUT_BUDGET]...\n';
@@ -162,6 +163,7 @@ export function createAIRouter({
   taskAssessor = createDeterministicTaskAssessor(),
   tierSelector = createTierSelector(),
   reasoningEffortSelector = createReasoningEffortSelector(),
+  outputValidator = createDeterministicOutputValidator(),
   timeoutMs = 30_000,
   maxRetries = 1,
   retryDelayMs = 100,
@@ -171,6 +173,7 @@ export function createAIRouter({
   if (!taskAssessor || typeof taskAssessor.assess !== 'function') throw new TypeError('taskAssessor.assess is required');
   if (!tierSelector || typeof tierSelector.select !== 'function') throw new TypeError('tierSelector.select is required');
   if (!reasoningEffortSelector || typeof reasoningEffortSelector.select !== 'function') throw new TypeError('reasoningEffortSelector.select is required');
+  if (!outputValidator || typeof outputValidator.validate !== 'function') throw new TypeError('outputValidator.validate is required');
   const providerMap = new Map(Object.entries(providers ?? {}).map(([name, provider]) => [name, assertAIProvider(provider)]));
 
   function enforcePolicy({ model, request, role }) {
@@ -242,8 +245,16 @@ export function createAIRouter({
         if (policy && result.costUsd != null) {
           assertActualAiCostAllowed({ policy, role, actualCostUsd: result.costUsd });
         }
-        telemetry?.record?.({ type: 'ai.call.completed', role, ...result });
-        return result;
+        const validation = outputValidator.validate({ request: activeRequest, result });
+        const validatedResult = createAIResult({ ...result, validation });
+        telemetry?.record?.({
+          type: 'ai.output.validated', traceId: activeRequest.traceContext.traceId,
+          requestId: activeRequest.traceContext.requestId, taskClass: activeRequest.routing.taskClass,
+          provider: model.provider, model: model.model, tier: model.tier,
+          passed: validation.passed, failures: validation.failures, confidence: validation.confidence,
+        });
+        telemetry?.record?.({ type: 'ai.call.completed', role, ...validatedResult });
+        return validatedResult;
       } catch (cause) {
         lastError = cause instanceof Error ? cause : new AIProviderError('Unknown AI provider failure');
         telemetry?.record?.({

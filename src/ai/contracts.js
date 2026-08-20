@@ -88,6 +88,7 @@ export function createAIRequest(input) {
       content: string(message.content, `messages[${index}].content`),
     }))),
     responseFormat: input.responseFormat ? Object.freeze({ ...object(input.responseFormat, 'responseFormat') }) : null,
+    validation: input.validation ? Object.freeze({ ...object(input.validation, 'validation') }) : null,
     maxOutputTokens: positiveInteger(input.maxOutputTokens, 'maxOutputTokens'),
     traceContext: Object.freeze({ ...object(input.traceContext, 'traceContext') }),
     metadata: Object.freeze({ ...(input.metadata ?? {}) }),
@@ -114,6 +115,7 @@ export function createAIResult(input) {
     reason: string(input.reason, 'reason'),
     attempts: nonNegative(input.attempts ?? 1, 'attempts'),
     fallbackUsed: Boolean(input.fallbackUsed),
+    ...(input.validation == null ? {} : { validation: Object.freeze({ ...object(input.validation, 'validation') }) }),
     rawMetadata: Object.freeze({ ...(input.rawMetadata ?? {}) }),
   });
 }

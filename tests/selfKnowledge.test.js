@@ -100,13 +100,16 @@ test('Self Knowledge query restores canonical priority when persistence hydrates
   assert.ok(result.facts.some((item) => item.category === 'identity' && item.key === 'system-name' && item.value.full === 'Советник GARYA'));
 });
 
-test('deployment Self Knowledge exposes GH3 mediated GitHub access inside the normal response fact budget', async () => {
+test('deployment Self Knowledge derives GH3 access from cached runtime facts without a per-request GitHub scan', async () => {
+  const noRead = new Proxy({}, {
+    get() { throw new Error('external registry must not be scanned while building cached self knowledge'); }
+  });
   const store = createInMemorySelfKnowledgeStore();
   const sources = createDeploymentSelfKnowledgeSources({
     config: { revision: 'gh3-self-report-test', environment: 'test' },
     capabilityNames: ['repository-analyze'],
-    connectionRegistry: {},
-    resourceAuthorityRegistry: {}
+    connectionRegistry: noRead,
+    resourceAuthorityRegistry: noRead
   });
   const builder = createSelfKnowledgeBuilder({ store, sources });
   await builder.rebuild({ sourceRevision: 'gh3-self-report-test', environment: 'test' });
@@ -116,11 +119,19 @@ test('deployment Self Knowledge exposes GH3 mediated GitHub access inside the no
 
   assert.ok(github, 'GH3 capability fact must fit the bounded response Self Knowledge budget');
   assert.equal(github.status, 'implemented');
+  assert.equal(github.value.provider, 'github');
   assert.equal(github.value.accessMode, 'mediated-through-gh3');
   assert.equal(github.value.localFilesystemMount, false);
+  assert.equal(github.value.capabilityStateSource, 'runtime-capability-registry-snapshot');
   assert.ok(github.value.capabilities.includes('github.repository.read'));
   assert.ok(github.value.capabilities.includes('github.code.search'));
-  assert.equal(github.value.specificRepositoryAccess, 'authorization-and-connection-dependent');
+  assert.equal(github.value.connectionRegistryAvailable, true);
+  assert.equal(github.value.resourceAuthorityAvailable, true);
+  assert.equal(github.value.specificRepositoryAccess, 'requires-current-authorization-and-connection-evidence');
+  assert.equal(github.value.selfKnowledgeRefreshMode, 'runtime-snapshot');
+  assert.equal(github.value.perRequestGitHubScan, false);
+  assert.equal(github.value.liveRepositoryProbePolicy, 'only-for-specific-current-state-requests');
+  assert.equal(Object.hasOwn(github.value, 'interpretation'), false, 'user-facing answer wording must not be hard-coded into Self Knowledge');
 });
 
 test('failed approved source downgrades snapshot validation instead of silently claiming certainty', async () => {

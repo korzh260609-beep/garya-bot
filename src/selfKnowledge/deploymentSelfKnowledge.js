@@ -67,12 +67,17 @@ export function createDeploymentSelfKnowledgeSources({
           category: 'capabilities',
           key: 'github-development-workspace',
           value: {
+            provider: 'github',
             accessMode: 'mediated-through-gh3',
             localFilesystemMount: false,
-            provider: 'github',
+            capabilityStateSource: 'runtime-capability-registry-snapshot',
             capabilities: GITHUB_CAPABILITY_DEFINITIONS.map((item) => item.name),
-            specificRepositoryAccess: 'authorization-and-connection-dependent',
-            interpretation: 'SG has mediated GitHub repository access through GH3. Not having a local filesystem mount does not mean GitHub access is absent. For a specific repository, use current authorization/connection evidence or perform an authorized repository read before making a categorical availability claim.'
+            connectionRegistryAvailable: Boolean(connectionRegistry),
+            resourceAuthorityAvailable: Boolean(resourceAuthorityRegistry),
+            specificRepositoryAccess: 'requires-current-authorization-and-connection-evidence',
+            selfKnowledgeRefreshMode: 'runtime-snapshot',
+            perRequestGitHubScan: false,
+            liveRepositoryProbePolicy: 'only-for-specific-current-state-requests'
           },
           status: 'implemented',
           sourceId: 'runtime:gh3-capability-registry',

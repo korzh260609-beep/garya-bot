@@ -32,7 +32,7 @@ test('new subsystem capability appears through manifest registration without cat
   assert.equal(capability.status, 'implemented');
 });
 
-test('deployment Self Knowledge consumes cached capability catalog without external live scans', async () => {
+test('deployment Self Knowledge consumes compact cached catalog without external live scans', async () => {
   const noRead = new Proxy({}, { get() { throw new Error('external registry access is forbidden'); } });
   const custom = createCapabilityManifest({ sourceId: 'test:manifest', domain: 'custom', capabilities: [{ id: 'custom.dynamic.capability' }] });
   const store = createInMemorySelfKnowledgeStore();
@@ -51,10 +51,14 @@ test('deployment Self Knowledge consumes cached capability catalog without exter
   assert.ok(fact);
   assert.equal(fact.value.perRequestExternalScan, false);
   assert.equal(fact.value.grantsAuthority, false);
-  assert.ok(fact.value.capabilities.some((item) => item.id === 'custom.dynamic.capability'));
-  assert.ok(fact.value.capabilities.some((item) => item.id === 'telegram.group.observe'));
-  assert.ok(fact.value.capabilities.some((item) => item.id === 'github.code.search'));
-  assert.ok(fact.value.capabilities.some((item) => item.id === 'history.fact-history'));
+  assert.ok(fact.value.domains.custom.includes('custom.dynamic.capability'));
+  assert.ok(fact.value.domains.telegram.includes('telegram.group.observe'));
+  assert.ok(fact.value.domains.github.includes('github.code.search'));
+  assert.ok(fact.value.domains['historical-search'].includes('history.fact-history'));
+  assert.equal(fact.value.defaultStatus, 'implemented');
+  assert.equal(fact.value.statusOverrides['telegram.subscription.lifecycle'], 'partial');
+  assert.ok(fact.value.permissionDependent.includes('github.contents.write'));
+  assert.equal(Object.hasOwn(fact.value, 'capabilities'), false, 'bounded Self Knowledge must not duplicate full catalog metadata on every response');
 });
 
 test('catalog distinguishes partial and authorization-dependent capabilities', () => {

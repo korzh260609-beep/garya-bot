@@ -38,15 +38,9 @@ export function createDeploymentSelfKnowledgeSources({
   const revision = required(config?.revision, 'config.revision');
   const capabilityCatalog = createSystemCapabilityCatalog({ runtimeCapabilityNames: capabilityNames, sourceRevision: revision, additionalManifests: capabilityManifests });
   const githubCapabilities = capabilityCatalog.capabilities.filter((item) => item.domain === 'github');
-  const compactCapabilities = capabilityCatalog.capabilities.map((item) => Object.freeze({
-    id: item.id,
-    domain: item.domain,
-    status: item.status,
-    requiresConnection: item.requiresConnection,
-    requiresAuthorization: item.requiresAuthorization,
-    supportedTransports: item.supportedTransports,
-    riskTier: item.riskTier
-  }));
+  const statusOverrides = Object.freeze(Object.fromEntries(capabilityCatalog.capabilities.filter((item) => item.status !== 'implemented').map((item) => [item.id, item.status])));
+  const connectionDependent = Object.freeze(capabilityCatalog.capabilities.filter((item) => item.connectionDependent).map((item) => item.id));
+  const permissionDependent = Object.freeze(capabilityCatalog.capabilities.filter((item) => item.permissionDependent).map((item) => item.id));
 
   const canonicalSource = Object.freeze({
     id: 'sg-canonical-entity',
@@ -81,7 +75,10 @@ export function createDeploymentSelfKnowledgeSources({
           value: {
             totalCapabilities: capabilityCatalog.totalCapabilities,
             domains: capabilityCatalog.domains,
-            capabilities: compactCapabilities,
+            defaultStatus: 'implemented',
+            statusOverrides,
+            connectionDependent,
+            permissionDependent,
             refreshMode: capabilityCatalog.refreshMode,
             perRequestExternalScan: capabilityCatalog.perRequestExternalScan,
             grantsAuthority: false

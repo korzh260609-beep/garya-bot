@@ -1,7 +1,7 @@
 # SG 2.1 — GITHUB DEVELOPMENT WORKSPACE 3.0 WORKFLOW
 
 ## Status
-**IMPLEMENTATION IN PROGRESS. GH3.1–GH3.5 CLOSED / CI-VERIFIED; GH3.6 IMPLEMENTED / NOT CI-VERIFIED / NOT CLOSED.**
+**IMPLEMENTATION IN PROGRESS. GH3.1–GH3.6 CLOSED / CI-VERIFIED.**
 
 No GH3 stage is CLOSED from documentation alone.
 
@@ -53,7 +53,7 @@ Implemented with deterministic coverage for exact-baseline branch create/reuse, 
 ### GH3.6 — Collaboration Operations
 Implement PR/review/issue/tag/release services. Test canonical base/head resolution, duplicate prevention, ambiguous retry, authorization tiers and separate approval for protected/destructive operations.
 
-Implemented with deterministic coverage for canonical PR base/head identity, duplicate and ambiguous retry handling, bounded review reads, idempotent replies, approved review-thread resolution, issue labels/milestones, exact tag targets, release identity and separate release approval. Exact-HEAD CI closure is pending.
+Implemented with deterministic coverage for canonical PR base/head identity, duplicate and ambiguous retry handling, bounded review reads, idempotent replies, approved review-thread resolution, issue labels/milestones, exact tag targets, release identity and separate release approval. Closed on exact implementation HEAD `d20fa069d6004c9d433c0a14d930fd57432bfaef` by SG 2.1 CI #8571 `SUCCESS`.
 
 ### GH3.7 — Actions/Checks & CI Repair Loop
 Implement workflow dispatch and exact-head run/job/step/log/artifact inspection. Test failure localization, external/missing checks, bounded repair attempts, another-SHA rejection, rerun idempotency and completion-condition enforcement.

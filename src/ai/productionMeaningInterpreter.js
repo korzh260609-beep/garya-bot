@@ -138,6 +138,7 @@ function isExplicitOperationalTaskListRequest(canonicalInput) {
 }
 function canonicalizeOperationalTaskListInterpretation(interpretation, canonicalInput) {
   if (!isExplicitOperationalTaskListRequest(canonicalInput)) return interpretation;
+  if (interpretation?.candidateActions?.some((action) => action?.name === 'schedule-list')) return interpretation;
   return Object.freeze({
     ...interpretation,
     goal: 'list-operational-tasks',

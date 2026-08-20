@@ -347,7 +347,7 @@ Canonical doc: `SG_ACCESS_CONTROL_SYSTEM_1_0_PROGRAM.md`.
 
 ## GitHub Development Workspace 3.0
 
-**PLANNED / NOT IMPLEMENTED.**
+**IMPLEMENTATION IN PROGRESS. GH3.1 IMPLEMENTED / NOT CI-VERIFIED / NOT CLOSED; GH3.2–GH3.12 NOT IMPLEMENTED.**
 
 GH3 is the accepted transport-neutral program for two distinct capabilities:
 
@@ -355,6 +355,8 @@ GH3 is the accepted transport-neutral program for two distinct capabilities:
 - complete development lifecycle work inside explicitly authorized repositories, including exact-HEAD verification, atomic multi-file commits, PR/review collaboration, Actions/CI diagnosis and repair, durable restart continuity and cross-transport continuation.
 
 Current PDK4.13 production GitHub reading remains GET-only and must not be reported as GH3 mutation/development implementation. GH3 documentation grants no provider permission, actor authority or credential access by itself.
+
+GH3.1 now defines transport-neutral repository/ref/revision/task/change/mutation-plan/CI/completion-condition contracts and the bounded GitHub capability registry. It does not implement GitHub authentication, provider calls or repository mutation.
 
 Canonical docs:
 - `GITHUB_DEVELOPMENT_WORKSPACE_3_0_PROGRAM.md`;

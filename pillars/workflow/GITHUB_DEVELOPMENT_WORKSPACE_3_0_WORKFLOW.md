@@ -1,7 +1,7 @@
 # SG 2.1 — GITHUB DEVELOPMENT WORKSPACE 3.0 WORKFLOW
 
 ## Status
-**PLANNED / NOT IMPLEMENTED.**
+**IMPLEMENTATION IN PROGRESS. GH3.1 IMPLEMENTED / NOT CI-VERIFIED / NOT CLOSED.**
 
 No GH3 stage is CLOSED from documentation alone.
 
@@ -27,6 +27,8 @@ verify dev/sg2.1-semantic exact HEAD and exact-head SG 2.1 CI
 
 ### GH3.1 — Domain Contract & Capability Registry
 Define contracts and scoped capability names. Prove transport neutrality, explicit repository/ref/revision identity, bounded completion conditions and default-deny protected operations.
+
+Implemented in code and deterministic tests. Closure still requires local checks plus exact-head SG 2.1 CI evidence; documentation alone does not close the stage.
 
 ### GH3.2 — GitHub App Authentication & Connection Binding
 Implement short-lived installation authentication through Credential Manager/Connections Registry. Test token caching/expiry, repository selection, permission discovery, rotation/failure and secret redaction.

@@ -1,7 +1,7 @@
 # SG 2.1 — GITHUB DEVELOPMENT WORKSPACE 3.0 PROGRAM
 
 ## Status
-**PLANNED / NOT IMPLEMENTED.**
+**IMPLEMENTATION IN PROGRESS. GH3.1 IMPLEMENTED / NOT CI-VERIFIED / NOT CLOSED; GH3.2–GH3.12 NOT IMPLEMENTED.**
 
 GitHub Development Workspace 3.0 (`GH3`) is the canonical transport-neutral program that lets SG inspect GitHub globally and perform complete, durable development work in explicitly authorized repositories.
 
@@ -59,6 +59,8 @@ AND provider permission
 
 ### GH3.1 — Domain Contract & Capability Registry
 Define transport-neutral repository, ref, revision, development-task, proposed-change, mutation-plan, CI-run and completion-condition contracts. Register bounded read/search/write/PR/CI/release/administration capabilities without creating blanket authorization.
+
+Implementation evidence: `src/githubDevelopment/githubDevelopmentContract.js`, `src/githubDevelopment/githubCapabilityRegistry.js` and `tests/githubDevelopmentContract.test.js`. The registry defines names/risk/default policy only; it does not grant actor authority or claim provider execution is available.
 
 ### GH3.2 — GitHub App Authentication & Connection Binding
 Implement short-lived GitHub App installation authentication, approved repository selection, credential isolation/rotation, permission discovery and fail-closed connection health. Raw keys/tokens never enter prompts, memory or ordinary telemetry.

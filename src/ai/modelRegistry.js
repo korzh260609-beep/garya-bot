@@ -2,6 +2,7 @@ import { AIConfigurationError } from './errors.js';
 import { AI_REASONING_EFFORTS, AI_ROUTING_TIERS } from './contracts.js';
 
 const MODEL_TIERS = Object.freeze(AI_ROUTING_TIERS.filter((tier) => tier !== 'L0'));
+const tierIndex = (tier) => MODEL_TIERS.indexOf(tier);
 
 function nonNegativeNumber(value, fallback = 0) {
   if (value == null || value === '') return fallback;
@@ -78,13 +79,26 @@ export function createModelRegistry(entries = []) {
       if (!model || !model.enabled) throw new AIConfigurationError(`AI model is not configured or enabled: ${id}`);
       return model;
     },
-    select({ specialty, preferredModelId = null }) {
-      if (preferredModelId) return this.get(preferredModelId);
-      const eligible = [...models.values()].filter((entry) => entry.enabled)
-        .sort((left, right) => right.priority - left.priority);
+    select({ specialty, preferredModelId = null, requiredTier = null, requiredCapabilities = [] }) {
+      const normalizedTier = requiredTier == null ? null : modelTier(requiredTier);
+      const capabilities = stringList(requiredCapabilities, 'required AI capabilities');
+      const isEligible = (entry) => entry.enabled
+        && (!normalizedTier || tierIndex(entry.tier) >= tierIndex(normalizedTier))
+        && capabilities.every((capability) => entry.capabilities.includes(capability));
+      if (preferredModelId) {
+        const preferred = this.get(preferredModelId);
+        if (!isEligible(preferred)) throw new AIConfigurationError(`Preferred AI model does not satisfy required tier/capabilities: ${preferredModelId}`);
+        return preferred;
+      }
+      const eligible = [...models.values()].filter(isEligible)
+        .sort((left, right) => {
+          if (normalizedTier && tierIndex(left.tier) !== tierIndex(right.tier)) return tierIndex(left.tier) - tierIndex(right.tier);
+          if (left.priority !== right.priority) return right.priority - left.priority;
+          return (left.inputCostPerMillion + left.outputCostPerMillion) - (right.inputCostPerMillion + right.outputCostPerMillion);
+        });
       const specialized = eligible.find((entry) => specialty && entry.specialties.includes(specialty));
       const reasoning = eligible.find((entry) => entry.specialties.includes('reasoning'));
-      if (!specialized && !reasoning) throw new AIConfigurationError('No enabled AI model is available');
+      if (!specialized && !reasoning) throw new AIConfigurationError('No enabled AI model satisfies required tier, specialty and capabilities');
       return specialized ?? reasoning;
     },
     list() { return Object.freeze([...models.values()]); }

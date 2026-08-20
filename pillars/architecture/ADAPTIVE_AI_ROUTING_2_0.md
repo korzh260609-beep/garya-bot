@@ -8,16 +8,18 @@ Current implementation evidence:
 - AR2.2 Tier-aware Model Registry is IMPLEMENTED / CI-VERIFIED / CLOSED at `26269895369e7164fb3154ad4348075420af3f60`, SG 2.1 CI #8645 SUCCESS;
 - AR2.3 Deterministic L0 Gate is IMPLEMENTED / CI-VERIFIED / CLOSED at `c2f139e008962a19eea9aba68efe9b1bedc2c606`, SG 2.1 CI #8647 SUCCESS;
 - AR2.4 Task Assessment is IMPLEMENTED / CI-VERIFIED / CLOSED at `c6944dd8e06c5503350a5bcd1a2c27a282d1cacb`, SG 2.1 CI #8649 SUCCESS;
-- AR2.5 Tier Selector is implemented locally as a deterministic minimum-sufficient tier decision inside the existing `AIRouter`;
+- AR2.5 Tier Selector is IMPLEMENTED / CI-VERIFIED / CLOSED at `1c2cb25ba75f889c289f49a694f1849ce653f81c`, SG 2.1 CI #8651 SUCCESS;
+- AR2.6 Specialty + Tier Routing is implemented locally in the existing `ModelRegistry` and `AIRouter`;
 - legacy AI request callers receive compatible defaults;
 - contradictory or unbounded routing metadata fails closed;
-- AR2.5 selects L1 only for closed low-cost task classes with bounded assessment, retains L2 as the reliable general default, and selects L3 when advanced-reasoning signals require it;
-- configured weights are normalized and remain policy rather than provider/model constants;
-- only `trusted-sg-policy` constraints are accepted: minimum may upgrade, while maximum cannot undercut the minimum reliable tier;
-- selected tier is recorded in routing/telemetry without changing actual model selection before AR2.6;
-- AR2.5 targeted tests and `npm run check` pass locally (1155 tests, 1080 passed, 75 skipped, 0 failed);
-- AR2.5 remains NOT CLOSED until exact-HEAD SG 2.1 CI succeeds;
-- AR2.6–AR2.10 remain PLANNED / NOT IMPLEMENTED.
+- AR2.6 filters enabled models by minimum required tier and required capabilities, prefers exact specialty over generic reasoning, then chooses the lowest sufficient tier before priority and configured cost;
+- a higher tier may safely satisfy a lower requirement when no lower eligible model exists, while a lower tier can never satisfy a higher requirement;
+- preferred model configuration cannot bypass tier/capability requirements;
+- provider fallback preserves the original tier and capability requirements and remains distinct from semantic escalation;
+- selected provider model and actual tier are recorded without hard-coded product names;
+- AR2.6 targeted tests and `npm run check` pass locally (1160 tests, 1085 passed, 75 skipped, 0 failed);
+- AR2.6 remains NOT CLOSED until exact-HEAD SG 2.1 CI succeeds;
+- AR2.7–AR2.10 remain PLANNED / NOT IMPLEMENTED.
 
 This document defines the canonical architecture for the Adaptive AI Routing 2.0 extension of the existing SG 2.1 AI Routing Foundation. Documentation alone does not prove implementation, CI verification, deployment or live operation.
 
@@ -381,8 +383,8 @@ Operational metrics should include tier distribution, token/cost distribution an
 - AR2.2 Tier-aware Model Registry — IMPLEMENTED / CI-VERIFIED / CLOSED (SG 2.1 CI #8645)
 - AR2.3 Deterministic L0 Gate — IMPLEMENTED / CI-VERIFIED / CLOSED (SG 2.1 CI #8647)
 - AR2.4 Task Assessment — IMPLEMENTED / CI-VERIFIED / CLOSED (SG 2.1 CI #8649)
-- AR2.5 Tier Selector — IMPLEMENTED LOCALLY / LOCAL CHECK VERIFIED / NOT CI-VERIFIED / NOT CLOSED
-- AR2.6 Specialty + Tier Routing
+- AR2.5 Tier Selector — IMPLEMENTED / CI-VERIFIED / CLOSED (SG 2.1 CI #8651)
+- AR2.6 Specialty + Tier Routing — IMPLEMENTED LOCALLY / LOCAL CHECK VERIFIED / NOT CI-VERIFIED / NOT CLOSED
 - AR2.7 Reasoning Effort Selector
 - AR2.8 Validation
 - AR2.9 Semantic Escalation

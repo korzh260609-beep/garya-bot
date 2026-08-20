@@ -41,10 +41,10 @@ test('AR2.5 rejects untrusted tier constraints', () => {
   }), /trusted-sg-policy/);
 });
 
-test('AR2.5 router records required tier without changing registry selection before AR2.6', async () => {
+test('AR2.5 tier decision becomes the enforced registry requirement in AR2.6', async () => {
   let providerRequest;
   const router = createAIRouter({
-    registry: createModelRegistry([{ id: 'legacy', provider: 'fixture', model: 'legacy-model', specialties: ['reasoning'], tier: 'L2' }]),
+    registry: createModelRegistry([{ id: 'advanced', provider: 'fixture', model: 'advanced-model', specialties: ['reasoning'], tier: 'L3' }]),
     providers: { fixture: { async generate({ request }) { providerRequest = request; return { text: 'ok' }; } } }
   });
   const result = await router.route({
@@ -53,5 +53,6 @@ test('AR2.5 router records required tier without changing registry selection bef
     taskAssessmentSignals: { codingDebugging: 1 }
   });
   assert.equal(providerRequest.routing.tierSelection.tier, 'L3');
-  assert.equal(result.model, 'legacy-model');
+  assert.equal(result.model, 'advanced-model');
+  assert.equal(result.tier, 'L3');
 });

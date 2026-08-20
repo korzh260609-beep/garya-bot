@@ -226,6 +226,7 @@ export function createAIRouter({
           ...raw,
           provider: model.provider,
           model: model.model,
+          tier: model.tier,
           latencyMs: raw.latencyMs ?? Date.now() - startedAt,
           costUsd: raw.costUsd ?? estimateCost(model, raw.usage),
           traceId: activeRequest.traceContext.traceId,
@@ -297,7 +298,18 @@ export function createAIRouter({
         taskClass: request.routing.taskClass, ...request.routing.tierSelection
       });
       const role = resolveAiRole(input);
-      const primary = registry.select({ specialty: input.specialty ?? 'reasoning', preferredModelId: input.preferredModelId });
+      const selectionRequirements = Object.freeze({
+        specialty: request.routing.specialty,
+        requiredTier: request.routing.tierSelection.tier,
+        requiredCapabilities: request.routing.requiredCapabilities,
+      });
+      const primary = registry.select({ ...selectionRequirements, preferredModelId: input.preferredModelId });
+      telemetry?.record?.({
+        type: 'ai.model.selected', traceId: request.traceContext.traceId, requestId: request.traceContext.requestId,
+        taskClass: request.routing.taskClass, requiredTier: selectionRequirements.requiredTier,
+        selectedTier: primary.tier, provider: primary.provider, model: primary.model,
+        specialty: selectionRequirements.specialty, requiredCapabilities: selectionRequirements.requiredCapabilities,
+      });
       try {
         return await callModel(primary, request, false, role);
       } catch (primaryError) {
@@ -312,7 +324,7 @@ export function createAIRouter({
           reason: request.reason,
           primaryErrorCode: primaryError.code ?? 'AI_PROVIDER_ERROR',
         });
-        return callModel(registry.get(primary.fallbackId), request, true, role);
+        return callModel(registry.select({ ...selectionRequirements, preferredModelId: primary.fallbackId }), request, true, role);
       }
     },
   });

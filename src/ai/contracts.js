@@ -98,6 +98,7 @@ export function createAIResult(input) {
     text: string(input.text, 'text'),
     provider: string(input.provider, 'provider'),
     model: string(input.model, 'model'),
+    ...(input.tier == null ? {} : { tier: optionalEnum(input.tier, ['L1', 'L2', 'L3'], 'tier') }),
     latencyMs: nonNegative(input.latencyMs, 'latencyMs'),
     usage: Object.freeze({
       inputTokens: nonNegative(input.usage?.inputTokens, 'usage.inputTokens'),

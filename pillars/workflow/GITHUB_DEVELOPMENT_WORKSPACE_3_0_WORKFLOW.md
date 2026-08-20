@@ -1,7 +1,7 @@
 # SG 2.1 — GITHUB DEVELOPMENT WORKSPACE 3.0 WORKFLOW
 
 ## Status
-**IMPLEMENTATION IN PROGRESS. GH3.1–GH3.4 CLOSED / CI-VERIFIED; GH3.5 IMPLEMENTED / NOT CI-VERIFIED / NOT CLOSED.**
+**IMPLEMENTATION IN PROGRESS. GH3.1–GH3.5 CLOSED / CI-VERIFIED.**
 
 No GH3 stage is CLOSED from documentation alone.
 
@@ -48,7 +48,7 @@ Implemented with deterministic coverage for moving-ref resolution, immutable-SHA
 ### GH3.5 — Branch, File & Atomic Commit Operations
 Implement branch/ref validation and atomic multi-file commits. Test create/edit/move/delete, stale HEAD, non-fast-forward, protected branch, unrelated work preservation, idempotent retry and rollback evidence.
 
-Implemented with deterministic coverage for exact-baseline branch create/reuse, atomic create/update/move/delete, expected-blob conflicts, stale HEAD, non-fast-forward denial, unrelated tree preservation, idempotent retry and rollback evidence. Exact-HEAD CI closure is pending.
+Implemented with deterministic coverage for exact-baseline branch create/reuse, atomic create/update/move/delete, expected-blob conflicts, stale HEAD, non-fast-forward denial, unrelated tree preservation, idempotent retry and rollback evidence. Closed on exact implementation HEAD `4a6c0d6194557b37cd7b9e0cdaad666168f5fc42` by SG 2.1 CI #8567 `SUCCESS`.
 
 ### GH3.6 — Collaboration Operations
 Implement PR/review/issue/tag/release services. Test canonical base/head resolution, duplicate prevention, ambiguous retry, authorization tiers and separate approval for protected/destructive operations.

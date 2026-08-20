@@ -29,13 +29,14 @@ SG 2.1 is one global transport-independent project system whose reasoning layer 
 15. `IDENTITY_AND_SCOPE.md`
 16. `OBSERVABILITY.md`
 17. `TRANSPORTS_AND_AI_ROUTING.md`
-18. `LANGUAGE_AND_LOCALE_CONTEXT.md`
-19. `FOUNDATIONAL_CONTROL_LAYERS.md`
-20. `SELF_KNOWLEDGE.md`
-21. `MONARCH_OWNER_SECURITY.md`
-22. `RUNTIME_COMPOSITION.md`
-23. `POSTGRESQL_PERSISTENCE.md`
-24. `UNIVERSAL_DIAGNOSTICS.md`
+18. `ADAPTIVE_AI_ROUTING_2_0.md`
+19. `LANGUAGE_AND_LOCALE_CONTEXT.md`
+20. `FOUNDATIONAL_CONTROL_LAYERS.md`
+21. `SELF_KNOWLEDGE.md`
+22. `MONARCH_OWNER_SECURITY.md`
+23. `RUNTIME_COMPOSITION.md`
+24. `POSTGRESQL_PERSISTENCE.md`
+25. `UNIVERSAL_DIAGNOSTICS.md`
 
 ## Core flow
 
@@ -77,6 +78,8 @@ Automation 2.0 — Executable Workflows is the cross-cutting automation extensio
 
 GitHub Development Workspace 3.0 (GH3) is the planned transport-neutral GitHub discovery and development subsystem. It separates bounded global public/authorized-private discovery from state-changing authorized repository work, exposes one durable development service to every transport and future native SG interface, and composes ACS, Resource Authority, Action Gate, Credential Manager, PostgreSQL task state, GitHub Actions, PM3 and PDK4. Current GET-only PDK4 GitHub reading is not GH3 mutation implementation.
 
+Adaptive AI Routing 2.0 (AR2) is the accepted planned extension of the existing AI Routing Foundation. It introduces the L0 deterministic/no-LLM gate, L1/L2/L3 model tiers, deterministic task assessment, minimum-sufficient tier selection, independent reasoning-effort selection, deterministic-first validation and bounded semantic escalation while preserving the existing single AIRouter, provider fallback, production policy, Action Gate and transport-independent boundaries. Concrete provider model names remain configuration rather than domain logic. Canonical architecture: `ADAPTIVE_AI_ROUTING_2_0.md`.
+
 Self Knowledge is a shared system-context layer used for evidence-aware descriptions of SG itself. It does not sit as a mandatory reasoning hop in every request and does not replace live diagnostics.
 
 Universal Diagnostics is an independent observer application outside the mandatory SG request path. SG emits bounded diagnostic facts through Observability and approved read-only surfaces; the separate Diagnostics application reconstructs traces, compares expected vs actual paths, finds first divergence, performs deterministic root-cause analysis, runs isolated synthetic checks, and produces evidence-backed reports. SG must continue operating if Diagnostics is unavailable.
@@ -84,6 +87,11 @@ Universal Diagnostics is an independent observer application outside the mandato
 ## Non-negotiable boundaries
 - Connected AI models provide reasoning and may also execute specialized tasks.
 - SG code does not imitate reasoning with keyword routing.
+- AR2 extends the existing AI Router and cannot create a second independent router or direct provider bypass.
+- AR2 model tiers are capability/configuration classes; provider product names cannot become domain business logic.
+- AR2 may choose minimum-sufficient tier/reasoning effort but model/user text cannot self-authorize a more expensive tier or bypass cost/security policy.
+- AR2 provider fallback and semantic escalation are separate, bounded mechanisms; escalation cannot loop indefinitely.
+- AR2 deterministic L0 execution is allowed only where an actual resolved deterministic executor can satisfy the request; it is not a phrase/keyword substitute for reasoning.
 - Gates protect actions and do not become a second brain.
 - Memory supplies bounded context and does not own SG identity.
 - Memory 2.0 cannot broaden scope, privacy, authority or trust during capture/recall/consolidation.

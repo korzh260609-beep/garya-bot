@@ -1,7 +1,7 @@
 # SG 2.1 — GITHUB DEVELOPMENT WORKSPACE 3.0 WORKFLOW
 
 ## Status
-**IMPLEMENTATION IN PROGRESS. GH3.1–GH3.2 CLOSED / CI-VERIFIED.**
+**IMPLEMENTATION IN PROGRESS. GH3.1–GH3.2 CLOSED / CI-VERIFIED; GH3.3 IMPLEMENTED / NOT CI-VERIFIED / NOT CLOSED.**
 
 No GH3 stage is CLOSED from documentation alone.
 
@@ -37,6 +37,8 @@ Implemented with deterministic tests for connection-first denial, private-key is
 
 ### GH3.3 — Global Public GitHub Discovery
 Implement bounded global public search and authorized private discovery. Test pagination, rate limits, no-result/partial-result qualification, provenance/currentness, license visibility, injection-resistant result handling and no mutation.
+
+Implemented with deterministic coverage for public/private separation, pagination/result bounds, rate limits, incomplete results, release repository scope, documentation/license qualification, provenance/currentness and secret-safe authorized discovery. Exact-head CI remains required before closure.
 
 ### GH3.4 — Repository Read & Analysis
 Implement exact-revision reads for repository/code/history/PR/review/issue/CI facts. Test moving-branch versus immutable-SHA behavior, missing permission, deleted refs, large/truncated data and cross-repository isolation.

@@ -347,7 +347,7 @@ Canonical doc: `SG_ACCESS_CONTROL_SYSTEM_1_0_PROGRAM.md`.
 
 ## GitHub Development Workspace 3.0
 
-**IMPLEMENTATION IN PROGRESS. GH3.1–GH3.2 CLOSED / CI-VERIFIED; GH3.3–GH3.12 NOT IMPLEMENTED.**
+**IMPLEMENTATION IN PROGRESS. GH3.1–GH3.2 CLOSED / CI-VERIFIED; GH3.3 IMPLEMENTED / NOT CI-VERIFIED / NOT CLOSED; GH3.4–GH3.12 NOT IMPLEMENTED.**
 
 GH3 is the accepted transport-neutral program for two distinct capabilities:
 
@@ -363,6 +363,8 @@ GH3.1 closure evidence: exact HEAD `243bb8835f65ba51cb9bd1e31ce599f4a5d25d5c`, S
 GH3.2 now provides GitHub App installation authentication through the existing Credential Manager and External Connections Registry, with short-lived token caching, explicit invalidation, selected-repository and provider-permission enforcement, fail-closed connection checks and secret-safe health evidence. Production connection configuration/live acceptance remains unproven.
 
 GH3.2 closure evidence: exact HEAD `310aaf6b25ead13d3cb9ee32e0cf836b682aef30`, SG 2.1 CI #8555 `SUCCESS`.
+
+GH3.3 now provides bounded read-only discovery for repositories, code, commits, issues, pull requests, users, releases and documentation. Public discovery needs no project credential; private discovery is available only through an authorized GH3.2 connection. Every result retains source/currentness/rate-limit/license qualification and an explicit untrusted-external-data boundary.
 
 Canonical docs:
 - `GITHUB_DEVELOPMENT_WORKSPACE_3_0_PROGRAM.md`;

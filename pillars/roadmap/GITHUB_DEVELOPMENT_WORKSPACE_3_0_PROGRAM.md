@@ -1,7 +1,7 @@
 # SG 2.1 — GITHUB DEVELOPMENT WORKSPACE 3.0 PROGRAM
 
 ## Status
-**IMPLEMENTATION IN PROGRESS. GH3.1–GH3.2 CLOSED / CI-VERIFIED; GH3.3–GH3.12 NOT IMPLEMENTED.**
+**IMPLEMENTATION IN PROGRESS. GH3.1–GH3.2 CLOSED / CI-VERIFIED; GH3.3 IMPLEMENTED / NOT CI-VERIFIED / NOT CLOSED; GH3.4–GH3.12 NOT IMPLEMENTED.**
 
 GitHub Development Workspace 3.0 (`GH3`) is the canonical transport-neutral program that lets SG inspect GitHub globally and perform complete, durable development work in explicitly authorized repositories.
 
@@ -73,6 +73,8 @@ Closure evidence: exact HEAD `310aaf6b25ead13d3cb9ee32e0cf836b682aef30`, SG 2.1 
 
 ### GH3.3 — Global Public GitHub Discovery
 Implement bounded public repository/code/commit/issue/PR/user/release/documentation search with pagination, rate-limit handling, provenance, freshness, license visibility and result qualification. Private discovery requires explicit authorized connection scope.
+
+Implementation evidence: `src/githubDevelopment/globalGitHubDiscoveryService.js` and `tests/globalGitHubDiscoveryService.test.js`. Public discovery is read-only and secret-free; authorized private discovery must pass through GH3.2. Results are bounded, provenance/currentness/rate-limit qualified, marked as untrusted external data and never promoted to Project Memory automatically.
 
 ### GH3.4 — Repository Read & Analysis
 Read repository metadata, refs, immutable file/tree/blob content, diffs, commit history, canonical docs, issues, pull requests, reviews, checks, workflow runs/jobs and artifacts. Repository facts are verified at an immutable revision when correctness depends on exact state.

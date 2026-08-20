@@ -1,7 +1,7 @@
 # SG 2.1 — GITHUB DEVELOPMENT WORKSPACE 3.0 ARCHITECTURE
 
 ## Status
-**PLANNED / NOT IMPLEMENTED.**
+**IMPLEMENTATION IN PROGRESS. GH3.1–GH3.9 CLOSED / CI-VERIFIED; GH3.10 IMPLEMENTED / NOT CI-VERIFIED; GH3.11–GH3.12 NOT IMPLEMENTED.**
 
 ## Purpose
 
@@ -49,6 +49,8 @@ PostgreSQL-backed durable state for task intent, completion condition, actor/pro
 
 ### PDK4DevelopmentEvidenceBridge
 Converts verified GitHub events into existing PDK4 source-normalization/ingestion contracts. It does not bypass PM3 trust, confirmation, temporal, conflict or Context Guard rules.
+
+The GH3.10 implementation accepts only immutable commit/PR identities and successful workflow evidence bound to the same full target SHA. It creates existing PDK4 `DevelopmentEvent` values and existing PM3 project-fact candidates; it owns no memory store. Repository/code evidence can qualify `implemented`, exact-head CI evidence can qualify `ci-verified`, and neither can qualify `deployed` or `live-verified`. Candidates remain proposed and unconfirmed until the independent PM3 confirmation/trust boundary acts.
 
 ## Execution model
 

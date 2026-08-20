@@ -1,7 +1,7 @@
 # SG 2.1 — GITHUB DEVELOPMENT WORKSPACE 3.0 PROGRAM
 
 ## Status
-**IMPLEMENTATION IN PROGRESS. GH3.1–GH3.9 CLOSED / CI-VERIFIED; GH3.10–GH3.12 NOT IMPLEMENTED.**
+**IMPLEMENTATION IN PROGRESS. GH3.1–GH3.9 CLOSED / CI-VERIFIED; GH3.10 IMPLEMENTED / NOT CI-VERIFIED; GH3.11–GH3.12 NOT IMPLEMENTED.**
 
 GitHub Development Workspace 3.0 (`GH3`) is the canonical transport-neutral program that lets SG inspect GitHub globally and perform complete, durable development work in explicitly authorized repositories.
 
@@ -122,6 +122,8 @@ Closure evidence: exact implementation/fix HEAD `5c2d69d179d58f3d89d8708f9143954
 
 ### GH3.10 — PM3/PDK4 Trusted Development Evidence Integration
 Normalize verified GitHub outcomes into existing PDK4/PM3 ingestion contracts. GH3 must not create a parallel project-memory store, self-confirm model output, or claim deployed/live state from repository/CI evidence alone.
+
+Implementation evidence: `src/githubDevelopment/githubTrustedDevelopmentEvidenceIntegration.js` and `tests/githubTrustedDevelopmentEvidenceIntegration.test.js`. Verified immutable commits and PR heads become code-qualified PDK4 events; only successful workflows bound to the same full target SHA become CI-qualified events. Every PM3 projection remains a deterministic `proposed`/unconfirmed candidate, reuses existing PDK4/PM3 ingestion and idempotency contracts, and rejects model self-confirmation, cross-project sink results, PM3 promotion and repository/CI claims of deployed or live-verified state.
 
 ### GH3.11 — Authorization, Risk Tiers, Audit & Emergency Controls
 Apply ACS, Resource Authority, Action Gate, Owner Security, Credential Manager, budgets/rate limits, audit and emergency disable controls. Read-only authorized work may run automatically; bounded dev-branch mutation may run under an explicit task execution envelope; protected branch merge and repository administration require separate higher-risk authority/confirmation.

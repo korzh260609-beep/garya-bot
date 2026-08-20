@@ -1,7 +1,7 @@
 # SG 2.1 — GITHUB DEVELOPMENT WORKSPACE 3.0 WORKFLOW
 
 ## Status
-**IMPLEMENTATION IN PROGRESS. GH3.1–GH3.9 CLOSED / CI-VERIFIED; GH3.10–GH3.12 NOT IMPLEMENTED.**
+**IMPLEMENTATION IN PROGRESS. GH3.1–GH3.9 CLOSED / CI-VERIFIED; GH3.10 IMPLEMENTED / NOT CI-VERIFIED; GH3.11–GH3.12 NOT IMPLEMENTED.**
 
 No GH3 stage is CLOSED from documentation alone.
 
@@ -72,6 +72,8 @@ Implemented with PostgreSQL task/checkpoint/version/idempotency state and determ
 
 ### GH3.10 — PM3/PDK4 Integration
 Route verified source events through existing PDK4/PM3 contracts. Test provenance, idempotency, temporal updates, conflict visibility, no raw-secret storage and no false promotion from implemented/CI to deployed/live.
+
+Implemented with deterministic commit/PR/workflow normalization through the existing PDK4 event and PM3 project-fact candidate contracts. Coverage proves immutable provenance, stable source-event replay identity for existing PM3 idempotency, exact-head CI qualification, proposed/unconfirmed PM3 projection, cross-project rejection and fail-closed denial of self-confirmation or repository/CI-to-deployment/runtime promotion. Exact-head CI evidence is still required before closure.
 
 ### GH3.11 — Security, Audit & Emergency Controls
 Test ACS/Resource Authority/Action Gate/Credential Manager composition, actor/repository/branch/path isolation, public versus private access, prompt-injection resistance, cost/rate bounds, audit/redaction and emergency read/write disable controls.

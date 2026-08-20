@@ -1,7 +1,7 @@
 # SG 2.1 — GITHUB DEVELOPMENT WORKSPACE 3.0 PROGRAM
 
 ## Status
-**IMPLEMENTATION IN PROGRESS. GH3.1–GH3.3 CLOSED / CI-VERIFIED; GH3.4 IMPLEMENTED / NOT CI-VERIFIED / NOT CLOSED; GH3.5–GH3.12 NOT IMPLEMENTED.**
+**IMPLEMENTATION IN PROGRESS. GH3.1–GH3.4 CLOSED / CI-VERIFIED; GH3.5–GH3.12 NOT IMPLEMENTED.**
 
 GitHub Development Workspace 3.0 (`GH3`) is the canonical transport-neutral program that lets SG inspect GitHub globally and perform complete, durable development work in explicitly authorized repositories.
 
@@ -81,7 +81,9 @@ Closure evidence: exact HEAD `74c4ade02eed94ca7be809c46a1e485ecf6f8a30`, SG 2.1 
 ### GH3.4 — Repository Read & Analysis
 Read repository metadata, refs, immutable file/tree/blob content, diffs, commit history, canonical docs, issues, pull requests, reviews, checks, workflow runs/jobs and artifacts. Repository facts are verified at an immutable revision when correctness depends on exact state.
 
-Implementation evidence: `src/githubDevelopment/githubRepositoryReadAnalysisService.js` and `tests/githubRepositoryReadAnalysisService.test.js`. Moving refs are resolved once to a full commit SHA; tree, file, history, checks and workflow facts then bind to that immutable revision. Public and authorized-private reads remain separate, private access passes through GH3.2, repository identity is fail-closed, output is bounded and provider content remains untrusted external data. Exact-HEAD CI closure is pending.
+Implementation evidence: `src/githubDevelopment/githubRepositoryReadAnalysisService.js` and `tests/githubRepositoryReadAnalysisService.test.js`. Moving refs are resolved once to a full commit SHA; tree, file, history, checks and workflow facts then bind to that immutable revision. Public and authorized-private reads remain separate, private access passes through GH3.2, repository identity is fail-closed, output is bounded and provider content remains untrusted external data.
+
+Closure evidence: exact implementation HEAD `652d79d159fce06ef94dc960b7a58278a99dbdb8`, SG 2.1 CI #8563 `SUCCESS`.
 
 ### GH3.5 — Branch, File & Atomic Commit Operations
 Create/reuse authorized branches; create/edit/move/delete files; construct one reviewable atomic multi-file commit through Git data primitives; detect stale HEAD/non-fast-forward conflicts; preserve unrelated changes; and provide a reversible audit record.

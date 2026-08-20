@@ -54,6 +54,7 @@ export function createAIRoutingContract(input = {}, fallback = {}) {
     throw new TypeError('routing.minimumTier cannot exceed routing.maximumTier');
   }
   const assessment = input.assessment == null ? null : createTaskAssessment(object(input.assessment, 'routing.assessment').signals);
+  const tierSelection = input.tierSelection == null ? null : Object.freeze({ ...object(input.tierSelection, 'routing.tierSelection') });
   return Object.freeze({
     taskClass,
     specialty,
@@ -62,6 +63,7 @@ export function createAIRoutingContract(input = {}, fallback = {}) {
     maximumTier,
     reasoningEffort: optionalEnum(input.reasoningEffort, AI_REASONING_EFFORTS, 'routing.reasoningEffort'),
     ...(assessment ? { assessment } : {}),
+    ...(tierSelection ? { tierSelection } : {}),
   });
 }
 function structuredJsonText(value) {

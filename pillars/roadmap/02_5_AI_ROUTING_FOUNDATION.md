@@ -3,7 +3,7 @@
 ## Status
 Implementation complete on `dev/sg2.1-semantic`. Exit gate is satisfied only when CI is green for the final Block 2.5 commit.
 
-Adaptive AI Routing 2.0 (AR2) is an **accepted extension with implementation in progress** over this completed foundation. AR2.1–AR2.3 are implemented, exact-HEAD CI-verified and closed; AR2.4 has local implementation evidence and remains NOT CLOSED until exact-HEAD CI succeeds; AR2.5–AR2.10 remain planned.
+Adaptive AI Routing 2.0 (AR2) is an **accepted extension with implementation in progress** over this completed foundation. AR2.1–AR2.4 are implemented, exact-HEAD CI-verified and closed; AR2.5 has local implementation evidence and remains NOT CLOSED until exact-HEAD CI succeeds; AR2.6–AR2.10 remain planned.
 
 ## Goal
 Connect the first production reasoning model through a replaceable, observable and cost-controlled AI routing layer before Decision Engine development begins.
@@ -157,8 +157,8 @@ Telegram, Discord, Web/API, Email, voice and the future native SG interface all 
 - **AR2.1 — Routing Contract:** IMPLEMENTED / CI-VERIFIED / CLOSED. Adds bounded routing metadata/task-class contract while preserving current AI request compatibility. Evidence: `e9e0d053`, SG 2.1 CI #8643 SUCCESS.
 - **AR2.2 — Tier-aware Model Registry:** IMPLEMENTED / CI-VERIFIED / CLOSED. Evidence: `26269895`, SG 2.1 CI #8645 SUCCESS.
 - **AR2.3 — Deterministic L0 Gate:** IMPLEMENTED / CI-VERIFIED / CLOSED. Evidence: `c2f139e0`, SG 2.1 CI #8647 SUCCESS.
-- **AR2.4 — Task Assessment:** IMPLEMENTED LOCALLY / LOCAL CHECK VERIFIED / NOT CI-VERIFIED / NOT CLOSED. Deterministically normalizes a closed set of structured complexity/risk/ambiguity/reasoning/tool/context/evidence/coding signals within `[0,1]`; user wording is not an assessment input and model selection is unchanged until AR2.5.
-- **AR2.5 — Tier Selector:** minimum-sufficient tier selection with hard min/max overrides and bounded score policy.
+- **AR2.4 — Task Assessment:** IMPLEMENTED / CI-VERIFIED / CLOSED. Evidence: `c6944dd8`, SG 2.1 CI #8649 SUCCESS.
+- **AR2.5 — Tier Selector:** IMPLEMENTED LOCALLY / LOCAL CHECK VERIFIED / NOT CI-VERIFIED / NOT CLOSED. Deterministic minimum-sufficient L1/L2/L3 decision from AR2.4 assessment with normalized configurable weights, closed low-cost classes, hard advanced-reliability rules and trusted min/max constraints. Actual registry filtering remains AR2.6.
 - **AR2.6 — Specialty + Tier Routing:** choose enabled models by tier, specialty/capability, policy, availability and cost.
 - **AR2.7 — Reasoning Effort Selector:** select bounded effort independently from model tier and propagate through existing provider metadata.
 - **AR2.8 — Validation:** deterministic/task-specific output validation and confidence contract.

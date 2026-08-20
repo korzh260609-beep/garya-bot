@@ -9,6 +9,7 @@ import {
   resolveAiRole,
 } from './productionPolicy.js';
 import { createDeterministicTaskAssessor } from './taskAssessment.js';
+import { createTierSelector } from './tierSelector.js';
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const RESPONSE_CONTEXT_TRUNCATION_MARKER = '\n...[SG_CONTEXT_TRUNCATED_TO_INPUT_BUDGET]...\n';
@@ -158,6 +159,7 @@ export function createAIRouter({
   policy = null,
   deterministicGate = null,
   taskAssessor = createDeterministicTaskAssessor(),
+  tierSelector = createTierSelector(),
   timeoutMs = 30_000,
   maxRetries = 1,
   retryDelayMs = 100,
@@ -165,6 +167,7 @@ export function createAIRouter({
   if (!registry?.select || !registry?.get) throw new TypeError('registry is required');
   if (deterministicGate && typeof deterministicGate.tryExecute !== 'function') throw new TypeError('deterministicGate.tryExecute is required');
   if (!taskAssessor || typeof taskAssessor.assess !== 'function') throw new TypeError('taskAssessor.assess is required');
+  if (!tierSelector || typeof tierSelector.select !== 'function') throw new TypeError('tierSelector.select is required');
   const providerMap = new Map(Object.entries(providers ?? {}).map(([name, provider]) => [name, assertAIProvider(provider)]));
 
   function enforcePolicy({ model, request, role }) {
@@ -272,9 +275,14 @@ export function createAIRouter({
         signals: input.taskAssessmentSignals ?? {},
         traceContext: input.traceContext,
       });
+      const tierSelection = await tierSelector.select({
+        taskClass: input.routing?.taskClass ?? input.task,
+        assessment,
+        trustedRoutingPolicy: input.trustedRoutingPolicy ?? null,
+      });
       const request = createAIRequest({
         ...input,
-        routing: { ...(input.routing ?? {}), assessment },
+        routing: { ...(input.routing ?? {}), assessment, tierSelection },
         maxOutputTokens: input.maxOutputTokens ?? defaultOutputBudget(input, policy),
       });
       telemetry?.record?.({
@@ -283,6 +291,10 @@ export function createAIRouter({
         requestId: request.traceContext.requestId,
         taskClass: request.routing.taskClass,
         assessment: request.routing.assessment,
+      });
+      telemetry?.record?.({
+        type: 'ai.tier.selected', traceId: request.traceContext.traceId, requestId: request.traceContext.requestId,
+        taskClass: request.routing.taskClass, ...request.routing.tierSelection
       });
       const role = resolveAiRole(input);
       const primary = registry.select({ specialty: input.specialty ?? 'reasoning', preferredModelId: input.preferredModelId });

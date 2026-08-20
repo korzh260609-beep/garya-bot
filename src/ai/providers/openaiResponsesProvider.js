@@ -116,7 +116,13 @@ export function createOpenAIResponsesProvider({
 
     return {
       text: extractText(payload), latencyMs: Date.now() - startedAt,
-      usage: { inputTokens: payload.usage?.input_tokens ?? null, outputTokens: payload.usage?.output_tokens ?? null, totalTokens: payload.usage?.total_tokens ?? null },
+      usage: {
+        inputTokens: payload.usage?.input_tokens ?? null,
+        cachedInputTokens: payload.usage?.input_tokens_details?.cached_tokens ?? null,
+        outputTokens: payload.usage?.output_tokens ?? null,
+        reasoningTokens: payload.usage?.output_tokens_details?.reasoning_tokens ?? null,
+        totalTokens: payload.usage?.total_tokens ?? null,
+      },
       rawMetadata: { responseId: payload.id ?? null, responseStatus: payload.status ?? null },
     };
   }

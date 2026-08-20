@@ -41,7 +41,7 @@ Active files:
 - `IDENTITY_AND_SCOPE.md`
 - `OBSERVABILITY.md`
 - `TRANSPORTS_AND_AI_ROUTING.md`
-- `ADAPTIVE_AI_ROUTING_2_0.md` — accepted AR2 architecture; AR2.1–AR2.8 are CI-verified/closed and AR2.9 implementation is in progress
+- `ADAPTIVE_AI_ROUTING_2_0.md` — accepted AR2 architecture; AR2.1–AR2.9 are CI-verified/closed and AR2.10 implementation is in progress
 - `LANGUAGE_AND_LOCALE_CONTEXT.md`
 - `FOUNDATIONAL_CONTROL_LAYERS.md`
 - `SELF_KNOWLEDGE.md`
@@ -58,7 +58,7 @@ Active files:
 - `00_PRINCIPLES_AND_GATES.md`
 - `01_SEMANTIC_KERNEL.md`
 - `02_CONTEXT_AND_MEMORY.md`
-- `02_5_AI_ROUTING_FOUNDATION.md` — completed AI routing foundation plus AR2.1–AR2.10 implementation program; AR2.1–AR2.8 are closed and AR2.9 has local implementation evidence
+- `02_5_AI_ROUTING_FOUNDATION.md` — completed AI routing foundation plus AR2.1–AR2.10 implementation program; AR2.1–AR2.9 are closed and AR2.10 has local implementation evidence
 - `03_DECISION_ENGINE.md`
 - `04_ACTION_GATE.md`
 - `05_CAPABILITY_SYSTEM.md`

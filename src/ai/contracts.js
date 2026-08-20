@@ -106,8 +106,11 @@ export function createAIResult(input) {
     latencyMs: nonNegative(input.latencyMs, 'latencyMs'),
     usage: Object.freeze({
       inputTokens: nonNegative(input.usage?.inputTokens, 'usage.inputTokens'),
+      cachedInputTokens: nonNegative(input.usage?.cachedInputTokens, 'usage.cachedInputTokens'),
       outputTokens: nonNegative(input.usage?.outputTokens, 'usage.outputTokens'),
+      reasoningTokens: nonNegative(input.usage?.reasoningTokens, 'usage.reasoningTokens'),
       totalTokens: nonNegative(input.usage?.totalTokens, 'usage.totalTokens'),
+      otherBillableUnits: Object.freeze({ ...(input.usage?.otherBillableUnits ?? {}) }),
     }),
     costUsd: nonNegative(input.costUsd, 'costUsd'),
     traceId: string(input.traceId, 'traceId'),
@@ -117,6 +120,7 @@ export function createAIResult(input) {
     fallbackUsed: Boolean(input.fallbackUsed),
     ...(input.validation == null ? {} : { validation: Object.freeze({ ...object(input.validation, 'validation') }) }),
     ...(input.escalation == null ? {} : { escalation: Object.freeze({ ...object(input.escalation, 'escalation') }) }),
+    ...(input.accounting == null ? {} : { accounting: Object.freeze({ ...object(input.accounting, 'accounting') }) }),
     rawMetadata: Object.freeze({ ...(input.rawMetadata ?? {}) }),
   });
 }

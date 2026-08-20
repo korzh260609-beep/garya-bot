@@ -13,6 +13,7 @@ import { createTierSelector } from './tierSelector.js';
 import { createReasoningEffortSelector } from './reasoningEffortSelector.js';
 import { createDeterministicOutputValidator } from './outputValidator.js';
 import { createSemanticEscalationController } from './semanticEscalation.js';
+import { createAICostIntelligence } from './costIntelligence.js';
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const RESPONSE_CONTEXT_TRUNCATION_MARKER = '\n...[SG_CONTEXT_TRUNCATED_TO_INPUT_BUDGET]...\n';
@@ -30,6 +31,9 @@ function estimateCost(model, usage) {
   const output = usage.outputTokens == null ? 0 : usage.outputTokens * model.outputCostPerMillion / 1_000_000;
   const total = input + output;
   return Number.isFinite(total) ? total : null;
+}
+function validationFailureCodes(failures) {
+  return Object.freeze([...new Set((failures ?? []).map((failure) => String(failure).split(':', 1)[0]))]);
 }
 function messageCharacters(messages) {
   const list = messages ?? [];
@@ -166,6 +170,7 @@ export function createAIRouter({
   reasoningEffortSelector = createReasoningEffortSelector(),
   outputValidator = createDeterministicOutputValidator(),
   semanticEscalation = createSemanticEscalationController(),
+  costIntelligence = createAICostIntelligence(),
   timeoutMs = 30_000,
   maxRetries = 1,
   retryDelayMs = 100,
@@ -177,6 +182,9 @@ export function createAIRouter({
   if (!reasoningEffortSelector || typeof reasoningEffortSelector.select !== 'function') throw new TypeError('reasoningEffortSelector.select is required');
   if (!outputValidator || typeof outputValidator.validate !== 'function') throw new TypeError('outputValidator.validate is required');
   if (!semanticEscalation || typeof semanticEscalation.decide !== 'function') throw new TypeError('semanticEscalation.decide is required');
+  if (!costIntelligence || typeof costIntelligence.recordCall !== 'function' || typeof costIntelligence.summarizeRequest !== 'function') {
+    throw new TypeError('costIntelligence recordCall and summarizeRequest are required');
+  }
   const providerMap = new Map(Object.entries(providers ?? {}).map(([name, provider]) => [name, assertAIProvider(provider)]));
 
   function enforcePolicy({ model, request, role }) {
@@ -231,7 +239,7 @@ export function createAIRouter({
       });
       try {
         const raw = await withTimeout((signal) => provider.generate({ request: activeRequest, model, signal }), timeoutMs);
-        const result = createAIResult({
+        let result = createAIResult({
           ...raw,
           provider: model.provider,
           model: model.model,
@@ -245,18 +253,35 @@ export function createAIRouter({
           attempts: attempt,
           fallbackUsed,
         });
-        if (policy && result.costUsd != null) {
-          assertActualAiCostAllowed({ policy, role, actualCostUsd: result.costUsd });
-        }
+        const accounting = costIntelligence.recordCall({
+          model, request: activeRequest, result, providerReportedCostUsd: raw.costUsd ?? null,
+          fallbackUsed, escalationUsed: Boolean(activeRequest.metadata?.semanticEscalation),
+        });
+        result = createAIResult({ ...result, costUsd: accounting.effectiveCostUsd, accounting });
+        if (policy && result.costUsd != null) assertActualAiCostAllowed({ policy, role, actualCostUsd: result.costUsd });
+        telemetry?.record?.({
+          type: 'ai.usage.accounted', traceId: activeRequest.traceContext.traceId,
+          requestId: activeRequest.traceContext.requestId, callId: accounting.callId,
+          provider: model.provider, model: model.model, tier: model.tier,
+          reasoningEffort: result.reasoningEffort, usage: accounting.usage,
+          pricingVersion: accounting.pricingSnapshot.version, costUsd: accounting.effectiveCostUsd,
+          costSource: accounting.costSource, fallbackUsed, escalationUsed: accounting.escalationUsed,
+        });
         const validation = outputValidator.validate({ request: activeRequest, result });
         const validatedResult = createAIResult({ ...result, validation });
         telemetry?.record?.({
           type: 'ai.output.validated', traceId: activeRequest.traceContext.traceId,
           requestId: activeRequest.traceContext.requestId, taskClass: activeRequest.routing.taskClass,
           provider: model.provider, model: model.model, tier: model.tier,
-          passed: validation.passed, failures: validation.failures, confidence: validation.confidence,
+          passed: validation.passed, failures: validationFailureCodes(validation.failures), confidence: validation.confidence,
         });
-        telemetry?.record?.({ type: 'ai.call.completed', role, ...validatedResult });
+        telemetry?.record?.({
+          type: 'ai.call.completed', role, traceId: validatedResult.traceId, requestId: validatedResult.requestId,
+          provider: validatedResult.provider, model: validatedResult.model, tier: validatedResult.tier,
+          reasoningEffort: validatedResult.reasoningEffort, latencyMs: validatedResult.latencyMs,
+          usage: validatedResult.usage, costUsd: validatedResult.costUsd, attempts: validatedResult.attempts,
+          fallbackUsed: validatedResult.fallbackUsed, validationPassed: validatedResult.validation?.passed ?? null,
+        });
         return validatedResult;
       } catch (cause) {
         lastError = cause instanceof Error ? cause : new AIProviderError('Unknown AI provider failure');
@@ -374,13 +399,14 @@ export function createAIRouter({
         if (!decision.escalate) {
           return createAIResult({ ...result, escalation: {
             version: 'AR2.9', used: promotions.length > 0, promotions: Object.freeze(promotions), terminalReason: decision.reason,
-          } });
+          }, accounting: costIntelligence.summarizeRequest(request.traceContext.requestId) });
         }
         promotions.push(Object.freeze({ fromTier: decision.fromTier, toTier: decision.toTier, reason: decision.reason }));
         telemetry?.record?.({
           type: 'ai.semantic-escalation.used', traceId: request.traceContext.traceId, requestId: request.traceContext.requestId,
           taskClass: request.routing.taskClass, fromTier: decision.fromTier, toTier: decision.toTier,
-          promotion: decision.promotion, reason: decision.reason, validationFailures: result.validation.failures,
+          promotion: decision.promotion, reason: decision.reason,
+          validationFailures: validationFailureCodes(result.validation.failures),
         });
         request = createAIRequest({
           ...request,
@@ -398,7 +424,7 @@ export function createAIRouter({
           return createAIResult({ ...result, escalation: {
             version: 'AR2.9', used: promotions.length > 0, promotions: Object.freeze(promotions),
             terminalReason: 'higher-tier-unavailable',
-          } });
+          }, accounting: costIntelligence.summarizeRequest(request.traceContext.requestId) });
         }
       }
     },

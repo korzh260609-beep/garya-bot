@@ -25,8 +25,10 @@ Current implementation evidence:
 - validation failures return bounded evidence for AR2.9 and never masquerade as technical provider fallback;
 - AR2.9 performs bounded L1→L2→L3 promotion only after deterministic validation failure, preserves original request/evidence plus bounded prior-result handoff, respects trusted maximum tier, and remains distinct from technical fallback;
 - AR2.9 targeted tests and `npm run check` pass locally (1173 tests, 1098 passed, 75 skipped, 0 failed);
-- AR2.9 remains NOT CLOSED until exact-HEAD SG 2.1 CI succeeds;
-- AR2.10 remains PLANNED / NOT IMPLEMENTED.
+- AR2.9 Semantic Escalation is IMPLEMENTED / CI-VERIFIED / CLOSED at `1f45f80d0c100db96c5f3b72ef1b19ca115470da`, SG 2.1 CI #8659 SUCCESS;
+- AR2.10 Cost Intelligence, Usage Accounting & Observability is implemented locally with call/request/aggregate evidence, versioned pricing snapshots, reconciliation readiness and privacy-safe routing efficiency telemetry;
+- AR2.10 targeted tests and `npm run check` pass locally (1177 tests, 1102 passed, 75 skipped, 0 failed);
+- AR2.10 remains NOT CLOSED until exact-HEAD SG 2.1 CI succeeds.
 
 This document defines the canonical architecture for the Adaptive AI Routing 2.0 extension of the existing SG 2.1 AI Routing Foundation. Documentation alone does not prove implementation, CI verification, deployment or live operation.
 
@@ -394,8 +396,8 @@ Operational metrics should include tier distribution, token/cost distribution an
 - AR2.6 Specialty + Tier Routing — IMPLEMENTED / CI-VERIFIED / CLOSED (SG 2.1 CI #8653)
 - AR2.7 Reasoning Effort Selector — IMPLEMENTED / CI-VERIFIED / CLOSED (SG 2.1 CI #8655)
 - AR2.8 Validation — IMPLEMENTED / CI-VERIFIED / CLOSED (SG 2.1 CI #8657)
-- AR2.9 Semantic Escalation — IMPLEMENTED LOCALLY / LOCAL CHECK VERIFIED / NOT CI-VERIFIED / NOT CLOSED
-- AR2.10 Cost Intelligence, Usage Accounting & Observability
+- AR2.9 Semantic Escalation — IMPLEMENTED / CI-VERIFIED / CLOSED (SG 2.1 CI #8659)
+- AR2.10 Cost Intelligence, Usage Accounting & Observability — IMPLEMENTED LOCALLY / LOCAL CHECK VERIFIED / NOT CI-VERIFIED / NOT CLOSED
 
 AR2.10 includes call-level, request-level and aggregate token/cost accounting, mutable/versioned pricing, historical pricing immutability and reconciliation-ready provider cost evidence. User-facing commercial billing/credits may be layered later without changing AR2 technical usage truth.
 

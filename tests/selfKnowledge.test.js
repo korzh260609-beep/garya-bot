@@ -7,6 +7,7 @@ import {
   createSelfKnowledgeService,
   createSelfKnowledgeSnapshot
 } from '../src/selfKnowledge/selfKnowledge.js';
+import { createDeploymentSelfKnowledgeSources } from '../src/selfKnowledge/deploymentSelfKnowledge.js';
 
 function source(id, facts) {
   return Object.freeze({ id, async collect() { return { facts }; } });
@@ -97,6 +98,29 @@ test('Self Knowledge query restores canonical priority when persistence hydrates
 
   assert.equal(result.facts[0].category, 'identity');
   assert.ok(result.facts.some((item) => item.category === 'identity' && item.key === 'system-name' && item.value.full === 'Советник GARYA'));
+});
+
+test('deployment Self Knowledge exposes GH3 mediated GitHub access inside the normal response fact budget', async () => {
+  const store = createInMemorySelfKnowledgeStore();
+  const sources = createDeploymentSelfKnowledgeSources({
+    config: { revision: 'gh3-self-report-test', environment: 'test' },
+    capabilityNames: ['repository-analyze'],
+    connectionRegistry: {},
+    resourceAuthorityRegistry: {}
+  });
+  const builder = createSelfKnowledgeBuilder({ store, sources });
+  await builder.rebuild({ sourceRevision: 'gh3-self-report-test', environment: 'test' });
+  const service = createSelfKnowledgeService({ store });
+  const result = await service.query({ environment: 'test', maxFacts: 12 });
+  const github = result.facts.find((item) => item.category === 'capabilities' && item.key === 'github-development-workspace');
+
+  assert.ok(github, 'GH3 capability fact must fit the bounded response Self Knowledge budget');
+  assert.equal(github.status, 'implemented');
+  assert.equal(github.value.accessMode, 'mediated-through-gh3');
+  assert.equal(github.value.localFilesystemMount, false);
+  assert.ok(github.value.capabilities.includes('github.repository.read'));
+  assert.ok(github.value.capabilities.includes('github.code.search'));
+  assert.equal(github.value.specificRepositoryAccess, 'authorization-and-connection-dependent');
 });
 
 test('failed approved source downgrades snapshot validation instead of silently claiming certainty', async () => {

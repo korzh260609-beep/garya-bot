@@ -76,6 +76,11 @@ They must not own semantic logic, durable memory, permissions policy, capability
 ### 4.7 Observability
 Every important decision, source call, model call and protected action must be traceable without exposing private content unnecessarily.
 
+### 4.8 GitHub Development Workspace
+SG must eventually expose one transport-neutral GitHub capability that can perform instructed global public discovery and complete durable development work inside explicitly authorized repositories. Telegram, Discord, Web/API, Email and the future native SG interface are presentation/input adapters over the same development task, authority and evidence state.
+
+Technical GitHub permission is not user authority. Repository mutation requires scoped capability, current Resource Authority, Action Gate policy and an approved credential binding. Verified development outcomes enter existing PDK4/Project Memory paths rather than a parallel project-truth store.
+
 ## 5. Transport independence
 
 All channels connect to the same SG core.
@@ -191,6 +196,7 @@ SG 2.1 is correctly built when:
 - facts are source-backed;
 - domain modules can be added without rewriting the core;
 - SG can reconstruct and maintain evidence-backed knowledge of its own product development without confusing historical, implemented, CI-verified, deployed and live-verified states.
+- SG can search GitHub globally on instruction and, within explicit authorization, complete and resume repository development through interchangeable transports without duplicate or uncontrolled state changes.
 
 ## 14. Canonical formula
 

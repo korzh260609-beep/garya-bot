@@ -50,6 +50,7 @@ When sources conflict, SG must qualify the conflict instead of presenting stale 
   - **TWM1.14 and TWM1.15 are implementation/live-acceptance work in progress and remain NOT CLOSED.**
   - lifecycle labels in the original large TWM program saying TWM1.12 is next or TWM1.13–1.15 are merely planned are superseded for current-state reporting; their detailed requirements/gates remain valid.
 - SG Access Control System 1.0 — **PLANNED / NOT IMPLEMENTED** unless newer code/CI/live evidence explicitly supersedes that state.
+- GitHub Development Workspace 3.0 (GH3) — **PLANNED / NOT IMPLEMENTED**. GH3 is the transport-neutral program for instructed global GitHub discovery and complete authorized repository development through Telegram, Discord, Web/API, Email, the future native SG interface and later transports.
 
 ## Requirements
 
@@ -81,7 +82,7 @@ Core invariants:
 - Identity/roles/grants/owner authority cannot be created from wording, usernames, display names or AI inference.
 - Resource Authority and Action Gate remain mandatory where applicable.
 - Owner Security only tightens privileged execution; it does not bypass existing gates.
-- Repository analysis is read-only unless a separately authorized mutation capability is explicitly introduced and gated.
+- Current repository analysis remains read-only. Planned GH3 introduces separately authorized, scoped and gated GitHub mutation/development capabilities; its documentation does not prove those capabilities exist yet.
 - Current-state claims must respect provenance/currentness; historical or superseded facts remain qualified.
 
 ## Active status documents
@@ -97,6 +98,9 @@ Core invariants:
 - `pillars/roadmap/TELEGRAM_WORKSPACE_MANAGER_1_0_PROGRAM.md` — requirements/history; current lifecycle labels are qualified by `CURRENT_STATUS.md` where they conflict.
 - `pillars/roadmap/TELEGRAM_WORKSPACE_MANAGER_1_15_COMMUNITY_OPERATIONS_PROGRAM.md` — requirements; current implementation/live state is qualified by `CURRENT_STATUS.md` where the older header conflicts.
 - `pillars/roadmap/SG_ACCESS_CONTROL_SYSTEM_1_0_PROGRAM.md`
+- `pillars/roadmap/GITHUB_DEVELOPMENT_WORKSPACE_3_0_PROGRAM.md`
+- `pillars/architecture/GITHUB_DEVELOPMENT_WORKSPACE_3_0.md`
+- `pillars/workflow/GITHUB_DEVELOPMENT_WORKSPACE_3_0_WORKFLOW.md`
 - `docs/checkpoints/SG2.1_2026-08-15_1946.md` — immutable historical rollback/live checkpoint.
 - `evidence/LIVE_RUNTIME_BASELINES.md`
 - `evidence/PDK4_13_LIVE_CONTINUOUS_INGESTION_PROBE_2026-08-16.md`

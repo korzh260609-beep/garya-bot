@@ -35,6 +35,7 @@ Active files:
 - `TELEGRAM_WORKSPACE_MANAGER_1_15_COMMUNITY_OPERATIONS.md` — planned TWM1.15 community operations, engagement and analytics architecture
 - `SG_ACCESS_CONTROL_SYSTEM_1_0.md` — transport-neutral access/entitlement architecture
 - `AUTOMATION_2_0_EXECUTABLE_WORKFLOWS.md` — accepted architecture for editable, versioned, execution-time workflows over the existing durable automation substrate
+- `GITHUB_DEVELOPMENT_WORKSPACE_3_0.md` — planned transport-neutral global GitHub discovery and authorized full development-workspace architecture
 - `DECISION_AND_ACTION_GATE.md`
 - `CAPABILITY_SYSTEM.md`
 - `IDENTITY_AND_SCOPE.md`
@@ -95,6 +96,7 @@ Active files:
 - `SG_ACCESS_CONTROL_SYSTEM_1_0_PROGRAM.md` — planned transport-neutral access/entitlement program
 - `AUTOMATION_2_0_EXECUTABLE_WORKFLOWS_PROGRAM.md` — implementation in progress; AW2.1–AW2.2 are implemented/CI-verified and AW2.3 Workflow Executor is next
 - `UNIVERSAL_DIAGNOSTICS_PROGRAM.md` — canonical Universal Diagnostics D1–D12 cross-cutting program
+- `GITHUB_DEVELOPMENT_WORKSPACE_3_0_PROGRAM.md` — planned GH3.1–GH3.12 global discovery and authorized cross-transport GitHub development program
 - `PRODUCTION_ROADMAP.md` — canonical continuation covering Blocks 11–19, intermediate Blocks 16.5–16.18 and Pilot Launch
 - `CURRENT_STATUS.md` — canonical current-state index when historical roadmap labels are stale
 
@@ -116,12 +118,13 @@ Active files:
 - `SG_ACCESS_CONTROL_SYSTEM_1_0_WORKFLOW.md` — ACS1 implementation/verification sequence
 - `AUTOMATION_2_0_EXECUTABLE_WORKFLOWS_WORKFLOW.md` — AW2 implementation, migration, security, freshness, idempotency and live-acceptance sequence
 - `UNIVERSAL_DIAGNOSTICS_WORKFLOW.md` — Universal Diagnostics D1–D12 implementation/verification sequence
+- `GITHUB_DEVELOPMENT_WORKSPACE_3_0_WORKFLOW.md` — GH3 implementation, exact-head CI, restart/idempotency, cross-transport and live acceptance sequence
 
 Workflow defines implementation procedure and does not store per-block runtime history. Therefore `workflow/changes/` and `workflow/changes/BLOCK_11_RUNTIME_COMPOSITION.md` are not canonical paths.
 
 ## Cross-cutting programs and extensions
 
-Memory 2.0, Project Memory 3.0, Project Development Knowledge 4.0, Telegram Workspace Manager 1.0, SG Access Control System 1.0, Automation 2.0 and Universal Diagnostics are cross-cutting programs/extensions and do not renumber the canonical Blocks 0–19.
+Memory 2.0, Project Memory 3.0, Project Development Knowledge 4.0, Telegram Workspace Manager 1.0, SG Access Control System 1.0, Automation 2.0, GitHub Development Workspace 3.0 and Universal Diagnostics are cross-cutting programs/extensions and do not renumber the canonical Blocks 0–19.
 
 Project Memory 3.0 is not a replacement for Memory 2.0. It specializes the `Project Memory` domain using trusted-source ingestion, candidate/confirmation policy, deduplication, conflict handling, temporal supersession, relations, hybrid retrieval and guarded project-context injection. It remains separate from System Self Knowledge and live diagnostics. Render must not be treated as a live Project Memory source until a real Render Connector is implemented and verified.
 
@@ -136,6 +139,8 @@ Automation 2.0 is not a second automation engine. It upgrades the semantic contr
 Block 8.1 is not a new independent core layer. It is the production Discord transport extension of Block 8 Interfaces and does not renumber Blocks 9–19. Its implementation must reuse the existing Identity/Scope, canonical `global_user_id`, Memory 2.0, Resource Authority, Delivery Router, Observability and security boundaries.
 
 Universal Diagnostics is explicitly an independent observer application. SG provides bounded observable facts; the external Diagnostics program reconstructs execution, verifies expected paths/invariants, finds first divergence/root cause and reports evidence. Diagnostics must not become a required SG runtime dependency or a bypass around identity, permissions, Action Gate, resource authority or owner security.
+
+GitHub Development Workspace 3.0 is an internal SG capability rather than a Telegram/Discord/Web feature. Every transport and the future native SG interface call one durable development service. Global GitHub discovery is read-only by default; private visibility and repository mutation require explicit provider access plus SG actor/repository/operation authority. GH3 reuses PDK4/PM3 for trusted development evidence and does not create parallel memory or project truth.
 
 ## Modules
 `modules/` starts empty except for its README. Module documentation is created only when the corresponding SG 2.1 module is introduced through the active roadmap. Cross-cutting architecture/program/workflow detail remains canonical in its pillar sources unless a separate module document adds non-duplicative architectural value.

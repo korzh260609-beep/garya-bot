@@ -23,18 +23,19 @@ SG 2.1 is one global transport-independent project system whose reasoning layer 
 9. `TELEGRAM_WORKSPACE_MANAGER_1_15_COMMUNITY_OPERATIONS.md`
 10. `SG_ACCESS_CONTROL_SYSTEM_1_0.md`
 11. `AUTOMATION_2_0_EXECUTABLE_WORKFLOWS.md`
-12. `DECISION_AND_ACTION_GATE.md`
-13. `CAPABILITY_SYSTEM.md`
-14. `IDENTITY_AND_SCOPE.md`
-15. `OBSERVABILITY.md`
-16. `TRANSPORTS_AND_AI_ROUTING.md`
-17. `LANGUAGE_AND_LOCALE_CONTEXT.md`
-18. `FOUNDATIONAL_CONTROL_LAYERS.md`
-19. `SELF_KNOWLEDGE.md`
-20. `MONARCH_OWNER_SECURITY.md`
-21. `RUNTIME_COMPOSITION.md`
-22. `POSTGRESQL_PERSISTENCE.md`
-23. `UNIVERSAL_DIAGNOSTICS.md`
+12. `GITHUB_DEVELOPMENT_WORKSPACE_3_0.md`
+13. `DECISION_AND_ACTION_GATE.md`
+14. `CAPABILITY_SYSTEM.md`
+15. `IDENTITY_AND_SCOPE.md`
+16. `OBSERVABILITY.md`
+17. `TRANSPORTS_AND_AI_ROUTING.md`
+18. `LANGUAGE_AND_LOCALE_CONTEXT.md`
+19. `FOUNDATIONAL_CONTROL_LAYERS.md`
+20. `SELF_KNOWLEDGE.md`
+21. `MONARCH_OWNER_SECURITY.md`
+22. `RUNTIME_COMPOSITION.md`
+23. `POSTGRESQL_PERSISTENCE.md`
+24. `UNIVERSAL_DIAGNOSTICS.md`
 
 ## Core flow
 
@@ -73,6 +74,8 @@ TWM1.15 Community Operations, Engagement & Analytics extends the same workspace 
 SG Access Control System 1.0 (ACS1) is the canonical transport-neutral access, entitlement, scoped-capability, delegation and usage/budget layer. It applies equally to Telegram, Discord, Web, API, Email and the future native SG interface. Identity existence, transport login, workspace membership/admin status and private-result delivery never imply conversational AI entitlement. SG is the default Access Authority inside the Monarch-defined deterministic policy envelope; human approval is escalation when policy requires it. AI/model output may interpret a requested capability but cannot produce the final GRANT/DENY/ESCALATE decision. Denied AI/usage paths MUST terminate before AI Router so unauthorized users cannot spend model budget. ACS composes with, and does not replace, Resource Authority, Owner Security, Action Gate or Credential Manager.
 
 Automation 2.0 — Executable Workflows is the cross-cutting automation extension above the existing durable task/schedule/worker substrate. It defines a task as a versioned executable plan rather than only a stored message. SG may semantically identify and patch the same automation, execute ordered collect/retrieve/analyze/compose/invoke-capability/deliver steps, gather fresh authorized data at run time, and retain version/execution history. Every protected step reuses current Identity/Scope, Access, Resource Authority, Action Gate, Credential Manager, Capability System, Temporal Context, Durable Automation, Delivery Router and Observability. It does not create a second scheduler, worker, authorization, credential or transport system.
+
+GitHub Development Workspace 3.0 (GH3) is the planned transport-neutral GitHub discovery and development subsystem. It separates bounded global public/authorized-private discovery from state-changing authorized repository work, exposes one durable development service to every transport and future native SG interface, and composes ACS, Resource Authority, Action Gate, Credential Manager, PostgreSQL task state, GitHub Actions, PM3 and PDK4. Current GET-only PDK4 GitHub reading is not GH3 mutation implementation.
 
 Self Knowledge is a shared system-context layer used for evidence-aware descriptions of SG itself. It does not sit as a mandatory reasoning hop in every request and does not replace live diagnostics.
 

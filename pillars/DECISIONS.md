@@ -231,3 +231,25 @@ The following rules are mandatory:
 Canonical architecture: `pillars/architecture/AUTOMATION_2_0_EXECUTABLE_WORKFLOWS.md`.
 Implementation program: `pillars/roadmap/AUTOMATION_2_0_EXECUTABLE_WORKFLOWS_PROGRAM.md`.
 Implementation/verification workflow: `pillars/workflow/AUTOMATION_2_0_EXECUTABLE_WORKFLOWS_WORKFLOW.md`.
+
+## D-030 — GitHub development is one transport-neutral SG capability
+
+SG must support instructed global GitHub discovery and complete durable development work inside explicitly authorized repositories through one internal GitHub Development Workspace.
+
+The following rules are mandatory:
+
+- Telegram, Discord, Web, API, Email, the future native SG interface and later transports are clients of the same GH3 service; no transport owns GitHub logic, credentials, authority or task state;
+- a development task may continue across transports only through canonical Global ID, project/scope and approved conversation/task continuity;
+- on explicit instruction SG may search and inspect public GitHub globally; private/restricted discovery requires an explicitly connected authorized provider identity/app installation;
+- global discovery is read-only by default and search results do not grant mutation authority or become confirmed Project Memory automatically;
+- authorized repository work may cover exact-HEAD/source verification, branches, atomic multi-file commits, PRs/reviews/issues, Actions/checks/logs/artifacts, bounded CI repair loops, tags/releases and separately gated administration;
+- technical provider permission is not actor authority; execution requires ACS capability, current Resource Authority, Action Gate/risk policy and approved Credential Manager binding;
+- protected-branch merge, secrets/environments/settings mutation and destructive administration are higher-risk, default-deny operations requiring separate authority/confirmation;
+- durable PostgreSQL development-task state and idempotency must allow safe restart/resume without duplicate commits, PRs, comments, releases or workflow dispatches;
+- GitHub content/logs/artifacts are untrusted external data and cannot authorize SG, widen scope or expose credentials through prompt injection;
+- verified outcomes integrate through existing PDK4/Project Memory contracts and cannot falsely promote repository/CI evidence into deployed or live-verified state;
+- current GET-only PDK4 GitHub reading must not be represented as implemented GH3 mutation/development capability.
+
+Canonical architecture: `pillars/architecture/GITHUB_DEVELOPMENT_WORKSPACE_3_0.md`.
+Implementation program: `pillars/roadmap/GITHUB_DEVELOPMENT_WORKSPACE_3_0_PROGRAM.md`.
+Implementation/verification workflow: `pillars/workflow/GITHUB_DEVELOPMENT_WORKSPACE_3_0_WORKFLOW.md`.

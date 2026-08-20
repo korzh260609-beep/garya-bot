@@ -2,7 +2,7 @@
 
 ## Status
 
-**IN PROGRESS / NOT CLOSED.** HS1, HS2, HS3, HS4 and HS5 are implemented and CI-verified. HS6 remains planned. This is an additive Memory 2.0 extension. M1–M9 remain CLOSED and must not be reopened or replaced.
+**IN PROGRESS / NOT CLOSED.** HS1–HS5 are implemented and CI-verified. HS6 is **IMPLEMENTED / CI-VERIFIED / LIVE ACCEPTANCE PENDING / NOT CLOSED**. This is an additive Memory 2.0 extension. M1–M9 remain CLOSED and must not be reopened or replaced.
 
 ## Goal
 
@@ -33,7 +33,7 @@ HS1 Historical Query Planner [IMPLEMENTED / CI-VERIFIED]
 -> HS3 Unified Historical Search Orchestrator [IMPLEMENTED / CI-VERIFIED]
 -> HS4 Ranking / Dedup / Conflict / Supersession [IMPLEMENTED / CI-VERIFIED]
 -> HS5 Timeline / First / Last / Fact History [IMPLEMENTED / CI-VERIFIED]
--> HS6 Security / Regression / Observability / Live Acceptance
+-> HS6 Security / Regression / Observability [IMPLEMENTED / CI-VERIFIED; LIVE ACCEPTANCE PENDING]
 ```
 
 ---
@@ -280,6 +280,13 @@ Close the extension only after end-to-end safety, durability and Telegram accept
 - [ ] unauthorized memory never reaches semantic processing;
 - [ ] no secrets/raw private content in telemetry;
 - [ ] AI Router provider/model/reason/cost/trace logging remains complete.
+
+## Implementation evidence
+
+- PostgreSQL Memory 2.0 restart round-trip is covered by `tests/historicalSemanticMemoryRestartContinuity.test.js`, including `confirmed` and `provenance.sourceTimestamp` hydration.
+- Large-range hierarchical archive retrieval reuses deterministic coverage in `tests/longTermConversationHistory.test.js`; it traverses all keyset pages, asserts hierarchical retrieval and keeps bounded verified evidence.
+- Implementation HEAD `3c3e0cafdfc0f974a5b704d073a0cf564af72ba0` passed SG 2.1 CI #8547 SUCCESS on exact HEAD.
+- Status: **HS6 — IMPLEMENTED / CI-VERIFIED / LIVE ACCEPTANCE PENDING / NOT CLOSED**.
 
 ## Live acceptance examples
 

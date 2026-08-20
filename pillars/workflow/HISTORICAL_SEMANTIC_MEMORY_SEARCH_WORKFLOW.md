@@ -203,6 +203,10 @@ Status: **IMPLEMENTED / CI-VERIFIED / NOT CLOSED**; final closure remains gated 
 13. Run two-user/group isolation acceptance.
 14. Record evidence and update CURRENT_STATUS only after actual proof.
 
+Implementation evidence: `tests/historicalSemanticMemoryRestartContinuity.test.js` proves PostgreSQL restart round-trip and metadata hydration; `tests/longTermConversationHistory.test.js` provides the existing deterministic large-archive hierarchical/keyset coverage. Implementation HEAD `3c3e0cafdfc0f974a5b704d073a0cf564af72ba0` passed SG 2.1 CI #8547 SUCCESS.
+
+Status: **HS6 — IMPLEMENTED / CI-VERIFIED / LIVE ACCEPTANCE PENDING / NOT CLOSED**.
+
 Exit gate: HS1–HS6 can close only after code, exact-head CI and required live runtime evidence prove safe historical semantic memory end to end.
 
 ## Mandatory invariants

@@ -10,7 +10,9 @@
 
 **HS4 — IMPLEMENTED / CI-VERIFIED / NOT CLOSED.**
 
-**HS5–HS6 — PLANNED / NOT CLOSED.**
+**HS5 — IMPLEMENTED / CI-VERIFIED / NOT CLOSED.**
+
+**HS6 — IMPLEMENTED / CI-VERIFIED / LIVE ACCEPTANCE PENDING / NOT CLOSED.**
 
 HS1 implementation evidence:
 
@@ -103,8 +105,15 @@ Already present and intended for reuse:
 2. HS2 — implemented and CI-verified; pending HS6 consolidated security/live acceptance before CLOSED;
 3. HS3 — implemented and CI-verified; pending HS6 consolidated security/live acceptance before CLOSED;
 4. HS4 — implemented and CI-verified; pending HS6 consolidated security/live acceptance before CLOSED;
-5. HS5 — last occurrence, timeline, topic evolution and fact-history operations;
-6. HS6 — security/adversarial regression, bounded-cost verification, exact-head CI and Telegram live acceptance.
+5. HS5 — implemented and CI-verified; pending HS6 live acceptance before CLOSED;
+6. HS6 — implementation and exact-head CI complete; Telegram live acceptance remains pending.
+
+## HS6 implementation evidence
+
+- `tests/historicalSemanticMemoryRestartContinuity.test.js` proves PostgreSQL Memory 2.0 write, database-client restart, recall and hydration of `confirmed` plus `provenance.sourceTimestamp`.
+- `tests/longTermConversationHistory.test.js` is the existing deterministic equivalent for large archive / hierarchical retrieval: all keyset pages, composite cursor, hierarchical processing and bounded verified evidence.
+- Exact implementation HEAD `3c3e0cafdfc0f974a5b704d073a0cf564af72ba0`: SG 2.1 CI #8547 SUCCESS.
+- Telegram live acceptance is intentionally a separate next stage.
 
 ## Canonical docs
 

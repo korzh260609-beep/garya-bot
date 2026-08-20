@@ -2,7 +2,7 @@
 
 ## Status
 
-Additive Memory 2.0 extension **IN PROGRESS / NOT CLOSED**. HS1 Historical Query Planner, HS2 Memory 2.0 Hybrid Semantic Retrieval, HS3 Unified Historical Search Orchestrator, HS4 Unified Ranking / Deduplication / Conflict / Supersession and HS5 Timeline / First-Last Occurrence / Fact History are implemented and CI-verified; HS6 remains planned. Final implementation status is determined by code, tests, exact-head CI and live runtime evidence.
+Additive Memory 2.0 extension **IN PROGRESS / NOT CLOSED**. HS1–HS5 are implemented and CI-verified. HS6 is **IMPLEMENTED / CI-VERIFIED / LIVE ACCEPTANCE PENDING / NOT CLOSED**. Final closure still requires Telegram live acceptance.
 
 ## Purpose
 
@@ -273,7 +273,7 @@ Implementation is split into HS1–HS6:
 3. HS3 — Unified Historical Search Orchestrator — implemented / CI-verified;
 4. HS4 — Unified Ranking, Deduplication, Conflict & Supersession — implemented / CI-verified;
 5. HS5 — Timeline, First/Last Occurrence & Fact History — implemented / CI-verified;
-6. HS6 — Security, Regression, Observability & Live Acceptance — planned.
+6. HS6 — Security, Regression, Observability & Live Acceptance — implemented / CI-verified / live acceptance pending / not closed.
 
 HS1–HS5 remain **NOT CLOSED** until HS6 consolidated security/live acceptance satisfies the program closure rule.
 

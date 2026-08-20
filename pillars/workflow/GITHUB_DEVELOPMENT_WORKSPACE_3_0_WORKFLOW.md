@@ -1,7 +1,7 @@
 # SG 2.1 — GITHUB DEVELOPMENT WORKSPACE 3.0 WORKFLOW
 
 ## Status
-**IMPLEMENTATION IN PROGRESS. GH3.1–GH3.3 CLOSED / CI-VERIFIED.**
+**IMPLEMENTATION IN PROGRESS. GH3.1–GH3.3 CLOSED / CI-VERIFIED; GH3.4 IMPLEMENTED / NOT CI-VERIFIED / NOT CLOSED.**
 
 No GH3 stage is CLOSED from documentation alone.
 
@@ -42,6 +42,8 @@ Implemented with deterministic coverage for public/private separation, paginatio
 
 ### GH3.4 — Repository Read & Analysis
 Implement exact-revision reads for repository/code/history/PR/review/issue/CI facts. Test moving-branch versus immutable-SHA behavior, missing permission, deleted refs, large/truncated data and cross-repository isolation.
+
+Implemented with deterministic coverage for moving-ref resolution, immutable-SHA mismatch, GitHub App authorization, permission/ref failures, repository isolation, bounded trees/files, diffs, reviews, checks, workflow jobs and artifact metadata. Exact-HEAD CI closure is pending.
 
 ### GH3.5 — Branch, File & Atomic Commit Operations
 Implement branch/ref validation and atomic multi-file commits. Test create/edit/move/delete, stale HEAD, non-fast-forward, protected branch, unrelated work preservation, idempotent retry and rollback evidence.

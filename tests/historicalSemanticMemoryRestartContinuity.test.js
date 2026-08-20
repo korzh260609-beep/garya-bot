@@ -51,6 +51,7 @@ test('HS6: PostgreSQL Memory 2.0 evidence survives database client restart and r
       scope: scope(),
       actor: actor(),
       query: 'durable historical evidence',
+      keys: [key],
       includeHistory: true,
       maxRecords: 20,
       maxCharacters: 5000

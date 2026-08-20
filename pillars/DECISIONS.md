@@ -253,3 +253,27 @@ The following rules are mandatory:
 Canonical architecture: `pillars/architecture/GITHUB_DEVELOPMENT_WORKSPACE_3_0.md`.
 Implementation program: `pillars/roadmap/GITHUB_DEVELOPMENT_WORKSPACE_3_0_PROGRAM.md`.
 Implementation/verification workflow: `pillars/workflow/GITHUB_DEVELOPMENT_WORKSPACE_3_0_WORKFLOW.md`.
+
+## D-031 — Adaptive AI Routing 2.0 extends the single canonical AI Router
+
+SG must route AI work through one adaptive, transport-independent AI Router that selects the minimum sufficient intelligence for each task while preserving correctness, security and cost control.
+
+The following rules are mandatory:
+
+- the existing Block 2.5 AI Router remains the single canonical router; AR2 extends it and cannot create a second parallel router or direct provider bypass;
+- SG first checks whether an existing deterministic executor can satisfy the request exactly (`L0`) before invoking a paid model;
+- AI-requiring work is classified into capability tiers `L1` (low-cost extraction/classification/normalization), `L2` (general conversation/synthesis/planning) and `L3` (advanced debugging/architecture/deep reasoning);
+- concrete provider/model product names are configuration, not SG domain/business logic;
+- task assessment should be deterministic first and may use bounded complexity, reasoning-depth, risk, ambiguity, tool-depth, context-pressure, evidence-conflict and code/debugging signals;
+- request length, transport or keywords such as GitHub/memory/task/automation cannot by themselves force a high tier;
+- model tier and reasoning effort are independent controls and both use the lowest level that remains reliable for the task;
+- cost optimization cannot route below the minimum reliable tier;
+- deterministic/task-specific validation precedes semantic escalation where deterministic truth is available;
+- provider fallback handles technical failure, while semantic escalation handles an insufficient but technically valid result; these mechanisms remain separate and bounded;
+- a model/user cannot self-authorize a more expensive tier, broaden minimum/maximum routing policy, grant authority or bypass Access, Resource Authority, Action Gate, Owner Security or Credential Manager;
+- Telegram, Discord, Web/API, Email, voice and future native SG interfaces use the same AR2 policy; transports do not own model/tier selection;
+- routing telemetry must distinguish model/tier, reasoning effort, routing reason, assessment, validation, fallback, escalation and estimated/actual cost when available;
+- AR2 documentation does not prove implementation; AR2.1–AR2.10 require code, tests/regressions, `npm run check` and exact-HEAD SG 2.1 CI evidence before closure.
+
+Canonical architecture: `pillars/architecture/ADAPTIVE_AI_ROUTING_2_0.md`.
+Implementation/acceptance stages: `pillars/roadmap/02_5_AI_ROUTING_FOUNDATION.md`.

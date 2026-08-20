@@ -71,7 +71,7 @@ A model registry entry may expose:
 - capabilities;
 - supported reasoning efforts;
 - default reasoning effort;
-- pricing metadata;
+- pricing metadata reference;
 - fallback id;
 - enabled/priority state.
 
@@ -89,6 +89,7 @@ Canonical Request
       → Reasoning Effort Selector
       → existing AIRouter
       → existing production policy / provider boundary
+      → Usage Accounting
       → Validation
       → bounded Semantic Escalation if required
       → Result
@@ -201,7 +202,7 @@ Escalation handoff should preserve:
 - validation failure/confidence;
 - explicit escalation reason.
 
-## 13. Cost and context intelligence
+## 13. Cost, usage accounting and context intelligence
 AR2 extends existing cost policy; it does not replace it.
 
 Before expensive calls SG should minimize avoidable tokens through authorized:
@@ -211,9 +212,99 @@ Before expensive calls SG should minimize avoidable tokens through authorized:
 - relevance ranking;
 - bounded context assembly.
 
-Every model call should retain estimated and actual cost when available.
-
 Cost limits may deny or constrain work according to canonical policy, but cost optimization MUST NOT silently route below the minimum reliable tier.
+
+### 13.1 Call-level usage record
+Every provider/model call should record, when available:
+- request/trace identifier;
+- task class and routing reason;
+- provider;
+- exact provider model identifier;
+- logical tier `L1/L2/L3`;
+- reasoning effort;
+- input tokens;
+- cached input tokens;
+- output tokens;
+- reasoning tokens when the provider exposes them separately;
+- other billable token/unit categories exposed by the provider;
+- estimated cost before execution where available;
+- actual/calculated cost after execution;
+- currency;
+- pricing policy/catalog version used for calculation;
+- fallback marker;
+- escalation source/reason;
+- actor/global user/workspace/project scope identifiers only where authorized and privacy-bounded.
+
+Unavailable provider usage fields remain explicit `unknown/null`; SG MUST NOT invent exact token counts.
+
+### 13.2 Request-level usage record
+One user request/task may produce multiple AI calls because of semantic interpretation, retrieval synthesis, fallback or escalation. SG should aggregate those calls into one request/task usage record containing:
+- total input/cached/output/reasoning tokens where available;
+- total model-call count;
+- calls by tier/model/provider;
+- fallback/escalation count;
+- total estimated/actual monetary cost;
+- start/end timestamps and trace linkage;
+- task class/capability.
+
+This makes it possible to answer “how much did this complete task cost?” rather than exposing only isolated model calls.
+
+### 13.3 Aggregate usage views
+Authorized reporting should support bounded aggregation by day/week/month and by dimensions such as:
+- model/provider;
+- L1/L2/L3 tier;
+- task class/capability;
+- user/role/workspace/project where policy permits;
+- input/output/cached/reasoning token category;
+- fallback/escalation;
+- total monetary cost;
+- average/median cost per request/task;
+- tier distribution;
+- L1→L2 and L2→L3 escalation rates;
+- cached-token savings when provider data permits reliable calculation.
+
+Aggregate metrics must derive from persisted call/request evidence, not model-generated estimates presented as exact accounting.
+
+### 13.4 Mutable pricing catalog
+Provider pricing is operational configuration and WILL change over time. Therefore exact model prices, exchange rates, markups, user-facing credit conversion, budget thresholds and routing-score weights are **not permanent architecture constants**.
+
+The pricing catalog/configuration should support at least:
+- provider;
+- model identifier;
+- billable unit/category;
+- price per unit/million tokens as applicable;
+- currency;
+- effective-from timestamp;
+- optional effective-to timestamp;
+- pricing catalog/version identifier;
+- source/provenance of the configured rate;
+- enabled/disabled state.
+
+Changing a tariff creates a new effective pricing version; it MUST NOT rewrite the historical tariff snapshot used by already-completed calls.
+
+### 13.5 Historical accounting immutability
+For every completed billable call SG must retain enough pricing evidence to reproduce the cost that was calculated at execution time. Historical reports therefore use the rate/version effective for that call, not the newest current price.
+
+A later price correction may create an explicit adjustment/recalculation record, but must not silently mutate historical accounting. Reports should distinguish original charged/calculated cost from later corrected/normalized cost when both exist.
+
+### 13.6 Estimated cost vs provider actuals
+When the provider exposes authoritative usage/billing units after a call, post-call accounting should prefer those units. Pre-call estimates remain marked as estimates.
+
+If provider billing APIs later expose authoritative monetary charges, SG may reconcile calculated cost against provider-reported actual cost while preserving both values and the reconciliation source.
+
+### 13.7 User-facing billing is a separate policy layer
+AR2 usage accounting supplies verified technical consumption. It does not permanently define how SG charges users.
+
+Future user-facing pricing may add:
+- AI credits;
+- free allowances;
+- subscription quotas;
+- role-specific limits;
+- markup/discount coefficients;
+- workspace/project budgets;
+- warning/block thresholds.
+
+Those commercial rules are mutable configuration/policy layered over technical usage accounting. Changing user tariffs must not change the recorded provider/model consumption or historical provider-cost evidence.
 
 ## 14. Security and authority
 AR2 cannot:
@@ -227,10 +318,12 @@ AR2 cannot:
 
 Where Access Control or other policy denies AI entitlement/budget, the path terminates before paid model execution.
 
+Usage/cost records are observability/accounting data and must respect privacy/scope isolation. They cannot become a new identity, authority or memory-truth source.
+
 ## 15. Transport independence
 Telegram, Discord, Web/API, Email, voice and the future native SG interface are clients of the same AR2 policy.
 
-Transport metadata may be bounded input facts but transport never owns tier/model selection.
+Transport metadata may be bounded input facts but transport never owns tier/model selection or pricing truth.
 
 ## 16. Memory routing examples
 - exact scoped memory retrieval → L0;
@@ -261,9 +354,11 @@ AR2 extends existing AI telemetry with bounded fields such as:
 - validation outcome;
 - escalation source/reason;
 - provider fallback separately;
-- estimated/actual cost.
+- per-call token categories;
+- pricing catalog/version;
+- estimated/actual/calculated/reconciled cost and currency.
 
-Operational metrics should include tier distribution and escalation rate. A high L1→L2 escalation rate indicates a poor routing policy and should lead to policy tuning, not hidden repeated calls.
+Operational metrics should include tier distribution, token/cost distribution and escalation rate. A high L1→L2 escalation rate indicates a poor routing policy and should lead to policy tuning, not hidden repeated calls.
 
 ## 19. Implementation stages
 - AR2.1 Routing Contract
@@ -275,7 +370,9 @@ Operational metrics should include tier distribution and escalation rate. A high
 - AR2.7 Reasoning Effort Selector
 - AR2.8 Validation
 - AR2.9 Semantic Escalation
-- AR2.10 Cost Intelligence & Observability
+- AR2.10 Cost Intelligence, Usage Accounting & Observability
+
+AR2.10 includes call-level, request-level and aggregate token/cost accounting, mutable/versioned pricing, historical pricing immutability and reconciliation-ready provider cost evidence. User-facing commercial billing/credits may be layered later without changing AR2 technical usage truth.
 
 Each stage requires implementation, tests/regressions, `npm run check`, exact-HEAD SG 2.1 CI evidence and documentation synchronization before closure.
 
@@ -283,7 +380,8 @@ Each stage requires implementation, tests/regressions, `npm run check`, exact-HE
 - one AI Router only;
 - no direct provider bypass;
 - no second authorization/security stack;
-- no hard-coded provider product names in business logic;
+- no hard-coded provider product names or permanent tariff numbers in business logic;
+- no retroactive silent rewriting of historical model-call cost when pricing changes;
 - no user/model self-selection of a more expensive tier;
 - no semantic escalation loops;
 - no documentation-only closure;

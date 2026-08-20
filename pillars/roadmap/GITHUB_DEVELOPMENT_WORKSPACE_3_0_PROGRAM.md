@@ -1,7 +1,7 @@
 # SG 2.1 — GITHUB DEVELOPMENT WORKSPACE 3.0 PROGRAM
 
 ## Status
-**IMPLEMENTATION IN PROGRESS. GH3.1–GH3.5 CLOSED / CI-VERIFIED; GH3.6–GH3.12 NOT IMPLEMENTED.**
+**IMPLEMENTATION IN PROGRESS. GH3.1–GH3.5 CLOSED / CI-VERIFIED; GH3.6 IMPLEMENTED / NOT CI-VERIFIED / NOT CLOSED; GH3.7–GH3.12 NOT IMPLEMENTED.**
 
 GitHub Development Workspace 3.0 (`GH3`) is the canonical transport-neutral program that lets SG inspect GitHub globally and perform complete, durable development work in explicitly authorized repositories.
 
@@ -94,6 +94,8 @@ Closure evidence: exact implementation HEAD `4a6c0d6194557b37cd7b9e0cdaad666168f
 
 ### GH3.6 — Pull Requests, Reviews, Issues, Releases & Tags
 Create/update PRs, read canonical review threads, apply authorized fixes, reply/resolve only when authorized, manage issues/labels/milestones and create authorized tags/releases. Duplicate PRs/releases and ambiguous retries fail closed.
+
+Implementation evidence: `src/githubDevelopment/githubCollaborationService.js` and `tests/githubCollaborationService.test.js`. The service binds PR identity to the canonical repository/base/head tuple, marks mutations with idempotency keys, bounds review evidence, requires current scoped capabilities/provider permissions for every operation and requires separate approval for review-thread resolution and release creation. Issue labels/milestones, tag targets and release identity are validated; duplicate-safe retries reuse exact provider state while conflicts and ambiguous matches fail closed. Exact-HEAD CI closure is pending.
 
 ### GH3.7 — GitHub Actions, Checks & CI Repair Loop
 Dispatch authorized workflows, inspect runs/jobs/steps/logs/artifacts/checks/statuses, correlate them with exact HEAD, classify the first actionable failure, patch and rerun until the explicit completion condition is met. A green run on another revision is not evidence for the target HEAD.

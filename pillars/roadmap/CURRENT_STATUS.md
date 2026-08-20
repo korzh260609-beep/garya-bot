@@ -347,7 +347,7 @@ Canonical doc: `SG_ACCESS_CONTROL_SYSTEM_1_0_PROGRAM.md`.
 
 ## GitHub Development Workspace 3.0
 
-**IMPLEMENTATION IN PROGRESS. GH3.1–GH3.5 CLOSED / CI-VERIFIED; GH3.6–GH3.12 NOT IMPLEMENTED.**
+**IMPLEMENTATION IN PROGRESS. GH3.1–GH3.5 CLOSED / CI-VERIFIED; GH3.6 IMPLEMENTED / NOT CI-VERIFIED / NOT CLOSED; GH3.7–GH3.12 NOT IMPLEMENTED.**
 
 GH3 is the accepted transport-neutral program for two distinct capabilities:
 
@@ -375,6 +375,8 @@ GH3.4 closure evidence: exact implementation HEAD `652d79d159fce06ef94dc960b7a58
 GH3.5 now provides exact-baseline branch create/reuse and atomic multi-file create/update/move/delete through Git data primitives. It preserves unrelated tree entries, rejects stale/non-fast-forward and path/blob conflicts, makes retries idempotent and returns explicit rollback/audit evidence.
 
 GH3.5 closure evidence: exact implementation HEAD `4a6c0d6194557b37cd7b9e0cdaad666168f5fc42`, SG 2.1 CI #8567 `SUCCESS`.
+
+GH3.6 now provides canonical PR create/update, bounded review reads, idempotent authorized replies, separately approved thread resolution, issue labels/milestones and separately approved exact-target tags/releases. Exact duplicate retries reuse provider state; conflicting identities and ambiguous retries fail closed. Exact-HEAD CI closure is pending.
 
 Canonical docs:
 - `GITHUB_DEVELOPMENT_WORKSPACE_3_0_PROGRAM.md`;

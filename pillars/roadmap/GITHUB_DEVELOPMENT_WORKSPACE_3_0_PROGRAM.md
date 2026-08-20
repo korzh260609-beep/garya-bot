@@ -1,7 +1,7 @@
 # SG 2.1 — GITHUB DEVELOPMENT WORKSPACE 3.0 PROGRAM
 
 ## Status
-**IMPLEMENTATION IN PROGRESS. GH3.1–GH3.4 CLOSED / CI-VERIFIED; GH3.5–GH3.12 NOT IMPLEMENTED.**
+**IMPLEMENTATION IN PROGRESS. GH3.1–GH3.4 CLOSED / CI-VERIFIED; GH3.5 IMPLEMENTED / NOT CI-VERIFIED / NOT CLOSED; GH3.6–GH3.12 NOT IMPLEMENTED.**
 
 GitHub Development Workspace 3.0 (`GH3`) is the canonical transport-neutral program that lets SG inspect GitHub globally and perform complete, durable development work in explicitly authorized repositories.
 
@@ -87,6 +87,8 @@ Closure evidence: exact implementation HEAD `652d79d159fce06ef94dc960b7a58278a99
 
 ### GH3.5 — Branch, File & Atomic Commit Operations
 Create/reuse authorized branches; create/edit/move/delete files; construct one reviewable atomic multi-file commit through Git data primitives; detect stale HEAD/non-fast-forward conflicts; preserve unrelated changes; and provide a reversible audit record.
+
+Implementation evidence: `src/githubDevelopment/githubAtomicCommitService.js` and `tests/githubAtomicCommitService.test.js`. Authorized branches are created or reused only at an exact baseline. File create/update/move/delete operations validate the immutable baseline tree and expected blob identities, build one derived tree, create one commit with an idempotency trailer and update the branch without force. Stale heads, non-fast-forward updates and path/blob conflicts fail closed; unrelated tree entries remain inherited and the result contains bounded rollback/audit evidence. Exact-HEAD CI closure is pending.
 
 ### GH3.6 — Pull Requests, Reviews, Issues, Releases & Tags
 Create/update PRs, read canonical review threads, apply authorized fixes, reply/resolve only when authorized, manage issues/labels/milestones and create authorized tags/releases. Duplicate PRs/releases and ambiguous retries fail closed.

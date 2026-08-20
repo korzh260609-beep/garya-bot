@@ -273,6 +273,12 @@ The following rules are mandatory:
 - a model/user cannot self-authorize a more expensive tier, broaden minimum/maximum routing policy, grant authority or bypass Access, Resource Authority, Action Gate, Owner Security or Credential Manager;
 - Telegram, Discord, Web/API, Email, voice and future native SG interfaces use the same AR2 policy; transports do not own model/tier selection;
 - routing telemetry must distinguish model/tier, reasoning effort, routing reason, assessment, validation, fallback, escalation and estimated/actual cost when available;
+- technical AI usage accounting must preserve per-call provider/model/tier and available input/cached/output/reasoning/other billable units, and aggregate them per user request/task and authorized reporting period;
+- provider/model pricing, exchange rates, user-facing credit conversion, markups/discounts, budget thresholds and routing weights are mutable configuration/policy, not permanent architecture constants;
+- pricing must be effective-dated/versioned, and completed model calls retain the pricing version/snapshot used when their cost was calculated so later tariff changes do not silently rewrite historical cost;
+- historical pricing corrections must be explicit adjustment/reconciliation evidence rather than destructive rewriting; original and corrected/calculated/provider-reported cost may coexist with provenance;
+- provider-reported post-call usage is preferred over estimates when available, while pre-call estimates remain explicitly marked as estimates;
+- future AI credits/subscriptions/free allowances/user tariffs are a mutable commercial policy layer over canonical technical usage accounting and cannot change underlying historical provider consumption evidence;
 - AR2 documentation does not prove implementation; AR2.1–AR2.10 require code, tests/regressions, `npm run check` and exact-HEAD SG 2.1 CI evidence before closure.
 
 Canonical architecture: `pillars/architecture/ADAPTIVE_AI_ROUTING_2_0.md`.

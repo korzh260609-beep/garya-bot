@@ -1,7 +1,7 @@
 # SG 2.1 — GITHUB DEVELOPMENT WORKSPACE 3.0 PROGRAM
 
 ## Status
-**IMPLEMENTATION IN PROGRESS. GH3.1–GH3.6 CLOSED / CI-VERIFIED; GH3.7 IMPLEMENTED / NOT CI-VERIFIED / NOT CLOSED; GH3.8–GH3.12 NOT IMPLEMENTED.**
+**IMPLEMENTATION IN PROGRESS. GH3.1–GH3.7 CLOSED / CI-VERIFIED; GH3.8–GH3.12 NOT IMPLEMENTED.**
 
 GitHub Development Workspace 3.0 (`GH3`) is the canonical transport-neutral program that lets SG inspect GitHub globally and perform complete, durable development work in explicitly authorized repositories.
 
@@ -102,7 +102,9 @@ Closure evidence: exact implementation HEAD `d20fa069d6004c9d433c0a14d930fd57432
 ### GH3.7 — GitHub Actions, Checks & CI Repair Loop
 Dispatch authorized workflows, inspect runs/jobs/steps/logs/artifacts/checks/statuses, correlate them with exact HEAD, classify the first actionable failure, patch and rerun until the explicit completion condition is met. A green run on another revision is not evidence for the target HEAD.
 
-Implementation evidence: `src/githubDevelopment/githubActionsCIRepairService.js` and `tests/githubActionsCIRepairService.test.js`. Workflow inspection, dispatch, failed-job rerun and failure localization are bound to one full target SHA. Dispatch verifies the live branch head and deduplicates the logical attempt; reruns reject another revision and enforce bounded attempts. Logs are bounded, redacted and remain untrusted external data. Exact-HEAD CI closure is pending.
+Implementation evidence: `src/githubDevelopment/githubActionsCIRepairService.js` and `tests/githubActionsCIRepairService.test.js`. Workflow inspection, dispatch, failed-job rerun and failure localization are bound to one full target SHA. Dispatch verifies the live branch head and deduplicates the logical attempt; reruns reject another revision and enforce bounded attempts. Logs are bounded, redacted and remain untrusted external data.
+
+Closure evidence: exact implementation HEAD `9db540f14a79a2016c7a4916b4c3303d8a609bd3`, SG 2.1 CI #8575 `SUCCESS`.
 
 ### GH3.8 — Transport-Neutral Development Orchestrator
 Expose one internal development service to Telegram, Discord, Web, API, Email, the future native SG interface and later transports. Transports carry authenticated actor/context and render results; they do not implement GitHub behavior.

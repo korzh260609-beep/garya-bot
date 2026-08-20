@@ -1,7 +1,7 @@
 # SG 2.1 — GITHUB DEVELOPMENT WORKSPACE 3.0 WORKFLOW
 
 ## Status
-**IMPLEMENTATION IN PROGRESS. GH3.1–GH3.6 CLOSED / CI-VERIFIED; GH3.7 IMPLEMENTED / NOT CI-VERIFIED / NOT CLOSED.**
+**IMPLEMENTATION IN PROGRESS. GH3.1–GH3.7 CLOSED / CI-VERIFIED.**
 
 No GH3 stage is CLOSED from documentation alone.
 
@@ -58,7 +58,7 @@ Implemented with deterministic coverage for canonical PR base/head identity, dup
 ### GH3.7 — Actions/Checks & CI Repair Loop
 Implement workflow dispatch and exact-head run/job/step/log/artifact inspection. Test failure localization, external/missing checks, bounded repair attempts, another-SHA rejection, rerun idempotency and completion-condition enforcement.
 
-Implemented with deterministic coverage for exact-head run/job inspection, stale-ref dispatch denial, dispatch deduplication, bounded rerun attempts, another-SHA rejection, first actionable job/step localization and bounded redacted logs. Exact-HEAD CI closure is pending.
+Implemented with deterministic coverage for exact-head run/job inspection, stale-ref dispatch denial, dispatch deduplication, bounded rerun attempts, another-SHA rejection, first actionable job/step localization and bounded redacted logs. Closed on exact implementation HEAD `9db540f14a79a2016c7a4916b4c3303d8a609bd3` by SG 2.1 CI #8575 `SUCCESS`.
 
 ### GH3.8 — Transport-Neutral Orchestrator
 Wire one internal GH3 service into transport-independent semantic intent/capability handling. Telegram, Discord, Web/API and native UI adapters may format input/output only. Prove equivalent task creation/status/resume behavior through at least two transports.

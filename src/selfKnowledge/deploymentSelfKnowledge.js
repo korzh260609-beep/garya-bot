@@ -1,4 +1,5 @@
 import { createSelfKnowledgeFact } from './selfKnowledge.js';
+import { GITHUB_CAPABILITY_DEFINITIONS } from '../githubDevelopment/githubCapabilityRegistry.js';
 
 function required(value, name) {
   if (typeof value !== 'string' || value.trim() === '') throw new TypeError(`${name} is required`);
@@ -62,6 +63,21 @@ export function createDeploymentSelfKnowledgeSources({
         fact({ category: 'memory', key: 'base-memory', value: 'Scoped confirmed user/project memory foundation', status: 'implemented', sourceId: 'runtime:memory-provider', sourceRevision: revision }),
         fact({ category: 'memory', key: 'memory-2.0-program', value: 'Memory 2.0 M1-M9 program', status: 'implemented', kind: 'evidence', sourceId: 'pillars/roadmap/MEMORY_2_0_ROADMAP.md', sourceRevision: revision }),
         fact({ category: 'capabilities', key: 'registered-capabilities', value: [...capabilityNames].sort(), status: 'implemented', sourceId: 'runtime:capability-registry', sourceRevision: revision }),
+        fact({
+          category: 'capabilities',
+          key: 'github-development-workspace',
+          value: {
+            accessMode: 'mediated-through-gh3',
+            localFilesystemMount: false,
+            provider: 'github',
+            capabilities: GITHUB_CAPABILITY_DEFINITIONS.map((item) => item.name),
+            specificRepositoryAccess: 'authorization-and-connection-dependent',
+            interpretation: 'SG has mediated GitHub repository access through GH3. Not having a local filesystem mount does not mean GitHub access is absent. For a specific repository, use current authorization/connection evidence or perform an authorized repository read before making a categorical availability claim.'
+          },
+          status: 'implemented',
+          sourceId: 'runtime:gh3-capability-registry',
+          sourceRevision: revision
+        }),
         fact({ category: 'deployment', key: 'environment', value: config.environment, status: 'implemented', sourceId: 'runtime:config', sourceRevision: revision }),
         fact({ category: 'deployment', key: 'revision', value: revision, status: 'implemented', sourceId: 'runtime:config', sourceRevision: revision }),
         fact({ category: 'ai', key: 'production-ai', value: productionAI ? 'initialized' : 'not-initialized', status: productionAI ? 'implemented' : 'disabled', sourceId: 'runtime:ai-composition', sourceRevision: revision }),

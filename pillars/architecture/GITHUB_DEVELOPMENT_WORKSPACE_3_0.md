@@ -1,7 +1,7 @@
 # SG 2.1 — GITHUB DEVELOPMENT WORKSPACE 3.0 ARCHITECTURE
 
 ## Status
-**IMPLEMENTATION IN PROGRESS. GH3.1–GH3.9 CLOSED / CI-VERIFIED; GH3.10 IMPLEMENTED / NOT CI-VERIFIED; GH3.11–GH3.12 NOT IMPLEMENTED.**
+**IMPLEMENTATION IN PROGRESS. GH3.1–GH3.10 CLOSED / CI-VERIFIED; GH3.11 IMPLEMENTED / NOT CI-VERIFIED; GH3.12 NOT IMPLEMENTED.**
 
 ## Purpose
 
@@ -43,6 +43,9 @@ Owns workflow dispatch, runs, jobs, steps, checks, statuses, bounded logs and ar
 
 ### GitHubDevelopmentOrchestrator
 Coordinates source-first analysis, bounded plan, mutation, commit, PR, CI, diagnosis, repair and completion. It cannot grant its own permissions or silently widen repository/branch/path/operation scope.
+
+### GitHubSecurityControlPlane
+Re-evaluates registered capability risk, ACS, current Resource Authority, Action Gate, Owner Security, rate policy, emergency state and Credential Manager scope before provider execution. `read-only` emergency mode blocks mutation; `disabled` blocks all GitHub work. Tier 3 requires separate request-bound confirmation and Tier 4 additionally requires Owner Security. Protected execution fails closed if its security decision cannot be audited.
 
 ### DevelopmentTaskStore
 PostgreSQL-backed durable state for task intent, completion condition, actor/project/repository scope, baseline/current HEAD, plan/version, mutations, commits, PR/review state, CI evidence, blockers, next action and idempotency keys.

@@ -1,7 +1,7 @@
 # SG 2.1 — GITHUB DEVELOPMENT WORKSPACE 3.0 WORKFLOW
 
 ## Status
-**IMPLEMENTATION IN PROGRESS. GH3.1–GH3.9 CLOSED / CI-VERIFIED; GH3.10 IMPLEMENTED / NOT CI-VERIFIED; GH3.11–GH3.12 NOT IMPLEMENTED.**
+**IMPLEMENTATION IN PROGRESS. GH3.1–GH3.10 CLOSED / CI-VERIFIED; GH3.11 IMPLEMENTED / NOT CI-VERIFIED; GH3.12 NOT IMPLEMENTED.**
 
 No GH3 stage is CLOSED from documentation alone.
 
@@ -75,8 +75,12 @@ Route verified source events through existing PDK4/PM3 contracts. Test provenanc
 
 Implemented with deterministic commit/PR/workflow normalization through the existing PDK4 event and PM3 project-fact candidate contracts. Coverage proves immutable provenance, stable source-event replay identity for existing PM3 idempotency, exact-head CI qualification, proposed/unconfirmed PM3 projection, cross-project rejection and fail-closed denial of self-confirmation or repository/CI-to-deployment/runtime promotion. Exact-head CI evidence is still required before closure.
 
+Closed on exact implementation HEAD `127b9435d19c845e00c74d88cc4a8b975968c7f0` by SG 2.1 CI #8589 `SUCCESS` on Node.js 22.
+
 ### GH3.11 — Security, Audit & Emergency Controls
 Test ACS/Resource Authority/Action Gate/Credential Manager composition, actor/repository/branch/path isolation, public versus private access, prompt-injection resistance, cost/rate bounds, audit/redaction and emergency read/write disable controls.
+
+Implemented with one current-state security preflight before credential use or provider execution. Deterministic coverage proves read-only/full emergency disable, mutation versus read authority, rate/ACS/authority/gate denial, Tier 3 separate confirmation, Tier 4 Owner Security, fail-closed audit availability and secret-safe audit evidence. Exact-head CI evidence is still required before closure.
 
 ### GH3.12 — Live Cross-Transport Acceptance
 Use an explicitly authorized GitHub test boundary to prove:

@@ -1,7 +1,7 @@
 # SG 2.1 — GITHUB DEVELOPMENT WORKSPACE 3.0 PROGRAM
 
 ## Status
-**IMPLEMENTATION IN PROGRESS. GH3.1–GH3.9 CLOSED / CI-VERIFIED; GH3.10 IMPLEMENTED / NOT CI-VERIFIED; GH3.11–GH3.12 NOT IMPLEMENTED.**
+**IMPLEMENTATION IN PROGRESS. GH3.1–GH3.10 CLOSED / CI-VERIFIED; GH3.11 IMPLEMENTED / NOT CI-VERIFIED; GH3.12 NOT IMPLEMENTED.**
 
 GitHub Development Workspace 3.0 (`GH3`) is the canonical transport-neutral program that lets SG inspect GitHub globally and perform complete, durable development work in explicitly authorized repositories.
 
@@ -125,8 +125,12 @@ Normalize verified GitHub outcomes into existing PDK4/PM3 ingestion contracts. G
 
 Implementation evidence: `src/githubDevelopment/githubTrustedDevelopmentEvidenceIntegration.js` and `tests/githubTrustedDevelopmentEvidenceIntegration.test.js`. Verified immutable commits and PR heads become code-qualified PDK4 events; only successful workflows bound to the same full target SHA become CI-qualified events. Every PM3 projection remains a deterministic `proposed`/unconfirmed candidate, reuses existing PDK4/PM3 ingestion and idempotency contracts, and rejects model self-confirmation, cross-project sink results, PM3 promotion and repository/CI claims of deployed or live-verified state.
 
+Closure evidence: exact implementation HEAD `127b9435d19c845e00c74d88cc4a8b975968c7f0`, SG 2.1 CI #8589 `SUCCESS` on Node.js 22.
+
 ### GH3.11 — Authorization, Risk Tiers, Audit & Emergency Controls
 Apply ACS, Resource Authority, Action Gate, Owner Security, Credential Manager, budgets/rate limits, audit and emergency disable controls. Read-only authorized work may run automatically; bounded dev-branch mutation may run under an explicit task execution envelope; protected branch merge and repository administration require separate higher-risk authority/confirmation.
+
+Implementation evidence: `src/githubDevelopment/githubSecurityControlPlane.js` and `tests/githubSecurityControlPlane.test.js`. One fail-closed preflight composes registered capability risk, ACS, current Resource Authority, Action Gate, optional Owner Security, bounded rate policy, emergency `normal`/`read-only`/`disabled` modes and callback-confined Credential Manager use. Tier 3 requires separate request-bound confirmation; Tier 4 additionally requires Owner Security. Protected execution is blocked when security audit is unavailable, and audit evidence is secret-redacted.
 
 ### GH3.12 — Cross-Transport E2E & Live Acceptance
 Prove global public discovery, authorized private-repository isolation, multi-file commit, PR/review flow, exact-HEAD CI repair, restart/transport continuation, stale-head reconciliation, denial paths, secret safety, idempotency and PM3/PDK4 evidence ingestion against a real authorized GitHub test boundary.

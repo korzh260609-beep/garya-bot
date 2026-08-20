@@ -347,7 +347,7 @@ Canonical doc: `SG_ACCESS_CONTROL_SYSTEM_1_0_PROGRAM.md`.
 
 ## GitHub Development Workspace 3.0
 
-**IMPLEMENTATION IN PROGRESS. GH3.1–GH3.9 CLOSED / CI-VERIFIED; GH3.10 IMPLEMENTED / NOT CI-VERIFIED; GH3.11–GH3.12 NOT IMPLEMENTED.**
+**IMPLEMENTATION IN PROGRESS. GH3.1–GH3.10 CLOSED / CI-VERIFIED; GH3.11 IMPLEMENTED / NOT CI-VERIFIED; GH3.12 NOT IMPLEMENTED.**
 
 GH3 is the accepted transport-neutral program for two distinct capabilities:
 
@@ -392,7 +392,11 @@ GH3.9 now provides versioned PostgreSQL development-task checkpoints, idempotenc
 
 GH3.9 closure evidence: exact implementation/fix HEAD `5c2d69d179d58f3d89d8708f914395405c1e8f5c`, SG 2.1 CI #8585 `SUCCESS` on Node.js 22.
 
-GH3.10 now routes verified immutable GitHub commit/PR/workflow outcomes through the existing PDK4 event and PM3 project-fact candidate contracts. CI qualification requires a successful workflow on the same full target SHA; all PM3 projections remain deterministic, proposed and unconfirmed. Model self-confirmation, cross-project results, PM3 promotion and repository/CI claims of deployed or live-verified state fail closed. Exact-head CI is pending.
+GH3.10 routes verified immutable GitHub commit/PR/workflow outcomes through the existing PDK4 event and PM3 project-fact candidate contracts. CI qualification requires a successful workflow on the same full target SHA; all PM3 projections remain deterministic, proposed and unconfirmed. Model self-confirmation, cross-project results, PM3 promotion and repository/CI claims of deployed or live-verified state fail closed.
+
+GH3.10 closure evidence: exact implementation HEAD `127b9435d19c845e00c74d88cc4a8b975968c7f0`, SG 2.1 CI #8589 `SUCCESS` on Node.js 22.
+
+GH3.11 now provides one fail-closed security control plane for GitHub operations. It composes capability risk, ACS, current Resource Authority, Action Gate, Owner Security, rate limits, emergency modes, Credential Manager and secret-safe audit. Tier 3–4 operations require separate request-bound controls; unavailable mutation audit blocks execution. Exact-head CI is pending.
 
 Canonical docs:
 - `GITHUB_DEVELOPMENT_WORKSPACE_3_0_PROGRAM.md`;

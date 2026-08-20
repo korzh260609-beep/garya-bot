@@ -122,7 +122,7 @@ test('deployment Self Knowledge derives GH3 access from cached runtime facts wit
   assert.equal(github.value.provider, 'github');
   assert.equal(github.value.accessMode, 'mediated-through-gh3');
   assert.equal(github.value.localFilesystemMount, false);
-  assert.equal(github.value.capabilityStateSource, 'runtime-capability-registry-snapshot');
+  assert.equal(github.value.capabilityStateSource, 'runtime-capability-catalog-snapshot');
   assert.ok(github.value.capabilities.includes('github.repository.read'));
   assert.ok(github.value.capabilities.includes('github.code.search'));
   assert.equal(github.value.connectionRegistryAvailable, true);

@@ -3,7 +3,7 @@
 ## Status
 Implementation complete on `dev/sg2.1-semantic`. Exit gate is satisfied only when CI is green for the final Block 2.5 commit.
 
-Adaptive AI Routing 2.0 (AR2) is an **accepted extension with implementation in progress** over this completed foundation. AR2.1–AR2.7 are implemented, exact-HEAD CI-verified and closed; AR2.8 has local implementation and full-check evidence and remains NOT CLOSED until exact-HEAD CI succeeds; AR2.9–AR2.10 remain planned.
+Adaptive AI Routing 2.0 (AR2) is an **accepted extension with implementation in progress** over this completed foundation. AR2.1–AR2.8 are implemented, exact-HEAD CI-verified and closed; AR2.9 has local implementation evidence and remains NOT CLOSED until exact-HEAD CI succeeds; AR2.10 remains planned.
 
 ## Goal
 Connect the first production reasoning model through a replaceable, observable and cost-controlled AI routing layer before Decision Engine development begins.
@@ -161,8 +161,8 @@ Telegram, Discord, Web/API, Email, voice and the future native SG interface all 
 - **AR2.5 — Tier Selector:** IMPLEMENTED / CI-VERIFIED / CLOSED. Evidence: `1c2cb25b`, SG 2.1 CI #8651 SUCCESS.
 - **AR2.6 — Specialty + Tier Routing:** IMPLEMENTED / CI-VERIFIED / CLOSED. Evidence: `ec47bd3d`, SG 2.1 CI #8653 SUCCESS. Selects enabled models by minimum tier, required capabilities, specialty, priority and configured cost; preferred models and provider fallback cannot bypass tier/capability requirements.
 - **AR2.7 — Reasoning Effort Selector:** IMPLEMENTED / CI-VERIFIED / CLOSED. Evidence: `aeb3bb52`, SG 2.1 CI #8655 SUCCESS. Selects the minimum sufficient bounded effort independently from model tier, verifies selected/fallback model support, propagates it through existing provider metadata, and permits `xhigh`/`max` only through explicit trusted SG policy.
-- **AR2.8 — Validation:** IMPLEMENTED LOCALLY / LOCAL CHECK VERIFIED / NOT CI-VERIFIED / NOT CLOSED. Performs deterministic structured/schema, required-field, identifier, evidence, contract-invariant and task-specific validation; exposes an explicit bounded confidence contract; records privacy-safe validation telemetry; and keeps semantic insufficiency distinct from provider fallback. Local evidence: 1170 tests, 1095 passed, 75 skipped, 0 failed.
-- **AR2.9 — Semantic Escalation:** bounded L1→L2→L3 promotion distinct from provider fallback; preserve original request, retrieved evidence, prior result and escalation reason.
+- **AR2.8 — Validation:** IMPLEMENTED / CI-VERIFIED / CLOSED. Evidence: `1a208312`, SG 2.1 CI #8657 SUCCESS. Performs deterministic structured/schema, required-field, identifier, evidence, contract-invariant and task-specific validation; exposes an explicit bounded confidence contract; records privacy-safe validation telemetry; and keeps semantic insufficiency distinct from provider fallback.
+- **AR2.9 — Semantic Escalation:** IMPLEMENTED LOCALLY / LOCAL CHECK VERIFIED / NOT CI-VERIFIED / NOT CLOSED. Bounded L1→L2→L3 promotion remains distinct from technical provider fallback, preserves the original request, bounded prior result and validation evidence, respects the trusted maximum tier, stops after at most two promotions and fails visibly when a higher tier is unavailable. Local evidence: 1173 tests, 1098 passed, 75 skipped, 0 failed.
 - **AR2.10 — Cost Intelligence, Usage Accounting & Observability:** implement call/request/aggregate token and cost accounting, mutable versioned pricing, immutable historical rate snapshots, provider-cost reconciliation readiness, tier/effort/routing/validation/fallback/escalation telemetry and efficiency metrics.
 
 ### Implementation discipline

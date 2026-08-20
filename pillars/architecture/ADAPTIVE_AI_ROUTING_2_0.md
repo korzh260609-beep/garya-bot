@@ -11,7 +11,8 @@ Current implementation evidence:
 - AR2.5 Tier Selector is IMPLEMENTED / CI-VERIFIED / CLOSED at `1c2cb25ba75f889c289f49a694f1849ce653f81c`, SG 2.1 CI #8651 SUCCESS;
 - AR2.6 Specialty + Tier Routing is IMPLEMENTED / CI-VERIFIED / CLOSED at `ec47bd3d469ceaae6d317a589fdcef45103d21ed`, SG 2.1 CI #8653 SUCCESS;
 - AR2.7 Reasoning Effort Selector is IMPLEMENTED / CI-VERIFIED / CLOSED at `aeb3bb52e3ad7e42ac3a00fb70d3af30f1e18049`, SG 2.1 CI #8655 SUCCESS;
-- AR2.8 Validation is implemented locally in the existing `AIRouter` result boundary;
+- AR2.8 Validation is IMPLEMENTED / CI-VERIFIED / CLOSED at `1a208312435c6b5f6fa9296c1808f418010c9697`, SG 2.1 CI #8657 SUCCESS;
+- AR2.9 Semantic Escalation is implemented locally in the existing `AIRouter` result boundary;
 - legacy AI request callers receive compatible defaults;
 - contradictory or unbounded routing metadata fails closed;
 - AR2.6 filters enabled models by minimum required tier and required capabilities, prefers exact specialty over generic reasoning, then chooses the lowest sufficient tier before priority and configured cost;
@@ -22,9 +23,10 @@ Current implementation evidence:
 - AR2.7 selects the minimum sufficient effort independently from the model tier, verifies model support, preserves the required floor across provider fallback and reserves `xhigh`/`max` for explicit `trusted-sg-policy` constraints;
 - AR2.8 validates structured/schema contracts, required fields, identifier preservation, evidence presence, task-specific invariants and explicit confidence thresholds deterministically first;
 - validation failures return bounded evidence for AR2.9 and never masquerade as technical provider fallback;
-- AR2.8 targeted tests and `npm run check` pass locally (1170 tests, 1095 passed, 75 skipped, 0 failed);
-- AR2.8 remains NOT CLOSED until exact-HEAD SG 2.1 CI succeeds;
-- AR2.9–AR2.10 remain PLANNED / NOT IMPLEMENTED.
+- AR2.9 performs bounded L1→L2→L3 promotion only after deterministic validation failure, preserves original request/evidence plus bounded prior-result handoff, respects trusted maximum tier, and remains distinct from technical fallback;
+- AR2.9 targeted tests and `npm run check` pass locally (1173 tests, 1098 passed, 75 skipped, 0 failed);
+- AR2.9 remains NOT CLOSED until exact-HEAD SG 2.1 CI succeeds;
+- AR2.10 remains PLANNED / NOT IMPLEMENTED.
 
 This document defines the canonical architecture for the Adaptive AI Routing 2.0 extension of the existing SG 2.1 AI Routing Foundation. Documentation alone does not prove implementation, CI verification, deployment or live operation.
 
@@ -391,8 +393,8 @@ Operational metrics should include tier distribution, token/cost distribution an
 - AR2.5 Tier Selector — IMPLEMENTED / CI-VERIFIED / CLOSED (SG 2.1 CI #8651)
 - AR2.6 Specialty + Tier Routing — IMPLEMENTED / CI-VERIFIED / CLOSED (SG 2.1 CI #8653)
 - AR2.7 Reasoning Effort Selector — IMPLEMENTED / CI-VERIFIED / CLOSED (SG 2.1 CI #8655)
-- AR2.8 Validation — IMPLEMENTED LOCALLY / LOCAL CHECK VERIFIED / NOT CI-VERIFIED / NOT CLOSED
-- AR2.9 Semantic Escalation
+- AR2.8 Validation — IMPLEMENTED / CI-VERIFIED / CLOSED (SG 2.1 CI #8657)
+- AR2.9 Semantic Escalation — IMPLEMENTED LOCALLY / LOCAL CHECK VERIFIED / NOT CI-VERIFIED / NOT CLOSED
 - AR2.10 Cost Intelligence, Usage Accounting & Observability
 
 AR2.10 includes call-level, request-level and aggregate token/cost accounting, mutable/versioned pricing, historical pricing immutability and reconciliation-ready provider cost evidence. User-facing commercial billing/credits may be layered later without changing AR2 technical usage truth.

@@ -1,5 +1,5 @@
 import { createAIRequest, createAIResult, assertAIProvider } from './contracts.js';
-import { AIProviderError, AITimeoutError } from './errors.js';
+import { AIConfigurationError, AIProviderError, AITimeoutError } from './errors.js';
 import { redactSensitiveText } from '../secrets/redaction.js';
 import {
   ProductionAiPolicyError,
@@ -12,6 +12,7 @@ import { createDeterministicTaskAssessor } from './taskAssessment.js';
 import { createTierSelector } from './tierSelector.js';
 import { createReasoningEffortSelector } from './reasoningEffortSelector.js';
 import { createDeterministicOutputValidator } from './outputValidator.js';
+import { createSemanticEscalationController } from './semanticEscalation.js';
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const RESPONSE_CONTEXT_TRUNCATION_MARKER = '\n...[SG_CONTEXT_TRUNCATED_TO_INPUT_BUDGET]...\n';
@@ -164,6 +165,7 @@ export function createAIRouter({
   tierSelector = createTierSelector(),
   reasoningEffortSelector = createReasoningEffortSelector(),
   outputValidator = createDeterministicOutputValidator(),
+  semanticEscalation = createSemanticEscalationController(),
   timeoutMs = 30_000,
   maxRetries = 1,
   retryDelayMs = 100,
@@ -174,6 +176,7 @@ export function createAIRouter({
   if (!tierSelector || typeof tierSelector.select !== 'function') throw new TypeError('tierSelector.select is required');
   if (!reasoningEffortSelector || typeof reasoningEffortSelector.select !== 'function') throw new TypeError('reasoningEffortSelector.select is required');
   if (!outputValidator || typeof outputValidator.validate !== 'function') throw new TypeError('outputValidator.validate is required');
+  if (!semanticEscalation || typeof semanticEscalation.decide !== 'function') throw new TypeError('semanticEscalation.decide is required');
   const providerMap = new Map(Object.entries(providers ?? {}).map(([name, provider]) => [name, assertAIProvider(provider)]));
 
   function enforcePolicy({ model, request, role }) {
@@ -313,55 +316,90 @@ export function createAIRouter({
         taskClass: request.routing.taskClass, ...request.routing.tierSelection
       });
       const role = resolveAiRole(input);
-      const selectionRequirements = Object.freeze({
-        specialty: request.routing.specialty,
-        requiredTier: request.routing.tierSelection.tier,
-        requiredCapabilities: request.routing.requiredCapabilities,
-      });
-      const primary = registry.select({ ...selectionRequirements, preferredModelId: input.preferredModelId });
-      telemetry?.record?.({
-        type: 'ai.model.selected', traceId: request.traceContext.traceId, requestId: request.traceContext.requestId,
-        taskClass: request.routing.taskClass, requiredTier: selectionRequirements.requiredTier,
-        selectedTier: primary.tier, provider: primary.provider, model: primary.model,
-        specialty: selectionRequirements.specialty, requiredCapabilities: selectionRequirements.requiredCapabilities,
-      });
-      const selectReasoningEffort = (model) => reasoningEffortSelector.select({
-        tier: request.routing.tierSelection.tier, assessment: request.routing.assessment, model,
-        requestedEffort: request.routing.reasoningEffort, trustedRoutingPolicy: input.trustedRoutingPolicy ?? null,
-      });
-      const applyReasoningEffort = (selection) => createAIRequest({
-        ...request,
-        metadata: { ...request.metadata, ...(selection.effort ? { reasoningEffort: selection.effort } : {}) },
-        routing: { ...request.routing, reasoningEffortSelection: selection },
-      });
-      const primaryEffort = selectReasoningEffort(primary);
-      request = applyReasoningEffort(primaryEffort);
-      telemetry?.record?.({
-        type: 'ai.reasoning-effort.selected', traceId: request.traceContext.traceId, requestId: request.traceContext.requestId,
-        taskClass: request.routing.taskClass, selectedTier: primary.tier, ...primaryEffort,
-      });
-      try {
-        return await callModel(primary, request, false, role, primaryEffort);
-      } catch (primaryError) {
-        if (primaryError instanceof ProductionAiPolicyError || !primary.fallbackId) throw primaryError;
-        telemetry?.record?.({
-          type: 'ai.fallback.used',
-          traceId: request.traceContext.traceId,
-          requestId: request.traceContext.requestId,
-          fromModel: primary.id,
-          toModel: primary.fallbackId,
-          role,
-          reason: request.reason,
-          primaryErrorCode: primaryError.code ?? 'AI_PROVIDER_ERROR',
+      async function executeTier(activeRequest, requiredTier, preferredModelId = null) {
+        const requirements = Object.freeze({
+          specialty: activeRequest.routing.specialty, requiredTier,
+          requiredCapabilities: activeRequest.routing.requiredCapabilities,
         });
-        const fallback = registry.select({ ...selectionRequirements, preferredModelId: primary.fallbackId });
-        const fallbackEffort = selectReasoningEffort(fallback);
-        const fallbackRequest = applyReasoningEffort(fallbackEffort);
+        const primary = registry.select({ ...requirements, preferredModelId });
         telemetry?.record?.({
-          type: 'ai.reasoning-effort.selected', traceId: fallbackRequest.traceContext.traceId, requestId: fallbackRequest.traceContext.requestId,
-          taskClass: fallbackRequest.routing.taskClass, selectedTier: fallback.tier, fallbackUsed: true, ...fallbackEffort,
+          type: 'ai.model.selected', traceId: activeRequest.traceContext.traceId, requestId: activeRequest.traceContext.requestId,
+          taskClass: activeRequest.routing.taskClass, requiredTier, selectedTier: primary.tier,
+          provider: primary.provider, model: primary.model, specialty: requirements.specialty,
+          requiredCapabilities: requirements.requiredCapabilities,
         });
-        return callModel(fallback, fallbackRequest, true, role, fallbackEffort);
+        const selectEffort = (model) => reasoningEffortSelector.select({
+          tier: requiredTier, assessment: activeRequest.routing.assessment, model,
+          requestedEffort: activeRequest.routing.reasoningEffort, trustedRoutingPolicy: input.trustedRoutingPolicy ?? null,
+        });
+        const applyEffort = (selection) => createAIRequest({
+          ...activeRequest,
+          metadata: { ...activeRequest.metadata, ...(selection.effort ? { reasoningEffort: selection.effort } : {}) },
+          routing: { ...activeRequest.routing, reasoningEffortSelection: selection },
+        });
+        const primaryEffort = selectEffort(primary);
+        const primaryRequest = applyEffort(primaryEffort);
+        telemetry?.record?.({
+          type: 'ai.reasoning-effort.selected', traceId: primaryRequest.traceContext.traceId, requestId: primaryRequest.traceContext.requestId,
+          taskClass: primaryRequest.routing.taskClass, selectedTier: primary.tier, ...primaryEffort,
+        });
+        try {
+          return await callModel(primary, primaryRequest, false, role, primaryEffort);
+        } catch (primaryError) {
+          const technical = primaryError instanceof AIProviderError || primaryError instanceof AITimeoutError;
+          if (primaryError instanceof ProductionAiPolicyError || !technical || !primary.fallbackId) throw primaryError;
+          telemetry?.record?.({
+            type: 'ai.fallback.used', traceId: primaryRequest.traceContext.traceId,
+            requestId: primaryRequest.traceContext.requestId, fromModel: primary.id, toModel: primary.fallbackId,
+            role, reason: primaryRequest.reason, primaryErrorCode: primaryError.code ?? 'AI_PROVIDER_ERROR',
+          });
+          const fallback = registry.select({ ...requirements, preferredModelId: primary.fallbackId });
+          const fallbackEffort = selectEffort(fallback);
+          const fallbackRequest = applyEffort(fallbackEffort);
+          telemetry?.record?.({
+            type: 'ai.reasoning-effort.selected', traceId: fallbackRequest.traceContext.traceId, requestId: fallbackRequest.traceContext.requestId,
+            taskClass: fallbackRequest.routing.taskClass, selectedTier: fallback.tier, fallbackUsed: true, ...fallbackEffort,
+          });
+          return callModel(fallback, fallbackRequest, true, role, fallbackEffort);
+        }
+      }
+
+      let result = await executeTier(request, request.routing.tierSelection.tier, input.preferredModelId);
+      const promotions = [];
+      while (true) {
+        const decision = semanticEscalation.decide({
+          result, currentTier: result.tier, maximumTier: input.trustedRoutingPolicy?.maximumTier ?? null,
+          promotionCount: promotions.length,
+        });
+        if (!decision.escalate) {
+          return createAIResult({ ...result, escalation: {
+            version: 'AR2.9', used: promotions.length > 0, promotions: Object.freeze(promotions), terminalReason: decision.reason,
+          } });
+        }
+        promotions.push(Object.freeze({ fromTier: decision.fromTier, toTier: decision.toTier, reason: decision.reason }));
+        telemetry?.record?.({
+          type: 'ai.semantic-escalation.used', traceId: request.traceContext.traceId, requestId: request.traceContext.requestId,
+          taskClass: request.routing.taskClass, fromTier: decision.fromTier, toTier: decision.toTier,
+          promotion: decision.promotion, reason: decision.reason, validationFailures: result.validation.failures,
+        });
+        request = createAIRequest({
+          ...request,
+          messages: [...request.messages, { role: 'system', content: `AR2_SEMANTIC_ESCALATION ${JSON.stringify({
+            reason: decision.reason, validation: decision.priorResult.validation,
+            priorResult: decision.priorResult.text, priorResultTruncated: decision.priorResult.truncated,
+          })}` }],
+          metadata: { ...request.metadata, semanticEscalation: decision },
+          routing: { ...request.routing, tierSelection: { ...request.routing.tierSelection, tier: decision.toTier, reason: decision.reason } },
+        });
+        try {
+          result = await executeTier(request, decision.toTier);
+        } catch (error) {
+          if (!(error instanceof AIConfigurationError)) throw error;
+          return createAIResult({ ...result, escalation: {
+            version: 'AR2.9', used: promotions.length > 0, promotions: Object.freeze(promotions),
+            terminalReason: 'higher-tier-unavailable',
+          } });
+        }
       }
     },
   });

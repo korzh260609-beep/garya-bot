@@ -116,6 +116,7 @@ export function createAIResult(input) {
     attempts: nonNegative(input.attempts ?? 1, 'attempts'),
     fallbackUsed: Boolean(input.fallbackUsed),
     ...(input.validation == null ? {} : { validation: Object.freeze({ ...object(input.validation, 'validation') }) }),
+    ...(input.escalation == null ? {} : { escalation: Object.freeze({ ...object(input.escalation, 'escalation') }) }),
     rawMetadata: Object.freeze({ ...(input.rawMetadata ?? {}) }),
   });
 }

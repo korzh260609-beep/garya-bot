@@ -60,7 +60,7 @@ const SEMANTIC_SCHEMA = Object.freeze({
 });
 
 const AUTOMATION_ROUTING_PRIORITY = `PRIORITY AUTOMATION ROUTING RULES:
-- A request to list SG's actual stored tasks/automations in the current scope means operational task retrieval, not an explanation of SG capabilities, project duties, modules or abstract functions. For a general list select task-list/read-only; select schedule-list only when the user explicitly limits the request to recurring schedules. Never invent list items.
+- A request to list SG's actual stored tasks/automations in the current scope means operational task retrieval, not an explanation of SG capabilities, project duties, modules or abstract functions. Natural follow-ups such as “what do you have scheduled?” or “no, I mean your automations” keep that operational meaning. For a general list select task-list/read-only; select schedule-list only when the user explicitly limits the request to recurring schedules. Questions about what SG can do or which kinds of tasks SG is able to perform are capability questions and stay compose-answer. Never invent list items.
 - A request to modify what an existing task/automation sends or does is an executable state change, never a conversational capability explanation.
 - When the requested modification adds current activity from Telegram groups/workspaces where SG and the user currently have authorized access, select automation-update and emit payload.semanticOperation={"type":"add-workspace-activity","data":{"workspaceSelection":"authorized-current"}}.
 - Identify the existing target only from attributes the user actually supplied, such as its current localTime or notificationMessage. Do not require workspace IDs, do not claim that SG lacks a group list, and do not replace execution with compose-answer merely because activity must be collected later.
@@ -90,20 +90,51 @@ function nonEmptyString(value) {
 function normalizedRoutingText(value) {
   return String(value ?? '').trim().toLowerCase().replace(/\s+/gu, ' ');
 }
+function includesRoutingMarker(text, markers) {
+  return markers.some((marker) => text.includes(marker));
+}
 function isExplicitOperationalTaskListRequest(canonicalInput) {
   const text = normalizedRoutingText(canonicalInput?.text);
   if (!text) return false;
 
-  const mentionsTask = ['задач', 'завдан', 'автоматизац', 'автоматизован', 'automation', 'task'].some((token) => text.includes(token));
-  const asksForList = ['список', 'перечисл', 'покажи', 'какие', 'дай список', 'перелік', 'покажи', 'які', 'list', 'show', 'which'].some((token) => text.includes(token));
-  if (!mentionsTask || !asksForList) return false;
-
-  const explicitlyRecurring = ['повторяющ', 'регулярн', 'рекуррент', 'расписан', 'щоденн', 'щотиж', 'регуляр', 'recurring', 'schedule'].some((token) => text.includes(token));
+  const explicitlyRecurring = includesRoutingMarker(text, [
+    'повторяющ', 'регулярн', 'рекуррент', 'расписан', 'щоденн', 'щотиж', 'регуляр', 'recurring', 'schedule'
+  ]);
   if (explicitlyRecurring) return false;
 
-  const projectTaskContext = ['задачи проекта', 'задач проекта', 'завдання проекту', 'завдань проекту', 'project tasks'].some((token) => text.includes(token));
-  const negatesProjectContext = ['не проекта', 'не про проект', 'не проект', 'не проєкту', 'не про проєкт', 'not project'].some((token) => text.includes(token));
-  return !projectTaskContext || negatesProjectContext;
+  const capabilityQuestion = includesRoutingMarker(text, [
+    'что ты умеешь', 'что умеешь', 'умеешь выполнять', 'умеешь делать', 'можешь выполнять', 'можешь делать', 'способен', 'возможност', 'функци',
+    'що ти вмієш', 'що вмієш', 'вмієш виконувати', 'вмієш робити', 'можеш виконувати', 'можеш робити', 'можливост', 'функц',
+    'what can you do', 'can you do', 'can you perform', 'able to', 'capabilit'
+  ]);
+  if (capabilityQuestion) return false;
+
+  const projectTaskContext = includesRoutingMarker(text, [
+    'задачи проекта', 'задач проекта', 'завдання проекту', 'завдань проекту', 'project tasks'
+  ]);
+  const negatesProjectContext = includesRoutingMarker(text, [
+    'не проекта', 'не про проект', 'не проект', 'не проєкту', 'не про проєкт', 'not project'
+  ]);
+  if (projectTaskContext && !negatesProjectContext) return false;
+
+  const mentionsTask = includesRoutingMarker(text, [
+    'задач', 'завдан', 'автоматизац', 'автоматизован', 'automation', 'task'
+  ]);
+  const asksForList = includesRoutingMarker(text, [
+    'список', 'перечисл', 'покажи', 'какие', 'дай список', 'перелік', 'які', 'list', 'show', 'which'
+  ]);
+  const operationalPossessive = mentionsTask && includesRoutingMarker(text, [
+    'у тебя', 'твои ', 'твоих ', 'твоя ', 'твоё ', 'твоє ', 'у тебе', 'твої ', 'твоїх ', 'your '
+  ]);
+  const plannedInventory = includesRoutingMarker(text, [
+    'что у тебя запланировано', 'что запланировано', 'что у тебя запланирован',
+    'що у тебе заплановано', 'що заплановано', 'what do you have scheduled', 'what is scheduled'
+  ]);
+  const operationalCorrection = mentionsTask && includesRoutingMarker(text, [
+    'я про ', 'я имею в виду', 'имею в виду', 'я мав на увазі', 'я маю на увазі', 'i mean', 'not project', 'не проекта', 'не про проект', 'не проєкту'
+  ]);
+
+  return (mentionsTask && asksForList) || operationalPossessive || plannedInventory || operationalCorrection;
 }
 function canonicalizeOperationalTaskListInterpretation(interpretation, canonicalInput) {
   if (!isExplicitOperationalTaskListRequest(canonicalInput)) return interpretation;

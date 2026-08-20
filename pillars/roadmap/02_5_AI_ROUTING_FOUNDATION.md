@@ -3,7 +3,7 @@
 ## Status
 Implementation complete on `dev/sg2.1-semantic`. Exit gate is satisfied only when CI is green for the final Block 2.5 commit.
 
-Adaptive AI Routing 2.0 (AR2) is an **accepted extension with implementation in progress** over this completed foundation. AR2.1 is implemented, exact-HEAD CI-verified and closed at `e9e0d053`; AR2.2 has local implementation evidence and remains NOT CLOSED until exact-HEAD CI succeeds; AR2.3–AR2.10 remain planned.
+Adaptive AI Routing 2.0 (AR2) is an **accepted extension with implementation in progress** over this completed foundation. AR2.1 and AR2.2 are implemented, exact-HEAD CI-verified and closed; AR2.3 has local implementation evidence and remains NOT CLOSED until exact-HEAD CI succeeds; AR2.4–AR2.10 remain planned.
 
 ## Goal
 Connect the first production reasoning model through a replaceable, observable and cost-controlled AI routing layer before Decision Engine development begins.
@@ -155,8 +155,8 @@ Telegram, Discord, Web/API, Email, voice and the future native SG interface all 
 
 ### AR2 implementation sequence
 - **AR2.1 — Routing Contract:** IMPLEMENTED / CI-VERIFIED / CLOSED. Adds bounded routing metadata/task-class contract while preserving current AI request compatibility. Evidence: `e9e0d053`, SG 2.1 CI #8643 SUCCESS.
-- **AR2.2 — Tier-aware Model Registry:** IMPLEMENTED LOCALLY / LOCAL CHECK VERIFIED / NOT CI-VERIFIED / NOT CLOSED. Adds tier/capabilities/supported reasoning efforts/default effort/priority without hard-coding provider product names into business logic.
-- **AR2.3 — Deterministic L0 Gate:** formalize no-LLM execution for known deterministic paths before paid AI routing.
+- **AR2.2 — Tier-aware Model Registry:** IMPLEMENTED / CI-VERIFIED / CLOSED. Evidence: `26269895`, SG 2.1 CI #8645 SUCCESS.
+- **AR2.3 — Deterministic L0 Gate:** IMPLEMENTED LOCALLY / LOCAL CHECK VERIFIED / NOT CI-VERIFIED / NOT CLOSED. Registered executors deterministically assess resolved structured execution facts before any provider call; phrases cannot activate L0, rejection preserves the AI path, and confirmed L0 failure is fail-closed.
 - **AR2.4 — Task Assessment:** deterministic assessment of complexity/risk/ambiguity/reasoning/tool/context signals.
 - **AR2.5 — Tier Selector:** minimum-sufficient tier selection with hard min/max overrides and bounded score policy.
 - **AR2.6 — Specialty + Tier Routing:** choose enabled models by tier, specialty/capability, policy, availability and cost.

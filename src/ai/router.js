@@ -155,11 +155,13 @@ export function createAIRouter({
   providers,
   telemetry = null,
   policy = null,
+  deterministicGate = null,
   timeoutMs = 30_000,
   maxRetries = 1,
   retryDelayMs = 100,
 }) {
   if (!registry?.select || !registry?.get) throw new TypeError('registry is required');
+  if (deterministicGate && typeof deterministicGate.tryExecute !== 'function') throw new TypeError('deterministicGate.tryExecute is required');
   const providerMap = new Map(Object.entries(providers ?? {}).map(([name, provider]) => [name, assertAIProvider(provider)]));
 
   function enforcePolicy({ model, request, role }) {
@@ -258,6 +260,10 @@ export function createAIRouter({
 
   return Object.freeze({
     async route(input) {
+      if (deterministicGate) {
+        const deterministic = await deterministicGate.tryExecute(input);
+        if (deterministic?.handled === true) return deterministic;
+      }
       const request = createAIRequest({
         ...input,
         maxOutputTokens: input.maxOutputTokens ?? defaultOutputBudget(input, policy),

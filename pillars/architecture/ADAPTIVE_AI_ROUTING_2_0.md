@@ -5,12 +5,16 @@ ACCEPTED ARCHITECTURE / IMPLEMENTATION IN PROGRESS.
 
 Current implementation evidence:
 - AR2.1 Routing Contract is IMPLEMENTED / CI-VERIFIED / CLOSED at `e9e0d053d6243ebf8752059c4c8f3c761a8c859b`, SG 2.1 CI #8643 SUCCESS;
-- AR2.2 Tier-aware Model Registry is implemented locally with provider-independent tier, capabilities, supported/default reasoning efforts and priority metadata;
+- AR2.2 Tier-aware Model Registry is IMPLEMENTED / CI-VERIFIED / CLOSED at `26269895369e7164fb3154ad4348075420af3f60`, SG 2.1 CI #8645 SUCCESS;
+- AR2.3 Deterministic L0 Gate is implemented locally as an optional pre-provider boundary inside the existing `AIRouter`;
 - legacy AI request callers receive compatible defaults;
 - contradictory or unbounded routing metadata fails closed;
-- AR2.2 targeted tests and `npm run check` pass locally (1142 tests, 1067 passed, 75 skipped, 0 failed);
-- AR2.2 remains NOT CLOSED until exact-HEAD SG 2.1 CI succeeds;
-- AR2.3–AR2.10 remain PLANNED / NOT IMPLEMENTED.
+- AR2.3 accepts only a registered executor plus its positive structured assessment; user wording cannot activate L0;
+- confirmed L0 execution bypasses provider/model calls with zero-token/zero-cost evidence, while executor rejection preserves the existing AI path;
+- confirmed L0 execution failure is fail-closed and cannot silently become a paid AI fallback;
+- AR2.3 targeted tests and `npm run check` pass locally (1146 tests, 1071 passed, 75 skipped, 0 failed);
+- AR2.3 remains NOT CLOSED until exact-HEAD SG 2.1 CI succeeds;
+- AR2.4–AR2.10 remain PLANNED / NOT IMPLEMENTED.
 
 This document defines the canonical architecture for the Adaptive AI Routing 2.0 extension of the existing SG 2.1 AI Routing Foundation. Documentation alone does not prove implementation, CI verification, deployment or live operation.
 
@@ -371,8 +375,8 @@ Operational metrics should include tier distribution, token/cost distribution an
 
 ## 19. Implementation stages
 - AR2.1 Routing Contract — IMPLEMENTED / CI-VERIFIED / CLOSED (SG 2.1 CI #8643)
-- AR2.2 Tier-aware Model Registry — IMPLEMENTED LOCALLY / LOCAL CHECK VERIFIED / NOT CI-VERIFIED / NOT CLOSED
-- AR2.3 Deterministic L0 Gate
+- AR2.2 Tier-aware Model Registry — IMPLEMENTED / CI-VERIFIED / CLOSED (SG 2.1 CI #8645)
+- AR2.3 Deterministic L0 Gate — IMPLEMENTED LOCALLY / LOCAL CHECK VERIFIED / NOT CI-VERIFIED / NOT CLOSED
 - AR2.4 Task Assessment
 - AR2.5 Tier Selector
 - AR2.6 Specialty + Tier Routing

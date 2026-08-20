@@ -69,6 +69,29 @@ test('general request for SG actual tasks is deterministically routed to scoped 
   assert.equal(result.candidateActions[0].actionClass, 'read-only');
 });
 
+test('natural scheduled inventory request routes to operational task list', async () => {
+  const interpreter = interpreterFor(semanticOutput([
+    { type: 'answer', name: 'compose-answer', actionClass: 'analysis', payload: {} }
+  ]));
+
+  const result = await interpreter.interpret(canonicalInput({ text: 'Что у тебя запланировано?' }));
+
+  assert.equal(result.intent, 'task-list');
+  assert.equal(result.candidateActions[0].name, 'task-list');
+  assert.equal(result.candidateActions[0].actionClass, 'read-only');
+});
+
+test('natural automation inventory request routes to operational task list', async () => {
+  const interpreter = interpreterFor(semanticOutput([
+    { type: 'answer', name: 'compose-answer', actionClass: 'analysis', payload: {} }
+  ]));
+
+  const result = await interpreter.interpret(canonicalInput({ text: 'Какие у тебя автоматизации?' }));
+
+  assert.equal(result.intent, 'task-list');
+  assert.equal(result.candidateActions[0].name, 'task-list');
+});
+
 test('clarification excluding project tasks still routes to operational task list', async () => {
   const interpreter = interpreterFor(semanticOutput([
     { type: 'answer', name: 'compose-answer', actionClass: 'analysis', payload: {} }
@@ -86,6 +109,26 @@ test('explicit project task request is not rewritten into runtime task storage l
   ]));
 
   const result = await interpreter.interpret(canonicalInput({ text: 'Покажи список задач проекта SG' }));
+
+  assert.equal(result.candidateActions[0].name, 'compose-answer');
+});
+
+test('capability question is not rewritten into operational task list', async () => {
+  const interpreter = interpreterFor(semanticOutput([
+    { type: 'answer', name: 'compose-answer', actionClass: 'analysis', payload: {} }
+  ]));
+
+  const result = await interpreter.interpret(canonicalInput({ text: 'Что ты умеешь делать?' }));
+
+  assert.equal(result.candidateActions[0].name, 'compose-answer');
+});
+
+test('task capability question remains conversational instead of querying stored tasks', async () => {
+  const interpreter = interpreterFor(semanticOutput([
+    { type: 'answer', name: 'compose-answer', actionClass: 'analysis', payload: {} }
+  ]));
+
+  const result = await interpreter.interpret(canonicalInput({ text: 'Какие задачи ты можешь выполнять?' }));
 
   assert.equal(result.candidateActions[0].name, 'compose-answer');
 });

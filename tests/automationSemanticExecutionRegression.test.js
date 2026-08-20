@@ -56,6 +56,40 @@ test('recurring schedule list preserves executable read-only action class', asyn
   assert.equal(result.candidateActions[0].actionClass, 'read-only');
 });
 
+test('general request for SG actual tasks is deterministically routed to scoped task list', async () => {
+  const interpreter = interpreterFor(semanticOutput([
+    { type: 'answer', name: 'compose-answer', actionClass: 'analysis', payload: {} }
+  ]));
+
+  const result = await interpreter.interpret(canonicalInput({ text: 'Дай список твоих задач' }));
+
+  assert.equal(result.intent, 'task-list');
+  assert.equal(result.candidateActions.length, 1);
+  assert.equal(result.candidateActions[0].name, 'task-list');
+  assert.equal(result.candidateActions[0].actionClass, 'read-only');
+});
+
+test('clarification excluding project tasks still routes to operational task list', async () => {
+  const interpreter = interpreterFor(semanticOutput([
+    { type: 'answer', name: 'compose-answer', actionClass: 'analysis', payload: {} }
+  ]));
+
+  const result = await interpreter.interpret(canonicalInput({ text: 'Нет не проекта сг а твоих автоматизаций' }));
+
+  assert.equal(result.intent, 'task-list');
+  assert.equal(result.candidateActions[0].name, 'task-list');
+});
+
+test('explicit project task request is not rewritten into runtime task storage lookup', async () => {
+  const interpreter = interpreterFor(semanticOutput([
+    { type: 'answer', name: 'compose-answer', actionClass: 'analysis', payload: {} }
+  ]));
+
+  const result = await interpreter.interpret(canonicalInput({ text: 'Покажи список задач проекта SG' }));
+
+  assert.equal(result.candidateActions[0].name, 'compose-answer');
+});
+
 test('one-shot self notification inherits exact deterministic temporal resolution when AI omits temporalExpression', async () => {
   const interpreter = interpreterFor(semanticOutput([
     {

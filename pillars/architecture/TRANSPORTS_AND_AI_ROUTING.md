@@ -64,3 +64,39 @@ Responsibilities:
 All AI calls pass through the router/wrapper. Model replacement must not change SG architecture or ownership of decisions.
 
 AI Router and providers do not own preferred language, resource authority, user settings, delivery policy or response-language policy. SG resolves those contexts through their approved layers, while AI executes the requested reasoning or specialized work within bounded context.
+
+## Adaptive AI Routing 2.0
+
+Adaptive AI Routing 2.0 (AR2) extends this existing router; it does not create a second router.
+
+The shared cross-transport routing sequence is:
+
+```text
+canonical request
+→ semantic/capability resolution
+→ deterministic-vs-AI gate
+→ task assessment when AI is required
+→ minimum-sufficient tier selection
+→ specialty/capability matching
+→ reasoning-effort selection
+→ existing AIRouter/provider boundary
+→ deterministic/task-specific validation
+→ bounded semantic escalation only when needed
+```
+
+Canonical tiers are:
+- `L0`: deterministic execution without LLM;
+- `L1`: low-cost AI for extraction/classification/normalization;
+- `L2`: general AI for ordinary synthesis/conversation/planning;
+- `L3`: advanced reasoning for difficult debugging/architecture/complex analysis.
+
+Concrete provider model names are configuration. Telegram, Discord, Web/API, Email, voice or a future native interface cannot select or force a tier. The same request semantics under the same authorized context should produce the same routing class regardless of transport.
+
+Provider fallback and semantic escalation are separate:
+- fallback handles technical provider failure;
+- escalation handles an insufficient but technically valid result according to validation/confidence policy.
+
+A model cannot self-authorize escalation, broaden its minimum/maximum tier, bypass Access/Action Gate/Owner Security, or turn confidence into authority.
+
+Canonical AR2 architecture: `ADAPTIVE_AI_ROUTING_2_0.md`.
+Implementation stages and acceptance contract: `../roadmap/02_5_AI_ROUTING_FOUNDATION.md`.

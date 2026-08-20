@@ -1,5 +1,5 @@
 import { createSelfKnowledgeFact } from './selfKnowledge.js';
-import { GITHUB_CAPABILITY_DEFINITIONS } from '../githubDevelopment/githubCapabilityRegistry.js';
+import { createSystemCapabilityCatalog } from '../capability/systemCapabilityCatalog.js';
 
 function required(value, name) {
   if (typeof value !== 'string' || value.trim() === '') throw new TypeError(`${name} is required`);
@@ -21,6 +21,7 @@ function fact({ category, key, value, status = 'implemented', kind = 'evidence',
 export function createDeploymentSelfKnowledgeSources({
   config,
   capabilityNames = [],
+  capabilityManifests = [],
   persistence = null,
   productionAI = null,
   connectionRegistry = null,
@@ -35,6 +36,17 @@ export function createDeploymentSelfKnowledgeSources({
   domainRuntime = null
 } = {}) {
   const revision = required(config?.revision, 'config.revision');
+  const capabilityCatalog = createSystemCapabilityCatalog({ runtimeCapabilityNames: capabilityNames, sourceRevision: revision, additionalManifests: capabilityManifests });
+  const githubCapabilities = capabilityCatalog.capabilities.filter((item) => item.domain === 'github');
+  const compactCapabilities = capabilityCatalog.capabilities.map((item) => Object.freeze({
+    id: item.id,
+    domain: item.domain,
+    status: item.status,
+    requiresConnection: item.requiresConnection,
+    requiresAuthorization: item.requiresAuthorization,
+    supportedTransports: item.supportedTransports,
+    riskTier: item.riskTier
+  }));
 
   const canonicalSource = Object.freeze({
     id: 'sg-canonical-entity',
@@ -65,22 +77,37 @@ export function createDeploymentSelfKnowledgeSources({
         fact({ category: 'capabilities', key: 'registered-capabilities', value: [...capabilityNames].sort(), status: 'implemented', sourceId: 'runtime:capability-registry', sourceRevision: revision }),
         fact({
           category: 'capabilities',
+          key: 'capability-catalog',
+          value: {
+            totalCapabilities: capabilityCatalog.totalCapabilities,
+            domains: capabilityCatalog.domains,
+            capabilities: compactCapabilities,
+            refreshMode: capabilityCatalog.refreshMode,
+            perRequestExternalScan: capabilityCatalog.perRequestExternalScan,
+            grantsAuthority: false
+          },
+          status: 'implemented',
+          sourceId: 'runtime:capability-catalog',
+          sourceRevision: revision
+        }),
+        fact({
+          category: 'capabilities',
           key: 'github-development-workspace',
           value: {
             provider: 'github',
             accessMode: 'mediated-through-gh3',
             localFilesystemMount: false,
-            capabilityStateSource: 'runtime-capability-registry-snapshot',
-            capabilities: GITHUB_CAPABILITY_DEFINITIONS.map((item) => item.name),
+            capabilityStateSource: 'runtime-capability-catalog-snapshot',
+            capabilities: githubCapabilities.map((item) => item.id),
             connectionRegistryAvailable: Boolean(connectionRegistry),
             resourceAuthorityAvailable: Boolean(resourceAuthorityRegistry),
             specificRepositoryAccess: 'requires-current-authorization-and-connection-evidence',
-            selfKnowledgeRefreshMode: 'runtime-snapshot',
-            perRequestGitHubScan: false,
+            selfKnowledgeRefreshMode: capabilityCatalog.refreshMode,
+            perRequestGitHubScan: capabilityCatalog.perRequestExternalScan,
             liveRepositoryProbePolicy: 'only-for-specific-current-state-requests'
           },
           status: 'implemented',
-          sourceId: 'runtime:gh3-capability-registry',
+          sourceId: 'runtime:capability-catalog',
           sourceRevision: revision
         }),
         fact({ category: 'deployment', key: 'environment', value: config.environment, status: 'implemented', sourceId: 'runtime:config', sourceRevision: revision }),

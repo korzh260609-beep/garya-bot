@@ -1,5 +1,11 @@
 import { AIOutputValidationError } from './errors.js';
 
+export const AI_ROUTING_TIERS = Object.freeze(['L0', 'L1', 'L2', 'L3']);
+export const AI_REASONING_EFFORTS = Object.freeze(['none', 'low', 'medium', 'high', 'xhigh', 'max']);
+
+const MAX_ROUTING_LABEL_LENGTH = 128;
+const MAX_ROUTING_CAPABILITIES = 32;
+
 function object(value, field) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new TypeError(`${field} must be an object`);
   return value;
@@ -20,6 +26,41 @@ function positiveInteger(value, field) {
   if (!Number.isInteger(number) || number <= 0) throw new TypeError(`${field} must be a positive integer`);
   return number;
 }
+function boundedLabel(value, field) {
+  const normalized = string(value, field);
+  if (normalized.length > MAX_ROUTING_LABEL_LENGTH) throw new TypeError(`${field} must be at most ${MAX_ROUTING_LABEL_LENGTH} characters`);
+  return normalized;
+}
+function optionalEnum(value, allowed, field) {
+  if (value == null || value === '') return null;
+  const normalized = string(value, field);
+  if (!allowed.includes(normalized)) throw new TypeError(`${field} must be one of: ${allowed.join(', ')}`);
+  return normalized;
+}
+function boundedLabels(value, field) {
+  if (value == null) return Object.freeze([]);
+  if (!Array.isArray(value)) throw new TypeError(`${field} must be an array`);
+  if (value.length > MAX_ROUTING_CAPABILITIES) throw new TypeError(`${field} must contain at most ${MAX_ROUTING_CAPABILITIES} items`);
+  return Object.freeze([...new Set(value.map((entry, index) => boundedLabel(entry, `${field}[${index}]`)))]);
+}
+export function createAIRoutingContract(input = {}, fallback = {}) {
+  object(input, 'routing');
+  const taskClass = boundedLabel(input.taskClass ?? fallback.task, 'routing.taskClass');
+  const specialty = boundedLabel(input.specialty ?? fallback.specialty ?? 'reasoning', 'routing.specialty');
+  const minimumTier = optionalEnum(input.minimumTier, AI_ROUTING_TIERS, 'routing.minimumTier');
+  const maximumTier = optionalEnum(input.maximumTier, AI_ROUTING_TIERS, 'routing.maximumTier');
+  if (minimumTier && maximumTier && AI_ROUTING_TIERS.indexOf(minimumTier) > AI_ROUTING_TIERS.indexOf(maximumTier)) {
+    throw new TypeError('routing.minimumTier cannot exceed routing.maximumTier');
+  }
+  return Object.freeze({
+    taskClass,
+    specialty,
+    requiredCapabilities: boundedLabels(input.requiredCapabilities, 'routing.requiredCapabilities'),
+    minimumTier,
+    maximumTier,
+    reasoningEffort: optionalEnum(input.reasoningEffort, AI_REASONING_EFFORTS, 'routing.reasoningEffort'),
+  });
+}
 function structuredJsonText(value) {
   const text = String(value ?? '').replace(/^\uFEFF/u, '').trim();
   const fenced = text.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/iu);
@@ -31,8 +72,9 @@ export function assertAIProvider(provider) {
 }
 export function createAIRequest(input) {
   object(input, 'AI request');
+  const task = string(input.task, 'task');
   return Object.freeze({
-    task: string(input.task, 'task'),
+    task,
     reason: string(input.reason, 'reason'),
     messages: Object.freeze((input.messages ?? []).map((message, index) => Object.freeze({
       role: string(message.role, `messages[${index}].role`),
@@ -42,6 +84,7 @@ export function createAIRequest(input) {
     maxOutputTokens: positiveInteger(input.maxOutputTokens, 'maxOutputTokens'),
     traceContext: Object.freeze({ ...object(input.traceContext, 'traceContext') }),
     metadata: Object.freeze({ ...(input.metadata ?? {}) }),
+    routing: createAIRoutingContract(input.routing ?? {}, { task, specialty: input.specialty }),
   });
 }
 export function createAIResult(input) {

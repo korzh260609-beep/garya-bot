@@ -6,6 +6,7 @@ import { createInMemoryAITelemetry } from '../src/ai/telemetry.js';
 import { createProductionMeaningInterpreter } from '../src/ai/productionMeaningInterpreter.js';
 import { createSemanticKernel } from '../src/semantic/semanticKernel.js';
 import { AIOutputValidationError, AIProviderError } from '../src/ai/errors.js';
+import { createAIRequest } from '../src/ai/contracts.js';
 
 const traceContext = { traceId: 'trace-1', requestId: 'request-1' };
 const registry = () => createModelRegistry([
@@ -23,6 +24,39 @@ const registry = () => createModelRegistry([
     specialties: ['reasoning-fallback']
   }
 ]);
+
+test('AR2.1 request contract adds bounded routing metadata without breaking legacy callers', () => {
+  const legacy = createAIRequest({
+    task: 'response-composition',
+    reason: 'legacy compatibility',
+    specialty: 'reasoning',
+    messages: [{ role: 'user', content: 'hello' }],
+    traceContext
+  });
+  assert.deepEqual(legacy.routing, {
+    taskClass: 'response-composition', specialty: 'reasoning', requiredCapabilities: [],
+    minimumTier: null, maximumTier: null, reasoningEffort: null
+  });
+
+  const routed = createAIRequest({
+    task: 'code-analysis', reason: 'AR2 contract', messages: [], traceContext,
+    routing: {
+      taskClass: 'code-debugging', specialty: 'reasoning',
+      requiredCapabilities: ['code', 'tools', 'code'], minimumTier: 'L2', maximumTier: 'L3', reasoningEffort: 'high'
+    }
+  });
+  assert.deepEqual(routed.routing, {
+    taskClass: 'code-debugging', specialty: 'reasoning', requiredCapabilities: ['code', 'tools'],
+    minimumTier: 'L2', maximumTier: 'L3', reasoningEffort: 'high'
+  });
+});
+
+test('AR2.1 request contract rejects unbounded or contradictory routing metadata', () => {
+  const base = { task: 'test', reason: 'contract', messages: [], traceContext };
+  assert.throws(() => createAIRequest({ ...base, routing: { minimumTier: 'L3', maximumTier: 'L1' } }), /cannot exceed/);
+  assert.throws(() => createAIRequest({ ...base, routing: { reasoningEffort: 'unlimited' } }), /must be one of/);
+  assert.throws(() => createAIRequest({ ...base, routing: { requiredCapabilities: Array.from({ length: 33 }, (_, index) => `c${index}`) } }), /at most 32/);
+});
 
 test('router normalizes provider result and records telemetry without prompt content', async () => {
   const telemetry = createInMemoryAITelemetry();

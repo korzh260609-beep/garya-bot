@@ -1,7 +1,15 @@
 # SG 2.1 — ADAPTIVE AI ROUTING 2.0 (AR2)
 
 ## Status
-ACCEPTED ARCHITECTURE / PLANNED / NOT IMPLEMENTED.
+ACCEPTED ARCHITECTURE / IMPLEMENTATION IN PROGRESS.
+
+Current implementation evidence:
+- AR2.1 Routing Contract is implemented locally in `src/ai/contracts.js` with bounded task class, specialty, capability, tier-constraint and reasoning-effort metadata;
+- legacy AI request callers receive compatible defaults;
+- contradictory or unbounded routing metadata fails closed;
+- targeted tests and `npm run check` pass locally (1138 tests, 1063 passed, 75 skipped, 0 failed);
+- AR2.1 remains NOT CLOSED until the changes are committed, pushed and exact-HEAD SG 2.1 CI succeeds;
+- AR2.2–AR2.10 remain PLANNED / NOT IMPLEMENTED.
 
 This document defines the canonical architecture for the Adaptive AI Routing 2.0 extension of the existing SG 2.1 AI Routing Foundation. Documentation alone does not prove implementation, CI verification, deployment or live operation.
 
@@ -361,7 +369,7 @@ AR2 extends existing AI telemetry with bounded fields such as:
 Operational metrics should include tier distribution, token/cost distribution and escalation rate. A high L1→L2 escalation rate indicates a poor routing policy and should lead to policy tuning, not hidden repeated calls.
 
 ## 19. Implementation stages
-- AR2.1 Routing Contract
+- AR2.1 Routing Contract — IMPLEMENTED LOCALLY / LOCAL CHECK VERIFIED / NOT CI-VERIFIED / NOT CLOSED
 - AR2.2 Tier-aware Model Registry
 - AR2.3 Deterministic L0 Gate
 - AR2.4 Task Assessment

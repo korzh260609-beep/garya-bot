@@ -1,7 +1,7 @@
 # SG 2.1 — GITHUB DEVELOPMENT WORKSPACE 3.0 ARCHITECTURE
 
 ## Status
-**IMPLEMENTATION IN PROGRESS. GH3.1–GH3.10 CLOSED / CI-VERIFIED; GH3.11 IMPLEMENTED / NOT CI-VERIFIED; GH3.12 NOT IMPLEMENTED.**
+**IMPLEMENTATION COMPLETE THROUGH GH3.12. GH3.1–GH3.11 CLOSED / CI-VERIFIED; GH3.12 IMPLEMENTED / CI-VERIFIED / LIVE ACCEPTANCE PENDING.**
 
 ## Purpose
 
@@ -46,6 +46,9 @@ Coordinates source-first analysis, bounded plan, mutation, commit, PR, CI, diagn
 
 ### GitHubSecurityControlPlane
 Re-evaluates registered capability risk, ACS, current Resource Authority, Action Gate, Owner Security, rate policy, emergency state and Credential Manager scope before provider execution. `read-only` emergency mode blocks mutation; `disabled` blocks all GitHub work. Tier 3 requires separate request-bound confirmation and Tier 4 additionally requires Owner Security. Protected execution fails closed if its security decision cannot be audited.
+
+### GitHubCrossTransportAcceptanceRunner
+Executes the GH3.12 acceptance sequence through injected real scenario operations and validates the resulting evidence fail-closed. Acceptance requires qualified public discovery, unauthorized private denial, the same durable actor/project/task across two transports, exact baseline/CI/doc verification, an atomic multi-file commit and PR, failed exact-head CI with an actionable failure, a derived repair commit with green exact-head CI, restart reconciliation without duplicate external actions, separately gated protected operations, secret-safe evidence and correctly qualified PDK4/PM3 projections. The runner cannot manufacture live evidence; GH3.12 remains not closed until the real authorized cross-transport boundary supplies all required evidence.
 
 ### DevelopmentTaskStore
 PostgreSQL-backed durable state for task intent, completion condition, actor/project/repository scope, baseline/current HEAD, plan/version, mutations, commits, PR/review state, CI evidence, blockers, next action and idempotency keys.

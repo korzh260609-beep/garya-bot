@@ -1,7 +1,7 @@
 # SG 2.1 — GITHUB DEVELOPMENT WORKSPACE 3.0 WORKFLOW
 
 ## Status
-**IMPLEMENTATION IN PROGRESS. GH3.1–GH3.10 CLOSED / CI-VERIFIED; GH3.11 IMPLEMENTED / NOT CI-VERIFIED; GH3.12 NOT IMPLEMENTED.**
+**IMPLEMENTATION COMPLETE THROUGH GH3.12. GH3.1–GH3.11 CLOSED / CI-VERIFIED; GH3.12 IMPLEMENTED / CI-VERIFIED / LIVE ACCEPTANCE PENDING.**
 
 No GH3 stage is CLOSED from documentation alone.
 
@@ -73,14 +73,16 @@ Implemented with PostgreSQL task/checkpoint/version/idempotency state and determ
 ### GH3.10 — PM3/PDK4 Integration
 Route verified source events through existing PDK4/PM3 contracts. Test provenance, idempotency, temporal updates, conflict visibility, no raw-secret storage and no false promotion from implemented/CI to deployed/live.
 
-Implemented with deterministic commit/PR/workflow normalization through the existing PDK4 event and PM3 project-fact candidate contracts. Coverage proves immutable provenance, stable source-event replay identity for existing PM3 idempotency, exact-head CI qualification, proposed/unconfirmed PM3 projection, cross-project rejection and fail-closed denial of self-confirmation or repository/CI-to-deployment/runtime promotion. Exact-head CI evidence is still required before closure.
+Implemented with deterministic commit/PR/workflow normalization through the existing PDK4 event and PM3 project-fact candidate contracts. Coverage proves immutable provenance, stable source-event replay identity for existing PM3 idempotency, exact-head CI qualification, proposed/unconfirmed PM3 projection, cross-project rejection and fail-closed denial of self-confirmation or repository/CI-to-deployment/runtime promotion.
 
 Closed on exact implementation HEAD `127b9435d19c845e00c74d88cc4a8b975968c7f0` by SG 2.1 CI #8589 `SUCCESS` on Node.js 22.
 
 ### GH3.11 — Security, Audit & Emergency Controls
 Test ACS/Resource Authority/Action Gate/Credential Manager composition, actor/repository/branch/path isolation, public versus private access, prompt-injection resistance, cost/rate bounds, audit/redaction and emergency read/write disable controls.
 
-Implemented with one current-state security preflight before credential use or provider execution. Deterministic coverage proves read-only/full emergency disable, mutation versus read authority, rate/ACS/authority/gate denial, Tier 3 separate confirmation, Tier 4 Owner Security, fail-closed audit availability and secret-safe audit evidence. Exact-head CI evidence is still required before closure.
+Implemented with one current-state security preflight before credential use or provider execution. Deterministic coverage proves read-only/full emergency disable, mutation versus read authority, rate/ACS/authority/gate denial, Tier 3 separate confirmation, Tier 4 Owner Security, fail-closed audit availability and secret-safe audit evidence.
+
+Closed on exact implementation HEAD `8c34eb87a3c3d5f55e85818ead2ae13e3387c668` by SG 2.1 CI #8591 `SUCCESS` on Node.js 22.
 
 ### GH3.12 — Live Cross-Transport Acceptance
 Use an explicitly authorized GitHub test boundary to prove:
@@ -95,6 +97,12 @@ Use an explicitly authorized GitHub test boundary to prove:
 8. the same task is continued/read through another authorized transport/native API surface;
 9. protected merge/admin actions remain separately gated;
 10. verified outcomes enter PDK4/PM3 with correct provenance and lifecycle qualification.
+
+Implementation now provides `src/githubDevelopment/githubCrossTransportAcceptance.js` plus `tests/githubCrossTransportAcceptance.test.js`. The runner executes the canonical acceptance sequence through injected real-boundary operations; the validator fails closed on cross-SHA CI, missing private denial, same-transport continuation, duplicate external actions after restart, missing protected-operation gating, secret material and false PM3/deployed/live promotion. Deterministic coverage also proves the complete ordered scenario and exact actor/project/task continuity.
+
+Implementation/CI evidence: exact implementation HEAD `11bca7313b84265f093e615121707165c55d07a5`, SG 2.1 CI #8593 `SUCCESS` on Node.js 22.
+
+GH3.12 remains **NOT CLOSED** until a real authorized GitHub boundary plus two real SG transport/API surfaces provide the required live evidence. The deterministic acceptance runner is deliberately unable to self-assert that evidence.
 
 ## Closure evidence
 

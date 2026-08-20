@@ -1,7 +1,7 @@
 # SG 2.1 — GITHUB DEVELOPMENT WORKSPACE 3.0 PROGRAM
 
 ## Status
-**IMPLEMENTATION IN PROGRESS. GH3.1–GH3.10 CLOSED / CI-VERIFIED; GH3.11 IMPLEMENTED / NOT CI-VERIFIED; GH3.12 NOT IMPLEMENTED.**
+**IMPLEMENTATION COMPLETE THROUGH GH3.12. GH3.1–GH3.11 CLOSED / CI-VERIFIED; GH3.12 IMPLEMENTED / CI-VERIFIED / LIVE ACCEPTANCE PENDING.**
 
 GitHub Development Workspace 3.0 (`GH3`) is the canonical transport-neutral program that lets SG inspect GitHub globally and perform complete, durable development work in explicitly authorized repositories.
 
@@ -132,8 +132,16 @@ Apply ACS, Resource Authority, Action Gate, Owner Security, Credential Manager, 
 
 Implementation evidence: `src/githubDevelopment/githubSecurityControlPlane.js` and `tests/githubSecurityControlPlane.test.js`. One fail-closed preflight composes registered capability risk, ACS, current Resource Authority, Action Gate, optional Owner Security, bounded rate policy, emergency `normal`/`read-only`/`disabled` modes and callback-confined Credential Manager use. Tier 3 requires separate request-bound confirmation; Tier 4 additionally requires Owner Security. Protected execution is blocked when security audit is unavailable, and audit evidence is secret-redacted.
 
+Closure evidence: exact implementation HEAD `8c34eb87a3c3d5f55e85818ead2ae13e3387c668`, SG 2.1 CI #8591 `SUCCESS` on Node.js 22.
+
 ### GH3.12 — Cross-Transport E2E & Live Acceptance
 Prove global public discovery, authorized private-repository isolation, multi-file commit, PR/review flow, exact-HEAD CI repair, restart/transport continuation, stale-head reconciliation, denial paths, secret safety, idempotency and PM3/PDK4 evidence ingestion against a real authorized GitHub test boundary.
+
+Implementation evidence: `src/githubDevelopment/githubCrossTransportAcceptance.js` and `tests/githubCrossTransportAcceptance.test.js`. The acceptance runner executes the canonical twelve-step scenario through injected real boundary operations; the validator rejects incomplete or cross-SHA evidence, same-transport continuation, restart duplicates, missing private denial, unsafe protected-operation authorization, secret-shaped evidence and false PM3/deployment/live promotion. It requires an atomic multi-file commit, PR bound to the mutation SHA, failed exact-head CI with an actionable failure, a derived repair commit, green exact-head CI, durable restart reconciliation and the same actor/project/task across two distinct transports.
+
+Implementation/CI evidence: exact implementation HEAD `11bca7313b84265f093e615121707165c55d07a5`, SG 2.1 CI #8593 `SUCCESS` on Node.js 22.
+
+GH3.12 is implemented and CI-verified but is **not CLOSED** until the acceptance runner is supplied with evidence from a real authorized GitHub boundary and two real authorized SG transport/API surfaces satisfying every live gate.
 
 ## Minimum capability families
 

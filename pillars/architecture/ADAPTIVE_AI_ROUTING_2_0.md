@@ -1,7 +1,7 @@
 # SG 2.1 — ADAPTIVE AI ROUTING 2.0 (AR2)
 
 ## Status
-ACCEPTED ARCHITECTURE / IMPLEMENTATION IN PROGRESS.
+ACCEPTED ARCHITECTURE / AR2.1–AR2.10 CI-VERIFIED / PRODUCTION COST RECONCILIATION EXTENSION IN PROGRESS.
 
 Current implementation evidence:
 - AR2.1 Routing Contract is IMPLEMENTED / CI-VERIFIED / CLOSED at `e9e0d053d6243ebf8752059c4c8f3c761a8c859b`, SG 2.1 CI #8643 SUCCESS;
@@ -26,9 +26,8 @@ Current implementation evidence:
 - AR2.9 performs bounded L1→L2→L3 promotion only after deterministic validation failure, preserves original request/evidence plus bounded prior-result handoff, respects trusted maximum tier, and remains distinct from technical fallback;
 - AR2.9 targeted tests and `npm run check` pass locally (1173 tests, 1098 passed, 75 skipped, 0 failed);
 - AR2.9 Semantic Escalation is IMPLEMENTED / CI-VERIFIED / CLOSED at `1f45f80d0c100db96c5f3b72ef1b19ca115470da`, SG 2.1 CI #8659 SUCCESS;
-- AR2.10 Cost Intelligence, Usage Accounting & Observability is implemented locally with call/request/aggregate evidence, versioned pricing snapshots, reconciliation readiness and privacy-safe routing efficiency telemetry;
-- AR2.10 targeted tests and `npm run check` pass locally (1177 tests, 1102 passed, 75 skipped, 0 failed);
-- AR2.10 remains NOT CLOSED until exact-HEAD SG 2.1 CI succeeds.
+- AR2.10 Cost Intelligence, Usage Accounting & Observability is IMPLEMENTED / CI-VERIFIED / CLOSED at `c0255eed08b650462bc2499174f618fb2e9529a9`, SG 2.1 CI #8661 SUCCESS;
+- the production reconciliation extension is implemented locally and remains NOT CI-VERIFIED / NOT LIVE-VERIFIED until its exact-HEAD CI and deployment evidence exist.
 
 This document defines the canonical architecture for the Adaptive AI Routing 2.0 extension of the existing SG 2.1 AI Routing Foundation. Documentation alone does not prove implementation, CI verification, deployment or live operation.
 
@@ -317,7 +316,11 @@ A later price correction may create an explicit adjustment/recalculation record,
 ### 13.6 Estimated cost vs provider actuals
 When the provider exposes authoritative usage/billing units after a call, post-call accounting should prefer those units. Pre-call estimates remain marked as estimates.
 
-If provider billing APIs later expose authoritative monetary charges, SG may reconcile calculated cost against provider-reported actual cost while preserving both values and the reconciliation source.
+OpenAI organization `Usage` and `Costs` Admin API responses are the authoritative post-settlement source for aggregate provider spend. SG automatically retrieves them with `OPENAI_ADMIN_API_KEY`, persists immutable provider buckets and reconciliation runs, and compares them with locally persisted call estimates. A missing/invalid provider response must fail visibly and must never be interpreted as zero cost.
+
+Provider Costs data is aggregate by time/project/API-key/line-item dimensions. It does not prove an exact monetary amount for one individual request unless the provider supplies that attribution. SG therefore labels this evidence `aggregate-window` and does not invent exact per-call actuals by dividing or guessing. Per-call cost remains `estimated`, `provider-reported`, `reconciled` only when direct evidence exists, or `unpriced` when no verified tariff exists.
+
+Production persistence uses `ai_cost_calls`, `ai_provider_cost_buckets` and `ai_cost_reconciliation_runs`. Reconciliation runs daily by default, rechecks a settled lookback window and preserves both provider actual, local estimate and difference.
 
 ### 13.7 User-facing billing is a separate policy layer
 AR2 usage accounting supplies verified technical consumption. It does not permanently define how SG charges users.
@@ -397,9 +400,10 @@ Operational metrics should include tier distribution, token/cost distribution an
 - AR2.7 Reasoning Effort Selector — IMPLEMENTED / CI-VERIFIED / CLOSED (SG 2.1 CI #8655)
 - AR2.8 Validation — IMPLEMENTED / CI-VERIFIED / CLOSED (SG 2.1 CI #8657)
 - AR2.9 Semantic Escalation — IMPLEMENTED / CI-VERIFIED / CLOSED (SG 2.1 CI #8659)
-- AR2.10 Cost Intelligence, Usage Accounting & Observability — IMPLEMENTED LOCALLY / LOCAL CHECK VERIFIED / NOT CI-VERIFIED / NOT CLOSED
+- AR2.10 Cost Intelligence, Usage Accounting & Observability — IMPLEMENTED / CI-VERIFIED / CLOSED (SG 2.1 CI #8661)
+- AR2.10 production Costs/Usage reconciliation extension — IMPLEMENTED LOCALLY / NOT CI-VERIFIED / NOT LIVE-VERIFIED
 
-AR2.10 includes call-level, request-level and aggregate token/cost accounting, mutable/versioned pricing, historical pricing immutability and reconciliation-ready provider cost evidence. User-facing commercial billing/credits may be layered later without changing AR2 technical usage truth.
+AR2.10 includes call-level, request-level and aggregate token/cost accounting, mutable/versioned pricing, historical pricing immutability and reconciliation-ready provider cost evidence. Its production extension adds PostgreSQL call/bucket/run persistence, automatic OpenAI Organization Costs/Usage retrieval, aggregate reconciliation and fail-visible stale/error semantics. `OPENAI_ADMIN_API_KEY` is secret deployment configuration; it is never telemetry or application data. User-facing commercial billing/credits may be layered later without changing AR2 technical usage truth.
 
 Each stage requires implementation, tests/regressions, `npm run check`, exact-HEAD SG 2.1 CI evidence and documentation synchronization before closure.
 

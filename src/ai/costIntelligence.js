@@ -62,20 +62,29 @@ function calculatedCost(snapshot, units) {
     + units.outputTokens * rates.output + units.reasoningTokens * rates.reasoning) / 1_000_000;
 }
 
-export function createAICostIntelligence({ pricingCatalog = createVersionedPricingCatalog(), now = () => new Date() } = {}) {
+export function createAICostIntelligence({ pricingCatalog = createVersionedPricingCatalog(), now = () => new Date(), persistence = null } = {}) {
   const calls = [];
   const reconciliations = [];
+  const pendingWrites = new Set();
+  function persist(method, value) {
+    if (typeof persistence?.[method] !== 'function') return;
+    const write = Promise.resolve().then(() => persistence[method](value));
+    pendingWrites.add(write);
+    write.finally(() => pendingWrites.delete(write)).catch(() => {});
+  }
   return Object.freeze({
     recordCall({ model, request, result, providerReportedCostUsd = null, fallbackUsed = false, escalationUsed = false }) {
       const occurredAt = instant(now(), 'occurredAt');
       const units = usage(result.usage);
       const configured = pricingCatalog.resolve({ provider: model.provider, model: model.model, occurredAt });
+      const legacyRates = { input: model.inputCostPerMillion ?? 0, cachedInput: 0, output: model.outputCostPerMillion ?? 0, reasoning: 0 };
       const pricingSnapshot = configured ?? Object.freeze({
         provider: model.provider, model: model.model, version: 'legacy-model-config', currency: 'USD',
         source: 'model-registry', effectiveFrom: occurredAt, effectiveTo: null,
-        ratesPerMillion: Object.freeze({ input: model.inputCostPerMillion ?? 0, cachedInput: 0, output: model.outputCostPerMillion ?? 0, reasoning: 0 }),
+        ratesPerMillion: Object.freeze(legacyRates),
       });
-      const calculatedCostUsd = calculatedCost(pricingSnapshot, units);
+      const hasKnownPrice = Boolean(configured) || Object.values(legacyRates).some((rate) => rate > 0);
+      const calculatedCostUsd = hasKnownPrice ? calculatedCost(pricingSnapshot, units) : null;
       const reported = providerReportedCostUsd == null ? null : nonNegative(providerReportedCostUsd, 'providerReportedCostUsd');
       const record = Object.freeze({
         version: 'AR2.10', callId: `${request.traceContext.requestId}:${calls.length + 1}`,
@@ -83,12 +92,15 @@ export function createAICostIntelligence({ pricingCatalog = createVersionedPrici
         occurredAt, provider: model.provider, model: model.model, tier: model.tier,
         reasoningEffort: result.reasoningEffort ?? null, taskClass: request.routing.taskClass,
         usage: units, pricingSnapshot, calculatedCostUsd, providerReportedCostUsd: reported,
-        effectiveCostUsd: reported ?? calculatedCostUsd, costSource: reported == null ? 'calculated' : 'provider-reported',
+        effectiveCostUsd: reported ?? calculatedCostUsd,
+        costSource: reported != null ? 'provider-reported' : calculatedCostUsd == null ? 'unpriced' : 'calculated',
+        reconciliationStatus: reported != null ? 'provider-reported' : 'estimated',
         fallbackUsed: Boolean(fallbackUsed), escalationUsed: Boolean(escalationUsed),
         role: request.metadata?.role ?? null, workspaceId: request.metadata?.workspaceId ?? null,
         projectId: request.metadata?.projectId ?? null,
       });
       calls.push(record);
+      persist('recordCall', record);
       return record;
     },
     summarizeRequest(requestId) {
@@ -128,9 +140,11 @@ export function createAICostIntelligence({ pricingCatalog = createVersionedPrici
         providerCostUsd: nonNegative(providerCostUsd, 'reconciliation.providerCostUsd'),
       });
       reconciliations.push(evidence);
+      persist('recordReconciliation', evidence);
       return evidence;
     },
     listCalls() { return Object.freeze([...calls]); },
     listReconciliations() { return Object.freeze([...reconciliations]); },
+    async flush() { await Promise.allSettled([...pendingWrites]); },
   });
 }

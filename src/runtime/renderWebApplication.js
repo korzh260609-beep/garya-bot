@@ -537,7 +537,7 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
       const discord = discordHealth();
       const automation = automationHealth();
       const ok = runtimeHealth.ok && automation.ok;
-      json(response, ok ? 200 : 503, { ok, service: 'sg-2-1-web', runtime: runtimeHealth, automation, discord: { enabled: discordConfig.enabled, ...discord }, revision: harness.config.revision });
+      json(response, ok ? 200 : 503, { ok, service: 'sg-2-1-web', runtime: runtimeHealth, automation, costReconciliation: harness.costReconciliation?.health?.() ?? { enabled: false }, discord: { enabled: discordConfig.enabled, ...discord }, revision: harness.config.revision });
       return;
     }
     if (url.pathname === '/ready') {
@@ -548,7 +548,7 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
       const discordReady = !discordConfig.enabled || discord.connected === true;
       const automationReady = !automationWorker.enabled || (automation.phase === 'ready' && automation.accepting === true);
       const ready = runtimeReadiness.ready && databaseHealth.started && discordReady && automationReady;
-      json(response, ready ? 200 : 503, { ok: ready, service: 'sg-2-1-web', runtime: runtimeReadiness, database: { started: databaseHealth.started }, ai: { enabled: effectiveEnv.SG_AI_ENABLED === 'true', initialized: Boolean(harness.productionAI) }, automation: { enabled: automationWorker.enabled, ready: automationReady, ...automation }, discord: { enabled: discordConfig.enabled, ready: discordReady, ...discord }, revision: harness.config.revision });
+      json(response, ready ? 200 : 503, { ok: ready, service: 'sg-2-1-web', runtime: runtimeReadiness, database: { started: databaseHealth.started }, ai: { enabled: effectiveEnv.SG_AI_ENABLED === 'true', initialized: Boolean(harness.productionAI) }, costReconciliation: harness.costReconciliation?.health?.() ?? { enabled: false }, automation: { enabled: automationWorker.enabled, ready: automationReady, ...automation }, discord: { enabled: discordConfig.enabled, ready: discordReady, ...discord }, revision: harness.config.revision });
       return;
     }
     if (telegramMiniAppHandler && await telegramMiniAppHandler(request, response)) return;

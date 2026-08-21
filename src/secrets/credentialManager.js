@@ -270,6 +270,7 @@ export function createDeploymentCredentialManager({ env = process.env, observabi
   const systemOwner = 'system:runtime';
   const common = { ownerUserId: systemOwner, projectScope, requiredPermission: 'credential:use:system' };
   if (typeof env.OPENAI_API_KEY === 'string' && env.OPENAI_API_KEY !== '') manager.registerCredential({ credentialId: 'sg.openai.primary', type: 'api-key', secretRef: { provider: 'environment', key: 'OPENAI_API_KEY' }, connectionId: 'openai', ...common });
+  if (typeof env.OPENAI_ADMIN_API_KEY === 'string' && env.OPENAI_ADMIN_API_KEY !== '') manager.registerCredential({ credentialId: 'sg.openai.admin', type: 'api-key', secretRef: { provider: 'environment', key: 'OPENAI_ADMIN_API_KEY' }, connectionId: 'openai-admin', ...common, metadata: { provider: 'openai', purpose: 'usage-cost-reconciliation' } });
   const telegramTokenKey = typeof env.TELEGRAM_BOT_TOKEN === 'string' && env.TELEGRAM_BOT_TOKEN !== '' ? 'TELEGRAM_BOT_TOKEN' : (typeof env.BOT_TOKEN === 'string' && env.BOT_TOKEN !== '' ? 'BOT_TOKEN' : null);
   if (telegramTokenKey) {
     manager.registerCredential({ credentialId: 'sg.telegram.bot', type: 'bot-token', secretRef: { provider: 'environment', key: telegramTokenKey }, connectionId: 'telegram', ...common });

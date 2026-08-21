@@ -26,6 +26,7 @@ export function createProductionAI({
   connectionRegistry = null,
   connectionAccessContext = null,
   openAiConnectionId = 'openai',
+  costIntelligence = undefined,
 } = {}) {
   const policy = createProductionAiPolicy(env);
   const registry = createRegistryFromEnvironment(env);
@@ -55,6 +56,7 @@ export function createProductionAI({
     timeoutMs: aiConfig?.timeoutMs ?? positiveInteger(env.AI_TIMEOUT_MS, 30_000),
     maxRetries: aiConfig?.maxRetries ?? nonNegativeInteger(env.AI_MAX_RETRIES, 1),
     retryDelayMs: aiConfig?.retryDelayMs ?? nonNegativeInteger(env.AI_RETRY_DELAY_MS, 100),
+    ...(costIntelligence ? { costIntelligence } : {}),
   });
   const meaningInterpreter = createProductionMeaningInterpreter({ aiRouter, fallbackOnFailure: true });
   return Object.freeze({ policy, registry, telemetry, aiRouter, meaningInterpreter, credentialId: openAiCredentialId, connectionId: openAiConnectionId });

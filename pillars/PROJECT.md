@@ -81,6 +81,13 @@ SG must eventually expose one transport-neutral GitHub capability that can perfo
 
 Technical GitHub permission is not user authority. Repository mutation requires scoped capability, current Resource Authority, Action Gate policy and an approved credential binding. Verified development outcomes enter existing PDK4/Project Memory paths rather than a parallel project-truth store.
 
+### 4.9 Lifecycle Activity
+Lifecycle Activity (LA) is the transport-independent append-only history of meaningful SG actions. It records concise linked events such as task lifecycle changes, GitHub actions, automation changes, significant AI execution, delivery and system transitions so SG can answer what it actually did and when.
+
+LA is observational and non-authoritative: domain stores remain the source of truth, LA failure cannot block or roll back the authoritative action, and LA cannot grant identity, scope, permissions, ownership or authority. The contract reserves actor, workspace, transport, entity, parent/correlation, importance and visibility fields from the first version so later cross-system timelines, analytics, semantic activity search, audit views, graphs and retention can be added without redesigning the core.
+
+Canonical documents are `pillars/architecture/LIFECYCLE_ACTIVITY.md`, `pillars/roadmap/LIFECYCLE_ACTIVITY_PROGRAM.md` and `pillars/workflow/LIFECYCLE_ACTIVITY_WORKFLOW.md`. LA1–LA3 remain planned until implementation/tests/exact-head CI evidence exists.
+
 ## 5. Transport independence
 
 All channels connect to the same SG core.
@@ -150,7 +157,7 @@ Constitution
 
 Telegram, Discord, databases, schedulers and domain modules must not define the early core architecture.
 
-Cross-cutting completion/evolution programs such as Memory 2.0, Project Memory 3.0 and Project Development Knowledge 4.0 extend this foundation without renumbering the canonical production blocks.
+Cross-cutting completion/evolution programs such as Memory 2.0, Project Memory 3.0, Project Development Knowledge 4.0 and Lifecycle Activity extend this foundation without renumbering the canonical production blocks.
 
 ## 10. Domain modules
 
@@ -197,6 +204,7 @@ SG 2.1 is correctly built when:
 - domain modules can be added without rewriting the core;
 - SG can reconstruct and maintain evidence-backed knowledge of its own product development without confusing historical, implemented, CI-verified, deployed and live-verified states.
 - SG can search GitHub globally on instruction and, within explicit authorization, complete and resume repository development through interchangeable transports without duplicate or uncontrolled state changes.
+- SG can maintain a privacy-bounded, non-authoritative history of meaningful actions and answer recent/timeline activity questions without turning that history into a new execution, memory or authority layer.
 
 ## 14. Canonical formula
 
@@ -210,4 +218,5 @@ SG 2.1
 + controlled actions
 + replaceable interfaces
 + evidence-backed project development continuity
++ meaningful lifecycle activity history
 ```

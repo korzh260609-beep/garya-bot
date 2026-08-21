@@ -3,6 +3,12 @@ import { redactSensitiveText } from '../secrets/redaction.js';
 import { captureSemanticMemoryCandidates } from '../memory2/semanticMemoryCandidatePolicy.js';
 
 function directUserConfirmation(selectedName, selectedPayload, requestInput, traceContext) {
+  if (selectedName === 'github-development') {
+    if (selectedPayload?.mode !== 'execute') return undefined;
+    if (requestInput.metadata?.githubDevelopmentRuntimeBound !== true) return undefined;
+    if (!requestInput.identityContext?.roles?.includes('monarch')) return undefined;
+    return { confirmed: true, requestId: traceContext.requestId, source: 'canonical-owner-github-development-instruction' };
+  }
   if (selectedName !== 'task-create') return undefined;
   if (selectedPayload?.kind !== 'self-notification') return undefined;
   if (typeof selectedPayload?.notificationMessage !== 'string' || selectedPayload.notificationMessage.trim() === '') return undefined;

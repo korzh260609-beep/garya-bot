@@ -51,6 +51,12 @@ When sources conflict, SG must qualify the conflict instead of presenting stale 
   - lifecycle labels in the original large TWM program saying TWM1.12 is next or TWM1.13–1.15 are merely planned are superseded for current-state reporting; their detailed requirements/gates remain valid.
 - SG Access Control System 1.0 — **PLANNED / NOT IMPLEMENTED** unless newer code/CI/live evidence explicitly supersedes that state.
 - GitHub Development Workspace 3.0 (GH3) — **PLANNED / NOT IMPLEMENTED**. GH3 is the transport-neutral program for instructed global GitHub discovery and complete authorized repository development through Telegram, Discord, Web/API, Email, the future native SG interface and later transports.
+- Lifecycle Activity (LA) — **ACCEPTED ARCHITECTURE / PLANNED / NOT IMPLEMENTED**.
+  - LA1: append-only Activity Event Core and bounded query API;
+  - LA2: semantic activity queries such as “what did you do today?” or “what happened with GitHub?”;
+  - LA3: human-readable short/normal/detailed activity summaries;
+  - the first-version contract reserves actor/workspace/transport/entity/correlation/importance/visibility fields for future scaling;
+  - LA is observational and non-authoritative: failure to record an activity event must not fail or roll back the authoritative domain action.
 
 ## Requirements
 
@@ -84,6 +90,7 @@ Core invariants:
 - Owner Security only tightens privileged execution; it does not bypass existing gates.
 - Current repository analysis remains read-only. Planned GH3 introduces separately authorized, scoped and gated GitHub mutation/development capabilities; its documentation does not prove those capabilities exist yet.
 - Current-state claims must respect provenance/currentness; historical or superseded facts remain qualified.
+- Lifecycle Activity, when implemented, remains a fail-open append-only observer of meaningful actions and cannot become an execution dependency, authority source, replacement memory store or duplicate domain state.
 
 ## Active status documents
 
@@ -101,6 +108,9 @@ Core invariants:
 - `pillars/roadmap/GITHUB_DEVELOPMENT_WORKSPACE_3_0_PROGRAM.md`
 - `pillars/architecture/GITHUB_DEVELOPMENT_WORKSPACE_3_0.md`
 - `pillars/workflow/GITHUB_DEVELOPMENT_WORKSPACE_3_0_WORKFLOW.md`
+- `pillars/architecture/LIFECYCLE_ACTIVITY.md`
+- `pillars/roadmap/LIFECYCLE_ACTIVITY_PROGRAM.md`
+- `pillars/workflow/LIFECYCLE_ACTIVITY_WORKFLOW.md`
 - `docs/checkpoints/SG2.1_2026-08-15_1946.md` — immutable historical rollback/live checkpoint.
 - `evidence/LIVE_RUNTIME_BASELINES.md`
 - `evidence/PDK4_13_LIVE_CONTINUOUS_INGESTION_PROBE_2026-08-16.md`

@@ -143,7 +143,7 @@ integration('Block 12 PostgreSQL persistence is durable, isolated and atomic', a
 
   const migrationRepeat = await runMigrations(database);
   assert.deepEqual(migrationRepeat.applied, []);
-  assert.equal(migrationRepeat.total, 40);
+  assert.equal(migrationRepeat.total, 41);
 
   const suffix = randomUUID();
   const scope = { globalUserId: `user:${suffix}`, projectScope: 'sg2.1', groupScope: 'group:1', threadScope: 'thread:1' };

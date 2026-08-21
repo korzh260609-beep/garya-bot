@@ -35,6 +35,13 @@ When sources conflict, SG must qualify the conflict instead of presenting stale 
 - Memory 2.0 M1–M9 — **CLOSED**.
 - Project Memory 3.0 PM3.1–PM3.12 — **CLOSED**.
 - Project Development Knowledge 4.0 PDK4.1–PDK4.12 — **CLOSED / CI-verified**.
+- **Semantic Deterministic Execution — ACCEPTED ARCHITECTURE / PLANNED IMPLEMENTATION.**
+  - natural-language meaning is resolved semantically and transport-neutrally;
+  - meaning is normalized into bounded canonical intent/action/time/scope/delivery values;
+  - after canonicalization, temporal resolution, authorization, state mutation, execution and post-condition verification are deterministic;
+  - equivalent requests across Telegram, Discord, Web/API, Email and future SG-native interfaces must produce the same core execution plan modulo transport/delivery metadata;
+  - static wording must never substitute for an executable workflow when the user requested work to be performed later;
+  - Action Gate selection/authorization is not success; authoritative post-condition evidence is required.
 - **PDK4.13 — LIVE ACCEPTANCE / NOT CLOSED.**
   - production GitHub repository read is implemented and credential-bound;
   - current branch HEAD, recursive tree, recent commits, changed files and bounded relevant file content are read with GET-only repository access;
@@ -79,15 +86,18 @@ Production AI remains reachable only through the SG AI Router and explicit produ
 
 Canonical request path:
 
-`Platform Input → Transport Adapter → Identity/Scope → Context/Settings/Language/Temporal layers → Semantic Kernel → Decision Engine → Resource Authority where required → Owner Security where owner-sensitive → Action Gate → Capability/Domain Runtime → Response composition → Delivery → Observability`.
+`Platform Input → Transport Adapter → Identity/Scope → Context/Settings/Language/Temporal layers → Semantic Kernel → Canonical Semantic Model → Deterministic Validation / Execution Plan → Decision Engine → Resource Authority where required → Owner Security where owner-sensitive → Action Gate → Deterministic Capability/Domain Runtime → Post-condition Verification → Response composition → Delivery → Observability`.
 
 Core invariants:
 
 - AI is an execution/reasoning component; SG owns decisions and system identity.
+- Natural-language meaning is semantic; authoritative execution after canonicalization is deterministic.
+- Telegram and other transports are adapters, not owners of task, automation, temporal or action semantics.
 - No production model provider is called directly outside AI Router.
 - Identity/roles/grants/owner authority cannot be created from wording, usernames, display names or AI inference.
 - Resource Authority and Action Gate remain mandatory where applicable.
 - Owner Security only tightens privileged execution; it does not bypass existing gates.
+- A selected/authorized action is not considered completed until the authoritative state/result has been verified.
 - Current repository analysis remains read-only. Planned GH3 introduces separately authorized, scoped and gated GitHub mutation/development capabilities; its documentation does not prove those capabilities exist yet.
 - Current-state claims must respect provenance/currentness; historical or superseded facts remain qualified.
 - Lifecycle Activity, when implemented, remains a fail-open append-only observer of meaningful actions and cannot become an execution dependency, authority source, replacement memory store or duplicate domain state.
@@ -95,6 +105,7 @@ Core invariants:
 ## Active status documents
 
 - `pillars/roadmap/CURRENT_STATUS.md` — canonical current-state index; read this before interpreting older lifecycle labels in large program documents.
+- `pillars/architecture/SEMANTIC_DETERMINISTIC_EXECUTION.md` — SG-wide semantic→canonical→deterministic execution contract.
 - `pillars/roadmap/16_18_MONARCH_CONTROL_OWNER_SECURITY.md`
 - `pillars/architecture/MONARCH_OWNER_SECURITY.md`
 - `pillars/roadmap/17_RENDER_DEPLOYMENT.md`

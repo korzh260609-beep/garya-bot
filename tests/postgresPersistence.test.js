@@ -70,8 +70,8 @@ integration('Block 12 upgrades an SG 2.0 database in place without deleting lega
   `);
 
   const migrated = await runMigrations(database);
-  assert.equal(migrated.applied.length, 40);
-  assert.equal(migrated.total, 40);
+  assert.equal(migrated.applied.length, 41);
+  assert.equal(migrated.total, 41);
   assert.ok(migrated.applied.includes('000_legacy_scope_preflight.sql'));
   assert.ok(migrated.applied.includes('020_universal_diagnostics.sql'));
   assert.ok(migrated.applied.includes('165_temporal_context.sql'));

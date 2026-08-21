@@ -14,6 +14,8 @@ function tokenKey(env) {
   return null;
 }
 
+function repositoryResourceId(repository) { return `github:repo:${repository}`; }
+
 function messageForUnavailable(locale, reason) {
   const language = String(locale ?? 'ru').toLowerCase();
   if (language.startsWith('uk')) return `GitHub Development Workspace недоступний: ${reason}.`;
@@ -34,18 +36,25 @@ export function createProductionGitHubDevelopmentRuntime({
   env = process.env,
   credentialManager,
   credentialAccessContext,
+  resourceAuthorityRegistry,
+  resourceAuthorityAccessContext,
+  ownerGlobalUserId,
   aiRouter = null,
   fetchImpl = globalThis.fetch,
   clock = () => new Date()
 } = {}) {
   if (!credentialManager?.registerCredential || !credentialManager?.listCredentials) throw new TypeError('credentialManager is required');
   if (!credentialAccessContext?.actor || !credentialAccessContext?.scope) throw new TypeError('credentialAccessContext is required');
+  if (!resourceAuthorityRegistry?.checkAuthority || !resourceAuthorityRegistry?.listResources || !resourceAuthorityRegistry?.registerResource || !resourceAuthorityRegistry?.listAuthorities || !resourceAuthorityRegistry?.grantAuthority) throw new TypeError('resourceAuthorityRegistry is required');
+  if (!resourceAuthorityAccessContext?.actor || !resourceAuthorityAccessContext?.projectScope) throw new TypeError('resourceAuthorityAccessContext is required');
 
   const repository = value(env.SG_GITHUB_DEVELOPMENT_REPOSITORY) ?? 'korzh260609-beep/garya-bot';
   const branch = value(env.SG_GITHUB_DEVELOPMENT_BRANCH) ?? 'dev/sg2.1-semantic';
+  const owner = value(ownerGlobalUserId);
   const key = tokenKey(env);
   const credentialId = 'sg.github.development';
   const connectionId = 'github-development';
+  const resourceId = repositoryResourceId(repository);
   const existing = new Set(credentialManager.listCredentials().map((item) => item.credentialId));
 
   if (key && !existing.has(credentialId)) {
@@ -61,7 +70,7 @@ export function createProductionGitHubDevelopmentRuntime({
     });
   }
 
-  const configured = Boolean(key && aiRouter?.route);
+  const configured = Boolean(key && aiRouter?.route && owner);
   let service = null;
   if (configured) {
     const provider = createGitHubTokenConnectionProvider({ credentialManager, credentialAccessContext, credentialId, connectionId });
@@ -75,10 +84,50 @@ export function createProductionGitHubDevelopmentRuntime({
     configured,
     repository,
     branch,
+    resourceId,
     authentication: key ? 'deployment-token' : 'unconfigured',
     credentialPresent: Boolean(key),
-    aiAvailable: Boolean(aiRouter?.route)
+    aiAvailable: Boolean(aiRouter?.route),
+    ownerBound: Boolean(owner)
   });
+
+  async function start() {
+    if (!configured) return availability;
+    const projectScope = resourceAuthorityAccessContext.projectScope;
+    const actor = resourceAuthorityAccessContext.actor;
+    const resources = await resourceAuthorityRegistry.listResources({ projectScope, provider: 'github', actor });
+    if (!resources.some((item) => item.resourceId === resourceId)) {
+      await resourceAuthorityRegistry.registerResource({
+        resourceId,
+        resourceType: 'repository',
+        provider: 'github',
+        projectScope,
+        externalResourceId: repository,
+        verificationState: 'verified',
+        metadata: { repository, branch, purpose: 'sg-github-development-workspace' },
+        provenance: { source: 'deployment-config' },
+        actor,
+        purpose: 'gh3-production-resource-bootstrap'
+      });
+    }
+    const authorities = await resourceAuthorityRegistry.listAuthorities({ projectScope, actorGlobalUserId: owner, resourceId, actor });
+    if (!authorities.some((item) => item.state === 'active' && item.verificationState === 'verified' && ['owns', 'administers', 'manages', 'can_modify'].includes(item.relation))) {
+      await resourceAuthorityRegistry.grantAuthority({
+        authorityId: `gh3-owner:${owner}:${repository}`,
+        resourceId,
+        actorGlobalUserId: owner,
+        projectScope,
+        relation: 'can_modify',
+        appliesToDescendants: false,
+        verificationState: 'verified',
+        verificationSource: 'canonical-owner-deployment-binding',
+        provenance: { source: 'deployment-config', repository },
+        actor,
+        purpose: 'gh3-owner-authority-bootstrap'
+      });
+    }
+    return availability;
+  }
 
   const capability = createCapability({
     name: GITHUB_DEVELOPMENT_RUNTIME_CAPABILITY,
@@ -98,13 +147,22 @@ export function createProductionGitHubDevelopmentRuntime({
     priority: 100,
     execute: async (request) => {
       if (!service) {
-        const reason = !key ? 'development credential is not configured' : 'AI Router is unavailable';
+        const reason = !owner ? 'canonical owner is not configured' : (!key ? 'development credential is not configured' : 'AI Router is unavailable');
         return { status: 'unavailable', data: { message: messageForUnavailable(request.input?.locale, reason), availability }, error: { code: 'github-development-unavailable', message: reason, retryable: false } };
+      }
+      if (request.actor?.globalUserId !== owner) {
+        const reason = 'actor is not the canonical owner authorized for this development workspace';
+        return { status: 'failed', data: { message: messageForUnavailable(request.input?.locale, reason), availability }, error: { code: 'github-development-owner-denied', message: reason, retryable: false } };
+      }
+      const authority = await resourceAuthorityRegistry.checkAuthority({ actorGlobalUserId: request.actor.globalUserId, resourceId, projectScope: request.scope.projectScope, relation: 'can_modify' });
+      if (authority?.allowed !== true) {
+        const reason = authority?.reason ?? 'repository modification authority is unavailable';
+        return { status: 'failed', data: { message: messageForUnavailable(request.input?.locale, reason), availability }, error: { code: 'github-development-authority-denied', message: reason, retryable: false } };
       }
       const instruction = request.input?.instruction ?? request.input?.text ?? request.input?.semanticMessage;
       try {
         const result = await service.execute({ instruction, actor: request.actor, traceContext: request.traceContext });
-        return { status: 'success', data: { ...result, message: successMessage(request.input?.locale, result), availability } };
+        return { status: 'success', data: { ...result, message: successMessage(request.input?.locale, result), availability, authority: { resourceId, relation: 'can_modify', reason: authority.reason } } };
       } catch (error) {
         const reason = error?.code ?? 'github-development-execution-failed';
         const detail = error?.message ?? 'GitHub development execution failed';
@@ -113,5 +171,5 @@ export function createProductionGitHubDevelopmentRuntime({
     }
   });
 
-  return Object.freeze({ capability, availability, service });
+  return Object.freeze({ capability, availability, service, start });
 }

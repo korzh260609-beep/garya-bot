@@ -14,29 +14,30 @@ SG 2.1 is one global transport-independent project system whose reasoning layer 
 ## Canonical documents
 1. `SG21_SYSTEM.md`
 2. `SEMANTIC_KERNEL.md`
-3. `CONTEXT_AND_MEMORY.md`
-4. `MEMORY_2_0.md`
-5. `PROJECT_MEMORY_3_0.md`
-6. `PROJECT_DEVELOPMENT_KNOWLEDGE_4_0.md`
-7. `PROJECT_DEVELOPMENT_KNOWLEDGE_4_13_LIVE_PRODUCTION_WIRING.md`
-8. `TELEGRAM_WORKSPACE_MANAGER_1_0.md`
-9. `TELEGRAM_WORKSPACE_MANAGER_1_15_COMMUNITY_OPERATIONS.md`
-10. `SG_ACCESS_CONTROL_SYSTEM_1_0.md`
-11. `AUTOMATION_2_0_EXECUTABLE_WORKFLOWS.md`
-12. `GITHUB_DEVELOPMENT_WORKSPACE_3_0.md`
-13. `DECISION_AND_ACTION_GATE.md`
-14. `CAPABILITY_SYSTEM.md`
-15. `IDENTITY_AND_SCOPE.md`
-16. `OBSERVABILITY.md`
-17. `TRANSPORTS_AND_AI_ROUTING.md`
-18. `ADAPTIVE_AI_ROUTING_2_0.md`
-19. `LANGUAGE_AND_LOCALE_CONTEXT.md`
-20. `FOUNDATIONAL_CONTROL_LAYERS.md`
-21. `SELF_KNOWLEDGE.md`
-22. `MONARCH_OWNER_SECURITY.md`
-23. `RUNTIME_COMPOSITION.md`
-24. `POSTGRESQL_PERSISTENCE.md`
-25. `UNIVERSAL_DIAGNOSTICS.md`
+3. `SEMANTIC_DETERMINISTIC_EXECUTION.md`
+4. `CONTEXT_AND_MEMORY.md`
+5. `MEMORY_2_0.md`
+6. `PROJECT_MEMORY_3_0.md`
+7. `PROJECT_DEVELOPMENT_KNOWLEDGE_4_0.md`
+8. `PROJECT_DEVELOPMENT_KNOWLEDGE_4_13_LIVE_PRODUCTION_WIRING.md`
+9. `TELEGRAM_WORKSPACE_MANAGER_1_0.md`
+10. `TELEGRAM_WORKSPACE_MANAGER_1_15_COMMUNITY_OPERATIONS.md`
+11. `SG_ACCESS_CONTROL_SYSTEM_1_0.md`
+12. `AUTOMATION_2_0_EXECUTABLE_WORKFLOWS.md`
+13. `GITHUB_DEVELOPMENT_WORKSPACE_3_0.md`
+14. `DECISION_AND_ACTION_GATE.md`
+15. `CAPABILITY_SYSTEM.md`
+16. `IDENTITY_AND_SCOPE.md`
+17. `OBSERVABILITY.md`
+18. `TRANSPORTS_AND_AI_ROUTING.md`
+19. `ADAPTIVE_AI_ROUTING_2_0.md`
+20. `LANGUAGE_AND_LOCALE_CONTEXT.md`
+21. `FOUNDATIONAL_CONTROL_LAYERS.md`
+22. `SELF_KNOWLEDGE.md`
+23. `MONARCH_OWNER_SECURITY.md`
+24. `RUNTIME_COMPOSITION.md`
+25. `POSTGRESQL_PERSISTENCE.md`
+26. `UNIVERSAL_DIAGNOSTICS.md`
 
 ## Core flow
 
@@ -46,6 +47,8 @@ Input
 → Language & Locale Context
 → Session & Conversation Context
 → Semantic Kernel
+→ Canonical Semantic Model
+→ Deterministic Validation / Execution Plan
 → Context Resolution
 → Decision Envelope
 → Capability Selection
@@ -54,11 +57,14 @@ Input
 → Owner Security Policy where SG-wide privileged state is targeted
 → Action Classification
 → Action Gate
-→ Execution or Answer
+→ Deterministic Execution
+→ Post-condition Verification
 → Delivery Routing where required
 → Response
 → Observability / Internal Events
 ```
+
+Semantic Deterministic Execution is the SG-wide contract that separates meaning resolution from authoritative execution. Natural-language input is interpreted semantically, normalized into bounded canonical intent/action/time/scope/delivery values, validated and converted into a deterministic execution plan. After canonicalization, AI/model output cannot directly drive authoritative state transitions, authorization, task mutation, temporal boundaries or success claims. Telegram, Discord, Web/API, Email and the future native SG interface are adapters around the same core behavior. Canonical architecture: `SEMANTIC_DETERMINISTIC_EXECUTION.md`.
 
 Memory 2.0 is the canonical durable memory subsystem layered behind Context Resolution and response-context assembly. It preserves user/group/thread/project isolation, privacy-first recall, lifecycle, provenance and verified `global_user_id` continuity without replacing Conversation Context or System Self Knowledge.
 
@@ -87,6 +93,10 @@ Universal Diagnostics is an independent observer application outside the mandato
 ## Non-negotiable boundaries
 - Connected AI models provide reasoning and may also execute specialized tasks.
 - SG code does not imitate reasoning with keyword routing.
+- Natural-language meaning is resolved semantically, then normalized into bounded canonical values before authoritative execution.
+- After canonicalization, authoritative execution, temporal resolution, authorization, state mutation and post-condition verification are deterministic and cannot be replaced by model interpretation.
+- Equivalent user meaning across Telegram, Discord, Web/API, Email and future SG-native interfaces must produce the same canonical core plan except for transport/delivery metadata.
+- Action selection or Action Gate authorization alone is never proof that an action completed; success requires authoritative post-condition evidence.
 - AR2 extends the existing AI Router and cannot create a second independent router or direct provider bypass.
 - AR2 model tiers are capability/configuration classes; provider product names cannot become domain business logic.
 - AR2 may choose minimum-sufficient tier/reasoning effort but model/user text cannot self-authorize a more expensive tier or bypass cost/security policy.

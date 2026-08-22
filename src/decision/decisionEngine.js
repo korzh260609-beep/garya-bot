@@ -72,7 +72,7 @@ function canonicalConversationAction(action, interpretation) {
     })
   });
 }
-function canonicalGitHubExecutionAction(action) {
+function canonicalGitHubExecutionAction(action, canonicalSemanticModel) {
   if (typeof action?.name !== 'string' || !action.name.startsWith('github.')) return null;
   const status = action.name === 'github.repository.inspect' && action.payload?.mode === 'status';
   return Object.freeze({
@@ -81,12 +81,15 @@ function canonicalGitHubExecutionAction(action) {
     name: 'github-development',
     payload: Object.freeze({
       ...(action.payload ?? {}),
-      canonicalAction: action.name
+      canonicalAction: action.name,
+      canonicalTarget: canonicalSemanticModel?.target ?? null,
+      canonicalParameters: canonicalSemanticModel?.parameters ?? null,
+      canonicalResolution: canonicalSemanticModel ? Object.freeze({ version: canonicalSemanticModel.version ?? null, status: canonicalSemanticModel.resolutionStatus ?? null, confidence: canonicalSemanticModel.confidence ?? null, provenance: canonicalSemanticModel.provenance ?? null }) : null
     })
   });
 }
-function canonicalizeSelectedAction(action, interpretation) {
-  const githubExecution = canonicalGitHubExecutionAction(action);
+function canonicalizeSelectedAction(action, interpretation, canonicalSemanticModel) {
+  const githubExecution = canonicalGitHubExecutionAction(action, canonicalSemanticModel);
   if (githubExecution) return githubExecution;
   if ((action?.type === 'answer' && action?.actionClass === 'analysis')
     || conversationalMemoryRead(action, interpretation)
@@ -138,7 +141,7 @@ export function createDecisionEngine({ uncertaintyThreshold = 0.65 } = {}) {
       if (!interpretation) throw new TypeError('interpretation is required');
       const evaluations = evaluateCandidates(interpretation.candidateActions);
       const selected = canonicalModelSelection(canonicalSemanticModel) ?? selectCandidate(evaluations);
-      const selectedAction = canonicalizeSelectedAction(selected.action, interpretation);
+      const selectedAction = canonicalizeSelectedAction(selected.action, interpretation, canonicalSemanticModel);
       const requiresEvidence = interpretation.evidenceNeeds.length > 0;
       const decisionType = classifyDecision({ interpretation, canonicalSemanticModel, selected, selectedAction, uncertaintyThreshold });
       const rationale = buildRationale({ decisionType, interpretation, canonicalSemanticModel, selected, requiresEvidence });

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createProductionGitHubDevelopmentRuntime } from '../src/githubDevelopment/githubDevelopmentProductionRuntime.js';
 
-function harness({ authorities = [], allowed = true, capabilityBindingService = null } = {}) {
+function harness({ authorities = [], allowed = true, capabilityBindingService = null, platformOperationsService = null } = {}) {
   const credentials = [];
   const grants = [];
   const resources = [];
@@ -27,6 +27,7 @@ function harness({ authorities = [], allowed = true, capabilityBindingService = 
     ownerGlobalUserId: 'telegram:1',
     aiRouter: { async route() { throw new Error('not used by status test'); } },
     capabilityBindingService,
+    platformOperationsService,
     fetchImpl: async () => { throw new Error('not used by status test'); }
   });
   return { runtime, credentials, grants, resources };
@@ -86,4 +87,11 @@ test('GH3 status truth denies non-owner even when a credential exists', async ()
   });
   assert.equal(result.data.authority.allowed, false);
   assert.equal(result.data.authority.reason, 'canonical-owner-required');
+});
+
+test('GDE6 production runtime routes canonical platform actions transport-neutrally through the existing capability', async () => {
+  const calls=[];const platformOperationsService={async execute(input){calls.push(input);return{canonicalAction:input.canonicalAction,result:{exactHeadVerified:true}}}};
+  const {runtime}=harness({platformOperationsService});
+  for(const transport of ['telegram','web-api']){const result=await runtime.capability.execute({actor:{globalUserId:'telegram:1'},scope:{projectScope:'sg2.1'},input:{canonicalAction:'github.ci.verify',platformOperation:{repository:{owner:'korzh260609-beep',name:'garya-bot'},branch:'dev/sg2.1-semantic'},transport},actionRequest:{actionType:'github-development'},traceContext:{traceId:'t',requestId:transport}});assert.equal(result.status,'success');assert.equal(result.data.canonicalAction,'github.ci.verify')}
+  assert.equal(calls.length,2);assert.equal(calls[0].actor.globalUserId,'telegram:1');assert.equal(calls[1].projectScope,'sg2.1');
 });

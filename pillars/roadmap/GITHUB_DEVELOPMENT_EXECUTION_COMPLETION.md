@@ -2,7 +2,16 @@
 
 ## Status
 
-**PLANNED / NOT IMPLEMENTED.**
+**IMPLEMENTED / RUNTIME-INTEGRATED / CI VERIFICATION PENDING.**
+
+Production integration evidence:
+
+- `createProductionAI` installs `githubDevelopmentMeaningInterpreter` in the global semantic pipeline;
+- the complete Canonical Semantic Model is carried through the Decision Engine into the existing `github-development` capability;
+- `githubDevelopmentProductionComposition` assembles GDE1 target resolution, GDE2 capability assessment, GDE3 canonical bridge, the existing GH3 orchestrator and GDE6 platform operations as one production path;
+- the production composition reuses the existing repository reader, validated atomic commit lifecycle, security control plane, Action Gate, credential provider and PostgreSQL development task store;
+- repository inspection and development execution both resolve the authoritative repository, non-`main` branch and exact baseline HEAD before continuing;
+- no second GitHub executor, capability system, Action Gate, CI service or semantic system is introduced.
 
 This document extends the existing GitHub Development Workspace 3.0 (`GH3`) program. It does not create a second GitHub subsystem, semantic router, capability registry, authorization layer, Action Gate, CI service, task store, memory store or transport-specific execution path.
 

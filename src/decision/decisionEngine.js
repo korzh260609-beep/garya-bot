@@ -84,6 +84,7 @@ function canonicalGitHubExecutionAction(action, canonicalSemanticModel) {
       canonicalAction: action.name,
       canonicalTarget: canonicalSemanticModel?.target ?? null,
       canonicalParameters: canonicalSemanticModel?.parameters ?? null,
+      canonicalModel: canonicalSemanticModel ?? null,
       canonicalResolution: canonicalSemanticModel ? Object.freeze({ version: canonicalSemanticModel.version ?? null, status: canonicalSemanticModel.resolutionStatus ?? null, confidence: canonicalSemanticModel.confidence ?? null, provenance: canonicalSemanticModel.provenance ?? null }) : null
     })
   });

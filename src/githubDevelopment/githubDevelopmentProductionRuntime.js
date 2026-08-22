@@ -5,6 +5,7 @@ import { createGitHubAtomicCommitService } from './githubAtomicCommitService.js'
 import { createGitHubDevelopmentExecutionService } from './githubDevelopmentExecutionService.js';
 import { createGitHubChangeSetValidationService } from './githubChangeSetValidationService.js';
 import { createGitHubValidatedCommitLifecycle } from './githubValidatedCommitLifecycle.js';
+import { createGitHubDevelopmentProductionComposition } from './githubDevelopmentProductionComposition.js';
 
 export const GITHUB_DEVELOPMENT_RUNTIME_CAPABILITY = 'github-development';
 
@@ -30,7 +31,7 @@ function capabilityError(error, locale, availability, authority, fallbackCode = 
   return { status: 'failed', data: { message: messageForUnavailable(locale, `${code}: ${detail}`), availability, authority }, error: { code, message: detail, retryable: Boolean(error?.retryable) } };
 }
 
-export function createProductionGitHubDevelopmentRuntime({ env = process.env, credentialManager, credentialAccessContext, resourceAuthorityRegistry, resourceAuthorityAccessContext, ownerGlobalUserId, aiRouter = null, capabilityBindingService = null, githubSecurityControlPlane = null, platformOperationsService = null, validationChecks = [], fetchImpl = globalThis.fetch, clock = () => new Date() } = {}) {
+export function createProductionGitHubDevelopmentRuntime({ env = process.env, credentialManager, credentialAccessContext, resourceAuthorityRegistry, resourceAuthorityAccessContext, ownerGlobalUserId, aiRouter = null, capabilityBindingService = null, githubSecurityControlPlane = null, platformOperationsService = null, developmentTaskStore = null, auditSink = null, validationChecks = [], fetchImpl = globalThis.fetch, clock = () => new Date() } = {}) {
   if (!credentialManager?.registerCredential || !credentialManager?.listCredentials) throw new TypeError('credentialManager is required');
   if (!credentialAccessContext?.actor || !credentialAccessContext?.scope) throw new TypeError('credentialAccessContext is required');
   if (!resourceAuthorityRegistry?.checkAuthority || !resourceAuthorityRegistry?.listResources || !resourceAuthorityRegistry?.registerResource || !resourceAuthorityRegistry?.listAuthorities || !resourceAuthorityRegistry?.grantAuthority) throw new TypeError('resourceAuthorityRegistry is required');
@@ -41,8 +42,16 @@ export function createProductionGitHubDevelopmentRuntime({ env = process.env, cr
   const owner = value(ownerGlobalUserId); const key = tokenKey(env); const credentialId = 'sg.github.development'; const connectionId = 'github-development'; const resourceId = repositoryResourceId(repository);
   const existing = new Set(credentialManager.listCredentials().map((item) => item.credentialId));
   if (key && !existing.has(credentialId)) credentialManager.registerCredential({ credentialId, type: 'service-credential', secretRef: { provider: 'environment', key }, ownerUserId: 'system:runtime', projectScope: credentialAccessContext.scope.projectScope, connectionId, requiredPermission: 'credential:use:system', metadata: { provider: 'github', purpose: 'gh3-production-development', authentication: 'deployment-token' } });
-  const configured = Boolean(key && aiRouter?.route && owner); let service = null;
-  if (configured) { const provider = createGitHubTokenConnectionProvider({ credentialManager, credentialAccessContext, credentialId, connectionId }); const repositoryReadService = createGitHubRepositoryReadAnalysisService({ fetchImpl, githubAppProvider: provider, clock }); const atomicCommitService = createGitHubAtomicCommitService({ fetchImpl, githubAppProvider: provider, clock }); const commitLifecycle = githubSecurityControlPlane ? createGitHubValidatedCommitLifecycle({ validationService: createGitHubChangeSetValidationService({ checks: validationChecks }), securityControlPlane: githubSecurityControlPlane, atomicCommitService, repositoryReadService }) : null; service = createGitHubDevelopmentExecutionService({ aiRouter, repositoryReadService, atomicCommitService, commitLifecycle, repository, branch, connectionId, clock }); }
+  const configured = Boolean(key && aiRouter?.route && owner); let service = null; let composition = null;
+  if (configured) {
+    const provider = createGitHubTokenConnectionProvider({ credentialManager, credentialAccessContext, credentialId, connectionId });
+    const repositoryReadService = createGitHubRepositoryReadAnalysisService({ fetchImpl, githubAppProvider: provider, clock });
+    const atomicCommitService = createGitHubAtomicCommitService({ fetchImpl, githubAppProvider: provider, clock });
+    const commitLifecycle = githubSecurityControlPlane ? createGitHubValidatedCommitLifecycle({ validationService: createGitHubChangeSetValidationService({ checks: validationChecks }), securityControlPlane: githubSecurityControlPlane, atomicCommitService, repositoryReadService }) : null;
+    service = createGitHubDevelopmentExecutionService({ aiRouter, repositoryReadService, atomicCommitService, commitLifecycle, repository, branch, connectionId, clock });
+    composition = createGitHubDevelopmentProductionComposition({ env, repository, branch, connectionId, repositoryReadService, atomicCommitService, developmentExecutionService: service, capabilityBindingService, securityControlPlane: githubSecurityControlPlane, githubProvider: provider, taskStore: developmentTaskStore, fetchImpl, auditSink, clock });
+  }
+  const effectivePlatformOperationsService = platformOperationsService ?? composition?.platformOperationsService ?? null;
   const availability = Object.freeze({ capability: GITHUB_DEVELOPMENT_RUNTIME_CAPABILITY, configured, repository, branch, resourceId, authentication: key ? 'deployment-token' : 'unconfigured', credentialPresent: Boolean(key), aiAvailable: Boolean(aiRouter?.route), ownerBound: Boolean(owner), canonicalRuntimeBinding: true });
   async function start() { if (!configured) return availability; const projectScope = resourceAuthorityAccessContext.projectScope; const actor = resourceAuthorityAccessContext.actor; const resources = await resourceAuthorityRegistry.listResources({ projectScope, provider: 'github', actor }); if (!resources.some((item) => item.resourceId === resourceId)) await resourceAuthorityRegistry.registerResource({ resourceId, resourceType: 'repository', provider: 'github', projectScope, externalResourceId: repository, verificationState: 'verified', metadata: { repository, branch, purpose: 'sg-github-development-workspace' }, provenance: { source: 'deployment-config' }, actor, purpose: 'gh3-production-resource-bootstrap' }); const authorities = await resourceAuthorityRegistry.listAuthorities({ projectScope, actorGlobalUserId: owner, resourceId, includeRevoked: true, actor }); if (authorities.length === 0) await resourceAuthorityRegistry.grantAuthority({ authorityId: `gh3-owner:${owner}:${repository}`, resourceId, actorGlobalUserId: owner, projectScope, relation: 'can_modify', appliesToDescendants: false, verificationState: 'verified', verificationSource: 'canonical-owner-deployment-binding', provenance: { source: 'deployment-config', repository }, actor, purpose: 'gh3-owner-authority-bootstrap' }); return availability; }
   async function authorityFor(request) { if (request.actor?.globalUserId !== owner) return Object.freeze({ allowed: false, reason: 'canonical-owner-required' }); try { return await resourceAuthorityRegistry.checkAuthority({ actorGlobalUserId: request.actor.globalUserId, resourceId, projectScope: request.scope.projectScope, relation: 'can_modify' }); } catch (error) { return Object.freeze({ allowed: false, reason: error?.code ?? 'resource-authority-resolution-failed' }); } }
@@ -84,16 +93,18 @@ export function createProductionGitHubDevelopmentRuntime({ env = process.env, cr
         if (!preflight.ok) return preflight.response;
         const instruction = request.input?.instruction ?? request.input?.text ?? request.input?.semanticMessage;
         try {
+          const canonicalInput = Object.freeze({ text: instruction, locale: request.input?.locale ?? 'ru', identityContext: request.actor, scopeContext: request.scope, traceContext: request.traceContext, metadata: request.input?.metadata ?? {} });
+          const resolvedTarget = composition?.targetResolver && request.input?.canonicalModel ? await composition.targetResolver.resolve({ canonicalModel: request.input.canonicalModel, canonicalInput }) : null;
           const result = await service.inspect({ instruction, actor: request.actor, traceContext: request.traceContext });
-          return { status: 'success', data: { ...result, availability, authority, capabilityAssessment: preflight.assessment } };
+          return { status: 'success', data: { ...result, availability, authority, capabilityAssessment: preflight.assessment, resolvedTarget } };
         } catch (error) {
           const reason = error?.code ?? 'github-repository-inspection-failed'; const detail = error?.message ?? 'GitHub repository inspection failed';
           return { status: 'failed', data: { message: messageForUnavailable(request.input?.locale, `${reason}: ${detail}`), availability, capabilityAssessment: preflight.assessment }, error: { code: reason, message: detail, retryable: Boolean(error?.retryable) } };
         }
       }
       if (canonicalAction && !['github.development.execute','github.development.plan'].includes(canonicalAction)) {
-        if (!platformOperationsService?.execute) return { status: 'unavailable', data: { message: messageForUnavailable(request.input?.locale, 'GitHub platform operations are not configured'), availability }, error: { code: 'github-platform-operations-unavailable', message: 'GitHub platform operations are not configured', retryable: false } };
-        try { const result = await platformOperationsService.execute({ ...(request.input?.platformOperation ?? {}), canonicalAction, actor: request.actor, projectScope: request.scope.projectScope, traceContext: request.traceContext, actionRequest: request.actionRequest }); return { status: 'success', data: { ...result, availability, authority } }; }
+        if (!effectivePlatformOperationsService?.execute) return { status: 'unavailable', data: { message: messageForUnavailable(request.input?.locale, 'GitHub platform operations are not configured'), availability }, error: { code: 'github-platform-operations-unavailable', message: 'GitHub platform operations are not configured', retryable: false } };
+        try { const result = await effectivePlatformOperationsService.execute({ ...(request.input?.platformOperation ?? {}), canonicalAction, actor: request.actor, projectScope: request.scope.projectScope, traceContext: request.traceContext, actionRequest: request.actionRequest }); return { status: 'success', data: { ...result, availability, authority } }; }
         catch (error) { return { status: 'failed', data: { message: messageForUnavailable(request.input?.locale, `${error?.code ?? 'github-platform-operation-failed'}: ${error?.message ?? 'operation failed'}`), availability }, error: { code: error?.code ?? 'github-platform-operation-failed', message: error?.message ?? 'operation failed', retryable: Boolean(error?.retryable) } }; }
       }
       if (!service) { const reason = !owner ? 'canonical owner is not configured' : (!key ? 'development credential is not configured' : 'AI Router is unavailable'); return { status: 'unavailable', data: { message: messageForUnavailable(request.input?.locale, reason), availability }, error: { code: 'github-development-unavailable', message: reason, retryable: false } }; }
@@ -101,9 +112,20 @@ export function createProductionGitHubDevelopmentRuntime({ env = process.env, cr
       const preflight = await requireAssessment(request, canonicalAction, authority);
       if (!preflight.ok) return preflight.response;
       const instruction = request.input?.instruction ?? request.input?.text ?? request.input?.semanticMessage;
-      try { const result = await service.execute({ instruction, actor: request.actor, traceContext: request.traceContext, projectScope: request.scope.projectScope, repositoryResourceId: resourceId, actionRequest: request.actionRequest }); return { status: 'success', data: { ...result, message: successMessage(request.input?.locale, result), availability, authority: { resourceId, relation: 'can_modify', reason: authority.reason }, capabilityAssessment: preflight.assessment } }; }
+      try {
+        let result;
+        if (composition?.targetResolver && composition?.canonicalExecutionBridge && request.input?.canonicalModel) {
+          const canonicalInput = Object.freeze({ text: instruction, locale: request.input?.locale ?? 'ru', identityContext: request.actor, scopeContext: request.scope, traceContext: request.traceContext, metadata: request.input?.metadata ?? {} });
+          const resolvedTarget = await composition.targetResolver.resolve({ canonicalModel: request.input.canonicalModel, canonicalInput });
+          result = await composition.canonicalExecutionBridge.execute({ canonicalInput, canonicalModel: request.input.canonicalModel, resolvedTarget, capabilityAssessment: preflight.assessment });
+          const executionResult = result.execution ?? result.task ?? result;
+          return { status: 'success', data: { ...result, message: executionResult?.commitSha ? successMessage(request.input?.locale, executionResult) : `GitHub development task ${result.task?.taskId ?? ''} accepted by the existing GH3 orchestrator.`, availability, authority: { resourceId, relation: 'can_modify', reason: authority.reason }, capabilityAssessment: preflight.assessment, resolvedTarget } };
+        }
+        result = await service.execute({ instruction, actor: request.actor, traceContext: request.traceContext, projectScope: request.scope.projectScope, repositoryResourceId: resourceId, actionRequest: request.actionRequest });
+        return { status: 'success', data: { ...result, message: successMessage(request.input?.locale, result), availability, authority: { resourceId, relation: 'can_modify', reason: authority.reason }, capabilityAssessment: preflight.assessment } };
+      }
       catch (error) { const reason = error?.code ?? 'github-development-execution-failed'; const detail = error?.message ?? 'GitHub development execution failed'; return { status: 'failed', data: { message: messageForUnavailable(request.input?.locale, `${reason}: ${detail}`), availability, capabilityAssessment: preflight.assessment }, error: { code: reason, message: detail, retryable: Boolean(error?.retryable) } }; }
     }
   });
-  return Object.freeze({ capability, availability, service, start });
+  return Object.freeze({ capability, availability, service, composition, platformOperationsService: effectivePlatformOperationsService, start });
 }

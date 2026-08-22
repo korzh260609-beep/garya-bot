@@ -5,6 +5,7 @@ import { createGitHubCapabilityRegistry, GITHUB_CAPABILITY_DEFINITIONS } from '.
 import { createGitHubSecurityControlPlane } from '../githubDevelopment/githubSecurityControlPlane.js';
 import { createGitHubCapabilityBindingService, createGitHubProviderCapabilityProbe } from '../githubDevelopment/githubCapabilityBindingService.js';
 import { createGitHubTokenConnectionProvider } from '../githubDevelopment/githubTokenConnectionProvider.js';
+import { createPostgresGitHubDevelopmentTaskStore } from '../githubDevelopment/postgresGitHubDevelopmentTaskStore.js';
 
 function mergeHealth(base, pdk4, githubDevelopment = null) {
   return Object.freeze({ ...base, pdk4: Object.freeze({ ...pdk4 }), ...(githubDevelopment ? { githubDevelopment: Object.freeze({ ...githubDevelopment }) } : {}) });
@@ -71,6 +72,7 @@ export function createProductionHarnessWithPDK4({ env = {}, interpretationResolv
     clock
   });
   const githubCapabilityBindingService = createGitHubCapabilityBindingService({ capabilityRegistry: githubCapabilityRegistry, securityControlPlane: githubSecurityControlPlane, providerCapabilityProbe: createGitHubProviderCapabilityProbe({ connectionProvider: githubTokenProvider }), clock });
+  const githubDevelopmentTaskStore = base.persistence?.database ? createPostgresGitHubDevelopmentTaskStore({ database: base.persistence.database }) : null;
   const githubDevelopment = createProductionGitHubDevelopmentRuntime({
     env,
     credentialManager: base.credentialManager,
@@ -81,6 +83,8 @@ export function createProductionHarnessWithPDK4({ env = {}, interpretationResolv
     aiRouter: base.productionAI?.aiRouter ?? null,
     capabilityBindingService: githubCapabilityBindingService,
     githubSecurityControlPlane,
+    developmentTaskStore: githubDevelopmentTaskStore,
+    auditSink: { async record(event) { return base.observability.record({ eventClass: 'audit_event', channel: 'audit', stage: 'github-platform-operations', outcome: event.postCondition ?? 'evaluated', reason: event.canonicalAction, traceContext: { traceId: event.traceId ?? `gde6:${event.idempotencyKey}`, requestId: event.idempotencyKey, environment: env.NODE_ENV ?? 'production', revision: env.RENDER_GIT_COMMIT ?? 'unknown' }, data: event }); } },
     fetchImpl,
     clock
   });
@@ -103,5 +107,5 @@ export function createProductionHarnessWithPDK4({ env = {}, interpretationResolv
       return Object.freeze({ ...readiness, pdk4: pdk4Deployment.health(), githubDevelopment: githubDevelopment.availability });
     }
   });
-  return Object.freeze({ ...base, runtime, pdk4Deployment, repositoryReadCapability, githubDevelopment, githubCapabilityBindingService, githubSecurityControlPlane });
+  return Object.freeze({ ...base, runtime, pdk4Deployment, repositoryReadCapability, githubDevelopment, githubDevelopmentTaskStore, githubCapabilityBindingService, githubSecurityControlPlane });
 }

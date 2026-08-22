@@ -1,20 +1,27 @@
 # SG 2.1 — GITHUB DEVELOPMENT WORKSPACE 3.0 ARCHITECTURE
 
 ## Status
-**IMPLEMENTATION COMPLETE THROUGH GH3.12. GH3.1–GH3.11 CLOSED / CI-VERIFIED; GH3.12 IMPLEMENTED / CI-VERIFIED / LIVE ACCEPTANCE PENDING.**
+**IMPLEMENTATION COMPLETE THROUGH GH3.12. GH3.1–GH3.11 CLOSED / CI-VERIFIED; GH3.12 IMPLEMENTED / CI-VERIFIED / LIVE ACCEPTANCE PENDING. GDE1–GDE6 PLANNED / NOT IMPLEMENTED.**
 
 ## Purpose
 
 GH3 gives SG one transport-independent GitHub discovery and development subsystem. It supports global public GitHub inspection on instruction and full development lifecycle operations inside explicitly authorized repositories.
+
+The GitHub Development Execution Completion extension (`GDE1–GDE6`) closes the remaining runtime wiring between the SG-wide Semantic Resolution / Canonical Semantic Model pipeline and the already implemented GH3 execution stack. It is an extension of GH3, not a replacement or second GitHub subsystem.
 
 ## Context boundary
 
 ```text
 Telegram / Discord / Web / API / Email / native SG UI / future transport
   → canonical Identity + Scope + conversation/task context
-  → Semantic Kernel / intent
+  → Semantic Resolution
+  → Canonical Semantic Model
+  → Canonical GitHub/Development Action
+  → Development Target Resolver
+  → Existing Capability / Authority stack
   → GitHub Development Orchestrator
   → GitHub discovery or authorized repository workspace
+  → validation / mutation / exact-HEAD CI / recovery
   → normalized result/events
   → Delivery Router to any authorized transport
 ```
@@ -56,17 +63,47 @@ PostgreSQL-backed durable state for task intent, completion condition, actor/pro
 ### PDK4DevelopmentEvidenceBridge
 Converts verified GitHub events into existing PDK4 source-normalization/ingestion contracts. It does not bypass PM3 trust, confirmation, temporal, conflict or Context Guard rules.
 
+### Canonical GitHub Development Binding (GDE)
+The GDE extension adds only the runtime binding needed to make natural-language development requests reach the existing GH3 stack:
+
+```text
+Semantic Resolution
+→ Canonical Semantic Model
+→ canonical GitHub/development action
+→ Development Target Resolver
+→ capability/authority resolution
+→ existing GitHub Security Control Plane / Action Gate
+→ existing GitHubDevelopmentOrchestrator
+```
+
+The binding does not own repository mutation, CI repair, authorization, task persistence or memory. Those remain GH3/existing SG responsibilities.
+
+The six planned GDE stages are:
+
+1. **GDE1 — Canonical GitHub Actions + Development Target Resolver**
+2. **GDE2 — Existing Capability Binding + Runtime Self-Knowledge**
+3. **GDE3 — Canonical-to-GH3 Execution Bridge + Change Set**
+4. **GDE4 — Validation + Commit + Push Lifecycle**
+5. **GDE5 — Exact-HEAD CI Completion + Failure Recovery Loop**
+6. **GDE6 — Full GitHub Platform Operations + Audit + Regression + Canonical Sync**
+
+Detailed program: `../roadmap/GITHUB_DEVELOPMENT_EXECUTION_COMPLETION.md`.
+
 The GH3.10 implementation accepts only immutable commit/PR identities and successful workflow evidence bound to the same full target SHA. It creates existing PDK4 `DevelopmentEvent` values and existing PM3 project-fact candidates; it owns no memory store. Repository/code evidence can qualify `implemented`, exact-head CI evidence can qualify `ci-verified`, and neither can qualify `deployed` or `live-verified`. Candidates remain proposed and unconfirmed until the independent PM3 confirmation/trust boundary acts.
 
 ## Execution model
 
 ```text
 resolve actor/project/task
+→ semantic resolution
+→ canonical GitHub/development action
+→ resolve development target
 → evaluate GitHub capability and resource/credential authority
 → verify repository + branch + exact HEAD + current CI + canonical docs
 → inspect and plan
 → re-evaluate mutation envelope
 → apply atomic change on authorized branch
+→ deterministic validation
 → verify resulting commit SHA
 → run/observe exact-head CI
 → diagnose first actionable failure
@@ -125,6 +162,22 @@ The loop is bounded by task completion condition, scope, attempt/time/cost polic
 
 AI may assist code analysis and explanation only through AI Router. Deterministic provider facts, compiler/test output and policy decisions remain authoritative. AI cannot fabricate green CI, grant trust, approve a protected operation or reinterpret another SHA's result as target evidence.
 
+## Runtime self-knowledge rule
+
+SG descriptions of its GitHub capabilities must be computed from current deterministic runtime facts:
+
+```text
+registered capability
++ actor authority
++ resource authority
++ connection/credential health
++ provider permission
++ Action Gate/risk policy
++ emergency mode
+```
+
+The language model must not independently claim that SG lacks GitHub or repository execution merely because there is no local `.git` checkout. When execution is unavailable, SG reports the actual deterministic blocker.
+
 ## Restart and cross-transport continuity
 
 On resume GH3 reloads durable task state, re-resolves current actor/project authority, fetches live GitHub state and reconciles branch/PR/CI divergence before continuing. Stored state is a checkpoint, not proof that GitHub remained unchanged.
@@ -141,9 +194,19 @@ Transport continuation changes only presentation/delivery. It does not change ta
 
 ## Relationship to existing SG systems
 
-GH3 reuses Semantic Kernel, Identity/Scope, Session/Conversation Context, ACS, Capability System, Resource Authority, Action Gate, Credential Manager, External Connections Registry, PostgreSQL, Durable Workers, AI Router, Delivery Router, Observability, Project Memory 3.0 and PDK4.
+GH3 reuses Semantic Kernel, Canonical Semantic Model, Identity/Scope, Session/Conversation Context, ACS, Capability System, Resource Authority, Action Gate, Credential Manager, External Connections Registry, PostgreSQL, Durable Workers, AI Router, Delivery Router, Observability, Project Memory 3.0 and PDK4.
 
-GH3 does not create a second identity, access, scheduler, memory, project-truth, transport or diagnostics system. Universal Diagnostics remains authoritative for current live runtime/root-cause evidence outside GitHub/CI.
+GH3/GDE does not create a second semantic router, identity, access, scheduler, memory, project-truth, transport, GitHub executor or diagnostics system. Universal Diagnostics remains authoritative for current live runtime/root-cause evidence outside GitHub/CI.
+
+## Completion boundary
+
+GH3.12 live acceptance and GDE completion are complementary:
+
+- GH3.12 proves real authorized GitHub cross-transport execution against a live boundary;
+- GDE proves natural-language semantic/canonical requests are actually wired into that execution stack.
+
+Neither one alone proves the complete end-to-end product behavior.
 
 Roadmap: `../roadmap/GITHUB_DEVELOPMENT_WORKSPACE_3_0_PROGRAM.md`.
+Execution completion extension: `../roadmap/GITHUB_DEVELOPMENT_EXECUTION_COMPLETION.md`.
 Workflow: `../workflow/GITHUB_DEVELOPMENT_WORKSPACE_3_0_WORKFLOW.md`.

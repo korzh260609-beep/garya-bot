@@ -405,13 +405,15 @@ Canonical docs:
 
 ## GitHub Development Execution Completion
 
-**IMPLEMENTATION IN PROGRESS. GDE1 CLOSED / CI-VERIFIED; GDE2 IMPLEMENTED / LOCAL TESTS VERIFIED / EXACT-HEAD CI PENDING; GDE3–GDE6 PLANNED / NOT IMPLEMENTED.**
+**IMPLEMENTATION IN PROGRESS. GDE1–GDE2 CLOSED / CI-VERIFIED; GDE3–GDE6 PLANNED / NOT IMPLEMENTED.**
 
 GDE1 adds the bounded canonical `github.*` action vocabulary and a deterministic Development Target Resolver over the existing Canonical Semantic Model and GH3 repository reader. It resolves only authoritative project/repository/non-`main` branch bindings, verifies an immutable baseline HEAD, validates structured stage/block evidence and fails closed on missing or ambiguous targets. It does not add a second executor, capability system, Action Gate, CI service or semantic pipeline.
 
 GDE1 closure evidence: exact implementation HEAD `2eac3632e2f99398c41a65dd81a5a446d4b04d4a`, SG 2.1 CI #8747 `SUCCESS` (Run ID `32564308591`).
 
-GDE2 binds canonical GitHub actions to the existing GH3 capability/security/provider boundaries and returns deterministic per-request capability state plus exact blockers for runtime Self Knowledge. Local filesystem state and model claims cannot grant or deny GitHub access. Exact-head CI is pending.
+GDE2 binds canonical GitHub actions to the existing GH3 capability/security/provider boundaries and returns deterministic per-request capability state plus exact blockers for runtime Self Knowledge. Local filesystem state and model claims cannot grant or deny GitHub access.
+
+GDE2 closure evidence: exact implementation HEAD `4008554ad2015d8e499e07cba45364d29cb4bfac`, SG 2.1 CI #8751 `SUCCESS` (Run ID `32564921207`).
 
 Canonical doc: `GITHUB_DEVELOPMENT_EXECUTION_COMPLETION.md`.
 

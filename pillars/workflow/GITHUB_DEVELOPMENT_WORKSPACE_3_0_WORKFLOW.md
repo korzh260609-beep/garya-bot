@@ -132,7 +132,7 @@ Closure requires proof that requests such as `реализуй LA1`, `испра
 
 ### GDE2 — Existing Capability Binding + Runtime Self-Knowledge
 
-**IMPLEMENTED / LOCAL TESTS VERIFIED / EXACT-HEAD CI PENDING.**
+**CLOSED / CI-VERIFIED** at exact implementation HEAD `4008554ad2015d8e499e07cba45364d29cb4bfac`, SG 2.1 CI #8751 `SUCCESS` (Run ID `32564921207`).
 
 Implementation order:
 

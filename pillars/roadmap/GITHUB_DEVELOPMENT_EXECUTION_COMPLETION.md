@@ -123,7 +123,7 @@ Deterministic tests prove semantic equivalence, target resolution, ambiguity han
 
 ## GDE2 — Existing Capability Binding + Runtime Self-Knowledge
 
-**Status: IMPLEMENTED / LOCAL TESTS VERIFIED / EXACT-HEAD CI PENDING.**
+**Status: CLOSED / CI-VERIFIED.**
 
 Implementation evidence:
 
@@ -134,7 +134,7 @@ Implementation evidence:
 - model statements and local `.git` availability are excluded from capability truth;
 - exact blocker regressions cover missing connection/provider permission, ACS/Resource Authority/Action Gate denial, confirmation, emergency mode and repository installation scope.
 
-GDE2 must not be described as CLOSED until SG 2.1 CI succeeds on the exact implementation HEAD.
+Closure evidence: exact implementation HEAD `4008554ad2015d8e499e07cba45364d29cb4bfac`, SG 2.1 CI #8751 `SUCCESS` (Run ID `32564921207`).
 
 ### Goal
 

@@ -40,7 +40,7 @@ export function createDeploymentExternalConnections({ persistence = null, creden
   if (githubAppConfigured && !existingCredentialIds.has('sg.github.app.private-key')) {
     if (typeof credentialManager.registerCredential !== 'function') throw new TypeError('credentialManager.registerCredential is required for GitHub App deployment');
     credentialManager.registerCredential({
-      credentialId: 'sg.github.app.private-key', type: 'private-key', secretRef: { provider: 'environment', key: 'GITHUB_APP_PRIVATE_KEY' },
+      credentialId: 'sg.github.app.private-key', type: 'service-credential', secretRef: { provider: 'environment', key: 'GITHUB_APP_PRIVATE_KEY' },
       ownerUserId: 'system:runtime', projectScope: config.projectScope, connectionId: 'github-development', requiredPermission: 'credential:use:system',
       metadata: { provider: 'github', purpose: 'gh3-github-app', authentication: 'github-app', source: 'deployment-config' }
     });

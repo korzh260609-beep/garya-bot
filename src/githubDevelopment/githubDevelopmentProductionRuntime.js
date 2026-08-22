@@ -85,7 +85,10 @@ export function createProductionGitHubDevelopmentRuntime({ env = process.env, cr
       if (request.actionRequest?.actionType === 'github-development-status' || mode === 'status') {
         try {
           const capabilityAssessment = await assess(request, canonicalAction);
-          return { status: 'success', data: { message: capabilityAssessment?.message ?? statusMessage(request.input?.locale, availability, authority), availability, authority, capabilityAssessment } };
+          const message = capabilityAssessment?.available === false
+            ? (capabilityAssessment.message ?? statusMessage(request.input?.locale, availability, authority))
+            : statusMessage(request.input?.locale, availability, authority);
+          return { status: 'success', data: { message, availability, authority, capabilityAssessment } };
         } catch (error) {
           return capabilityError(error, request.input?.locale, availability, authority);
         }

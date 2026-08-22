@@ -24,6 +24,11 @@ function targetConflict(input, repository, branch) {
   if (requestedBranch && requestedBranch !== branch) return `requested branch ${requestedBranch} is outside the configured development workspace`;
   return null;
 }
+function capabilityError(error, locale, availability, authority, fallbackCode = 'github-capability-assessment-failed') {
+  const code = error?.code ?? fallbackCode;
+  const detail = error?.message ?? 'capability assessment failed';
+  return { status: 'failed', data: { message: messageForUnavailable(locale, `${code}: ${detail}`), availability, authority }, error: { code, message: detail, retryable: Boolean(error?.retryable) } };
+}
 
 export function createProductionGitHubDevelopmentRuntime({ env = process.env, credentialManager, credentialAccessContext, resourceAuthorityRegistry, resourceAuthorityAccessContext, ownerGlobalUserId, aiRouter = null, capabilityBindingService = null, githubSecurityControlPlane = null, platformOperationsService = null, validationChecks = [], fetchImpl = globalThis.fetch, clock = () => new Date() } = {}) {
   if (!credentialManager?.registerCredential || !credentialManager?.listCredentials) throw new TypeError('credentialManager is required');
@@ -45,20 +50,45 @@ export function createProductionGitHubDevelopmentRuntime({ env = process.env, cr
     if (!capabilityBindingService) return null;
     return capabilityBindingService.assess({ canonicalAction, actor: request.actor, projectScope: request.scope.projectScope, repository: repositoryIdentity(repository), repositoryResourceId: resourceId, branch, paths: request.input?.paths ?? request.input?.canonicalTarget?.paths ?? [], connectionId, credentialId, actionRequest: request.actionRequest, confirmation: request.input?.confirmation ?? request.actionRequest?.confirmation ?? null, locale: request.input?.locale });
   }
+  async function requireAssessment(request, canonicalAction, authority) {
+    if (!capabilityBindingService) return { ok: true, assessment: null };
+    try {
+      const assessment = await assess(request, canonicalAction);
+      if (assessment?.available === true) return { ok: true, assessment };
+      const reason = assessment?.blockers?.map((item) => item.code).join(', ') || 'current GitHub capability assessment denied operation';
+      return { ok: false, response: { status: 'unavailable', data: { message: assessment?.message ?? messageForUnavailable(request.input?.locale, reason), availability, authority, capabilityAssessment: assessment }, error: { code: 'github-development-capability-unavailable', message: reason, retryable: false } } };
+    } catch (error) {
+      return { ok: false, response: capabilityError(error, request.input?.locale, availability, authority) };
+    }
+  }
   const capability = createCapability({
-    name: GITHUB_DEVELOPMENT_RUNTIME_CAPABILITY, version: '1.0.0', description: 'Report deterministic GitHub development availability or execute a bounded instructed development change in the authorized SG repository.',
+    name: GITHUB_DEVELOPMENT_RUNTIME_CAPABILITY, version: '1.0.0', description: 'Report deterministic GitHub development availability, inspect the authorized repository, or execute a bounded instructed development change.',
     actionTypes: ['github-development', 'github-development-status'], actionClasses: ['read-only', 'state-changing'], requiredPermissions: [`capability:${GITHUB_DEVELOPMENT_RUNTIME_CAPABILITY}`], requiredSources: [], requiredTools: [], risk: 'medium', estimatedCostUsd: 0.05, confirmationRequired: false, timeoutMs: 300000, maxRetries: 0, fallbackCapabilities: [], priority: 100,
     execute: async (request) => {
       const authority = await authorityFor(request);
-      const canonicalAction = request.input?.canonicalAction ?? (request.input?.mode === 'status' ? 'github.repository.inspect' : 'github.development.execute');
+      const mode = request.input?.mode;
+      const canonicalAction = request.input?.canonicalAction ?? (mode === 'status' || mode === 'inspect' ? 'github.repository.inspect' : 'github.development.execute');
       const conflict = targetConflict(request.input, repository, branch);
       if (conflict) return { status: 'failed', data: { message: messageForUnavailable(request.input?.locale, conflict), availability, authority }, error: { code: 'github-development-target-outside-workspace', message: conflict, retryable: false } };
-      if (request.actionRequest?.actionType === 'github-development-status' || request.input?.mode === 'status') {
+      if (request.actionRequest?.actionType === 'github-development-status' || mode === 'status') {
         try {
           const capabilityAssessment = await assess(request, canonicalAction);
           return { status: 'success', data: { message: capabilityAssessment?.message ?? statusMessage(request.input?.locale, availability, authority), availability, authority, capabilityAssessment } };
         } catch (error) {
-          return { status: 'failed', data: { message: messageForUnavailable(request.input?.locale, `${error?.code ?? 'github-capability-assessment-failed'}: ${error?.message ?? 'capability assessment failed'}`), availability, authority }, error: { code: error?.code ?? 'github-capability-assessment-failed', message: error?.message ?? 'capability assessment failed', retryable: Boolean(error?.retryable) } };
+          return capabilityError(error, request.input?.locale, availability, authority);
+        }
+      }
+      if (canonicalAction === 'github.repository.inspect' && mode === 'inspect') {
+        if (!service?.inspect) { const reason = !owner ? 'canonical owner is not configured' : (!key ? 'development credential is not configured' : 'AI Router is unavailable'); return { status: 'unavailable', data: { message: messageForUnavailable(request.input?.locale, reason), availability, authority }, error: { code: 'github-development-unavailable', message: reason, retryable: false } }; }
+        const preflight = await requireAssessment(request, canonicalAction, authority);
+        if (!preflight.ok) return preflight.response;
+        const instruction = request.input?.instruction ?? request.input?.text ?? request.input?.semanticMessage;
+        try {
+          const result = await service.inspect({ instruction, actor: request.actor, traceContext: request.traceContext });
+          return { status: 'success', data: { ...result, availability, authority, capabilityAssessment: preflight.assessment } };
+        } catch (error) {
+          const reason = error?.code ?? 'github-repository-inspection-failed'; const detail = error?.message ?? 'GitHub repository inspection failed';
+          return { status: 'failed', data: { message: messageForUnavailable(request.input?.locale, `${reason}: ${detail}`), availability, capabilityAssessment: preflight.assessment }, error: { code: reason, message: detail, retryable: Boolean(error?.retryable) } };
         }
       }
       if (canonicalAction && !['github.development.execute','github.development.plan'].includes(canonicalAction)) {
@@ -68,15 +98,11 @@ export function createProductionGitHubDevelopmentRuntime({ env = process.env, cr
       }
       if (!service) { const reason = !owner ? 'canonical owner is not configured' : (!key ? 'development credential is not configured' : 'AI Router is unavailable'); return { status: 'unavailable', data: { message: messageForUnavailable(request.input?.locale, reason), availability }, error: { code: 'github-development-unavailable', message: reason, retryable: false } }; }
       if (authority?.allowed !== true) { const reason = authority?.reason ?? 'repository modification authority is unavailable'; return { status: 'failed', data: { message: messageForUnavailable(request.input?.locale, reason), availability }, error: { code: 'github-development-authority-denied', message: reason, retryable: false } }; }
-      let capabilityAssessment = null;
-      if (capabilityBindingService) {
-        try { capabilityAssessment = await assess(request, canonicalAction); }
-        catch (error) { return { status: 'failed', data: { message: messageForUnavailable(request.input?.locale, `${error?.code ?? 'github-capability-assessment-failed'}: ${error?.message ?? 'capability assessment failed'}`), availability, authority }, error: { code: error?.code ?? 'github-capability-assessment-failed', message: error?.message ?? 'capability assessment failed', retryable: Boolean(error?.retryable) } }; }
-        if (capabilityAssessment?.available !== true) { const reason = capabilityAssessment?.blockers?.map((item) => item.code).join(', ') || 'current GitHub capability assessment denied execution'; return { status: 'unavailable', data: { message: capabilityAssessment?.message ?? messageForUnavailable(request.input?.locale, reason), availability, authority, capabilityAssessment }, error: { code: 'github-development-capability-unavailable', message: reason, retryable: false } }; }
-      }
+      const preflight = await requireAssessment(request, canonicalAction, authority);
+      if (!preflight.ok) return preflight.response;
       const instruction = request.input?.instruction ?? request.input?.text ?? request.input?.semanticMessage;
-      try { const result = await service.execute({ instruction, actor: request.actor, traceContext: request.traceContext, projectScope: request.scope.projectScope, repositoryResourceId: resourceId, actionRequest: request.actionRequest }); return { status: 'success', data: { ...result, message: successMessage(request.input?.locale, result), availability, authority: { resourceId, relation: 'can_modify', reason: authority.reason }, capabilityAssessment } }; }
-      catch (error) { const reason = error?.code ?? 'github-development-execution-failed'; const detail = error?.message ?? 'GitHub development execution failed'; return { status: 'failed', data: { message: messageForUnavailable(request.input?.locale, `${reason}: ${detail}`), availability, capabilityAssessment }, error: { code: reason, message: detail, retryable: Boolean(error?.retryable) } }; }
+      try { const result = await service.execute({ instruction, actor: request.actor, traceContext: request.traceContext, projectScope: request.scope.projectScope, repositoryResourceId: resourceId, actionRequest: request.actionRequest }); return { status: 'success', data: { ...result, message: successMessage(request.input?.locale, result), availability, authority: { resourceId, relation: 'can_modify', reason: authority.reason }, capabilityAssessment: preflight.assessment } }; }
+      catch (error) { const reason = error?.code ?? 'github-development-execution-failed'; const detail = error?.message ?? 'GitHub development execution failed'; return { status: 'failed', data: { message: messageForUnavailable(request.input?.locale, `${reason}: ${detail}`), availability, capabilityAssessment: preflight.assessment }, error: { code: reason, message: detail, retryable: Boolean(error?.retryable) } }; }
     }
   });
   return Object.freeze({ capability, availability, service, start });

@@ -143,6 +143,23 @@ Implementation/CI evidence: exact implementation HEAD `11bca7313b84265f093e61512
 
 GH3.12 is implemented and CI-verified but is **not CLOSED** until the acceptance runner is supplied with evidence from a real authorized GitHub boundary and two real authorized SG transport/API surfaces satisfying every live gate.
 
+## Natural-language execution completion extension
+
+The GH3 service stack is already implemented through GH3.12, but the remaining SG-wide runtime integration between the current Canonical Semantic Model and authoritative GH3 execution is tracked separately in:
+
+`GITHUB_DEVELOPMENT_EXECUTION_COMPLETION.md`
+
+That extension defines GDE1–GDE6:
+
+1. GDE1 — Canonical GitHub Actions + Development Target Resolver;
+2. GDE2 — Existing Capability Binding + Runtime Self-Knowledge;
+3. GDE3 — Canonical-to-GH3 Execution Bridge + Change Set;
+4. GDE4 — Validation + Commit + Push Lifecycle;
+5. GDE5 — Exact-HEAD CI Completion + Failure Recovery Loop;
+6. GDE6 — Full GitHub Platform Operations + Audit + Regression + Canonical Sync.
+
+These stages MUST reuse GH3.1–GH3.12 rather than create replacement services. Until GDE1–GDE6 are implemented and verified, the existence of GH3 services alone must not be used as evidence that every natural-language development request is wired end-to-end into runtime execution.
+
 ## Minimum capability families
 
 - `github.discovery.public.read`
@@ -169,5 +186,8 @@ These capabilities are scoped grants, not one "full access" switch. `github.repo
 
 GH3 is complete only when GH3.1–GH3.12 are implemented, exact-head CI is green, canonical documentation is synchronized and live acceptance proves that SG can safely complete and resume real development work through more than one transport while also performing bounded global GitHub discovery.
 
+The separate GDE extension closes the natural-language semantic-to-execution runtime wiring gap on top of this GH3 implementation. GDE completion does not replace GH3.12 live acceptance and GH3.12 live acceptance does not replace GDE runtime wiring verification.
+
 Architecture: `../architecture/GITHUB_DEVELOPMENT_WORKSPACE_3_0.md`.
 Workflow: `../workflow/GITHUB_DEVELOPMENT_WORKSPACE_3_0_WORKFLOW.md`.
+Execution completion extension: `GITHUB_DEVELOPMENT_EXECUTION_COMPLETION.md`.

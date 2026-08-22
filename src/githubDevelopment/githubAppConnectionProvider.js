@@ -14,7 +14,15 @@ function positiveInteger(value, field) {
 }
 
 function base64url(value) { return Buffer.from(JSON.stringify(value)).toString('base64url'); }
-function normalizedPrivateKey(value) { const key = required(value, 'GitHub App private key'); return key.includes('\\n') && !key.includes('\n') ? key.replace(/\\n/gu, '\n') : key; }
+function normalizedPrivateKey(value) {
+  let key = required(value, 'GitHub App private key').replace(/^["']|["']$/gu, '').trim();
+  if (key.includes('\\n') && !key.includes('\n')) key = key.replace(/\\n/gu, '\n');
+  if (!key.includes('-----BEGIN')) {
+    const decoded = Buffer.from(key, 'base64').toString('utf8').trim();
+    if (decoded.includes('-----BEGIN')) key = decoded;
+  }
+  return key;
+}
 
 function createAppJwt({ appId, privateKey, now }) {
   const issuedAt = Math.floor(now.getTime() / 1000) - 30;

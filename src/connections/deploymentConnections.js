@@ -19,7 +19,10 @@ export function createDeploymentExternalConnections({ persistence = null, creden
 
   const discordEnabled = enabled(env.SG_DISCORD_ENABLED ?? env.DISCORD_ENABLED);
   const discordTokenAvailable = typeof env.DISCORD_BOT_TOKEN === 'string' && env.DISCORD_BOT_TOKEN !== '';
-  const githubAppConfigured = [env.GITHUB_APP_ID, env.GITHUB_APP_INSTALLATION_ID, env.GITHUB_APP_PRIVATE_KEY].every((item) => typeof item === 'string' && item.trim() !== '');
+  const githubPrivateKeyName = typeof env.GITHUB_APP_PRIVATE_KEY === 'string' && env.GITHUB_APP_PRIVATE_KEY.trim() !== ''
+    ? 'GITHUB_APP_PRIVATE_KEY'
+    : (typeof env.GITHUB_APP_PRIVATE_KEY_BASE64 === 'string' && env.GITHUB_APP_PRIVATE_KEY_BASE64.trim() !== '' ? 'GITHUB_APP_PRIVATE_KEY_BASE64' : null);
+  const githubAppConfigured = [env.GITHUB_APP_ID, env.GITHUB_APP_INSTALLATION_ID, githubPrivateKeyName].every((item) => typeof item === 'string' && item.trim() !== '');
   const existingCredentialIds = new Set(credentialManager.listCredentials().map((item) => item.credentialId));
 
   if (discordEnabled && discordTokenAvailable && !existingCredentialIds.has('sg.discord.bot')) {
@@ -40,7 +43,7 @@ export function createDeploymentExternalConnections({ persistence = null, creden
   if (githubAppConfigured && !existingCredentialIds.has('sg.github.app.private-key')) {
     if (typeof credentialManager.registerCredential !== 'function') throw new TypeError('credentialManager.registerCredential is required for GitHub App deployment');
     credentialManager.registerCredential({
-      credentialId: 'sg.github.app.private-key', type: 'service-credential', secretRef: { provider: 'environment', key: 'GITHUB_APP_PRIVATE_KEY' },
+      credentialId: 'sg.github.app.private-key', type: 'service-credential', secretRef: { provider: 'environment', key: githubPrivateKeyName },
       ownerUserId: 'system:runtime', projectScope: config.projectScope, connectionId: 'github-development', requiredPermission: 'credential:use:system',
       metadata: { provider: 'github', purpose: 'gh3-github-app', authentication: 'github-app', source: 'deployment-config' }
     });

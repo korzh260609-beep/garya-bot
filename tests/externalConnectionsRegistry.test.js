@@ -103,6 +103,19 @@ test('deployment bootstrap registers existing GitHub App env as the canonical GH
   assert.equal(credentials[0].secretRef.key, 'GITHUB_APP_PRIVATE_KEY');
 });
 
+test('deployment bootstrap preserves SG 2.0 GitHub App base64 private-key compatibility', async () => {
+  const credentials = [];
+  const credentialManager = {
+    listCredentials() { return credentials; },
+    registerCredential(record) { credentials.push(record); return record; },
+    describeCredential(id) { return credentials.find((record) => record.credentialId === id); }
+  };
+  const deployment = createDeploymentExternalConnections({ credentialManager, observability: { record() {} }, config: { environment: 'test', revision: 'github-app-base64', projectScope: 'sg2.1' }, env: { GITHUB_APP_ID: '42', GITHUB_APP_INSTALLATION_ID: '7', GITHUB_APP_PRIVATE_KEY_BASE64: 'encoded-private-key' } });
+  await deployment.resource.start();
+  assert.equal(credentials[0].secretRef.key, 'GITHUB_APP_PRIVATE_KEY_BASE64');
+  assert.equal(deployment.connectionIds.includes('github-development'), true);
+});
+
 test('Block 16.9 discovery resolves only connected capability providers', async () => {
   const { registry } = fixture();
   const a = actor();

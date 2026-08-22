@@ -49,6 +49,18 @@ test('GH3 production runtime accepts the existing complete GitHub App credential
   assert.equal(verified, 1);
 });
 
+test('GH3 production runtime adapts SG 2.0 repository, branch and base64-key deployment variables', () => {
+  const provider = { async withInstallationToken() {}, async verifyConnection() {} };
+  const { runtime } = harness({
+    env: { GITHUB_APP_ID: '42', GITHUB_APP_INSTALLATION_ID: '7', GITHUB_APP_PRIVATE_KEY_BASE64: 'encoded-key', GITHUB_REPO: 'korzh260609-beep/garya-bot', GITHUB_BRANCH: 'dev/sg2.1-semantic' },
+    githubConnectionProvider: provider
+  });
+  assert.equal(runtime.availability.configured, true);
+  assert.equal(runtime.availability.authentication, 'github-app');
+  assert.equal(runtime.availability.repository, 'korzh260609-beep/garya-bot');
+  assert.equal(runtime.availability.branch, 'dev/sg2.1-semantic');
+});
+
 test('GH3 production runtime exposes configured repository truth and bootstraps owner authority once', async () => {
   const { runtime, credentials, grants, resources } = harness();
   await runtime.start();

@@ -11,11 +11,17 @@ function fixture(overrides = {}) {
   const calls = { registry: 0, credentials: 0, fetch: 0 };
   const connection = { connectionId: 'github:installation:7', provider: 'github', serviceType: 'github-app', credentialId: 'github-app-key', externalAccount: { installationId: '7' }, metadata: { appId: '42' } };
   const connectionRegistry = overrides.connectionRegistry ?? { async requireUsable() { calls.registry += 1; return connection; } };
-  const credentialManager = { async useCredential(input) { calls.credentials += 1; return input.operation(PRIVATE_KEY); } };
+  const credentialManager = { async useCredential(input) { calls.credentials += 1; return input.operation(overrides.credentialValue ?? PRIVATE_KEY); } };
   const fetchImpl = overrides.fetchImpl ?? (async () => { calls.fetch += 1; return { ok: true, async json() { return { token: 'installation-secret', expires_at: '2026-08-20T12:00:00Z', repository_selection: 'selected', repositories: [{ full_name: 'korzh260609-beep/garya-bot' }], permissions: { contents: 'write', actions: 'read' } }; } }; });
   const provider = createGitHubAppConnectionProvider({ connectionRegistry, credentialManager, connectionAccessContext: { actor: { globalUserId: 'user-1' }, projectScope: 'sg2.1' }, credentialAccessContext: { actor: { globalUserId: 'user-1' }, scope: { projectScope: 'sg2.1' } }, fetchImpl, clock: () => new Date('2026-08-20T10:00:00Z') });
   return { provider, calls };
 }
+
+test('accepts the SG 2.0 base64 private-key format when minting an installation token', async () => {
+  const { provider } = fixture({ credentialValue: Buffer.from(PRIVATE_KEY).toString('base64') });
+  const result = await provider.withInstallationToken({ connectionId: 'github:installation:7', capability: 'github.repository.read', repository, operation: async (token) => token });
+  assert.equal(result, 'installation-secret');
+});
 
 test('checks connection before credential use and returns secret only to authorized callback', async () => {
   const { provider, calls } = fixture();

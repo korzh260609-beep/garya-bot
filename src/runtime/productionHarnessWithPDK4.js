@@ -60,7 +60,8 @@ export function createProductionHarnessWithPDK4({ env = {}, interpretationResolv
   const pdk4Deployment = createProductionDevelopmentKnowledgeDeployment({ harness: base, env, fetchImpl, clock });
   const repositoryReadCapability = wireRepositoryReadCapability(base, pdk4Deployment);
   const githubCapabilityRegistry = createGitHubCapabilityRegistry();
-  const githubAppConfigured = [env.GITHUB_APP_ID, env.GITHUB_APP_INSTALLATION_ID, env.GITHUB_APP_PRIVATE_KEY].every((item) => typeof item === 'string' && item.trim() !== '');
+  const githubPrivateKeyConfigured = [env.GITHUB_APP_PRIVATE_KEY, env.GITHUB_APP_PRIVATE_KEY_BASE64].some((item) => typeof item === 'string' && item.trim() !== '');
+  const githubAppConfigured = [env.GITHUB_APP_ID, env.GITHUB_APP_INSTALLATION_ID].every((item) => typeof item === 'string' && item.trim() !== '') && githubPrivateKeyConfigured;
   const githubConnectionProvider = githubAppConfigured
     ? createGitHubAppConnectionProvider({ connectionRegistry: base.connectionRegistry, credentialManager: base.credentialManager, connectionAccessContext: base.connectionAccessContext, credentialAccessContext: base.credentialAccessContext, fetchImpl, clock })
     : createGitHubTokenConnectionProvider({ credentialManager: base.credentialManager, credentialAccessContext: base.credentialAccessContext });

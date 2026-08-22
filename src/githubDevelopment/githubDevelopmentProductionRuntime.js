@@ -11,7 +11,7 @@ export const GITHUB_DEVELOPMENT_RUNTIME_CAPABILITY = 'github-development';
 
 function value(input) { return typeof input === 'string' && input.trim() !== '' ? input.trim() : null; }
 function tokenKey(env) { if (value(env.SG_GITHUB_DEVELOPMENT_TOKEN)) return 'SG_GITHUB_DEVELOPMENT_TOKEN'; if (value(env.GITHUB_TOKEN)) return 'GITHUB_TOKEN'; return null; }
-function githubAppConfigured(env) { return [env.GITHUB_APP_ID, env.GITHUB_APP_INSTALLATION_ID, env.GITHUB_APP_PRIVATE_KEY].every((item) => value(item)); }
+function githubAppConfigured(env) { return Boolean(value(env.GITHUB_APP_ID) && value(env.GITHUB_APP_INSTALLATION_ID) && (value(env.GITHUB_APP_PRIVATE_KEY) || value(env.GITHUB_APP_PRIVATE_KEY_BASE64))); }
 function repositoryResourceId(repository) { return `github:repo:${repository}`; }
 function repositoryIdentity(repository) { const [owner, name] = repository.split('/'); return Object.freeze({ owner, name, fullName: repository }); }
 function messageForUnavailable(locale, reason) { const language = String(locale ?? 'ru').toLowerCase(); if (language.startsWith('uk')) return `GitHub Development Workspace недоступний: ${reason}.`; if (language.startsWith('en')) return `GitHub Development Workspace is unavailable: ${reason}.`; return `GitHub Development Workspace недоступен: ${reason}.`; }
@@ -37,8 +37,8 @@ export function createProductionGitHubDevelopmentRuntime({ env = process.env, cr
   if (!credentialAccessContext?.actor || !credentialAccessContext?.scope) throw new TypeError('credentialAccessContext is required');
   if (!resourceAuthorityRegistry?.checkAuthority || !resourceAuthorityRegistry?.listResources || !resourceAuthorityRegistry?.registerResource || !resourceAuthorityRegistry?.listAuthorities || !resourceAuthorityRegistry?.grantAuthority) throw new TypeError('resourceAuthorityRegistry is required');
   if (!resourceAuthorityAccessContext?.actor || !resourceAuthorityAccessContext?.projectScope) throw new TypeError('resourceAuthorityAccessContext is required');
-  const repository = value(env.SG_GITHUB_DEVELOPMENT_REPOSITORY) ?? 'korzh260609-beep/garya-bot';
-  const branch = value(env.SG_GITHUB_DEVELOPMENT_BRANCH) ?? 'dev/sg2.1-semantic';
+  const repository = value(env.SG_GITHUB_DEVELOPMENT_REPOSITORY) ?? value(env.GITHUB_REPO) ?? 'korzh260609-beep/garya-bot';
+  const branch = value(env.SG_GITHUB_DEVELOPMENT_BRANCH) ?? value(env.GITHUB_BRANCH) ?? 'dev/sg2.1-semantic';
   if (branch === 'main' || branch === 'master') throw new TypeError('SG GitHub development branch must not be a protected default branch');
   const owner = value(ownerGlobalUserId); const key = tokenKey(env); const appConfigured = githubAppConfigured(env); const credentialId = appConfigured ? 'sg.github.app.private-key' : 'sg.github.development'; const connectionId = 'github-development'; const resourceId = repositoryResourceId(repository);
   const existing = new Set(credentialManager.listCredentials().map((item) => item.credentialId));

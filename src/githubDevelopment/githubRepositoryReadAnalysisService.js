@@ -66,8 +66,9 @@ export function createGitHubRepositoryReadAnalysisService({
       return sha(body?.sha, 'commit.sha');
     }
     if (ref.kind === 'branch' || ref.kind === 'tag') {
-      const body = await request(`${root}/git/ref/${ref.kind === 'branch' ? 'heads' : 'tags'}/${encodePath(ref.name)}`, token);
-      return sha(body?.object?.sha, 'ref.object.sha');
+      const body = await request(`${root}/commits?sha=${encodeURIComponent(ref.name)}&per_page=1`, token);
+      if (!Array.isArray(body) || body.length === 0) fail('gh3-repository-read-not-found', 'GitHub repository ref was not found', { status: 404 });
+      return sha(body[0]?.sha, 'commit.sha');
     }
     const body = await request(`${root}/commits/${encodePath(ref.name)}`, token);
     return sha(body?.sha, 'commit.sha');

@@ -80,7 +80,7 @@ test('GH3 production runtime exposes configured repository truth and bootstraps 
   assert.equal(result.data.authority.allowed, true);
 });
 
-test('GDE2 production status uses deterministic capability assessment instead of model or local-git assumptions', async () => {
+test('GDE2 production status uses deterministic assessment but presents configured repository context', async () => {
   const assessments = [];
   const capabilityBindingService = { async assess(input) { assessments.push(input); return { available: true, message: 'deterministic-ready', blockers: [], selfKnowledge: { grantsAuthority: false } }; } };
   const { runtime } = harness({ capabilityBindingService });
@@ -88,7 +88,8 @@ test('GDE2 production status uses deterministic capability assessment instead of
     actor: { globalUserId: 'telegram:1' }, scope: { projectScope: 'sg2.1' }, input: { mode: 'status', canonicalAction: 'github.development.execute', locale: 'ru' },
     actionRequest: { actionType: 'github-development-status', traceContext: { traceId: 't', requestId: 'r' } }, traceContext: { traceId: 't', requestId: 'r' }
   });
-  assert.equal(result.data.message, 'deterministic-ready');
+  assert.match(result.data.message, /korzh260609-beep\/garya-bot/);
+  assert.match(result.data.message, /dev\/sg2\.1-semantic/);
   assert.equal(result.data.capabilityAssessment.available, true);
   assert.equal(assessments[0].repository.fullName, 'korzh260609-beep/garya-bot');
   assert.equal(Object.hasOwn(assessments[0], 'localGitAvailable'), false);

@@ -72,7 +72,22 @@ function canonicalConversationAction(action, interpretation) {
     })
   });
 }
+function canonicalGitHubExecutionAction(action) {
+  if (typeof action?.name !== 'string' || !action.name.startsWith('github.')) return null;
+  const status = action.name === 'github.repository.inspect' && action.payload?.mode === 'status';
+  return Object.freeze({
+    ...action,
+    type: status ? 'github-development-status' : 'github-development',
+    name: 'github-development',
+    payload: Object.freeze({
+      ...(action.payload ?? {}),
+      canonicalAction: action.name
+    })
+  });
+}
 function canonicalizeSelectedAction(action, interpretation) {
+  const githubExecution = canonicalGitHubExecutionAction(action);
+  if (githubExecution) return githubExecution;
   if ((action?.type === 'answer' && action?.actionClass === 'analysis')
     || conversationalMemoryRead(action, interpretation)
     || conversationalRepositoryRead(action)
@@ -87,7 +102,7 @@ function classifyDecision({ interpretation, canonicalSemanticModel, selected, se
   if (hasClarificationQuestion && interpretation.missingInformation.length > 0) return 'clarification';
   if (hasClarificationQuestion && interpretation.uncertainty >= uncertaintyThreshold) return 'clarification';
   if (selectedAction.type === 'prepare') return 'prepare';
-  if (selected.protectedIntent || selected.executableIntent || selectedAction.type === 'execute') return 'execute';
+  if (selected.protectedIntent || selected.executableIntent || selectedAction.type === 'execute' || selectedAction.type === 'github-development') return 'execute';
   return 'answer';
 }
 function answerFallback(locale) {
@@ -133,6 +148,7 @@ export function createDecisionEngine({ uncertaintyThreshold = 0.65 } = {}) {
       const repositoryReadCanonicalized = conversationalRepositoryRead(selected.action);
       const projectDevelopmentCanonicalized = projectDevelopmentConversation(selected.action, interpretation)
         && selected.action.name !== 'compose-answer';
+      const githubExecutionBound = typeof selected.action?.name === 'string' && selected.action.name.startsWith('github.');
       const missingInformationWithoutClarification = interpretation.missingInformation.length > 0 && !interpretation.clarificationQuestion;
       const decisionEnvelope = createDecisionEnvelope({
         traceId: canonicalInput.traceContext.traceId, requestId: canonicalInput.traceContext.requestId, decisionType,
@@ -141,7 +157,7 @@ export function createDecisionEngine({ uncertaintyThreshold = 0.65 } = {}) {
         selectedAction,
         contextNeeds: interpretation.contextNeeds, evidenceNeeds: interpretation.evidenceNeeds,
         clarificationQuestion: decisionType === 'clarification' ? (canonicalSemanticModel?.clarificationQuestion ?? interpretation.clarificationQuestion) : null, rationale,
-        diagnostics: { engine: 'sg-decision-engine-v1', interpreter: interpreterName, uncertainty: interpretation.uncertainty, uncertaintyThreshold, candidateCount: evaluations.length, selectedCandidateIndex: selected.index, selectedCandidatePriority: selected.priority, requiresEvidence, executableIntent: selected.executableIntent, protectedIntent: selected.protectedIntent, conversationalAnswerCanonicalized: selected.action.type === 'answer' && selected.action.actionClass === 'analysis' && selected.action.name !== 'compose-answer', conversationalMemoryReadCanonicalized: memoryReadCanonicalized, conversationalRepositoryReadCanonicalized: repositoryReadCanonicalized, projectDevelopmentConversationalCanonicalized: projectDevelopmentCanonicalized, semanticMemoryQueryAvailable: Boolean(memoryQuery), semanticMemoryCandidateCount: memoryCandidates.length, semanticConversationHistoryQueryAvailable: Boolean(interpretation.conversationHistoryQuery), semanticSubsystemRequest: interpretation.subsystemRequest?.name ?? null, missingInformationWithoutClarification, canonicalSemanticModelVersion: canonicalSemanticModel?.version ?? null, canonicalSemanticResolutionStatus: canonicalSemanticModel?.resolutionStatus ?? null, canonicalSemanticConfidence: canonicalSemanticModel?.confidence ?? null, semanticMeaningExposedAsResponse: false, permissionChecked: false, capabilityExecuted: false }
+        diagnostics: { engine: 'sg-decision-engine-v1', interpreter: interpreterName, uncertainty: interpretation.uncertainty, uncertaintyThreshold, candidateCount: evaluations.length, selectedCandidateIndex: selected.index, selectedCandidatePriority: selected.priority, requiresEvidence, executableIntent: selected.executableIntent, protectedIntent: selected.protectedIntent, conversationalAnswerCanonicalized: selected.action.type === 'answer' && selected.action.actionClass === 'analysis' && selected.action.name !== 'compose-answer', conversationalMemoryReadCanonicalized: memoryReadCanonicalized, conversationalRepositoryReadCanonicalized: repositoryReadCanonicalized, projectDevelopmentConversationalCanonicalized: projectDevelopmentCanonicalized, githubExecutionBound, canonicalGitHubAction: githubExecutionBound ? selected.action.name : null, semanticMemoryQueryAvailable: Boolean(memoryQuery), semanticMemoryCandidateCount: memoryCandidates.length, semanticConversationHistoryQueryAvailable: Boolean(interpretation.conversationHistoryQuery), semanticSubsystemRequest: interpretation.subsystemRequest?.name ?? null, missingInformationWithoutClarification, canonicalSemanticModelVersion: canonicalSemanticModel?.version ?? null, canonicalSemanticResolutionStatus: canonicalSemanticModel?.resolutionStatus ?? null, canonicalSemanticConfidence: canonicalSemanticModel?.confidence ?? null, semanticMeaningExposedAsResponse: false, permissionChecked: false, capabilityExecuted: false }
       });
       const responsePlan = createResponsePlan({ mode: decisionType, message: buildMessage({ decisionType, interpretation, canonicalSemanticModel, selectedAction, locale: canonicalInput.locale }), requiresConfirmation: false, preparedAction: decisionType === 'prepare' ? selectedAction : null });
       return Object.freeze({ decisionEnvelope, responsePlan, candidateEvaluations: evaluations });

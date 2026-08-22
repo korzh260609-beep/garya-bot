@@ -85,21 +85,44 @@ test('live-style Telegram LA1 request reaches existing GH3 capability through ca
   assert.equal(result.decisionEnvelope.decisionType, 'execute');
   assert.equal(result.decisionEnvelope.selectedAction.name, 'github-development');
   assert.equal(result.decisionEnvelope.selectedAction.payload.canonicalAction, 'github.development.execute');
+  assert.equal(result.decisionEnvelope.selectedAction.payload.canonicalTarget.stage, 'LA1');
   assert.match(result.decisionEnvelope.selectedAction.payload.instruction, /LA1/);
   assert.equal(result.decisionEnvelope.diagnostics.githubExecutionBound, true);
 });
 
-test('GitHub access question reaches deterministic GH3 status capability instead of conversational self-denial', async () => {
+test('live-style repository-content question reaches GH3 inspect mode instead of conversational self-denial', async () => {
   const interpreter = createGitHubDevelopmentMeaningInterpreter({
     baseInterpreter: baseInterpreter(),
-    aiRouter: router({ route: 'status', instruction: null, target: null, confidence: 0.98, rationale: 'asks runtime GitHub availability' })
+    aiRouter: router({
+      route: 'inspect',
+      instruction: 'Find and inspect the LA block in the SG 2.1 repository.',
+      target: { repository: 'korzh260609-beep/garya-bot', branch: 'dev/sg2.1-semantic', block: 'LA', stage: null, scopeId: null, paths: [] },
+      confidence: 0.98,
+      rationale: 'asks to inspect actual repository content'
+    })
   });
   const kernel = createSemanticKernel({ meaningInterpreter: interpreter, semanticRequestResolver: createSemanticRequestResolver() });
   const result = await kernel.process(input('Ты видишь блок LA в репозитории?'));
 
   assert.equal(result.canonicalSemanticModel.action.name, 'github.repository.inspect');
+  assert.equal(result.canonicalSemanticModel.target.block, 'LA');
+  assert.equal(result.decisionEnvelope.selectedAction.name, 'github-development');
+  assert.equal(result.decisionEnvelope.selectedAction.type, 'github-development');
+  assert.equal(result.decisionEnvelope.selectedAction.payload.mode, 'inspect');
+  assert.equal(result.decisionEnvelope.selectedAction.payload.canonicalAction, 'github.repository.inspect');
+  assert.equal(result.decisionEnvelope.selectedAction.payload.canonicalTarget.block, 'LA');
+});
+
+test('GitHub connection question remains deterministic GH3 status mode', async () => {
+  const interpreter = createGitHubDevelopmentMeaningInterpreter({
+    baseInterpreter: baseInterpreter(),
+    aiRouter: router({ route: 'status', instruction: null, target: null, confidence: 0.98, rationale: 'asks runtime GitHub availability' })
+  });
+  const kernel = createSemanticKernel({ meaningInterpreter: interpreter, semanticRequestResolver: createSemanticRequestResolver() });
+  const result = await kernel.process(input('У тебя есть доступ к GitHub?'));
+
+  assert.equal(result.canonicalSemanticModel.action.name, 'github.repository.inspect');
   assert.equal(result.decisionEnvelope.selectedAction.name, 'github-development');
   assert.equal(result.decisionEnvelope.selectedAction.type, 'github-development-status');
   assert.equal(result.decisionEnvelope.selectedAction.payload.mode, 'status');
-  assert.equal(result.decisionEnvelope.selectedAction.payload.canonicalAction, 'github.repository.inspect');
 });

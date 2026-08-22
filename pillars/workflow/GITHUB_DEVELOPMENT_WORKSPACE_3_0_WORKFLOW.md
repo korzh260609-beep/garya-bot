@@ -1,20 +1,20 @@
 # SG 2.1 — GITHUB DEVELOPMENT WORKSPACE 3.0 WORKFLOW
 
 ## Status
-**IMPLEMENTATION COMPLETE THROUGH GH3.12. GH3.1–GH3.11 CLOSED / CI-VERIFIED; GH3.12 IMPLEMENTED / CI-VERIFIED / LIVE ACCEPTANCE PENDING.**
+**IMPLEMENTATION COMPLETE THROUGH GH3.12. GH3.1–GH3.11 CLOSED / CI-VERIFIED; GH3.12 IMPLEMENTED / CI-VERIFIED / LIVE ACCEPTANCE PENDING. GDE1–GDE6 PLANNED / NOT IMPLEMENTED.**
 
-No GH3 stage is CLOSED from documentation alone.
+No GH3 or GDE stage is CLOSED from documentation alone.
 
 ## Global implementation rule
 
-For every GH3 stage:
+For every GH3/GDE stage:
 
 ```text
 verify dev/sg2.1-semantic exact HEAD and exact-head SG 2.1 CI
 → inspect code, tests and all affected canonical docs
 → preserve agreed product intent and existing SG boundaries
 → implement one bounded stage
-→ add deterministic, security and restart/idempotency tests
+→ add deterministic, security and restart/idempotency tests where applicable
 → run local checks
 → obtain exact-head CI evidence
 → perform live acceptance where required
@@ -23,7 +23,7 @@ verify dev/sg2.1-semantic exact HEAD and exact-head SG 2.1 CI
 
 `main` is not used as SG 2.1 implementation truth. SG 2.0 may be inspected only as historical evidence/pattern input and cannot silently override SG 2.1 architecture.
 
-## Stage workflow
+## GH3 stage workflow
 
 ### GH3.1 — Domain Contract & Capability Registry
 Define contracts and scoped capability names. Prove transport neutrality, explicit repository/ref/revision identity, bounded completion conditions and default-deny protected operations.
@@ -104,9 +104,162 @@ Implementation/CI evidence: exact implementation HEAD `11bca7313b84265f093e61512
 
 GH3.12 remains **NOT CLOSED** until a real authorized GitHub boundary plus two real SG transport/API surfaces provide the required live evidence. The deterministic acceptance runner is deliberately unable to self-assert that evidence.
 
+---
+
+## GDE implementation workflow
+
+GDE is the runtime semantic-to-execution completion extension on top of the existing GH3 stack. Detailed product requirements are defined in `../roadmap/GITHUB_DEVELOPMENT_EXECUTION_COMPLETION.md`.
+
+### GDE1 — Canonical GitHub Actions + Development Target Resolver
+
+Implementation order:
+
+```text
+inspect current semantic contract and Canonical Semantic Model
+→ define bounded canonical GitHub/development actions
+→ extend semantic normalization without phrase/regex execution routing
+→ implement deterministic Development Target Resolver
+→ bind repository/branch/baseline/scope/completion condition
+→ add semantic-equivalence and ambiguity tests
+→ run check
+→ exact-head CI
+→ synchronize docs/status
+```
+
+Closure requires proof that requests such as `реализуй LA1`, `исправь этот баг` and `проверь CI` resolve into bounded canonical development actions and targets independent of transport.
+
+### GDE2 — Existing Capability Binding + Runtime Self-Knowledge
+
+Implementation order:
+
+```text
+map canonical actions to existing GH3 capabilities
+→ read current ACS / Resource Authority / Credential / provider permission / emergency state
+→ compose with existing GitHub Security Control Plane
+→ expose deterministic capability result to Self Knowledge / response composition
+→ reject model-only capability claims
+→ add false-no-access regression tests
+→ run check
+→ exact-head CI
+```
+
+Closure requires proof that SG reports actual deterministic blockers and never claims lack of GitHub access merely because no local `.git` workspace exists.
+
+### GDE3 — Canonical-to-GH3 Execution Bridge + Change Set
+
+Implementation order:
+
+```text
+resolve canonical development action
+→ construct bounded execution envelope
+→ call existing GitHubDevelopmentOrchestrator
+→ inspect through existing repository reader
+→ construct bounded development plan/change set
+→ re-check baseline HEAD
+→ execute through existing GH3 mutation path
+→ persist/reconcile through existing development task store
+→ add idempotency/stale-head tests
+→ run check
+→ exact-head CI
+```
+
+Closure requires proof that `github.development.execute` reaches existing GH3 services without a parallel executor or duplicate task state.
+
+### GDE4 — Validation + Commit + Push Lifecycle
+
+Implementation order:
+
+```text
+apply authorized change set
+→ run required deterministic validation
+→ stop on validation failure
+→ create exact change-set-bound commit
+→ verify target branch and current HEAD
+→ update authorized branch through existing atomic mutation path
+→ verify resulting commit SHA/post-condition
+→ add wrong-branch/validation/action-gate/retry tests
+→ run full check
+→ exact-head CI
+```
+
+Closure requires proof that successful implementation means a verified repository change, not only generated code or an attempted provider call.
+
+### GDE5 — Exact-HEAD CI Completion + Failure Recovery Loop
+
+Implementation order:
+
+```text
+resolve resulting exact HEAD
+→ observe CI for same SHA
+→ reject another-SHA evidence
+→ localize first actionable failure
+→ obtain bounded/redacted logs/evidence
+→ repair within current task envelope
+→ validate
+→ create repair commit
+→ verify new exact HEAD CI
+→ reconcile restart/resume
+→ enforce bounded attempts/time/cost
+→ add recovery/cross-SHA/restart tests
+→ exact-head CI
+```
+
+Closure requires proof that `всё зелёное` is emitted only from successful CI evidence for the exact resulting HEAD.
+
+### GDE6 — Full GitHub Platform Operations + Audit + Regression + Canonical Sync
+
+Implementation order:
+
+```text
+wire canonical actions to existing GH3 collaboration/branch/CI services
+→ support issues/PR/reviews/branches/workflows through same authority path
+→ connect durable development-context continuation
+→ complete audit/provenance for all external operations
+→ add positive natural-language regression suite
+→ add security/negative regression suite
+→ run full check
+→ exact-head CI
+→ perform live acceptance where required
+→ synchronize architecture/roadmap/workflow/status
+```
+
+Closure requires proof that the same canonical execution model handles repository development and broader GitHub platform operations without transport-specific logic or parallel execution stacks.
+
+## GDE mandatory regression set
+
+Positive examples:
+
+```text
+найди LA1
+реализуй LA1
+исправь этот баг
+добавь тест
+обнови README
+сделай commit
+сделай commit и push
+проверь CI
+исправь упавший CI
+продолжай следующий этап
+```
+
+Negative/security examples:
+
+```text
+no write to unauthorized repository
+no silent switch to main/protected branch
+no mutation without current authority
+no execution after HEAD drift without reconciliation
+no duplicate commit/PR/workflow action on retry
+no false GitHub-access denial when deterministic capability is available
+no success/green claim without post-condition evidence
+no second semantic router
+no second GitHub executor
+no second authorization/gate/task/memory system
+```
+
 ## Closure evidence
 
-Each stage records:
+Each GH3/GDE stage records:
 
 - exact starting and resulting HEAD;
 - changed code/tests/docs;
@@ -116,7 +269,8 @@ Each stage records:
 - remaining limitations/blockers;
 - synchronized lifecycle status.
 
-GH3 closes only after all twelve stages satisfy their gates. Partial implementation must remain explicitly qualified and cannot be described as full GitHub development capability.
+GH3 closes only after all twelve GH3 stages satisfy their gates. GDE closes only after GDE1–GDE6 satisfy their own semantic-to-execution gates. Partial implementation must remain explicitly qualified and cannot be described as full natural-language GitHub development capability.
 
 Roadmap: `../roadmap/GITHUB_DEVELOPMENT_WORKSPACE_3_0_PROGRAM.md`.
+Execution completion extension: `../roadmap/GITHUB_DEVELOPMENT_EXECUTION_COMPLETION.md`.
 Architecture: `../architecture/GITHUB_DEVELOPMENT_WORKSPACE_3_0.md`.

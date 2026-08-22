@@ -95,3 +95,36 @@ test('repository inspect fails closed when required file evidence is truncated',
   );
   assert.equal(reads, 2);
 });
+
+test('repository inspect ignores truncated discovery and unrelated file metadata after reading the selected path', async () => {
+  const aiRouter = {
+    async route(request) {
+      if (request.task === 'github-development-file-selection') return aiResult({ files: ['pillars/roadmap/LIFECYCLE_ACTIVITY_PROGRAM.md'], rationale: 'selected concrete LA path' });
+      if (request.task === 'github-repository-inspection-answer') return aiResult('Блок LA подтверждён.');
+      throw new Error(`unexpected AI task ${request.task}`);
+    }
+  };
+  const repositoryReadService = {
+    async readSnapshot(input) {
+      if ((input.files ?? []).length === 0) return { revision: HEAD, tree: { entries: TREE, truncated: true }, files: [] };
+      return {
+        revision: HEAD,
+        tree: { entries: TREE, truncated: true },
+        files: [
+          { path: 'pillars/roadmap/LIFECYCLE_ACTIVITY_PROGRAM.md', sha: 'b'.repeat(40), content: '# LA', truncated: false },
+          { path: 'README.md', sha: 'c'.repeat(40), content: 'partial', truncated: true }
+        ]
+      };
+    }
+  };
+  const service = createGitHubDevelopmentExecutionService({
+    aiRouter,
+    repositoryReadService,
+    atomicCommitService: { async applyAtomicCommit() { throw new Error('must not mutate'); } },
+    repository: 'korzh260609-beep/garya-bot',
+    branch: 'dev/sg2.1-semantic'
+  });
+  const result = await service.inspect({ instruction: 'Ты видишь блок LA?', actor: { globalUserId: 'telegram:owner' }, traceContext: { traceId: 't', requestId: 'r' } });
+  assert.equal(result.status, 'success');
+  assert.deepEqual(result.selectedPaths, ['pillars/roadmap/LIFECYCLE_ACTIVITY_PROGRAM.md']);
+});

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createSemanticKernel } from '../src/semantic/semanticKernel.js';
 import { createFixtureMeaningInterpreter } from '../src/semantic/meaningInterpreter.js';
+import { CANONICAL_TEMPORAL_TYPES } from '../src/contracts/semantic.js';
 
 function input(text = 'cancel task 2') {
   return {
@@ -102,4 +103,45 @@ test('existing Temporal Context resolution is carried into canonical timeExpress
   assert.equal(result.canonicalSemanticModel.timeExpression.type, 'resolved-temporal-expression');
   assert.equal(result.canonicalSemanticModel.timeExpression.timeZone, 'Europe/Kyiv');
   assert.equal(result.canonicalSemanticModel.timeExpression.localStart, '2026-08-21T00:00:00');
+});
+
+test('equivalent previous-calendar-day meanings share one bounded canonical temporal value', async () => {
+  for (const text of ['за вчера', 'за прошедший день', 'за предыдущий день']) {
+    const kernel = createSemanticKernel({
+      meaningInterpreter: createFixtureMeaningInterpreter(() => interpretation({
+        timeExpression: { type: 'previous-calendar-day' }
+      }))
+    });
+    const result = await kernel.process(input(text));
+    assert.equal(result.canonicalSemanticModel.timeExpression.type, 'previous-calendar-day');
+  }
+});
+
+test('rolling 24 hours remains semantically distinct from previous calendar day', async () => {
+  const kernel = createSemanticKernel({
+    meaningInterpreter: createFixtureMeaningInterpreter(() => interpretation({
+      timeExpression: { type: 'rolling-24-hours' }
+    }))
+  });
+  const result = await kernel.process(input('за последние сутки'));
+  assert.equal(result.canonicalSemanticModel.timeExpression.type, 'rolling-24-hours');
+  assert.notEqual(result.canonicalSemanticModel.timeExpression.type, 'previous-calendar-day');
+});
+
+test('canonical semantic model rejects temporal and action values outside bounded contracts', async () => {
+  assert.deepEqual(CANONICAL_TEMPORAL_TYPES, [
+    'previous-calendar-day', 'current-calendar-day', 'rolling-24-hours',
+    'previous-week', 'current-week', 'custom-range'
+  ]);
+  const invalidTemporal = createSemanticKernel({
+    meaningInterpreter: createFixtureMeaningInterpreter(() => interpretation({ timeExpression: { type: 'some-day' } }))
+  });
+  await assert.rejects(() => invalidTemporal.process(input()), /unsupported timeExpression\.type/);
+
+  const invalidAction = createSemanticKernel({
+    meaningInterpreter: createFixtureMeaningInterpreter(() => interpretation({
+      action: { type: 'execute', name: 'task-cancel', actionClass: 'magic' }
+    }))
+  });
+  await assert.rejects(() => invalidAction.process(input()), /unsupported action\.actionClass/);
 });

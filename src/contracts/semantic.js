@@ -5,6 +5,18 @@ function requireObject(value, field) {
   return value;
 }
 
+export const CANONICAL_TEMPORAL_TYPES = Object.freeze([
+  'previous-calendar-day',
+  'current-calendar-day',
+  'rolling-24-hours',
+  'previous-week',
+  'current-week',
+  'custom-range'
+]);
+
+const CANONICAL_TEMPORAL_TYPE_SET = new Set(CANONICAL_TEMPORAL_TYPES);
+const INTERNAL_RESOLVED_TEMPORAL_TYPE = 'resolved-temporal-expression';
+
 function requireNonEmptyString(value, field) {
   if (typeof value !== 'string' || value.trim() === '') {
     throw new TypeError(`${field} must be a non-empty string`);
@@ -33,6 +45,30 @@ function boundedConfidence(value, field = 'confidence') {
     throw new TypeError(`${field} must be between 0 and 1`);
   }
   return confidence;
+}
+
+function canonicalAction(value) {
+  const action = requireObject(value, 'action');
+  const actionClass = requireNonEmptyString(action.actionClass, 'action.actionClass');
+  if (!['analysis', 'read-only', 'external', 'state-change'].includes(actionClass)) {
+    throw new TypeError(`unsupported action.actionClass: ${actionClass}`);
+  }
+  return Object.freeze({
+    ...action,
+    type: requireNonEmptyString(action.type, 'action.type'),
+    name: requireNonEmptyString(action.name, 'action.name'),
+    actionClass
+  });
+}
+
+function canonicalTimeExpression(value) {
+  if (value == null) return null;
+  const expression = requireObject(value, 'timeExpression');
+  const type = requireNonEmptyString(expression.type, 'timeExpression.type');
+  if (!CANONICAL_TEMPORAL_TYPE_SET.has(type) && type !== INTERNAL_RESOLVED_TEMPORAL_TYPE) {
+    throw new TypeError(`unsupported timeExpression.type: ${type}`);
+  }
+  return Object.freeze({ ...expression, type });
 }
 
 function conversationHistoryQuery(value) {
@@ -119,8 +155,8 @@ export function createCanonicalSemanticModel(input) {
     intent: requireNonEmptyString(input.intent, 'intent'),
     goal: requireNonEmptyString(input.goal, 'goal'),
     target: freezeObject(input.target, 'target', { nullable: true }),
-    action: freezeObject(input.action, 'action'),
-    timeExpression: freezeObject(input.timeExpression, 'timeExpression', { nullable: true }),
+    action: canonicalAction(input.action),
+    timeExpression: canonicalTimeExpression(input.timeExpression),
     scope: freezeObject(input.scope, 'scope', { nullable: true }),
     parameters: freezeObject(input.parameters ?? {}, 'parameters'),
     delivery: freezeObject(input.delivery, 'delivery', { nullable: true }),

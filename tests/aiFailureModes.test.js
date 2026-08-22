@@ -149,6 +149,12 @@ test('production semantic interpreter requests non-strict provider schema but ke
   for (const field of ['target', 'action', 'timeExpression', 'scope', 'parameters', 'delivery', 'confidence', 'provenance']) {
     assert.ok(routed.responseFormat.jsonSchema.properties[field], `production schema must expose ${field}`);
   }
+  assert.deepEqual(
+    routed.responseFormat.jsonSchema.properties.timeExpression.anyOf[1].properties.type.enum,
+    ['previous-calendar-day', 'current-calendar-day', 'rolling-24-hours', 'previous-week', 'current-week', 'custom-range']
+  );
+  assert.match(routed.messages[0].content, /previous-calendar-day/);
+  assert.match(routed.messages[0].content, /rolling-24-hours/);
   assert.equal(routed.responseFormat.jsonSchema.properties.candidateActions.items.properties.payload.additionalProperties, true);
   assert.equal(result.candidateActions[0].payload.subject, 'current-user');
   assert.deepEqual(result.target, { type: 'current-user' });

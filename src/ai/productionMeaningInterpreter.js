@@ -1,5 +1,5 @@
 import { parseStructuredAIOutput } from './contracts.js';
-import { createSemanticInterpretation } from '../contracts/semantic.js';
+import { CANONICAL_TEMPORAL_TYPES, createSemanticInterpretation } from '../contracts/semantic.js';
 import { buildDefensivePromptBoundary, deterministicAiFallback } from './productionPolicy.js';
 import { PRODUCTION_CAPABILITY_NAMES } from '../capability/productionCapabilities.js';
 import { MEMORY2_CAPABILITY_NAMES } from '../memory2/memory2Capabilities.js';
@@ -53,6 +53,15 @@ const NULLABLE_SEMANTIC_OBJECT_SCHEMA = Object.freeze({
     { type: 'object', additionalProperties: true }
   ]
 });
+const NULLABLE_CANONICAL_TIME_EXPRESSION_SCHEMA = Object.freeze({
+  anyOf: [
+    { type: 'null' },
+    {
+      type: 'object', additionalProperties: true, required: ['type'],
+      properties: { type: { type: 'string', enum: CANONICAL_TEMPORAL_TYPES } }
+    }
+  ]
+});
 const SEMANTIC_OBJECT_SCHEMA = Object.freeze({ type: 'object', additionalProperties: true });
 const SEMANTIC_SCHEMA = Object.freeze({
   type: 'object', additionalProperties: false,
@@ -61,7 +70,7 @@ const SEMANTIC_SCHEMA = Object.freeze({
     meaning: { type: 'string', minLength: 1 }, goal: { type: 'string', minLength: 1 }, intent: { type: 'string', minLength: 1 },
     target: NULLABLE_SEMANTIC_OBJECT_SCHEMA,
     action: NULLABLE_SEMANTIC_OBJECT_SCHEMA,
-    timeExpression: NULLABLE_SEMANTIC_OBJECT_SCHEMA,
+    timeExpression: NULLABLE_CANONICAL_TIME_EXPRESSION_SCHEMA,
     scope: NULLABLE_SEMANTIC_OBJECT_SCHEMA,
     parameters: SEMANTIC_OBJECT_SCHEMA,
     delivery: NULLABLE_SEMANTIC_OBJECT_SCHEMA,
@@ -84,6 +93,12 @@ const AUTOMATION_ROUTING_PRIORITY = `PRIORITY AUTOMATION ROUTING RULES:
 - When the user identifies an existing automation by its current wall-clock time, use selector.localTime. Do not also turn a short unquoted content fragment into selector.notificationMessage as though it were the complete stored notification text. Include notificationMessage only when the user clearly identifies the target by its full existing message. The deterministic resolver must handle zero or multiple time matches without guessing.
 - The runtime, not the semantic interpreter, resolves authorized-current at execution time and independently reauthorizes every workspace.
 - If one scoped automation matches, update it. If zero or multiple match, let the deterministic resolver return the safe clarification. Never invent a limitation or a second automation.`;
+
+const CANONICAL_TEMPORAL_ROUTING_PRIORITY = `CANONICAL TEMPORAL CONTRACT:
+- timeExpression.type MUST use the bounded canonical enum in the response schema.
+- Semantically equivalent references to yesterday, the previous elapsed calendar day, or the preceding day map to previous-calendar-day.
+- A trailing 24-hour duration maps to rolling-24-hours and MUST remain distinct from previous-calendar-day.
+- Do not calculate date boundaries; deterministic Temporal Context owns that later stage.`;
 
 function semanticConversationContext(canonicalInput) {
   const recentTurns = canonicalInput.metadata?.conversationContext?.recentTurns;
@@ -233,7 +248,7 @@ export function createProductionMeaningInterpreter({ aiRouter, fallbackOnFailure
         )
       });
       try {
-        const result = await aiRouter.route({ task: 'semantic-interpretation', specialty: 'semantic-interpretation', reason: 'Interpret canonical user meaning for Semantic Kernel', traceContext: canonicalInput.traceContext, identityContext: canonicalInput.identityContext, role: canonicalInput.identityContext?.roles?.[0] ?? 'guest', messages: [{ role: 'system', content: `${AUTOMATION_ROUTING_PRIORITY}\n\n${boundary.system}\n\nRecurring automation identifiers are internal. Never ask the user to read, copy or choose a scheduleId. If the user explicitly refers to a numbered automation from a previously displayed list (for example first, second or number 2), put that one-based number in payload.selector.position. Use position only when the user expressed it; never invent it. The scoped resolver must still fail closed when no explicit position or other selector uniquely identifies a target.` }, { role: 'user', content: boundary.user }], responseFormat: { name: 'semantic_interpretation', jsonSchema: SEMANTIC_SCHEMA, strict: false }, metadata: { locale: canonicalInput.locale, languageContext: canonicalInput.metadata?.languageContext ?? null, roles: canonicalInput.identityContext?.roles ?? [], context: userPayload } });
+        const result = await aiRouter.route({ task: 'semantic-interpretation', specialty: 'semantic-interpretation', reason: 'Interpret canonical user meaning for Semantic Kernel', traceContext: canonicalInput.traceContext, identityContext: canonicalInput.identityContext, role: canonicalInput.identityContext?.roles?.[0] ?? 'guest', messages: [{ role: 'system', content: `${AUTOMATION_ROUTING_PRIORITY}\n\n${CANONICAL_TEMPORAL_ROUTING_PRIORITY}\n\n${boundary.system}\n\nRecurring automation identifiers are internal. Never ask the user to read, copy or choose a scheduleId. If the user explicitly refers to a numbered automation from a previously displayed list (for example first, second or number 2), put that one-based number in payload.selector.position. Use position only when the user expressed it; never invent it. The scoped resolver must still fail closed when no explicit position or other selector uniquely identifies a target.` }, { role: 'user', content: boundary.user }], responseFormat: { name: 'semantic_interpretation', jsonSchema: SEMANTIC_SCHEMA, strict: false }, metadata: { locale: canonicalInput.locale, languageContext: canonicalInput.metadata?.languageContext ?? null, roles: canonicalInput.identityContext?.roles ?? [], context: userPayload } });
         const parsed = canonicalizeAutomationInterpretation(parseStructuredAIOutput(result), canonicalInput);
         return createSemanticInterpretation(canonicalizeOperationalTaskListInterpretation(parsed, canonicalInput));
       } catch (error) {

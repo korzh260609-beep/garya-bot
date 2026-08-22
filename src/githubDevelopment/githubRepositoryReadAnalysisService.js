@@ -60,12 +60,24 @@ export function createGitHubRepositoryReadAnalysisService({
     try { return await response.json(); } catch { fail('gh3-repository-read-response-invalid', 'GitHub repository read returned invalid JSON'); }
   }
 
+  async function resolveRevision(root, ref, token) {
+    if (ref.kind === 'commit') {
+      const body = await request(`${root}/commits/${encodeURIComponent(ref.name)}`, token);
+      return sha(body?.sha, 'commit.sha');
+    }
+    if (ref.kind === 'branch' || ref.kind === 'tag') {
+      const body = await request(`${root}/git/ref/${ref.kind === 'branch' ? 'heads' : 'tags'}/${encodePath(ref.name)}`, token);
+      return sha(body?.object?.sha, 'ref.object.sha');
+    }
+    const body = await request(`${root}/commits/${encodePath(ref.name)}`, token);
+    return sha(body?.sha, 'commit.sha');
+  }
+
   async function execute(input, repository, ref, token) {
     const root = `/repos/${encodeURIComponent(repository.owner)}/${encodeURIComponent(repository.name)}`;
     const metadataBody = await request(root, token);
     const observedRepository = repositoryFromApi(metadataBody); assertRepository(repository, observedRepository);
-    const commitBody = await request(`${root}/commits/${encodeURIComponent(ref.name)}`, token);
-    const revision = sha(commitBody?.sha, 'commit.sha');
+    const revision = await resolveRevision(root, ref, token);
     if (ref.kind === 'commit' && revision !== ref.name.toLowerCase()) fail('gh3-revision-mismatch', 'GitHub returned a different immutable revision');
 
     const treeBody = await request(`${root}/git/trees/${revision}?recursive=1`, token);

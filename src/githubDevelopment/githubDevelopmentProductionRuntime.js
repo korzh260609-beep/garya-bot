@@ -14,6 +14,7 @@ function tokenKey(env) { if (value(env.SG_GITHUB_DEVELOPMENT_TOKEN)) return 'SG_
 function githubAppConfigured(env) { return Boolean(value(env.GITHUB_APP_ID) && value(env.GITHUB_APP_INSTALLATION_ID) && (value(env.GITHUB_APP_PRIVATE_KEY) || value(env.GITHUB_APP_PRIVATE_KEY_BASE64))); }
 function repositoryResourceId(repository) { return `github:repo:${repository}`; }
 function repositoryIdentity(repository) { const [owner, name] = repository.split('/'); return Object.freeze({ owner, name, fullName: repository }); }
+function responseLanguage(request) { return value(request?.input?.languageContext?.responseLanguage) ?? value(request?.input?.locale) ?? 'ru'; }
 function messageForUnavailable(locale, reason) { const language = String(locale ?? 'ru').toLowerCase(); if (language.startsWith('uk')) return `GitHub Development Workspace недоступний: ${reason}.`; if (language.startsWith('en')) return `GitHub Development Workspace is unavailable: ${reason}.`; return `GitHub Development Workspace недоступен: ${reason}.`; }
 function statusMessage(locale, availability, authority) { const language = String(locale ?? 'ru').toLowerCase(); const ready = availability.configured && authority?.allowed === true; const state = ready ? 'готов' : 'не готов'; if (language.startsWith('uk')) return `GitHub Development Workspace ${ready ? 'готовий' : 'не готовий'}: ${availability.repository}, гілка ${availability.branch}. Credential: ${availability.credentialPresent ? 'є' : 'немає'}, authority: ${authority?.allowed === true ? 'can_modify' : authority?.reason ?? 'unavailable'}.`; if (language.startsWith('en')) return `GitHub Development Workspace is ${ready ? 'ready' : 'not ready'}: ${availability.repository}, branch ${availability.branch}. Credential: ${availability.credentialPresent ? 'present' : 'missing'}, authority: ${authority?.allowed === true ? 'can_modify' : authority?.reason ?? 'unavailable'}.`; return `GitHub Development Workspace ${state}: ${availability.repository}, ветка ${availability.branch}. Credential: ${availability.credentialPresent ? 'есть' : 'нет'}, authority: ${authority?.allowed === true ? 'can_modify' : authority?.reason ?? 'unavailable'}.`; }
 function successMessage(locale, result) { const short = String(result.commitSha ?? '').slice(0, 12); const files = (result.changedPaths ?? []).join(', '); const language = String(locale ?? 'ru').toLowerCase(); if (language.startsWith('uk')) return `Виконано в ${result.repository}, гілка ${result.branch}. Commit ${short}. Змінено: ${files}. ${result.summary}`; if (language.startsWith('en')) return `Executed in ${result.repository} on ${result.branch}. Commit ${short}. Changed: ${files}. ${result.summary}`; return `Выполнено в ${result.repository}, ветка ${result.branch}. Commit ${short}. Изменено: ${files}. ${result.summary}`; }
@@ -86,8 +87,8 @@ export function createProductionGitHubDevelopmentRuntime({ env = process.env, cr
         try {
           const capabilityAssessment = await assess(request, canonicalAction);
           const message = capabilityAssessment?.available === false
-            ? (capabilityAssessment.message ?? statusMessage(request.input?.locale, availability, authority))
-            : statusMessage(request.input?.locale, availability, authority);
+            ? (capabilityAssessment.message ?? statusMessage(responseLanguage(request), availability, authority))
+            : statusMessage(responseLanguage(request), availability, authority);
           return { status: 'success', data: { message, availability, authority, capabilityAssessment } };
         } catch (error) {
           return capabilityError(error, request.input?.locale, availability, authority);
@@ -101,7 +102,7 @@ export function createProductionGitHubDevelopmentRuntime({ env = process.env, cr
         try {
           const canonicalInput = Object.freeze({ text: instruction, locale: request.input?.locale ?? 'ru', identityContext: request.actor, scopeContext: request.scope, traceContext: request.traceContext, metadata: request.input?.metadata ?? {} });
           const resolvedTarget = composition?.targetResolver && request.input?.canonicalModel ? await composition.targetResolver.resolve({ canonicalModel: request.input.canonicalModel, canonicalInput }) : null;
-          const result = await service.inspect({ instruction, actor: request.actor, traceContext: request.traceContext });
+          const result = await service.inspect({ instruction, originalUserText: request.input?.text ?? instruction, responseLanguage: responseLanguage(request), actor: request.actor, traceContext: request.traceContext });
           return { status: 'success', data: { ...result, availability, authority, capabilityAssessment: preflight.assessment, resolvedTarget } };
         } catch (error) {
           const reason = error?.code ?? 'github-repository-inspection-failed'; const detail = error?.message ?? 'GitHub repository inspection failed';

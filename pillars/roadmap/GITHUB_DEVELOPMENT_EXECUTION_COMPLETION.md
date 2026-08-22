@@ -344,7 +344,7 @@ Tests cover create/update/delete/multi-file changes, validation failure, stale b
 
 ## GDE5 — Exact-HEAD CI Completion + Failure Recovery Loop
 
-**Status: IMPLEMENTED / LOCAL TESTS VERIFIED / EXACT-HEAD CI PENDING.**
+**Status: CLOSED / CI-VERIFIED.**
 
 Implementation evidence:
 
@@ -354,7 +354,7 @@ Implementation evidence:
 - each repair SHA is inspected anew; another-SHA CI evidence and invalid repair ancestry fail closed;
 - successful completion can checkpoint exact-head evidence through the existing durable task store.
 
-GDE5 must not be described as CLOSED until SG 2.1 CI succeeds on the exact implementation HEAD.
+Closure evidence: exact implementation HEAD `c69ac1007c61f78f4bad4d52171fecbf564e8445`, SG 2.1 CI #8763 `SUCCESS` (Run ID `32567164437`).
 
 ### Goal
 

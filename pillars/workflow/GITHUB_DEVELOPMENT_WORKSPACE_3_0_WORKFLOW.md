@@ -112,6 +112,8 @@ GDE is the runtime semantic-to-execution completion extension on top of the exis
 
 ### GDE1 — Canonical GitHub Actions + Development Target Resolver
 
+**CLOSED / CI-VERIFIED** at exact implementation HEAD `2eac3632e2f99398c41a65dd81a5a446d4b04d4a`, SG 2.1 CI #8747 `SUCCESS` (Run ID `32564308591`).
+
 Implementation order:
 
 ```text

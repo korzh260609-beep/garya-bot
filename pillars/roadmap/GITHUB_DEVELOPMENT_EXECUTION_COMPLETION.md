@@ -39,7 +39,7 @@ Natural-language request
 
 ## GDE1 — Canonical GitHub Actions + Development Target Resolver
 
-**Status: IMPLEMENTED / LOCAL TESTS VERIFIED / EXACT-HEAD CI PENDING.**
+**Status: CLOSED / CI-VERIFIED.**
 
 Implementation evidence:
 
@@ -49,7 +49,7 @@ Implementation evidence:
 - transport metadata is excluded from target identity;
 - targeted contract, equivalence, ambiguity, non-`main`, exact-HEAD and no-phrase-routing regressions are covered by `tests/githubDevelopmentTargetResolver.test.js` and `tests/githubDevelopmentMeaningInterpreter.test.js`.
 
-GDE1 must not be described as CLOSED until SG 2.1 CI succeeds on the exact implementation HEAD.
+Closure evidence: exact implementation HEAD `2eac3632e2f99398c41a65dd81a5a446d4b04d4a`, SG 2.1 CI #8747 `SUCCESS` (Run ID `32564308591`).
 
 ### Goal
 

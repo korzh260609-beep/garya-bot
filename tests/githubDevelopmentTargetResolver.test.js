@@ -26,10 +26,12 @@ test('GDE1 resolves semantic-equivalent transports to one authoritative exact ta
   assert.deepEqual(telegram, web);
   assert.equal(telegram.repository.fullName, binding.repository);
   assert.equal(telegram.branch, binding.branch);
+  assert.equal(telegram.connectionId, binding.connectionId);
   assert.equal(telegram.baselineHead, HEAD);
   assert.equal(telegram.developmentScope.id, 'LA1');
   assert.equal(calls[0].ref.name, binding.branch);
   assert.deepEqual(calls[0].files, ['README.md', 'pillars/roadmap/ROADMAP.md']);
+  assert.equal(calls[0].connectionId, binding.connectionId);
 });
 
 test('GDE1 fails closed for ambiguous repository, branch, scope and unverified HEAD', async () => {

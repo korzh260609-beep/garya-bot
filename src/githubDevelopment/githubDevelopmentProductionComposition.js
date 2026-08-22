@@ -33,7 +33,7 @@ export function createGitHubDevelopmentProductionComposition({
       const targetPaths = concrete(canonicalModel?.target?.paths);
       const developmentTarget = targetId ? Object.freeze({ id: targetId, kind: canonicalModel?.target?.stage ? 'stage' : 'block', authoritative: true, paths: targetPaths.length ? targetPaths : canonicalDocumentPaths, completionCondition: canonicalModel?.parameters?.completionCondition ?? { kind: 'exact-head-ci-green', targetWorkflow: 'SG 2.1 CI', maxAttempts: 3, evidenceRequirements: ['tests', 'exact-head-ci'] } }) : null;
       return Object.freeze({
-        bindings: [Object.freeze({ projectScope: canonicalInput.scopeContext.projectScope, repository, branch, connectionId, visibility: 'authorized-private', authoritative: true })],
+        bindings: [Object.freeze({ projectScope: canonicalInput.scopeContext.projectScope, repository, branch, connectionId, credentialId: developmentExecutionService.credentialId, visibility: 'authorized-private', authoritative: true })],
         canonicalDocumentPaths,
         projectContext: Object.freeze({ developmentTargets: developmentTarget ? [developmentTarget] : [], currentDevelopmentTarget: developmentTarget })
       });

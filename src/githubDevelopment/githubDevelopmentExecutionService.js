@@ -147,6 +147,7 @@ export function createGitHubDevelopmentExecutionService({
   repository,
   branch,
   connectionId = 'github-development',
+  credentialId = 'sg.github.development',
   clock = () => new Date()
 } = {}) {
   if (!aiRouter?.route) throw new TypeError('aiRouter.route is required');
@@ -157,6 +158,7 @@ export function createGitHubDevelopmentExecutionService({
   const repo = repositoryParts(repository);
   const targetBranch = required(branch, 'branch', 300);
   const connection = required(connectionId, 'connectionId', 200);
+  const credential = required(credentialId, 'credentialId', 200);
 
   async function readEvidence({ instruction, actor, traceContext } = {}) {
     const text = required(instruction, 'instruction', 50000);
@@ -307,7 +309,7 @@ export function createGitHubDevelopmentExecutionService({
       commitMessage: plan.commitMessage,
       idempotencyKey: `gh3:${traceContext.requestId}`
     });
-    const lifecycle = commitLifecycle ? await commitLifecycle.execute({ connectionId: connection, credentialId: 'sg.github.development', mutationPlan, fileContents, developmentPlan: plan, actor, projectScope, repositoryResourceId: repositoryResourceId ?? `github:repo:${repo.owner}/${repo.name}`, actionRequest: actionRequest ?? { traceContext, actor, scope: { userScope: actor.globalUserId, projectScope, allowedCapabilities: ['github.contents.write','github.commit.create'] } } }) : null;
+    const lifecycle = commitLifecycle ? await commitLifecycle.execute({ connectionId: connection, credentialId: credential, mutationPlan, fileContents, developmentPlan: plan, actor, projectScope, repositoryResourceId: repositoryResourceId ?? `github:repo:${repo.owner}/${repo.name}`, actionRequest: actionRequest ?? { traceContext, actor, scope: { userScope: actor.globalUserId, projectScope, allowedCapabilities: ['github.contents.write','github.commit.create'] } } }) : null;
     const mutation = lifecycle?.mutation ?? await atomicCommitService.applyAtomicCommit({ connectionId: connection, mutationPlan, fileContents });
     return freeze({
       status: 'success',
@@ -323,5 +325,5 @@ export function createGitHubDevelopmentExecutionService({
     });
   }
 
-  return Object.freeze({ execute, inspect, repository: `${repo.owner}/${repo.name}`, branch: targetBranch, connectionId: connection });
+  return Object.freeze({ execute, inspect, repository: `${repo.owner}/${repo.name}`, branch: targetBranch, connectionId: connection, credentialId: credential });
 }

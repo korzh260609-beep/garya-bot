@@ -87,6 +87,8 @@ export function createGitHubDevelopmentTargetResolver({ contextProvider, reposit
         projectScope,
         repository,
         branch,
+        connectionId: value(binding.connectionId),
+        credentialId: value(binding.credentialId),
         baselineHead,
         developmentScope,
         pathScope: unique(canonicalModel.target?.paths ?? developmentScope?.paths ?? []),

@@ -136,6 +136,7 @@ test('GDE6 production runtime routes canonical platform actions transport-neutra
   const {runtime}=harness({platformOperationsService});
   for(const transport of ['telegram','web-api']){const result=await runtime.capability.execute({actor:{globalUserId:'telegram:1'},scope:{projectScope:'sg2.1'},input:{canonicalAction:'github.ci.verify',platformOperation:{repository:{owner:'korzh260609-beep',name:'garya-bot'},branch:'dev/sg2.1-semantic'},transport},actionRequest:{actionType:'github-development'},traceContext:{traceId:'t',requestId:transport}});assert.equal(result.status,'success');assert.equal(result.data.canonicalAction,'github.ci.verify')}
   assert.equal(calls.length,2);assert.equal(calls[0].actor.globalUserId,'telegram:1');assert.equal(calls[1].projectScope,'sg2.1');
+  assert.equal(calls[0].connectionId,'github-development');assert.equal(calls[0].credentialId,'sg.github.development');assert.equal(calls[0].repository.fullName,'korzh260609-beep/garya-bot');assert.equal(calls[0].branch,'dev/sg2.1-semantic');assert.equal(calls[0].repositoryResourceId,'github:repo:korzh260609-beep/garya-bot');assert.equal(calls[0].capability,'github.actions.read');
 });
 
 test('production execution fails closed when canonical repository or branch leaves the configured workspace', async () => {

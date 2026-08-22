@@ -2,6 +2,9 @@ import { parseStructuredAIOutput } from '../ai/contracts.js';
 import { createGitHubMutationPlan } from './githubDevelopmentContract.js';
 
 const MAX_TREE_PATHS = 5000;
+const MAX_SELECTION_PATHS = 220;
+const MAX_SELECTION_CHARACTERS = 12000;
+const MAX_INSPECTION_EVIDENCE_CHARACTERS = 16000;
 const MAX_SELECTED_FILES = 12;
 const MAX_CHANGE_FILES = 12;
 const MAX_FILE_CONTENT = 120000;
@@ -81,6 +84,53 @@ function selectedFilesFrom(result, availablePaths) {
   return Object.freeze([...new Set(files.map(safePath).filter((path) => available.has(path)))].slice(0, MAX_SELECTED_FILES));
 }
 
+function words(value) {
+  return String(value ?? '').toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
+}
+
+function pathInitialisms(path) {
+  return String(path).split('/').flatMap((segment) => {
+    const parts = segment.replace(/\.[^.]+$/u, '').split(/[_\-.]+/u).filter(Boolean);
+    return parts.length > 1 ? [parts.map((part) => part[0]).join('').toLowerCase()] : [];
+  });
+}
+
+function relevantDiscoveryPaths(paths, instruction) {
+  const tokens = [...new Set(words(instruction).filter((token) => token.length >= 2))];
+  const scored = paths.map((path, index) => {
+    const lower = path.toLowerCase();
+    const aliases = pathInitialisms(path);
+    let score = /(?:^|\/)(?:readme|.*roadmap|.*status)/iu.test(path) ? 20 : 0;
+    for (const token of tokens) {
+      if (lower.includes(token)) score += 100;
+      if (aliases.some((alias) => alias === token || alias.startsWith(token))) score += 120;
+    }
+    return { path, index, score };
+  }).sort((left, right) => right.score - left.score || left.index - right.index);
+  const result = [];
+  let characters = 0;
+  for (const item of scored) {
+    if (result.length >= MAX_SELECTION_PATHS || characters + item.path.length > MAX_SELECTION_CHARACTERS) break;
+    result.push(item.path); characters += item.path.length;
+  }
+  return result;
+}
+
+function inspectionEvidence(files, instruction) {
+  const tokens = [...new Set(words(instruction).filter((token) => token.length >= 2))];
+  let remaining = MAX_INSPECTION_EVIDENCE_CHARACTERS;
+  return files.map((file) => {
+    const content = String(file.content ?? '');
+    if (content.length <= remaining) { remaining -= content.length; return file; }
+    const lower = content.toLowerCase();
+    const hit = tokens.map((token) => lower.indexOf(token)).find((index) => index >= 0) ?? 0;
+    const size = Math.max(0, remaining);
+    const start = Math.max(0, Math.min(hit - Math.floor(size / 3), content.length - size));
+    remaining = 0;
+    return { ...file, content: content.slice(start, start + size), excerpt: true, excerptStart: start };
+  });
+}
+
 function normalizedPlan(result, snapshot) {
   const parsed = parseStructuredAIOutput(result);
   const rawChanges = Array.isArray(parsed.changes) ? parsed.changes : [];
@@ -148,10 +198,11 @@ export function createGitHubDevelopmentExecutionService({
       connectionId: connection,
       files: []
     });
-    const treePaths = (discovery.tree?.entries ?? [])
+    const allTreePaths = (discovery.tree?.entries ?? [])
       .filter((item) => item?.type === 'blob' && typeof item.path === 'string')
       .map((item) => item.path)
       .slice(0, MAX_TREE_PATHS);
+    const treePaths = relevantDiscoveryPaths(allTreePaths, text);
 
     const selection = await aiRouter.route({
       task: 'github-development-file-selection',
@@ -168,7 +219,7 @@ export function createGitHubDevelopmentExecutionService({
       maxOutputTokens: 1500,
       metadata: { repository: `${repo.owner}/${repo.name}`, branch: targetBranch, operation: 'file-selection' }
     });
-    const selectedFiles = selectedFilesFrom(selection, treePaths);
+    const selectedFiles = selectedFilesFrom(selection, allTreePaths);
 
     const snapshot = await repositoryReadService.readSnapshot({
       repository: repo,
@@ -199,6 +250,7 @@ export function createGitHubDevelopmentExecutionService({
 
   async function inspect({ instruction, actor, traceContext } = {}) {
     const evidence = await readEvidence({ instruction, actor, traceContext });
+    const boundedFiles = inspectionEvidence(evidence.files, evidence.instruction);
     const answer = await aiRouter.route({
       task: 'github-repository-inspection-answer',
       specialty: 'coding',
@@ -208,7 +260,7 @@ export function createGitHubDevelopmentExecutionService({
       role: actor.roles?.[0] ?? 'guest',
       messages: [
         { role: 'system', content: 'Answer the repository inspection request using only the supplied exact-HEAD GitHub evidence. Be concise and factual. If the requested item is not present in the supplied files, say that it was not confirmed from the selected evidence; do not invent access limitations. Do not mutate anything and do not claim CI/deployment status unless present in evidence.' },
-        { role: 'user', content: JSON.stringify({ instruction: evidence.instruction, repository: evidence.repository, branch: evidence.branch, exactHead: evidence.exactHead, files: evidence.files }) }
+        { role: 'user', content: JSON.stringify({ instruction: evidence.instruction, repository: evidence.repository, branch: evidence.branch, exactHead: evidence.exactHead, files: boundedFiles }) }
       ],
       maxOutputTokens: 1200,
       metadata: { repository: evidence.repository, branch: evidence.branch, exactHead: evidence.exactHead, operation: 'repository-inspection' }

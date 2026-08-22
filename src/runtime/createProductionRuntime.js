@@ -246,6 +246,26 @@ export function createProductionRuntime({ config, semanticPipeline, actionGate, 
       const semantic = await semanticPipeline.process(requestInput);
       const memoryCapture = await captureMemory(requestInput, semantic);
       observability.record({ eventClass: 'semantic_decision_created', channel: 'telemetry', stage: 'decision-engine', traceContext, outcome: semantic.decisionEnvelope.decisionType, data: { intent: semantic.decisionEnvelope.intent } });
+      if (semantic.decisionEnvelope.decisionType === 'clarification') {
+        return persistResponse(requestInput, {
+          status: 'clarification-required',
+          message: semantic.responsePlan.message,
+          data: {
+            decisionEnvelope: semantic.decisionEnvelope,
+            canonicalResolution: semantic.canonicalSemanticModel
+              ? Object.freeze({
+                version: semantic.canonicalSemanticModel.version ?? null,
+                status: semantic.canonicalSemanticModel.resolutionStatus ?? null,
+                confidence: semantic.canonicalSemanticModel.confidence ?? null,
+                missingInformation: semantic.canonicalSemanticModel.missingInformation ?? []
+              })
+              : null,
+            languageContext,
+            policyContext,
+            memoryCapture
+          }
+        });
+      }
       const selectedName = semantic.decisionEnvelope.selectedAction?.name ?? semantic.decisionEnvelope.selectedAction?.type;
       const selectedPayload = semantic.decisionEnvelope.selectedAction?.payload ?? {};
       const declaredCapability = capabilityRegistry?.get(selectedName) ?? null;

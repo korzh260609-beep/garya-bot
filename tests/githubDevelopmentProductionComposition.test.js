@@ -16,7 +16,7 @@ function input(text) { return { text, locale: 'ru', identityContext: { globalUse
 
 test('production composition routes LA1 canonical execution through GDE1, GDE3 and the existing GH3 executor', async () => {
   const reads = [], executions = [];
-  const repositoryReadService = { async readSnapshot(request) { reads.push(request); return { repository: { fullName: repository }, revision: HEAD, tree: { entries: [{ type: 'blob', path: 'pillars/roadmap/LIFECYCLE_ACTIVITY.md', sha: 'c'.repeat(40) }] }, files: [{ path: 'pillars/roadmap/LIFECYCLE_ACTIVITY.md', content: '# LA\n## LA1', sha: 'c'.repeat(40) }], provenance: { source: `github:${repository}@${HEAD}`, immutableRevisionVerified: true } }; } };
+  const repositoryReadService = { async readSnapshot(request) { reads.push(request); return { repository: { fullName: repository }, revision: HEAD, tree: { entries: [{ type: 'blob', path: 'pillars/roadmap/LIFECYCLE_ACTIVITY_PROGRAM.md', sha: 'c'.repeat(40) }] }, files: [{ path: 'pillars/roadmap/LIFECYCLE_ACTIVITY_PROGRAM.md', content: '# LA\n## LA1', sha: 'c'.repeat(40) }], provenance: { source: `github:${repository}@${HEAD}`, immutableRevisionVerified: true } }; } };
   const composition = createGitHubDevelopmentProductionComposition({ repository, branch, connectionId: 'github-development', repositoryReadService, atomicCommitService: { async applyAtomicCommit() { return { commitSha: NEXT }; } }, developmentExecutionService: { async execute(request) { executions.push(request); return { status: 'success', repository, branch, baselineSha: HEAD, commitSha: NEXT, changedPaths: ['src/activity.js'], summary: 'LA1 implemented', pushVerified: true }; } }, capabilityBindingService: {}, securityControlPlane: null, githubProvider: { async withInstallationToken() { throw new Error('platform operation not used'); } }, fetchImpl: async () => { throw new Error('provider operation not used'); } });
   const canonicalInput = input('Реализуй этап LA1 — Activity Event Core');
   const canonicalModel = canonical('github.development.execute', { repository, branch, stage: 'LA1', paths: ['src/activity.js'] });
@@ -28,11 +28,15 @@ test('production composition routes LA1 canonical execution through GDE1, GDE3 a
   assert.equal(executions.length, 1);
   assert.match(executions[0].instruction, /LA1/);
   assert.ok(reads.length >= 2);
+  assert.ok(reads[0].files.includes('pillars/architecture/LIFECYCLE_ACTIVITY.md'));
+  assert.ok(reads[0].files.includes('pillars/roadmap/LIFECYCLE_ACTIVITY_PROGRAM.md'));
+  assert.ok(reads[0].files.includes('pillars/workflow/LIFECYCLE_ACTIVITY_WORKFLOW.md'));
+  assert.equal(reads[0].files.includes('pillars/roadmap/LIFECYCLE_ACTIVITY.md'), false);
 });
 
 test('production composition resolves repository read-flow from exact GitHub evidence without mutation', async () => {
   let mutations = 0;
-  const repositoryReadService = { async readSnapshot() { return { repository: { fullName: repository }, revision: HEAD, files: [{ path: 'pillars/roadmap/LIFECYCLE_ACTIVITY.md', content: '# LA', sha: 'c'.repeat(40) }], provenance: { source: `github:${repository}@${HEAD}`, immutableRevisionVerified: true } }; } };
+  const repositoryReadService = { async readSnapshot() { return { repository: { fullName: repository }, revision: HEAD, files: [{ path: 'pillars/roadmap/LIFECYCLE_ACTIVITY_PROGRAM.md', content: '# LA', sha: 'c'.repeat(40) }], provenance: { source: `github:${repository}@${HEAD}`, immutableRevisionVerified: true } }; } };
   const composition = createGitHubDevelopmentProductionComposition({ repository, branch, connectionId: 'github-development', repositoryReadService, atomicCommitService: { async applyAtomicCommit() { mutations += 1; } }, developmentExecutionService: { async execute() { mutations += 1; } }, githubProvider: { async withInstallationToken() { throw new Error('not used'); } }, fetchImpl: async () => { throw new Error('not used'); } });
   const canonicalInput = input('Ты видишь блок LA в репозитории?');
   const resolved = await composition.targetResolver.resolve({ canonicalModel: canonical('github.repository.inspect', { repository, branch, block: 'LA' }), canonicalInput });

@@ -4,7 +4,7 @@ import { createGitHubDevelopmentExecutionService } from '../src/githubDevelopmen
 
 const HEAD = 'a'.repeat(40);
 const TREE = [
-  { type: 'blob', path: 'pillars/roadmap/LIFECYCLE_ACTIVITY.md', sha: 'b'.repeat(40) },
+  { type: 'blob', path: 'pillars/roadmap/LIFECYCLE_ACTIVITY_PROGRAM.md', sha: 'b'.repeat(40) },
   { type: 'blob', path: 'README.md', sha: 'c'.repeat(40) }
 ];
 
@@ -20,10 +20,10 @@ test('repository inspect reads exact-head evidence and never invokes mutation se
     async route(request) {
       calls.push(request);
       if (request.task === 'github-development-file-selection') {
-        return aiResult({ files: ['pillars/roadmap/LIFECYCLE_ACTIVITY.md'], rationale: 'LA evidence lives there' });
+        return aiResult({ files: ['pillars/roadmap/LIFECYCLE_ACTIVITY_PROGRAM.md'], rationale: 'LA evidence lives there' });
       }
       if (request.task === 'github-repository-inspection-answer') {
-        return aiResult('Блок LA подтверждён в pillars/roadmap/LIFECYCLE_ACTIVITY.md.');
+        return aiResult('Блок LA подтверждён в pillars/roadmap/LIFECYCLE_ACTIVITY_PROGRAM.md.');
       }
       throw new Error(`unexpected AI task ${request.task}`);
     }
@@ -37,7 +37,7 @@ test('repository inspect reads exact-head evidence and never invokes mutation se
       return {
         revision: HEAD,
         tree: { entries: TREE },
-        files: [{ path: 'pillars/roadmap/LIFECYCLE_ACTIVITY.md', sha: 'b'.repeat(40), content: '# LA\n\n## LA1 — Activity Event Core', truncated: false }]
+        files: [{ path: 'pillars/roadmap/LIFECYCLE_ACTIVITY_PROGRAM.md', sha: 'b'.repeat(40), content: '# LA\n\n## LA1 — Activity Event Core', truncated: false }]
       };
     }
   };
@@ -63,11 +63,11 @@ test('repository inspect reads exact-head evidence and never invokes mutation se
   assert.equal(result.revision, HEAD);
   assert.equal(result.repository, 'korzh260609-beep/garya-bot');
   assert.equal(result.branch, 'dev/sg2.1-semantic');
-  assert.deepEqual(result.selectedPaths, ['pillars/roadmap/LIFECYCLE_ACTIVITY.md']);
+  assert.deepEqual(result.selectedPaths, ['pillars/roadmap/LIFECYCLE_ACTIVITY_PROGRAM.md']);
   assert.match(result.message, /Блок LA подтверждён/);
   assert.equal(atomicCalls, 0);
   assert.equal(snapshots.length, 2);
-  assert.deepEqual(snapshots[1].files, ['pillars/roadmap/LIFECYCLE_ACTIVITY.md']);
+  assert.deepEqual(snapshots[1].files, ['pillars/roadmap/LIFECYCLE_ACTIVITY_PROGRAM.md']);
   assert.deepEqual(calls.map((item) => item.task), ['github-development-file-selection', 'github-repository-inspection-answer']);
 });
 

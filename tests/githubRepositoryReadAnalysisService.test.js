@@ -69,6 +69,20 @@ test('missing permission and deleted refs produce explicit failures', async () =
   }
 });
 
+test('a missing optional requested file does not falsely report the whole repository as unavailable', async () => {
+  const service = createGitHubRepositoryReadAnalysisService({
+    fetchImpl: async (url) => {
+      if (new URL(url).pathname.endsWith('/contents/missing.md')) return response({}, 404);
+      return response(bodyFor(url));
+    },
+    clock: () => new Date('2026-08-20T10:00:00Z')
+  });
+  const result = await service.readSnapshot({ ...input, files: ['missing.md'] });
+  assert.equal(result.revision, REVISION);
+  assert.deepEqual(result.files, []);
+  assert.deepEqual(result.missingFiles, ['missing.md']);
+});
+
 test('cross-repository response identity is rejected before facts are returned', async () => {
   const service = createGitHubRepositoryReadAnalysisService({ fetchImpl: async () => response({ id: 9, full_name: 'other/project' }) });
   await assert.rejects(() => service.readSnapshot(input), (error) => error.code === 'gh3-cross-repository-denied');

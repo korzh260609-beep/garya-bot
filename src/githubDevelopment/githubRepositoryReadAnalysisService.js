@@ -50,11 +50,12 @@ export function createGitHubRepositoryReadAnalysisService({
   const fileLimit = bounded(maxFiles, 'maxFiles', 12, 1, 30);
   const characterLimit = bounded(maxFileCharacters, 'maxFileCharacters', 12000, 100, 50000);
 
-  async function request(path, token) {
+  async function request(path, token, { allowNotFound = false } = {}) {
     let response;
     try { response = await fetchImpl(`${base}${path}`, { method: 'GET', headers: { Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'User-Agent': 'sg-gh3-repository-read', ...(token ? { Authorization: `Bearer ${token}` } : {}) } }); }
     catch { fail('gh3-repository-read-provider-unavailable', 'GitHub repository read failed', { retryable: true }); }
     if (response?.status === 403) fail('gh3-repository-read-permission-denied', 'GitHub repository read permission is unavailable', { status: 403 });
+    if (response?.status === 404 && allowNotFound) return null;
     if (response?.status === 404) fail('gh3-repository-read-not-found', 'GitHub repository resource or ref was not found', { status: 404 });
     if (!response?.ok) fail(`gh3-repository-read-http-${response?.status ?? 'unknown'}`, 'GitHub repository read was not successful', { status: response?.status ?? null, retryable: response?.status >= 500 });
     try { return await response.json(); } catch { fail('gh3-repository-read-response-invalid', 'GitHub repository read returned invalid JSON'); }
@@ -86,8 +87,10 @@ export function createGitHubRepositoryReadAnalysisService({
     const requestedFiles = [...new Set([...(input.files ?? []), ...tree.items.filter((entry) => CANONICAL_DOCUMENT.test(entry.path ?? '')).map((entry) => entry.path)])]
       .filter((path) => typeof path === 'string' && path && !path.startsWith('/') && !path.split('/').includes('..')).slice(0, fileLimit);
     const files = [];
+    const missingFiles = [];
     for (const path of requestedFiles) {
-      const body = await request(`${root}/contents/${encodePath(path)}?ref=${revision}`, token);
+      const body = await request(`${root}/contents/${encodePath(path)}?ref=${revision}`, token, { allowNotFound: true });
+      if (!body) { missingFiles.push(path); continue; }
       const decoded = decodeFile(body, characterLimit); if (decoded) files.push(decoded);
     }
 
@@ -132,7 +135,7 @@ export function createGitHubRepositoryReadAnalysisService({
       revision,
       observedAt: clock().toISOString(),
       metadata: { id: observedRepository.repositoryId, fullName: observedRepository.fullName, defaultBranch: metadataBody.default_branch ?? null, visibility: metadataBody.visibility ?? (metadataBody.private ? 'private' : 'public'), archived: metadataBody.archived === true },
-      tree: { entries: tree.items, truncated: tree.truncated || treeBody?.truncated === true }, files,
+      tree: { entries: tree.items, truncated: tree.truncated || treeBody?.truncated === true }, files, missingFiles,
       history: { commits: commits.items, truncated: commits.truncated },
       collaboration: { issues: issues.items, pullRequests: pullRequests.items, reviews, truncated: issues.truncated || pullRequests.truncated || reviews.length >= itemLimit },
       ci: { checks: checks.items, workflowRuns: workflowRuns.items, jobs, artifacts, truncated: checks.truncated || workflowRuns.truncated || jobs.length >= itemLimit || artifacts.length >= itemLimit },

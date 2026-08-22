@@ -26,7 +26,7 @@ export function createGitHubDevelopmentProductionComposition({
   clock = () => new Date()
 } = {}) {
   if (!repositoryReadService?.readSnapshot || !atomicCommitService?.applyAtomicCommit || !developmentExecutionService?.execute) throw new TypeError('existing GH3 execution services are required');
-  const canonicalDocumentPaths = (value(env.SG_GITHUB_CANONICAL_DOCUMENTS) ?? 'pillars/roadmap/LIFECYCLE_ACTIVITY.md,pillars/roadmap/GITHUB_DEVELOPMENT_EXECUTION_COMPLETION.md,README.md').split(',').map((item) => item.trim()).filter(Boolean);
+  const canonicalDocumentPaths = (value(env.SG_GITHUB_CANONICAL_DOCUMENTS) ?? 'pillars/architecture/LIFECYCLE_ACTIVITY.md,pillars/roadmap/LIFECYCLE_ACTIVITY_PROGRAM.md,pillars/workflow/LIFECYCLE_ACTIVITY_WORKFLOW.md,pillars/roadmap/GITHUB_DEVELOPMENT_EXECUTION_COMPLETION.md,README.md').split(',').map((item) => item.trim()).filter(Boolean);
   const contextProvider = Object.freeze({
     async getAuthoritativeContext({ canonicalModel, canonicalInput }) {
       const targetId = value(canonicalModel?.target?.stage) ?? value(canonicalModel?.target?.block) ?? value(canonicalModel?.target?.scopeId);

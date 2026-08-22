@@ -58,6 +58,10 @@ function required(value, field, max = 50000) {
   if (text.length > max) fail('gh3-execution-input-too-large', `${field} is too large`);
   return text;
 }
+function boundedFinding(value) {
+  if (typeof value !== 'string' || value.trim() === '') fail('gh3-execution-chunk-finding-invalid', 'chunk finding is required');
+  return value.trim().slice(0, 1800);
+}
 
 function safePath(value) {
   const path = required(value, 'path', 500).replace(/\\/gu, '/');
@@ -252,7 +256,7 @@ export function createGitHubDevelopmentExecutionService({
           ], maxOutputTokens: 500,
           metadata: { repository: evidence.repository, branch: evidence.branch, exactHead: evidence.exactHead, operation: 'repository-inspection-chunk', chunkIndex: index, chunkCount: chunks.length }
         });
-        findings.push({ path: chunk.path, start: chunk.start, finding: required(analysis?.text, 'chunk finding', 2000) });
+        findings.push({ path: chunk.path, start: chunk.start, finding: boundedFinding(analysis?.text) });
       }
       boundedFiles = [{ semanticChunkFindings: findings, completeFilesInspected: evidence.files.map((file) => ({ path: file.path, sha: file.sha, characters: String(file.content ?? '').length })) }];
     }

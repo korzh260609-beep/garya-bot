@@ -90,6 +90,7 @@ test('GDE2 production status uses deterministic assessment but presents configur
   });
   assert.match(result.data.message, /korzh260609-beep\/garya-bot/);
   assert.match(result.data.message, /dev\/sg2\.1-semantic/);
+  assert.doesNotMatch(result.data.message, /Credential|can_modify/);
   assert.equal(result.data.capabilityAssessment.available, true);
   assert.equal(assessments[0].repository.fullName, 'korzh260609-beep/garya-bot');
   assert.equal(Object.hasOwn(assessments[0], 'localGitAvailable'), false);
@@ -102,8 +103,8 @@ test('GH3 status uses resolved response language rather than platform locale', a
     input: { mode: 'status', locale: 'uk', languageContext: { responseLanguage: 'ru' } },
     actionRequest: { actionType: 'github-development-status' }, traceContext: { traceId: 't-language', requestId: 'r-language' }
   });
-  assert.match(result.data.message, /готов:/);
-  assert.doesNotMatch(result.data.message, /готовий:/);
+  assert.match(result.data.message, /Workspace готов\./);
+  assert.doesNotMatch(result.data.message, /Workspace готовий\./);
 });
 
 test('GH3 bootstrap never silently restores a revoked authority', async () => {

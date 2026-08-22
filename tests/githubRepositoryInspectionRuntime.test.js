@@ -179,3 +179,19 @@ test('repository inspect keeps large discovery and GH3 file evidence below the A
   assert.equal(routedInputs.filter((item) => item.task === 'github-repository-inspection-chunk-analysis').length, 4);
   assert.match(routedInputs.at(-1).body, /semanticChunkFindings/);
 });
+
+test('oversized chunk finding is bounded instead of failing the whole repository inspection', async () => {
+  const aiRouter = {
+    async route(request) {
+      if (request.task === 'github-development-file-selection') return aiResult({ files: ['README.md'], rationale: 'read repository evidence' });
+      if (request.task === 'github-repository-inspection-chunk-analysis') return aiResult('факт '.repeat(1000));
+      const input = JSON.parse(request.messages.at(-1).content);
+      assert.ok(input.files[0].semanticChunkFindings.every((item) => item.finding.length <= 1800));
+      return aiResult('Репозиторий подтверждён.');
+    }
+  };
+  const repositoryReadService = { async readSnapshot(input) { return (input.files ?? []).length === 0 ? { revision: HEAD, tree: { entries: TREE }, files: [] } : { revision: HEAD, tree: { entries: TREE }, files: [{ path: 'README.md', sha: 'c'.repeat(40), content: 'x'.repeat(25000), truncated: false }] }; } };
+  const service = createGitHubDevelopmentExecutionService({ aiRouter, repositoryReadService, atomicCommitService: { async applyAtomicCommit() {} }, repository: 'korzh260609-beep/garya-bot', branch: 'dev/sg2.1-semantic' });
+  const result = await service.inspect({ instruction: 'Проверь репозиторий', originalUserText: 'Проверь репозиторий', responseLanguage: 'ru', actor: { globalUserId: 'telegram:owner' }, traceContext: { traceId: 't-large-finding', requestId: 'r-large-finding' } });
+  assert.equal(result.status, 'success');
+});

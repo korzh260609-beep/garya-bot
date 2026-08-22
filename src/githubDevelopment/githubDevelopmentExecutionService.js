@@ -230,7 +230,7 @@ export function createGitHubDevelopmentExecutionService({
     });
   }
 
-  async function inspect({ instruction, actor, traceContext } = {}) {
+  async function inspect({ instruction, originalUserText = instruction, responseLanguage = null, actor, traceContext } = {}) {
     const evidence = await readEvidence({ instruction, actor, traceContext });
     let boundedFiles = evidence.files;
     if (JSON.stringify(evidence.files).length > MAX_INSPECTION_EVIDENCE_CHARACTERS) {
@@ -264,8 +264,8 @@ export function createGitHubDevelopmentExecutionService({
       identityContext: actor,
       role: actor.roles?.[0] ?? 'guest',
       messages: [
-        { role: 'system', content: 'Answer the repository inspection request using only the supplied exact-HEAD GitHub evidence. Answer in the same natural language as the user instruction. Be concise and factual. If the requested item is not present in the supplied files, say that it was not confirmed from the selected evidence; do not invent access limitations. Do not mutate anything and do not claim CI/deployment status unless present in evidence.' },
-        { role: 'user', content: JSON.stringify({ instruction: evidence.instruction, repository: evidence.repository, branch: evidence.branch, exactHead: evidence.exactHead, files: boundedFiles }) }
+        { role: 'system', content: 'Answer the repository inspection request using only the supplied exact-HEAD GitHub evidence. The requiredResponseLanguage field is authoritative: answer entirely in that language. originalUserText is authoritative for the user wording; instruction is an internal semantic task and must never determine response language. Be concise and factual. If the requested item is not present in the supplied files, say that it was not confirmed from the selected evidence; do not invent access limitations. Do not mutate anything and do not claim CI/deployment status unless present in evidence.' },
+        { role: 'user', content: JSON.stringify({ instruction: evidence.instruction, originalUserText, requiredResponseLanguage: responseLanguage, repository: evidence.repository, branch: evidence.branch, exactHead: evidence.exactHead, files: boundedFiles }) }
       ],
       maxOutputTokens: 1200,
       metadata: { repository: evidence.repository, branch: evidence.branch, exactHead: evidence.exactHead, operation: 'repository-inspection' }

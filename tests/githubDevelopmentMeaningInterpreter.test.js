@@ -49,10 +49,18 @@ test('GH3 semantic router sends access questions to deterministic runtime status
   assert.deepEqual(result.candidateActions[0].payload, { mode: 'status' });
 });
 
-test('GH3 semantic router preserves ordinary conversation when route is none or confidence is weak', async () => {
+test('GH3 semantic router preserves ordinary conversation only when route is none', async () => {
   const base = baseInterpretation();
   const none = createGitHubDevelopmentMeaningInterpreter({ baseInterpreter: { interpret: async () => base }, aiRouter: router({ route: 'none', instruction: null, target: null, confidence: 0.99, rationale: 'not repository execution' }) });
   assert.equal(await none.interpret(input('Объясни что такое git')), base);
+});
+
+test('GH3 semantic router keeps a weak GitHub route so the global canonical resolver owns clarification', async () => {
+  const base = baseInterpretation();
   const weak = createGitHubDevelopmentMeaningInterpreter({ baseInterpreter: { interpret: async () => base }, aiRouter: router({ route: 'execute', instruction: 'do work', target: null, confidence: 0.4, rationale: 'uncertain' }) });
-  assert.equal(await weak.interpret(input()), base);
+  const result = await weak.interpret(input());
+  assert.equal(result.intent, 'github-development');
+  assert.equal(result.candidateActions[0].name, 'github.development.execute');
+  assert.equal(result.confidence, 0.4);
+  assert.equal(result.uncertainty, 0.6);
 });

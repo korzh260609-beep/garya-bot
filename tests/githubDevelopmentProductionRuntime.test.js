@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createProductionGitHubDevelopmentRuntime } from '../src/githubDevelopment/githubDevelopmentProductionRuntime.js';
 
-function harness({ authorities = [], allowed = true, capabilityBindingService = null, platformOperationsService = null } = {}) {
+function harness({ authorities = [], allowed = true, capabilityBindingService = null, platformOperationsService = null, env = null, githubConnectionProvider = null } = {}) {
   const credentials = [];
   const grants = [];
   const resources = [];
@@ -19,7 +19,7 @@ function harness({ authorities = [], allowed = true, capabilityBindingService = 
     async checkAuthority() { return { allowed, reason: allowed ? 'resource-authority-verified' : 'resource-authority-missing' }; }
   };
   const runtime = createProductionGitHubDevelopmentRuntime({
-    env: { GITHUB_TOKEN: 'configured', SG_GITHUB_DEVELOPMENT_REPOSITORY: 'korzh260609-beep/garya-bot', SG_GITHUB_DEVELOPMENT_BRANCH: 'dev/sg2.1-semantic' },
+    env: env ?? { GITHUB_TOKEN: 'configured', SG_GITHUB_DEVELOPMENT_REPOSITORY: 'korzh260609-beep/garya-bot', SG_GITHUB_DEVELOPMENT_BRANCH: 'dev/sg2.1-semantic' },
     credentialManager,
     credentialAccessContext: { actor: { globalUserId: 'system:runtime' }, scope: { projectScope: 'sg2.1' } },
     resourceAuthorityRegistry,
@@ -27,11 +27,27 @@ function harness({ authorities = [], allowed = true, capabilityBindingService = 
     ownerGlobalUserId: 'telegram:1',
     aiRouter: { async route() { throw new Error('not used by status/preflight tests'); } },
     capabilityBindingService,
+    githubConnectionProvider,
     platformOperationsService,
     fetchImpl: async () => { throw new Error('not used by status/preflight tests'); }
   });
   return { runtime, credentials, grants, resources };
 }
+
+test('GH3 production runtime accepts the existing complete GitHub App credential set without a PAT', async () => {
+  let verified = 0;
+  const provider = { async withInstallationToken() { throw new Error('provider call is not needed for availability'); }, async verifyConnection() { verified += 1; return { authentication: 'github-app' }; } };
+  const { runtime, credentials } = harness({
+    env: { GITHUB_APP_ID: '42', GITHUB_APP_INSTALLATION_ID: '7', GITHUB_APP_PRIVATE_KEY: 'private-key-reference-value', SG_GITHUB_DEVELOPMENT_REPOSITORY: 'korzh260609-beep/garya-bot', SG_GITHUB_DEVELOPMENT_BRANCH: 'dev/sg2.1-semantic' },
+    githubConnectionProvider: provider
+  });
+  assert.equal(runtime.availability.configured, true);
+  assert.equal(runtime.availability.credentialPresent, true);
+  assert.equal(runtime.availability.authentication, 'github-app');
+  assert.equal(credentials.some((item) => item.credentialId === 'sg.github.development'), false);
+  await runtime.start();
+  assert.equal(verified, 1);
+});
 
 test('GH3 production runtime exposes configured repository truth and bootstraps owner authority once', async () => {
   const { runtime, credentials, grants, resources } = harness();

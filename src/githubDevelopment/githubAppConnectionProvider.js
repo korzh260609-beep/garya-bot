@@ -14,6 +14,7 @@ function positiveInteger(value, field) {
 }
 
 function base64url(value) { return Buffer.from(JSON.stringify(value)).toString('base64url'); }
+function normalizedPrivateKey(value) { const key = required(value, 'GitHub App private key'); return key.includes('\\n') && !key.includes('\n') ? key.replace(/\\n/gu, '\n') : key; }
 
 function createAppJwt({ appId, privateKey, now }) {
   const issuedAt = Math.floor(now.getTime() / 1000) - 30;
@@ -23,7 +24,7 @@ function createAppJwt({ appId, privateKey, now }) {
   const signer = createSign('RSA-SHA256');
   signer.update(unsigned);
   signer.end();
-  return `${unsigned}.${signer.sign(required(privateKey, 'GitHub App private key')).toString('base64url')}`;
+  return `${unsigned}.${signer.sign(normalizedPrivateKey(privateKey)).toString('base64url')}`;
 }
 
 function safeAuthority({ connection, body, repository }) {

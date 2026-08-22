@@ -5,6 +5,7 @@ import { createGitHubCapabilityRegistry, GITHUB_CAPABILITY_DEFINITIONS } from '.
 import { createGitHubSecurityControlPlane } from '../githubDevelopment/githubSecurityControlPlane.js';
 import { createGitHubCapabilityBindingService, createGitHubProviderCapabilityProbe } from '../githubDevelopment/githubCapabilityBindingService.js';
 import { createGitHubTokenConnectionProvider } from '../githubDevelopment/githubTokenConnectionProvider.js';
+import { createGitHubAppConnectionProvider } from '../githubDevelopment/githubAppConnectionProvider.js';
 import { createPostgresGitHubDevelopmentTaskStore } from '../githubDevelopment/postgresGitHubDevelopmentTaskStore.js';
 
 function mergeHealth(base, pdk4, githubDevelopment = null) {
@@ -59,7 +60,10 @@ export function createProductionHarnessWithPDK4({ env = {}, interpretationResolv
   const pdk4Deployment = createProductionDevelopmentKnowledgeDeployment({ harness: base, env, fetchImpl, clock });
   const repositoryReadCapability = wireRepositoryReadCapability(base, pdk4Deployment);
   const githubCapabilityRegistry = createGitHubCapabilityRegistry();
-  const githubTokenProvider = createGitHubTokenConnectionProvider({ credentialManager: base.credentialManager, credentialAccessContext: base.credentialAccessContext });
+  const githubAppConfigured = [env.GITHUB_APP_ID, env.GITHUB_APP_INSTALLATION_ID, env.GITHUB_APP_PRIVATE_KEY].every((item) => typeof item === 'string' && item.trim() !== '');
+  const githubConnectionProvider = githubAppConfigured
+    ? createGitHubAppConnectionProvider({ connectionRegistry: base.connectionRegistry, credentialManager: base.credentialManager, connectionAccessContext: base.connectionAccessContext, credentialAccessContext: base.credentialAccessContext, fetchImpl, clock })
+    : createGitHubTokenConnectionProvider({ credentialManager: base.credentialManager, credentialAccessContext: base.credentialAccessContext });
   const githubSecurityControlPlane = createGitHubSecurityControlPlane({
     capabilityRegistry: githubCapabilityRegistry,
     accessControl: { async assertAllowed({ actor, capability }) { return { allowed: actor?.grants?.includes(`capability:${capability}`) === true, reason: 'identity-capability-grant' }; } },
@@ -71,7 +75,7 @@ export function createProductionHarnessWithPDK4({ env = {}, interpretationResolv
     audit: (event) => base.observability.record({ eventClass: 'audit_event', channel: 'audit', stage: 'github-security-control-plane', outcome: event.outcome ?? 'evaluated', reason: event.capability ?? 'github-capability-assessment', traceContext: { traceId: `gde2:${event.actorGlobalUserId ?? 'unknown'}`, requestId: `gde2:${event.capability ?? 'unknown'}`, environment: env.NODE_ENV ?? 'production', revision: env.RENDER_GIT_COMMIT ?? 'unknown' }, data: event }),
     clock
   });
-  const githubCapabilityBindingService = createGitHubCapabilityBindingService({ capabilityRegistry: githubCapabilityRegistry, securityControlPlane: githubSecurityControlPlane, providerCapabilityProbe: createGitHubProviderCapabilityProbe({ connectionProvider: githubTokenProvider }), clock });
+  const githubCapabilityBindingService = createGitHubCapabilityBindingService({ capabilityRegistry: githubCapabilityRegistry, securityControlPlane: githubSecurityControlPlane, providerCapabilityProbe: createGitHubProviderCapabilityProbe({ connectionProvider: githubConnectionProvider }), clock });
   const githubDevelopmentTaskStore = base.persistence?.database ? createPostgresGitHubDevelopmentTaskStore({ database: base.persistence.database }) : null;
   const githubDevelopment = createProductionGitHubDevelopmentRuntime({
     env,
@@ -83,6 +87,7 @@ export function createProductionHarnessWithPDK4({ env = {}, interpretationResolv
     aiRouter: base.productionAI?.aiRouter ?? null,
     capabilityBindingService: githubCapabilityBindingService,
     githubSecurityControlPlane,
+    githubConnectionProvider,
     developmentTaskStore: githubDevelopmentTaskStore,
     auditSink: { async record(event) { return base.observability.record({ eventClass: 'audit_event', channel: 'audit', stage: 'github-platform-operations', outcome: event.postCondition ?? 'evaluated', reason: event.canonicalAction, traceContext: { traceId: event.traceId ?? `gde6:${event.idempotencyKey}`, requestId: event.idempotencyKey, environment: env.NODE_ENV ?? 'production', revision: env.RENDER_GIT_COMMIT ?? 'unknown' }, data: event }); } },
     fetchImpl,

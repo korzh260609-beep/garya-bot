@@ -84,6 +84,24 @@ test('Block 16.9 deployment bootstrap preserves revoked state instead of silentl
   assert.equal(restored.status, 'revoked');
 });
 
+test('deployment bootstrap registers existing GitHub App env as the canonical GH3 connection without exposing the private key', async () => {
+  const credentials = [];
+  const credentialManager = {
+    listCredentials() { return credentials; },
+    registerCredential(record) { credentials.push(record); return record; },
+    describeCredential(id) { const item = credentials.find((record) => record.credentialId === id); if (!item) throw new Error('missing credential'); return item; }
+  };
+  const deployment = createDeploymentExternalConnections({ credentialManager, observability: { record() {} }, config: { environment: 'test', revision: 'github-app', projectScope: 'sg2.1' }, env: { GITHUB_APP_ID: '42', GITHUB_APP_INSTALLATION_ID: '7', GITHUB_APP_PRIVATE_KEY: 'secret-private-key' } });
+  await deployment.resource.start();
+  const connection = await deployment.registry.describe({ connectionId: 'github-development', actor: deployment.accessContext.actor, projectScope: 'sg2.1' });
+  assert.equal(connection.serviceType, 'github-app');
+  assert.equal(connection.externalAccount.installationId, '7');
+  assert.equal(connection.metadata.appId, '42');
+  assert.equal(connection.credentialId, 'sg.github.app.private-key');
+  assert.equal(JSON.stringify(connection).includes('secret-private-key'), false);
+  assert.equal(credentials[0].secretRef.key, 'GITHUB_APP_PRIVATE_KEY');
+});
+
 test('Block 16.9 discovery resolves only connected capability providers', async () => {
   const { registry } = fixture();
   const a = actor();

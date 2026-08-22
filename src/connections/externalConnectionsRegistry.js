@@ -79,12 +79,12 @@ export function createExternalConnectionsRegistry({ store, clock = () => new Dat
     return publicRecord(saved);
   }
 
-  async function reconnect({ connectionId, actor, projectScope, credentialId, externalAccount = null, grantedScopes = null, permissions = null, capabilities = null, purpose = 'connection-reconnect' } = {}) {
+  async function reconnect({ connectionId, actor, projectScope, credentialId, externalAccount = null, grantedScopes = null, permissions = null, capabilities = null, metadata = null, purpose = 'connection-reconnect' } = {}) {
     const current = await getRequired(connectionId);
     assertAuthorized(current, { actor, projectScope: required(projectScope, 'projectScope'), permission: 'connection:manage', operation: 'reconnect', purpose });
     const nextCredentialId = credentialId === undefined ? current.credentialId : optional(credentialId);
     assertCredential(nextCredentialId);
-    const next = { ...current, credentialId: nextCredentialId, externalAccount: externalAccount == null ? current.externalAccount : safeObject(externalAccount, 'externalAccount'), grantedScopes: grantedScopes == null ? current.grantedScopes : uniqueStrings(grantedScopes, 'grantedScopes'), permissions: permissions == null ? current.permissions : uniqueStrings(permissions, 'permissions'), capabilities: capabilities == null ? current.capabilities : uniqueStrings(capabilities, 'capabilities'), status: 'connected', healthState: 'unknown', revokedAt: null, updatedAt: clock().toISOString() };
+    const next = { ...current, credentialId: nextCredentialId, externalAccount: externalAccount == null ? current.externalAccount : safeObject(externalAccount, 'externalAccount'), grantedScopes: grantedScopes == null ? current.grantedScopes : uniqueStrings(grantedScopes, 'grantedScopes'), permissions: permissions == null ? current.permissions : uniqueStrings(permissions, 'permissions'), capabilities: capabilities == null ? current.capabilities : uniqueStrings(capabilities, 'capabilities'), metadata: metadata == null ? current.metadata : safeObject(metadata, 'metadata'), status: 'connected', healthState: 'unknown', revokedAt: null, updatedAt: clock().toISOString() };
     const saved = await store.put(next); await emit(saved, { actor, operation: 'reconnect', outcome: 'success', purpose }); return publicRecord(saved);
   }
 

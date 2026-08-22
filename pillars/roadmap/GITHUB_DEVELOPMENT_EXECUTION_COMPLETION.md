@@ -15,6 +15,18 @@ Production integration evidence:
 
 Runtime integration closure evidence: implementation HEAD `d94594b366288c70c1b2db78345d773a969ef921`, SG 2.1 CI #8807 `SUCCESS` (Run ID `32572801463`).
 
+### Production GitHub authentication
+
+The canonical production path supports the existing deployment GitHub App credential set:
+
+```text
+GITHUB_APP_ID
+GITHUB_APP_INSTALLATION_ID
+GITHUB_APP_PRIVATE_KEY
+```
+
+When all three values are present, deployment bootstraps the `github-development` External Connection and stores only the private-key environment reference in Credential Manager. `githubAppConnectionProvider` mints bounded short-lived installation tokens, checks selected-repository scope and provider permissions, and supplies the same provider to GDE2, repository reads, atomic commits, collaboration, CI and platform operations. The deployment-token variables remain a compatibility fallback; they are not required when the GitHub App set is complete.
+
 This document extends the existing GitHub Development Workspace 3.0 (`GH3`) program. It does not create a second GitHub subsystem, semantic router, capability registry, authorization layer, Action Gate, CI service, task store, memory store or transport-specific execution path.
 
 The purpose of this extension is to close the remaining runtime gap between the SG-wide semantic/canonical pipeline and the already implemented GH3 development execution stack, so that a natural-language instruction such as `реализуй LA1` can resolve into an authoritative development action and continue through repository mutation, validation, commit, push and exact-HEAD CI verification.

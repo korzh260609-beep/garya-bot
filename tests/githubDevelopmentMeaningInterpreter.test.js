@@ -75,3 +75,25 @@ test('GH3 semantic router keeps a weak GitHub route so the global canonical reso
   assert.equal(result.confidence, 0.4);
   assert.equal(result.uncertainty, 0.6);
 });
+
+test('GH3 router cannot discard a canonical GitHub action already resolved by the primary interpreter', async () => {
+  const primary = Object.freeze({
+    ...baseInterpretation(),
+    intent: 'github-repository-inspect',
+    uncertainty: 0.05,
+    candidateActions: [Object.freeze({ type: 'github-development', name: 'github.repository.inspect', actionClass: 'read-only', payload: Object.freeze({ mode: 'inspect', instruction: 'Проверь фактическое содержимое репозитория.' }) })]
+  });
+  const interpreter = createGitHubDevelopmentMeaningInterpreter({ baseInterpreter: { interpret: async () => primary }, aiRouter: router({ route: 'none', instruction: null, target: null, confidence: 0.7, rationale: 'secondary classifier missed the repository action' }) });
+  const result = await interpreter.interpret(input('Ты видишь нужный блок в репозитории?'));
+  assert.equal(result.candidateActions[0].name, 'github.repository.inspect');
+  assert.equal(result.candidateActions[0].payload.mode, 'inspect');
+  assert.ok(result.confidence >= 0.8);
+});
+
+test('GH3 router cannot lower confidence of the same canonical GitHub route below primary semantic evidence', async () => {
+  const primary = Object.freeze({ ...baseInterpretation(), uncertainty: 0.05, candidateActions: [Object.freeze({ type: 'github-development', name: 'github.repository.inspect', actionClass: 'read-only', payload: Object.freeze({ mode: 'inspect' }) })] });
+  const interpreter = createGitHubDevelopmentMeaningInterpreter({ baseInterpreter: { interpret: async () => primary }, aiRouter: router({ route: 'inspect', instruction: 'Inspect repository evidence.', target: null, confidence: 0.2, rationale: 'weak duplicate classification' }) });
+  const result = await interpreter.interpret(input('Проверь репозиторий'));
+  assert.ok(result.confidence >= 0.8);
+  assert.equal(result.candidateActions[0].payload.mode, 'inspect');
+});

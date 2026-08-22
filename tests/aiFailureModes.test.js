@@ -109,6 +109,14 @@ test('production semantic interpreter requests non-strict provider schema but ke
     meaning: 'Identify the current user from SG context',
     goal: 'answer',
     intent: 'answer',
+    target: { type: 'current-user' },
+    action: { type: 'answer', name: 'compose-answer', actionClass: 'analysis', payload: { subject: 'current-user' } },
+    timeExpression: null,
+    scope: { type: 'current-user-scope' },
+    parameters: { subject: 'current-user' },
+    delivery: { mode: 'reply' },
+    confidence: 0.98,
+    provenance: { source: 'production-ai' },
     entities: [],
     constraints: [],
     uncertainty: 0,
@@ -138,8 +146,14 @@ test('production semantic interpreter requests non-strict provider schema but ke
   });
 
   assert.equal(routed.responseFormat.strict, false);
+  for (const field of ['target', 'action', 'timeExpression', 'scope', 'parameters', 'delivery', 'confidence', 'provenance']) {
+    assert.ok(routed.responseFormat.jsonSchema.properties[field], `production schema must expose ${field}`);
+  }
   assert.equal(routed.responseFormat.jsonSchema.properties.candidateActions.items.properties.payload.additionalProperties, true);
   assert.equal(result.candidateActions[0].payload.subject, 'current-user');
+  assert.deepEqual(result.target, { type: 'current-user' });
+  assert.equal(result.action.name, 'compose-answer');
+  assert.equal(result.confidence, 0.98);
 });
 
 test('OpenAI provider marks rate-limit failures retryable', async () => {

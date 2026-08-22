@@ -54,7 +54,8 @@ export function createSemanticRequestResolver({ minimumConfidence = 0.35 } = {})
 
       const selected = selectAction(interpretation);
       const confidence = interpretation.confidence;
-      const insufficient = confidence < minimumConfidence || interpretation.missingInformation.length > 0;
+      const insufficient = confidence < minimumConfidence
+        || (interpretation.missingInformation.length > 0 && Boolean(interpretation.clarificationQuestion));
       const clarificationQuestion = insufficient
         ? (interpretation.clarificationQuestion ?? defaultClarification(canonicalInput.locale))
         : interpretation.clarificationQuestion;

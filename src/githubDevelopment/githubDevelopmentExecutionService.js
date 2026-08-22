@@ -136,7 +136,7 @@ export function createGitHubDevelopmentExecutionService({
   const targetBranch = required(branch, 'branch', 300);
   const connection = required(connectionId, 'connectionId', 200);
 
-  async function execute({ instruction, actor, traceContext, projectScope = 'sg2.1', repositoryResourceId = null, actionRequest = null } = {}) {
+  async function readEvidence({ instruction, actor, traceContext } = {}) {
     const text = required(instruction, 'instruction', 50000);
     if (!actor?.globalUserId) fail('gh3-execution-identity-required', 'verified actor is required');
     if (!traceContext?.traceId || !traceContext?.requestId) fail('gh3-execution-trace-required', 'trace context is required');
@@ -156,12 +156,12 @@ export function createGitHubDevelopmentExecutionService({
     const selection = await aiRouter.route({
       task: 'github-development-file-selection',
       specialty: 'coding',
-      reason: 'Select bounded repository files needed for an instructed GitHub development task',
+      reason: 'Select bounded repository files needed for an instructed GitHub repository task',
       traceContext,
       identityContext: actor,
       role: actor.roles?.[0] ?? 'guest',
       messages: [
-        { role: 'system', content: 'You are SG GitHub Development Workspace. Select only existing repository files that must be read before implementing the user instruction. Do not execute or claim completion. Return schema-valid JSON only. Prefer the smallest sufficient set. Never select secret material or .env files.' },
+        { role: 'system', content: 'You are SG GitHub Development Workspace. Select only existing repository files that must be read to answer or implement the user instruction. Do not execute or claim completion. Return schema-valid JSON only. Prefer the smallest sufficient set. Never select secret material or .env files.' },
         { role: 'user', content: JSON.stringify({ instruction: text, repository: `${repo.owner}/${repo.name}`, branch: targetBranch, exactHead: discovery.revision, paths: treePaths }) }
       ],
       responseFormat: { name: 'github_development_file_selection', jsonSchema: FILE_SELECTION_SCHEMA, strict: false },
@@ -177,16 +177,43 @@ export function createGitHubDevelopmentExecutionService({
       connectionId: connection,
       files: selectedFiles
     });
-
-    const evidence = {
+    const files = (snapshot.files ?? []).map((file) => ({ path: file.path, sha: file.sha, content: file.content, truncated: file.truncated === true }));
+    if (files.some((file) => file.truncated)) fail('gh3-execution-evidence-truncated', 'required repository file evidence is truncated');
+    return freeze({
       instruction: text,
       repository: `${repo.owner}/${repo.name}`,
       branch: targetBranch,
       exactHead: snapshot.revision,
-      files: (snapshot.files ?? []).map((file) => ({ path: file.path, sha: file.sha, content: file.content, truncated: file.truncated === true })),
-      canonicalDocuments: (snapshot.files ?? []).filter((file) => /(?:README|ROADMAP|STATUS|LIFECYCLE_ACTIVITY)/iu.test(file.path ?? '')).map((file) => file.path)
-    };
-    if (evidence.files.some((file) => file.truncated)) fail('gh3-execution-evidence-truncated', 'required repository file evidence is truncated; refusing to mutate');
+      selectedFiles,
+      files,
+      canonicalDocuments: (snapshot.files ?? []).filter((file) => /(?:README|ROADMAP|STATUS|LIFECYCLE_ACTIVITY)/iu.test(file.path ?? '')).map((file) => file.path),
+      snapshot
+    });
+  }
+
+  async function inspect({ instruction, actor, traceContext } = {}) {
+    const evidence = await readEvidence({ instruction, actor, traceContext });
+    const answer = await aiRouter.route({
+      task: 'github-repository-inspection-answer',
+      specialty: 'coding',
+      reason: 'Answer a read-only repository inspection request from exact GitHub evidence',
+      traceContext,
+      identityContext: actor,
+      role: actor.roles?.[0] ?? 'guest',
+      messages: [
+        { role: 'system', content: 'Answer the repository inspection request using only the supplied exact-HEAD GitHub evidence. Be concise and factual. If the requested item is not present in the supplied files, say that it was not confirmed from the selected evidence; do not invent access limitations. Do not mutate anything and do not claim CI/deployment status unless present in evidence.' },
+        { role: 'user', content: JSON.stringify({ instruction: evidence.instruction, repository: evidence.repository, branch: evidence.branch, exactHead: evidence.exactHead, files: evidence.files }) }
+      ],
+      maxOutputTokens: 1200,
+      metadata: { repository: evidence.repository, branch: evidence.branch, exactHead: evidence.exactHead, operation: 'repository-inspection' }
+    });
+    const message = required(answer?.text, 'inspection answer', 12000);
+    return freeze({ status: 'success', repository: evidence.repository, branch: evidence.branch, revision: evidence.exactHead, selectedPaths: evidence.selectedFiles, message, mutated: false, observedAt: clock().toISOString() });
+  }
+
+  async function execute({ instruction, actor, traceContext, projectScope = 'sg2.1', repositoryResourceId = null, actionRequest = null } = {}) {
+    const evidence = await readEvidence({ instruction, actor, traceContext });
+    const snapshot = evidence.snapshot;
 
     const planned = await aiRouter.route({
       task: 'github-development-change-plan',
@@ -197,11 +224,11 @@ export function createGitHubDevelopmentExecutionService({
       role: actor.roles?.[0] ?? 'guest',
       messages: [
         { role: 'system', content: 'You are the bounded code-editing component of SG GitHub Development Workspace. Use only supplied repository evidence. Implement the user instruction without changing unrelated logic. Return schema-valid JSON only. Only create or update files. For update, return the COMPLETE replacement UTF-8 file content, not a diff. Do not touch secrets, credentials, .env files, protected-branch settings or repository administration. Do not claim tests, CI, deployment or live verification unless those facts were supplied as evidence.' },
-        { role: 'user', content: JSON.stringify(evidence) }
+        { role: 'user', content: JSON.stringify({ instruction: evidence.instruction, repository: evidence.repository, branch: evidence.branch, exactHead: evidence.exactHead, files: evidence.files, canonicalDocuments: evidence.canonicalDocuments }) }
       ],
       responseFormat: { name: 'github_development_change_plan', jsonSchema: DEVELOPMENT_PLAN_SCHEMA, strict: false },
       maxOutputTokens: 12000,
-      metadata: { repository: `${repo.owner}/${repo.name}`, branch: targetBranch, exactHead: snapshot.revision, operation: 'change-plan' }
+      metadata: { repository: evidence.repository, branch: evidence.branch, exactHead: evidence.exactHead, operation: 'change-plan' }
     });
     const plan = normalizedPlan(planned, snapshot);
     const fileContents = Object.fromEntries(plan.changes.filter((item) => item.operation !== 'delete').map((item) => [item.path, item.content]));
@@ -217,7 +244,7 @@ export function createGitHubDevelopmentExecutionService({
     const mutation = lifecycle?.mutation ?? await atomicCommitService.applyAtomicCommit({ connectionId: connection, mutationPlan, fileContents });
     return freeze({
       status: 'success',
-      repository: `${repo.owner}/${repo.name}`,
+      repository: evidence.repository,
       branch: targetBranch,
       baselineSha: snapshot.revision,
       commitSha: mutation.commitSha,
@@ -229,5 +256,5 @@ export function createGitHubDevelopmentExecutionService({
     });
   }
 
-  return Object.freeze({ execute, repository: `${repo.owner}/${repo.name}`, branch: targetBranch, connectionId: connection });
+  return Object.freeze({ execute, inspect, repository: `${repo.owner}/${repo.name}`, branch: targetBranch, connectionId: connection });
 }

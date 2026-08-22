@@ -128,3 +128,30 @@ test('repository inspect ignores truncated discovery and unrelated file metadata
   assert.equal(result.status, 'success');
   assert.deepEqual(result.selectedPaths, ['pillars/roadmap/LIFECYCLE_ACTIVITY_PROGRAM.md']);
 });
+
+test('repository inspect keeps large discovery and GH3 file evidence below the AI input policy limit', async () => {
+  const largeTree = Array.from({ length: 758 }, (_, index) => ({ type: 'blob', path: `src/generated/file-${index}.js`, sha: 'd'.repeat(40) }));
+  largeTree.push({ type: 'blob', path: 'pillars/roadmap/GITHUB_DEVELOPMENT_WORKSPACE_3_0_PROGRAM.md', sha: 'e'.repeat(40) });
+  const routedInputs = [];
+  const aiRouter = {
+    async route(request) {
+      const size = request.messages.reduce((sum, message) => sum + message.content.length, 0);
+      routedInputs.push({ task: request.task, size, body: request.messages.at(-1).content });
+      assert.ok(size < 24000, `${request.task} input must stay below production policy, got ${size}`);
+      if (request.task === 'github-development-file-selection') return aiResult({ files: ['pillars/roadmap/GITHUB_DEVELOPMENT_WORKSPACE_3_0_PROGRAM.md'], rationale: 'GH3 program' });
+      return aiResult('Блок GH3 подтверждён.');
+    }
+  };
+  const repositoryReadService = {
+    async readSnapshot(input) {
+      if ((input.files ?? []).length === 0) return { revision: HEAD, tree: { entries: largeTree }, files: [] };
+      const content = `${'x'.repeat(20000)}\n# GH3\n${'y'.repeat(14000)}`;
+      return { revision: HEAD, tree: { entries: largeTree }, files: [{ path: input.files[0], sha: 'e'.repeat(40), content, truncated: false }] };
+    }
+  };
+  const service = createGitHubDevelopmentExecutionService({ aiRouter, repositoryReadService, atomicCommitService: { async applyAtomicCommit() {} }, repository: 'korzh260609-beep/garya-bot', branch: 'dev/sg2.1-semantic' });
+  const result = await service.inspect({ instruction: 'Ты видишь блок GH3 в репозитории?', actor: { globalUserId: 'telegram:owner' }, traceContext: { traceId: 't', requestId: 'r' } });
+  assert.equal(result.status, 'success');
+  assert.match(routedInputs[0].body, /GITHUB_DEVELOPMENT_WORKSPACE_3_0_PROGRAM/);
+  assert.equal(JSON.parse(routedInputs[1].body).files[0].excerpt, true);
+});

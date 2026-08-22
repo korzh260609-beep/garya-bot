@@ -77,7 +77,7 @@ export function createGitHubDevelopmentMeaningInterpreter({ baseInterpreter, aiR
         metadata: { semanticRouting: 'gh3', locale: canonicalInput.locale }
       });
       const route = parseStructuredAIOutput(result);
-      if (!['status', 'execute'].includes(route?.route) || Number(route?.confidence ?? 0) < 0.72) return base;
+      if (!['status', 'execute'].includes(route?.route)) return base;
       return routedInterpretation(base, route, canonicalInput);
     }
   });

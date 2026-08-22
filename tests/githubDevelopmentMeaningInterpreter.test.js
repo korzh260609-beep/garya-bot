@@ -49,6 +49,17 @@ test('GH3 semantic router sends access questions to deterministic runtime status
   assert.deepEqual(result.candidateActions[0].payload, { mode: 'status' });
 });
 
+test('GH3 semantic router distinguishes repository-content inspection from access status', async () => {
+  const interpreter = createGitHubDevelopmentMeaningInterpreter({ baseInterpreter: { interpret: async () => baseInterpretation() }, aiRouter: router({ route: 'inspect', instruction: 'Find and inspect the LA block in the current SG 2.1 repository.', target: { repository: 'korzh260609-beep/garya-bot', branch: 'dev/sg2.1-semantic', block: 'LA', stage: null, scopeId: null, paths: [] }, confidence: 0.96, rationale: 'asks to inspect actual repository content' }) });
+  const result = await interpreter.interpret(input('Ты видишь блок LA в репозитории?'));
+  assert.equal(result.intent, 'github-repository-inspect');
+  assert.equal(result.candidateActions[0].name, 'github.repository.inspect');
+  assert.equal(result.candidateActions[0].actionClass, 'read-only');
+  assert.equal(result.candidateActions[0].payload.mode, 'inspect');
+  assert.match(result.candidateActions[0].payload.instruction, /LA/);
+  assert.equal(result.target.block, 'LA');
+});
+
 test('GH3 semantic router preserves ordinary conversation only when route is none', async () => {
   const base = baseInterpretation();
   const none = createGitHubDevelopmentMeaningInterpreter({ baseInterpreter: { interpret: async () => base }, aiRouter: router({ route: 'none', instruction: null, target: null, confidence: 0.99, rationale: 'not repository execution' }) });

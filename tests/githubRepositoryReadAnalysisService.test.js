@@ -94,9 +94,38 @@ test('large trees and file content are bounded with explicit truncation', async 
     [`/repos/acme/project/git/trees/${REVISION}`]: { truncated: true, tree: [{ path: 'README.md', type: 'blob', sha: '1' }, { path: 'src/a.js', type: 'blob', sha: '2' }] },
     '/repos/acme/project/contents/README.md': { type: 'file', path: 'README.md', sha: '1', encoding: 'base64', content: Buffer.from(content).toString('base64'), size: content.length }
   };
-  const result = await serviceWith({ overrides, maxTreeEntries: 1, maxFileCharacters: 100 }).readSnapshot(input);
+  const result = await serviceWith({ overrides, maxTreeEntries: 1, maxFileCharacters: 100 }).readSnapshot({ ...input, files: ['README.md'] });
   assert.equal(result.tree.entries.length, 1); assert.equal(result.tree.truncated, true);
   assert.equal(result.files[0].content.length, 100); assert.equal(result.files[0].truncated, true);
+});
+
+test('directory discovery never becomes implicit file evidence', async () => {
+  const requested = [];
+  const overrides = {
+    [`/repos/acme/project/git/trees/${REVISION}`]: {
+      truncated: true,
+      tree: [{ path: 'README.md', type: 'blob', sha: '1' }, { path: 'pillars/roadmap/LIFECYCLE_ACTIVITY_PROGRAM.md', type: 'blob', sha: '2' }]
+    }
+  };
+  const result = await serviceWith({
+    overrides,
+    maxTreeEntries: 1,
+    onRequest: (url) => requested.push(decodeURIComponent(url))
+  }).readSnapshot(input);
+  assert.equal(result.tree.truncated, true);
+  assert.deepEqual(result.files, []);
+  assert.equal(requested.some((url) => url.includes('/contents/')), false);
+});
+
+test('large explicitly requested file is returned complete within the GH3 execution limit', async () => {
+  const content = 'x'.repeat(100000);
+  const overrides = {
+    [`/repos/acme/project/git/trees/${REVISION}`]: { tree: [{ path: 'pillars/roadmap/GH3.md', type: 'blob', sha: '3' }] },
+    '/repos/acme/project/contents/pillars/roadmap/GH3.md': { type: 'file', path: 'pillars/roadmap/GH3.md', sha: '3', encoding: 'base64', content: Buffer.from(content).toString('base64'), size: content.length }
+  };
+  const result = await serviceWith({ overrides }).readSnapshot({ ...input, files: ['pillars/roadmap/GH3.md'] });
+  assert.equal(result.files[0].content.length, content.length);
+  assert.equal(result.files[0].truncated, false);
 });
 
 test('diff, reviews, checks, workflow jobs and artifact metadata remain revision-scoped and bounded', async () => {

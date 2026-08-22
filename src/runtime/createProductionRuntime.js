@@ -2,10 +2,9 @@ import { createActionRequest, createActionRequestFromDecision } from '../contrac
 import { redactSensitiveText } from '../secrets/redaction.js';
 import { captureSemanticMemoryCandidates } from '../memory2/semanticMemoryCandidatePolicy.js';
 
-function directUserConfirmation(selectedName, selectedPayload, requestInput, traceContext) {
+export function directUserConfirmation(selectedName, selectedPayload, requestInput, traceContext) {
   if (selectedName === 'github-development') {
-    if (selectedPayload?.mode !== 'execute') return undefined;
-    if (requestInput.metadata?.githubDevelopmentRuntimeBound !== true) return undefined;
+    if (selectedPayload?.mode !== 'execute' && selectedPayload?.canonicalAction !== 'github.development.execute') return undefined;
     if (!requestInput.identityContext?.roles?.includes('monarch')) return undefined;
     return { confirmed: true, requestId: traceContext.requestId, source: 'canonical-owner-github-development-instruction' };
   }

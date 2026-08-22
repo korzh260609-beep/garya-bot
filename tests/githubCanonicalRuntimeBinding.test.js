@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createDecisionEngine } from '../src/decision/decisionEngine.js';
+import { directUserConfirmation } from '../src/runtime/createProductionRuntime.js';
 
 function canonicalInput() {
   return {
@@ -88,4 +89,16 @@ test('github workspace status request binds to the same GH3 capability in read-o
   assert.equal(result.decisionEnvelope.selectedAction.type, 'github-development-status');
   assert.equal(result.decisionEnvelope.selectedAction.payload.mode, 'status');
   assert.equal(result.decisionEnvelope.selectedAction.payload.canonicalAction, 'github.repository.inspect');
+});
+
+test('canonical owner GitHub execution is confirmed directly without a fragile runtime metadata flag', () => {
+  const confirmation = directUserConfirmation(
+    'github-development',
+    { canonicalAction: 'github.development.execute', mode: 'execute' },
+    { identityContext: { roles: ['monarch'] }, metadata: {} },
+    { traceId: 'trace-owner-execute', requestId: 'request-owner-execute' }
+  );
+  assert.deepEqual(confirmation, { confirmed: true, requestId: 'request-owner-execute', source: 'canonical-owner-github-development-instruction' });
+  assert.equal(directUserConfirmation('github-development', { canonicalAction: 'github.development.execute' }, { identityContext: { roles: ['citizen'] }, metadata: {} }, { requestId: 'request-citizen' }), undefined);
+  assert.equal(directUserConfirmation('github-development', { canonicalAction: 'github.repository.inspect', mode: 'inspect' }, { identityContext: { roles: ['monarch'] }, metadata: {} }, { requestId: 'request-inspect' }), undefined);
 });

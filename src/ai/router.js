@@ -197,6 +197,7 @@ export function createAIRouter({
     const evidence = assertProductionAiAllowed({
       policy,
       role,
+      task: request.task,
       estimatedCostUsd,
       inputText: request.messages.map((message) => message.content).join('\n'),
       context: request.metadata?.context ?? null,

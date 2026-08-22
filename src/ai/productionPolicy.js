@@ -5,6 +5,9 @@ const DEFAULT_ROLE_LIMITS_USD = Object.freeze({
 });
 
 const ROLE_PRIORITY = Object.freeze(['monarch', 'citizen', 'guest']);
+const TRUSTED_TASK_INPUT_LIMITS = Object.freeze({
+  'github-development-change-plan': 400000,
+});
 const SENSITIVE_KEY_PATTERN = /(^|_)(api[_-]?key|token|secret|password|authorization|cookie|private[_-]?key)($|_)/i;
 const SENSITIVE_VALUE_PATTERN = /(?:bearer\s+[a-z0-9._~+\/-]+=*|sk-[a-z0-9_-]{12,}|-----BEGIN [A-Z ]*PRIVATE KEY-----)/i;
 
@@ -105,6 +108,7 @@ export function estimateAiRequestCostUsd({ model, messages = [], maxOutputTokens
 export function assertProductionAiAllowed({
   policy,
   role,
+  task = null,
   estimatedCostUsd = 0,
   inputText = '',
   context = null,
@@ -137,10 +141,13 @@ export function assertProductionAiAllowed({
   }
 
   const inputLength = String(inputText).length;
-  if (inputLength > policy.maxInputCharacters) {
+  const trustedTaskLimit = TRUSTED_TASK_INPUT_LIMITS[String(task ?? '')] ?? 0;
+  const maxInputCharacters = Math.max(policy.maxInputCharacters, trustedTaskLimit);
+  if (inputLength > maxInputCharacters) {
     throw new ProductionAiPolicyError('INPUT_TOO_LARGE', 'AI input exceeds the configured character limit', {
       inputLength,
-      maxInputCharacters: policy.maxInputCharacters,
+      maxInputCharacters,
+      task: task ?? null,
     });
   }
   if (policy.rejectSensitiveContext && containsSensitiveContext(context)) {

@@ -273,7 +273,7 @@ Tests prove that canonical `development.execute` reaches the existing GH3 orches
 
 ## GDE4 — Validation + Commit + Push Lifecycle
 
-**Status: IMPLEMENTED / LOCAL TESTS VERIFIED / EXACT-HEAD CI PENDING.**
+**Status: CLOSED / CI-VERIFIED.**
 
 Implementation evidence:
 
@@ -283,7 +283,7 @@ Implementation evidence:
 - validation failure, stale HEAD, `main`, Action Gate denial, secret/conflict content and false push success fail closed;
 - retry remains delegated to existing atomic idempotency behavior.
 
-GDE4 must not be described as CLOSED until SG 2.1 CI succeeds on the exact implementation HEAD.
+Closure evidence: exact implementation HEAD `dec36c2f6ba140a5429c56db9f0c1f6b68c51ec4`, SG 2.1 CI #8759 `SUCCESS` (Run ID `32566233727`).
 
 ### Goal
 

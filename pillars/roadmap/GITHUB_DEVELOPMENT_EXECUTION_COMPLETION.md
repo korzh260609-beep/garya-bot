@@ -273,6 +273,18 @@ Tests prove that canonical `development.execute` reaches the existing GH3 orches
 
 ## GDE4 — Validation + Commit + Push Lifecycle
 
+**Status: IMPLEMENTED / LOCAL TESTS VERIFIED / EXACT-HEAD CI PENDING.**
+
+Implementation evidence:
+
+- `githubChangeSetValidationService` performs bounded deterministic pre-commit checks and supports project-approved syntax/test/contract/migration/architecture check adapters;
+- `githubValidatedCommitLifecycle` revalidates baseline HEAD, validates before mutation, authorizes contents/commit through the existing GH3 Security Control Plane, commits through the existing Atomic Commit Service and verifies the authorized branch points to the created SHA;
+- the existing production GitHub execution service uses this lifecycle when the GH3 security plane is composed;
+- validation failure, stale HEAD, `main`, Action Gate denial, secret/conflict content and false push success fail closed;
+- retry remains delegated to existing atomic idempotency behavior.
+
+GDE4 must not be described as CLOSED until SG 2.1 CI succeeds on the exact implementation HEAD.
+
 ### Goal
 
 Turn a development action into a verified repository change rather than stopping after code generation or analysis.

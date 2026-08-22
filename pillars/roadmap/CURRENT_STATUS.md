@@ -405,7 +405,7 @@ Canonical docs:
 
 ## GitHub Development Execution Completion
 
-**IMPLEMENTATION IN PROGRESS. GDE1–GDE3 CLOSED / CI-VERIFIED; GDE4–GDE6 PLANNED / NOT IMPLEMENTED.**
+**IMPLEMENTATION IN PROGRESS. GDE1–GDE3 CLOSED / CI-VERIFIED; GDE4 IMPLEMENTED / LOCAL TESTS VERIFIED / EXACT-HEAD CI PENDING; GDE5–GDE6 PLANNED / NOT IMPLEMENTED.**
 
 GDE1 adds the bounded canonical `github.*` action vocabulary and a deterministic Development Target Resolver over the existing Canonical Semantic Model and GH3 repository reader. It resolves only authoritative project/repository/non-`main` branch bindings, verifies an immutable baseline HEAD, validates structured stage/block evidence and fails closed on missing or ambiguous targets. It does not add a second executor, capability system, Action Gate, CI service or semantic pipeline.
 
@@ -418,6 +418,8 @@ GDE2 closure evidence: exact implementation HEAD `4008554ad2015d8e499e07cba45364
 GDE3 connects canonical `github.development.execute` to the existing GH3 orchestrator with one bounded, durable development task/change set and exact-baseline revalidation. It does not introduce another executor or task store.
 
 GDE3 closure evidence: exact implementation HEAD `479d5f5495d0ca107d3e59b1230922276b34fad0`, SG 2.1 CI #8755 `SUCCESS` (Run ID `32565617361`).
+
+GDE4 adds deterministic validation and verified commit/authorized-branch update around the existing GH3 security, atomic mutation and repository-read services. Exact-head CI is pending.
 
 Canonical doc: `GITHUB_DEVELOPMENT_EXECUTION_COMPLETION.md`.
 

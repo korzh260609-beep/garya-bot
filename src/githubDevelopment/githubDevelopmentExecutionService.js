@@ -121,6 +121,7 @@ export function createGitHubDevelopmentExecutionService({
   aiRouter,
   repositoryReadService,
   atomicCommitService,
+  commitLifecycle = null,
   repository,
   branch,
   connectionId = 'github-development',
@@ -129,12 +130,13 @@ export function createGitHubDevelopmentExecutionService({
   if (!aiRouter?.route) throw new TypeError('aiRouter.route is required');
   if (!repositoryReadService?.readSnapshot) throw new TypeError('repositoryReadService.readSnapshot is required');
   if (!atomicCommitService?.applyAtomicCommit) throw new TypeError('atomicCommitService.applyAtomicCommit is required');
+  if (commitLifecycle && typeof commitLifecycle.execute !== 'function') throw new TypeError('commitLifecycle.execute is invalid');
   if (typeof clock !== 'function') throw new TypeError('clock is required');
   const repo = repositoryParts(repository);
   const targetBranch = required(branch, 'branch', 300);
   const connection = required(connectionId, 'connectionId', 200);
 
-  async function execute({ instruction, actor, traceContext } = {}) {
+  async function execute({ instruction, actor, traceContext, projectScope = 'sg2.1', repositoryResourceId = null, actionRequest = null } = {}) {
     const text = required(instruction, 'instruction', 50000);
     if (!actor?.globalUserId) fail('gh3-execution-identity-required', 'verified actor is required');
     if (!traceContext?.traceId || !traceContext?.requestId) fail('gh3-execution-trace-required', 'trace context is required');
@@ -211,7 +213,8 @@ export function createGitHubDevelopmentExecutionService({
       commitMessage: plan.commitMessage,
       idempotencyKey: `gh3:${traceContext.requestId}`
     });
-    const mutation = await atomicCommitService.applyAtomicCommit({ connectionId: connection, mutationPlan, fileContents });
+    const lifecycle = commitLifecycle ? await commitLifecycle.execute({ connectionId: connection, credentialId: 'sg.github.development', mutationPlan, fileContents, developmentPlan: plan, actor, projectScope, repositoryResourceId: repositoryResourceId ?? `github:repo:${repo.owner}/${repo.name}`, actionRequest: actionRequest ?? { traceContext, actor, scope: { userScope: actor.globalUserId, projectScope, allowedCapabilities: ['github.contents.write','github.commit.create'] } } }) : null;
+    const mutation = lifecycle?.mutation ?? await atomicCommitService.applyAtomicCommit({ connectionId: connection, mutationPlan, fileContents });
     return freeze({
       status: 'success',
       repository: `${repo.owner}/${repo.name}`,
@@ -222,7 +225,7 @@ export function createGitHubDevelopmentExecutionService({
       summary: plan.summary,
       mutated: mutation.mutated === true,
       reused: mutation.reused === true,
-      observedAt: clock().toISOString()
+      observedAt: clock().toISOString(), validation: lifecycle?.validation ?? null, pushVerified: lifecycle?.pushVerified ?? false
     });
   }
 

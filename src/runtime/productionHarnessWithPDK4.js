@@ -80,6 +80,7 @@ export function createProductionHarnessWithPDK4({ env = {}, interpretationResolv
     ownerGlobalUserId: base.ownerSecurityConfig.monarchGlobalUserId,
     aiRouter: base.productionAI?.aiRouter ?? null,
     capabilityBindingService: githubCapabilityBindingService,
+    githubSecurityControlPlane,
     fetchImpl,
     clock
   });

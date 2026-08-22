@@ -9,7 +9,8 @@ function bodyFor(url, overrides = {}) {
   const path = new URL(url).pathname;
   if (overrides[path]) return overrides[path];
   if (path === '/repos/acme/project') return { id: 7, full_name: 'acme/project', default_branch: 'main', private: false };
-  if (path.startsWith('/repos/acme/project/commits/main') || path === `/repos/acme/project/commits/${REVISION}`) return { sha: REVISION };
+  if (path === '/repos/acme/project/git/ref/heads/main' || path === '/repos/acme/project/git/ref/heads/dev/task') return { object: { sha: REVISION } };
+  if (path === `/repos/acme/project/commits/${REVISION}`) return { sha: REVISION };
   if (path === `/repos/acme/project/git/trees/${REVISION}`) return { tree: [] };
   if (path === '/repos/acme/project/commits') return [];
   if (path === '/repos/acme/project/issues') return [];
@@ -29,10 +30,18 @@ test('moving branch resolves once and all correctness-sensitive reads bind to im
   assert.equal(result.revision, REVISION);
   assert.equal(result.provenance.source, `github:acme/project@${REVISION}`);
   assert.equal(result.provenance.immutableRevisionVerified, true);
-  assert.equal(urls.filter((url) => url.includes('/commits/main')).length, 1);
+  assert.equal(urls.filter((url) => url.includes('/git/ref/heads/main')).length, 1);
   assert.ok(urls.some((url) => url.includes(`/git/trees/${REVISION}`)));
   assert.ok(urls.some((url) => url.includes(`commits?sha=${REVISION}`)));
   assert.ok(urls.some((url) => url.includes(`actions/runs?head_sha=${REVISION}`)));
+});
+
+test('branch names containing slashes resolve through the Git ref endpoint without encoding the slash as one path parameter', async () => {
+  const urls = [];
+  const result = await serviceWith({ onRequest: (url) => urls.push(new URL(url).pathname) }).readSnapshot({ ...input, ref: { kind: 'branch', name: 'dev/task' } });
+  assert.equal(result.revision, REVISION);
+  assert.ok(urls.includes('/repos/acme/project/git/ref/heads/dev/task'));
+  assert.equal(urls.some((url) => url.includes('/commits/dev%2Ftask')), false);
 });
 
 test('immutable commit input fails closed when provider resolves another SHA', async () => {

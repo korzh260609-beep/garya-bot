@@ -406,6 +406,19 @@ Regression tests cover failed exact-HEAD CI, actionable failure localization, re
 
 ## GDE6 — Full GitHub Platform Operations + Audit + Regression + Canonical Sync
 
+**Status: IMPLEMENTED / LOCAL TESTS VERIFIED / EXACT-HEAD CI PENDING.**
+
+Implementation evidence:
+
+- the canonical GitHub vocabulary and existing capability bindings now cover repository/discovery/branch/issue/PR/review/workflow/release and durable-continuation operations;
+- `githubPlatformOperationsService` dispatches only to the existing GH3 reader, discovery, atomic commit, collaboration, CI, development bridge, task store and security control plane;
+- follow-up development actions restore actor/project/repository/branch/HEAD context from the existing durable task state and fail closed on scope mismatch;
+- protected/default branch switching, missing exact HEAD, current-authority denial, duplicate identity and unverified mutation results fail closed;
+- every operation records bounded actor/action/repository/ref/HEAD/path/identity/security/post-condition/trace/idempotency/timestamp evidence through the injected audit sink;
+- regression tests cover the supported canonical surface, durable continuity, security denial, `main` protection, exact-HEAD evidence and false-success prevention.
+
+GDE6 must not be described as CLOSED until SG 2.1 CI succeeds on the exact implementation HEAD.
+
 ### Goal
 
 Complete the general GitHub working surface around repository development while keeping one GH3 authority/execution stack.

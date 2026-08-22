@@ -16,7 +16,21 @@ const ACTION_CAPABILITIES = Object.freeze({
   'github.pr.inspect': ['github.pull-request.read'],
   'github.pr.create': ['github.pull-request.write'],
   'github.issue.inspect': ['github.issue.read'],
-  'github.issue.create': ['github.issue.write']
+  'github.issue.create': ['github.issue.write'],
+  'github.issue.update': ['github.issue.write'],
+  'github.issue.close': ['github.issue.write'],
+  'github.pr.update': ['github.pull-request.write'],
+  'github.review.inspect': ['github.review.read'],
+  'github.review.respond': ['github.review.write'],
+  'github.branch.inspect': ['github.repository.read'],
+  'github.branch.create': ['github.branch.create'],
+  'github.branch.compare': ['github.repository.read'],
+  'github.discovery.public': ['github.discovery.public.read'],
+  'github.discovery.private': ['github.repository.read'],
+  'github.workflow.inspect': ['github.actions.read'],
+  'github.workflow.rerun': ['github.actions.rerun'],
+  'github.release.create': ['github.release.write'],
+  'github.development.continue': ['github.repository.read']
 });
 
 const PROVIDER_REQUIREMENTS = Object.freeze({

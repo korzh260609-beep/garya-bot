@@ -30,7 +30,21 @@ export const CANONICAL_GITHUB_ACTIONS = Object.freeze([
   'github.pr.inspect',
   'github.pr.create',
   'github.issue.inspect',
-  'github.issue.create'
+  'github.issue.create',
+  'github.issue.update',
+  'github.issue.close',
+  'github.pr.update',
+  'github.review.inspect',
+  'github.review.respond',
+  'github.branch.inspect',
+  'github.branch.create',
+  'github.branch.compare',
+  'github.discovery.public',
+  'github.discovery.private',
+  'github.workflow.inspect',
+  'github.workflow.rerun',
+  'github.release.create',
+  'github.development.continue'
 ]);
 
 const CANONICAL_GITHUB_ACTION_SET = new Set(CANONICAL_GITHUB_ACTIONS);

@@ -15,7 +15,7 @@ function harness(overrides = {}, snapshotOverrides = {}) {
 }
 
 test('GDE1 exposes the bounded canonical GitHub action vocabulary', () => {
-  assert.deepEqual(CANONICAL_GITHUB_ACTIONS, ['github.repository.inspect','github.code.search','github.file.read','github.file.create','github.file.update','github.file.delete','github.development.plan','github.development.execute','github.test.run','github.commit.create','github.push.execute','github.ci.verify','github.pr.inspect','github.pr.create','github.issue.inspect','github.issue.create']);
+  assert.deepEqual(CANONICAL_GITHUB_ACTIONS, ['github.repository.inspect','github.code.search','github.file.read','github.file.create','github.file.update','github.file.delete','github.development.plan','github.development.execute','github.test.run','github.commit.create','github.push.execute','github.ci.verify','github.pr.inspect','github.pr.create','github.issue.inspect','github.issue.create','github.issue.update','github.issue.close','github.pr.update','github.review.inspect','github.review.respond','github.branch.inspect','github.branch.create','github.branch.compare','github.discovery.public','github.discovery.private','github.workflow.inspect','github.workflow.rerun','github.release.create','github.development.continue']);
   assert.throws(() => createCanonicalSemanticModel({ ...canonical(), action: { type: 'github-development', name: 'github.magic.execute', actionClass: 'state-change' } }), /unsupported canonical GitHub action/);
 });
 

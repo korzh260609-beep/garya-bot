@@ -1,7 +1,6 @@
 import { createGitHubRef, createGitHubRepositoryIdentity } from './githubDevelopmentContract.js';
 
 const SHA = /^[0-9a-f]{40}$/u;
-const CANONICAL_DOCUMENT = /(?:^|\/)(?:README|CONTRIBUTING|SECURITY|CHANGELOG|ROADMAP|STATUS|CODE_OF_CONDUCT)(?:\.|$)/iu;
 
 function fail(code, message, { retryable = false, status = null } = {}) {
   const error = new Error(message); error.name = 'GitHubRepositoryReadError'; error.code = code; error.retryable = retryable; error.status = status; throw error;
@@ -38,17 +37,17 @@ export function createGitHubRepositoryReadAnalysisService({
   githubAppProvider = null,
   apiBaseUrl = 'https://api.github.com',
   clock = () => new Date(),
-  maxTreeEntries = 500,
+  maxTreeEntries = 5000,
   maxListItems = 50,
   maxFiles = 12,
-  maxFileCharacters = 12000
+  maxFileCharacters = 120000
 } = {}) {
   if (typeof fetchImpl !== 'function' || typeof clock !== 'function') throw new TypeError('invalid repository-read dependency');
   const base = required(apiBaseUrl, 'apiBaseUrl').replace(/\/+$/u, '');
-  const treeLimit = bounded(maxTreeEntries, 'maxTreeEntries', 500, 1, 5000);
+  const treeLimit = bounded(maxTreeEntries, 'maxTreeEntries', 5000, 1, 10000);
   const itemLimit = bounded(maxListItems, 'maxListItems', 50, 1, 100);
   const fileLimit = bounded(maxFiles, 'maxFiles', 12, 1, 30);
-  const characterLimit = bounded(maxFileCharacters, 'maxFileCharacters', 12000, 100, 50000);
+  const characterLimit = bounded(maxFileCharacters, 'maxFileCharacters', 120000, 100, 1000000);
 
   async function request(path, token, { allowNotFound = false } = {}) {
     let response;
@@ -84,7 +83,9 @@ export function createGitHubRepositoryReadAnalysisService({
 
     const treeBody = await request(`${root}/git/trees/${revision}?recursive=1`, token);
     const tree = list(treeBody?.tree, treeLimit, (entry) => freeze({ path: entry?.path ?? null, type: entry?.type ?? null, sha: entry?.sha ?? null, size: Number.isFinite(entry?.size) ? entry.size : null }));
-    const requestedFiles = [...new Set([...(input.files ?? []), ...tree.items.filter((entry) => CANONICAL_DOCUMENT.test(entry.path ?? '')).map((entry) => entry.path)])]
+    // A tree/listing is discovery metadata, never file evidence. Only paths the
+    // caller explicitly selected are read and returned as file evidence.
+    const requestedFiles = [...new Set(input.files ?? [])]
       .filter((path) => typeof path === 'string' && path && !path.startsWith('/') && !path.split('/').includes('..')).slice(0, fileLimit);
     const files = [];
     const missingFiles = [];

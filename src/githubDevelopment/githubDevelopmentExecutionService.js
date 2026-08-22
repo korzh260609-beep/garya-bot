@@ -264,7 +264,7 @@ export function createGitHubDevelopmentExecutionService({
       identityContext: actor,
       role: actor.roles?.[0] ?? 'guest',
       messages: [
-        { role: 'system', content: 'Answer the repository inspection request using only the supplied exact-HEAD GitHub evidence. Be concise and factual. If the requested item is not present in the supplied files, say that it was not confirmed from the selected evidence; do not invent access limitations. Do not mutate anything and do not claim CI/deployment status unless present in evidence.' },
+        { role: 'system', content: 'Answer the repository inspection request using only the supplied exact-HEAD GitHub evidence. Answer in the same natural language as the user instruction. Be concise and factual. If the requested item is not present in the supplied files, say that it was not confirmed from the selected evidence; do not invent access limitations. Do not mutate anything and do not claim CI/deployment status unless present in evidence.' },
         { role: 'user', content: JSON.stringify({ instruction: evidence.instruction, repository: evidence.repository, branch: evidence.branch, exactHead: evidence.exactHead, files: boundedFiles }) }
       ],
       maxOutputTokens: 1200,

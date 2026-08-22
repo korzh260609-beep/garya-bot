@@ -403,6 +403,14 @@ Canonical docs:
 - `../architecture/GITHUB_DEVELOPMENT_WORKSPACE_3_0.md`;
 - `../workflow/GITHUB_DEVELOPMENT_WORKSPACE_3_0_WORKFLOW.md`.
 
+## GitHub Development Execution Completion
+
+**IMPLEMENTATION IN PROGRESS. GDE1 IMPLEMENTED / LOCAL TESTS VERIFIED / EXACT-HEAD CI PENDING; GDE2–GDE6 PLANNED / NOT IMPLEMENTED.**
+
+GDE1 adds the bounded canonical `github.*` action vocabulary and a deterministic Development Target Resolver over the existing Canonical Semantic Model and GH3 repository reader. It resolves only authoritative project/repository/non-`main` branch bindings, verifies an immutable baseline HEAD, validates structured stage/block evidence and fails closed on missing or ambiguous targets. It does not add a second executor, capability system, Action Gate, CI service or semantic pipeline.
+
+Canonical doc: `GITHUB_DEVELOPMENT_EXECUTION_COMPLETION.md`.
+
 ## Current-status rule for SG answers
 
 When SG is asked “what stage is development at?” or another current-state question:

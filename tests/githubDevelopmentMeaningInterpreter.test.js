@@ -28,29 +28,31 @@ function router(output, calls = []) {
 
 test('GH3 semantic router turns short continuation into executable development action', async () => {
   const calls = [];
-  const interpreter = createGitHubDevelopmentMeaningInterpreter({ baseInterpreter: { interpret: async () => baseInterpretation() }, aiRouter: router({ route: 'execute', instruction: 'Implement LA1 in korzh260609-beep/garya-bot on dev/sg2.1-semantic.', confidence: 0.97, rationale: 'continuation of repository implementation task' }, calls) });
+  const interpreter = createGitHubDevelopmentMeaningInterpreter({ baseInterpreter: { interpret: async () => baseInterpretation() }, aiRouter: router({ route: 'execute', instruction: 'Implement LA1 in korzh260609-beep/garya-bot on dev/sg2.1-semantic.', target: { repository: 'korzh260609-beep/garya-bot', branch: 'dev/sg2.1-semantic', block: null, stage: 'LA1', scopeId: null, paths: [] }, confidence: 0.97, rationale: 'continuation of repository implementation task' }, calls) });
   const result = await interpreter.interpret(input());
   assert.equal(result.intent, 'github-development');
-  assert.equal(result.candidateActions[0].name, 'github-development');
+  assert.equal(result.candidateActions[0].name, 'github.development.execute');
   assert.equal(result.candidateActions[0].actionClass, 'state-change');
   assert.equal(result.candidateActions[0].payload.mode, 'execute');
   assert.match(result.candidateActions[0].payload.instruction, /LA1/);
+  assert.equal(result.target.stage, 'LA1');
   assert.match(calls[0].messages[1].content, /Не удалось обработать сообщение/);
 });
 
 test('GH3 semantic router sends access questions to deterministic runtime status', async () => {
-  const interpreter = createGitHubDevelopmentMeaningInterpreter({ baseInterpreter: { interpret: async () => baseInterpretation() }, aiRouter: router({ route: 'status', instruction: null, confidence: 0.99, rationale: 'asks about GitHub access' }) });
+  const interpreter = createGitHubDevelopmentMeaningInterpreter({ baseInterpreter: { interpret: async () => baseInterpretation() }, aiRouter: router({ route: 'status', instruction: null, target: null, confidence: 0.99, rationale: 'asks about GitHub access' }) });
   const result = await interpreter.interpret(input('У тебя есть доступ к своему GitHub репозиторию?'));
   assert.equal(result.intent, 'github-development-status');
-  assert.equal(result.candidateActions[0].type, 'github-development-status');
+  assert.equal(result.candidateActions[0].type, 'github-development');
+  assert.equal(result.candidateActions[0].name, 'github.repository.inspect');
   assert.equal(result.candidateActions[0].actionClass, 'read-only');
   assert.deepEqual(result.candidateActions[0].payload, { mode: 'status' });
 });
 
 test('GH3 semantic router preserves ordinary conversation when route is none or confidence is weak', async () => {
   const base = baseInterpretation();
-  const none = createGitHubDevelopmentMeaningInterpreter({ baseInterpreter: { interpret: async () => base }, aiRouter: router({ route: 'none', instruction: null, confidence: 0.99, rationale: 'not repository execution' }) });
+  const none = createGitHubDevelopmentMeaningInterpreter({ baseInterpreter: { interpret: async () => base }, aiRouter: router({ route: 'none', instruction: null, target: null, confidence: 0.99, rationale: 'not repository execution' }) });
   assert.equal(await none.interpret(input('Объясни что такое git')), base);
-  const weak = createGitHubDevelopmentMeaningInterpreter({ baseInterpreter: { interpret: async () => base }, aiRouter: router({ route: 'execute', instruction: 'do work', confidence: 0.4, rationale: 'uncertain' }) });
+  const weak = createGitHubDevelopmentMeaningInterpreter({ baseInterpreter: { interpret: async () => base }, aiRouter: router({ route: 'execute', instruction: 'do work', target: null, confidence: 0.4, rationale: 'uncertain' }) });
   assert.equal(await weak.interpret(input()), base);
 });

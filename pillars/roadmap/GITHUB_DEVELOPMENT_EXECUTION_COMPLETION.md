@@ -39,6 +39,18 @@ Natural-language request
 
 ## GDE1 — Canonical GitHub Actions + Development Target Resolver
 
+**Status: IMPLEMENTED / LOCAL TESTS VERIFIED / EXACT-HEAD CI PENDING.**
+
+Implementation evidence:
+
+- the global Canonical Semantic Model owns one bounded `github.*` action vocabulary;
+- the existing GH3 meaning interpreter emits `github.development.execute` or the matching bounded read action and structured target facts, without granting authority;
+- `githubDevelopmentTargetResolver` binds only to authoritative project/repository/branch context, reads the target through the existing GH3 repository reader, captures the immutable baseline HEAD, validates structured project/stage evidence and fails closed on missing or ambiguous scope;
+- transport metadata is excluded from target identity;
+- targeted contract, equivalence, ambiguity, non-`main`, exact-HEAD and no-phrase-routing regressions are covered by `tests/githubDevelopmentTargetResolver.test.js` and `tests/githubDevelopmentMeaningInterpreter.test.js`.
+
+GDE1 must not be described as CLOSED until SG 2.1 CI succeeds on the exact implementation HEAD.
+
 ### Goal
 
 Bind natural-language development requests to the existing SG-wide Canonical Semantic Model and resolve an exact GitHub development target.

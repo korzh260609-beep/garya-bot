@@ -14,6 +14,27 @@ export const CANONICAL_TEMPORAL_TYPES = Object.freeze([
   'custom-range'
 ]);
 
+export const CANONICAL_GITHUB_ACTIONS = Object.freeze([
+  'github.repository.inspect',
+  'github.code.search',
+  'github.file.read',
+  'github.file.create',
+  'github.file.update',
+  'github.file.delete',
+  'github.development.plan',
+  'github.development.execute',
+  'github.test.run',
+  'github.commit.create',
+  'github.push.execute',
+  'github.ci.verify',
+  'github.pr.inspect',
+  'github.pr.create',
+  'github.issue.inspect',
+  'github.issue.create'
+]);
+
+const CANONICAL_GITHUB_ACTION_SET = new Set(CANONICAL_GITHUB_ACTIONS);
+
 const CANONICAL_TEMPORAL_TYPE_SET = new Set(CANONICAL_TEMPORAL_TYPES);
 const INTERNAL_RESOLVED_TEMPORAL_TYPE = 'resolved-temporal-expression';
 
@@ -53,10 +74,14 @@ function canonicalAction(value) {
   if (!['analysis', 'read-only', 'external', 'state-change'].includes(actionClass)) {
     throw new TypeError(`unsupported action.actionClass: ${actionClass}`);
   }
+  const name = requireNonEmptyString(action.name, 'action.name');
+  if (name.startsWith('github.') && !CANONICAL_GITHUB_ACTION_SET.has(name)) {
+    throw new TypeError(`unsupported canonical GitHub action: ${name}`);
+  }
   return Object.freeze({
     ...action,
     type: requireNonEmptyString(action.type, 'action.type'),
-    name: requireNonEmptyString(action.name, 'action.name'),
+    name,
     actionClass
   });
 }

@@ -231,6 +231,65 @@ function taskStatus(task) {
   return String(task?.lifecycleStatus ?? task?.status ?? 'unknown').toLowerCase();
 }
 
+function operationalTasks(tasks) {
+  return tasks.filter((task) => !TERMINAL_TASK_STATUSES.has(taskStatus(task)));
+}
+
+function normalizedTaskDescription(value) {
+  return String(value ?? '').trim().toLocaleLowerCase().replace(/\s+/gu, ' ');
+}
+
+function taskTargetError(code, message, details = {}) {
+  const error = new Error(message);
+  error.code = code;
+  error.retryable = false;
+  error.details = Object.freeze({ clarificationRequired: true, ...details });
+  return error;
+}
+
+async function resolveTaskTarget(taskStore, scope, input = {}) {
+  if (typeof input.taskId === 'string' && input.taskId.trim() !== '') {
+    return Object.freeze({ taskId: input.taskId.trim(), selectedBy: 'explicit-task-id', record: null });
+  }
+  const selector = input.selector;
+  if (!selector || typeof selector !== 'object' || Array.isArray(selector)) {
+    throw taskTargetError('task-target-required', 'A canonical task target is required');
+  }
+  const tasks = operationalTasks(typeof taskStore.listWorkflows === 'function'
+    ? await taskStore.listWorkflows({ scope, limit: 100 })
+    : await taskStore.list({ scope, limit: 100 }));
+  if (Number.isInteger(selector.position)) {
+    if (selector.position < 1 || selector.position > tasks.length) {
+      throw taskTargetError('task-target-not-found', 'The selected task position is not active in the current scope', { matchCount: 0 });
+    }
+    const record = tasks[selector.position - 1];
+    return Object.freeze({ taskId: requiredText(record?.taskId, 'resolved task.taskId'), selectedBy: 'scoped-list-position', record });
+  }
+  const description = normalizedTaskDescription(selector.description);
+  if (!description) throw taskTargetError('task-target-required', 'The canonical task selector is empty');
+  const matches = tasks.filter((task) => normalizedTaskDescription(taskDescription(task)) === description);
+  if (matches.length !== 1) {
+    throw taskTargetError(matches.length === 0 ? 'task-target-not-found' : 'task-target-ambiguous', matches.length === 0 ? 'No active task matches the canonical selector' : 'Several active tasks match the canonical selector', { matchCount: matches.length });
+  }
+  return Object.freeze({ taskId: requiredText(matches[0].taskId, 'resolved task.taskId'), selectedBy: 'exact-canonical-description', record: matches[0] });
+}
+
+function taskMutationMessage(task, locale) {
+  const language = String(locale ?? 'ru').toLowerCase();
+  const description = taskDescription(task);
+  if (language.startsWith('uk')) return `Завдання «${description}» скасовано.`;
+  if (language.startsWith('en')) return `Task “${description}” was cancelled.`;
+  return `Задача «${description}» отменена.`;
+}
+
+function taskTargetClarification(error, locale) {
+  const language = String(locale ?? 'ru').toLowerCase();
+  const ambiguous = error?.code === 'task-target-ambiguous';
+  if (language.startsWith('uk')) return ambiguous ? 'Знайдено кілька однакових активних завдань. Уточніть, яке саме скасувати.' : 'Не вдалося знайти це активне завдання. Покажіть актуальний список і виберіть його ще раз.';
+  if (language.startsWith('en')) return ambiguous ? 'Several identical active tasks were found. Clarify which one to cancel.' : 'That active task could not be found. Show the current list and select it again.';
+  return ambiguous ? 'Найдено несколько одинаковых активных задач. Уточните, какую именно отменить.' : 'Не удалось найти эту активную задачу. Покажите актуальный список и выберите её ещё раз.';
+}
+
 function requestedTaskHistory(input = {}) {
   if (input.includeHistory === true) return true;
   const statuses = Array.isArray(input.statuses) ? input.statuses.map((value) => String(value).toLowerCase()) : [];
@@ -441,10 +500,30 @@ export function createProductionCapabilities({
       name: 'task-cancel', description: 'Cancel a task in the current scope.',
       actionTypes: ['task-cancel'], actionClasses: ['state-changing'], confirmationRequired: true,
       execute: async (request) => {
-        const taskId = requiredText(request.input?.taskId, 'input.taskId');
-        const task = await taskStore.cancel({ scope: scopeFrom(request), taskId });
+        const scope = scopeFrom(request);
+        let target;
+        try {
+          target = await resolveTaskTarget(taskStore, scope, request.input);
+        } catch (error) {
+          if (error?.details?.clarificationRequired !== true) throw error;
+          return { status: 'failed', data: { message: taskTargetClarification(error, request.input?.locale) }, error: { code: error.code, message: error.message, retryable: false } };
+        }
+        let task;
+        if (target.record?.workflow && workflowUpdateService?.update) {
+          task = await workflowUpdateService.update({
+            selector: { automationId: target.record.automationId, taskId: target.taskId },
+            scope: workflowScopeFrom(request),
+            lifecycleAction: 'cancel',
+            semanticOperation: { type: 'cancel', data: {} },
+            expectedVersion: target.record.workflow.version,
+            actor: Object.freeze({ ...request.actor, automationUpdateGate: { source: 'canonical-action-gate', authorized: true, requestId: request.traceContext.requestId } }),
+            provenance: Object.freeze({ source: 'production-capability', capability: 'task-cancel', requestId: request.traceContext.requestId, traceId: request.traceContext.traceId })
+          });
+        } else {
+          task = await taskStore.cancel({ scope, taskId: target.taskId });
+        }
         return task
-          ? { status: 'success', data: { task, message: `Task ${taskId}: ${task.status}` } }
+          ? { status: 'success', data: { task, selectedBy: target.selectedBy, message: taskMutationMessage(task, request.input?.locale) } }
           : { status: 'failed', error: { code: 'task-not-found', message: 'Task not found in scope', retryable: false } };
       }
     }),

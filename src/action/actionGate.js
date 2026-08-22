@@ -9,6 +9,7 @@ const SELF_AUTOMATION_READ_CAPABILITIES = Object.freeze([
 
 const SELF_AUTOMATION_MUTATION_CAPABILITIES = Object.freeze([
   'automation-update',
+  'task-cancel',
   'schedule-update',
   'schedule-pause',
   'schedule-resume',

@@ -125,6 +125,71 @@ test('task create, list, status and cancellation are operational and scoped', as
   assert.equal(cancelled.data.task.status, 'cancelled');
 });
 
+test('Stage 5 resolves a numbered active task target and mutates the authoritative store', async () => {
+  const { registry, executor } = harness();
+  const create = registry.get('task-create');
+  for (const [taskId, title] of [['task-1', 'Первая'], ['task-2', 'Вторая'], ['task-3', 'Третья']]) {
+    const actionRequest = requestFor(create, { payload: { taskId, title } });
+    await executor.execute({ actionRequest, gateDecision: allowed(actionRequest) });
+  }
+  const cancel = registry.get('task-cancel');
+  const actionRequest = requestFor(cancel, { payload: { selector: { position: 2 }, locale: 'ru' } });
+  const result = await executor.execute({ actionRequest, gateDecision: allowed(actionRequest) });
+  assert.equal(result.status, 'success');
+  assert.equal(result.data.task.taskId, 'task-2');
+  assert.equal(result.data.task.status, 'cancelled');
+  assert.equal(result.data.selectedBy, 'scoped-list-position');
+  assert.match(result.data.message, /Вторая.*отменена/i);
+});
+
+test('Stage 5 task target resolution fails closed for stale and ambiguous selectors', async () => {
+  const { registry, executor } = harness();
+  const create = registry.get('task-create');
+  for (const taskId of ['same-1', 'same-2']) {
+    const actionRequest = requestFor(create, { payload: { taskId, title: 'Одинаковая' } });
+    await executor.execute({ actionRequest, gateDecision: allowed(actionRequest) });
+  }
+  const cancel = registry.get('task-cancel');
+  for (const payload of [{ selector: { position: 3 } }, { selector: { description: 'Одинаковая' } }]) {
+    const actionRequest = requestFor(cancel, { payload: { ...payload, locale: 'ru' } });
+    const result = await executor.execute({ actionRequest, gateDecision: allowed(actionRequest) });
+    assert.equal(result.status, 'failed');
+    assert.match(result.error.code, /^task-target-(?:not-found|ambiguous)$/);
+  }
+  const list = registry.get('task-list');
+  const listRequest = requestFor(list);
+  const listed = await executor.execute({ actionRequest: listRequest, gateDecision: allowed(listRequest) });
+  assert.equal(listed.data.tasks.length, 2);
+});
+
+test('Stage 5 cancels a displayed canonical workflow through the existing versioned mutation service', async () => {
+  const calls = [];
+  const workflow = {
+    automationId: 'automation-2', taskId: 'task-2', lifecycleStatus: 'active',
+    workflow: { version: 4, inputs: { message: 'Каноническая задача' }, trigger: { type: 'one-shot', runAt: '2026-08-23T07:00:00Z' }, delivery: {} }
+  };
+  const taskStore = {
+    async create() {}, async list() { throw new Error('legacy list must not be used'); }, async get() { return null; }, async cancel() { throw new Error('legacy cancel must not be used'); },
+    async listWorkflows() { return [workflow]; },
+    workflowUpdateService: {
+      async update(input) {
+        calls.push(input);
+        return { ...workflow, lifecycleStatus: 'cancelled' };
+      }
+    }
+  };
+  const { registry, executor } = harness({ taskStore });
+  const cancel = registry.get('task-cancel');
+  const actionRequest = requestFor(cancel, { payload: { selector: { position: 1 }, locale: 'ru' } });
+  const result = await executor.execute({ actionRequest, gateDecision: allowed(actionRequest) });
+  assert.equal(result.status, 'success');
+  assert.equal(result.data.task.lifecycleStatus, 'cancelled');
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].lifecycleAction, 'cancel');
+  assert.deepEqual(calls[0].selector, { automationId: 'automation-2', taskId: 'task-2' });
+  assert.equal(calls[0].expectedVersion, 4);
+});
+
 test('task list hides terminal history by default and exposes it only when explicitly requested', async () => {
   const { registry, executor } = harness();
   const create = registry.get('task-create');

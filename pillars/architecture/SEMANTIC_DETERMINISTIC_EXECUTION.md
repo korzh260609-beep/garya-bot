@@ -1,6 +1,6 @@
 # SG 2.1 — Semantic Deterministic Execution
 
-Status: ACCEPTED ARCHITECTURE / STAGES 1–4 IMPLEMENTED
+Status: ACCEPTED ARCHITECTURE / STAGES 1–5 IMPLEMENTED
 
 ## Purpose
 
@@ -168,6 +168,15 @@ workspace-activity-report
 ```
 
 AI may be used for explicitly non-authoritative analysis/composition through the AI Router, but must not replace canonical state transitions, authorization or post-conditions.
+
+Implemented Stage 5 behavior:
+
+- non-recurring task cancellation accepts a canonical explicit id or a structured selector, never a parsed phrase;
+- numbered references resolve against the current scoped active-task ordering and fail closed when stale or out of range;
+- description selectors require one exact canonical description match and fail closed on zero or multiple matches;
+- the current Action Gate authorizes the owner-bound mutation before the authoritative task store is changed;
+- structured activity reports execute through the existing AW2 protected `collect → compose → deliver` runtime and approved collectors;
+- user-visible mutation results use human task descriptions instead of exposing internal identifiers.
 
 ## Stage 6 — Post-condition Verification
 

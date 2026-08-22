@@ -73,6 +73,19 @@ test('explicit own recurring lifecycle mutation is confirmed deterministically i
   assert.equal(decision.checks.confirmation, true);
 });
 
+test('Stage 5 explicit own task cancellation reaches Action Gate as an authorized mutation', () => {
+  const gate = createActionGate();
+  const decision = gate.evaluate(request({
+    capability: 'task-cancel',
+    actionClass: 'state-changing',
+    confirmationRequired: true,
+    payload: originPayload({ selector: { position: 2 } })
+  }));
+  assert.equal(decision.outcome, 'allow');
+  assert.equal(decision.checks.selfAutomation, true);
+  assert.equal(decision.checks.confirmation, true);
+});
+
 test('canonical scheduled self-notification create is allowed through Action Gate without legacy capability grant', () => {
   const gate = createActionGate();
   const decision = gate.evaluate(request({

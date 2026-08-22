@@ -206,6 +206,18 @@ Regression tests prove that:
 
 ## GDE3 — Canonical-to-GH3 Execution Bridge + Change Set
 
+**Status: IMPLEMENTED / LOCAL TESTS VERIFIED / EXACT-HEAD CI PENDING.**
+
+Implementation evidence:
+
+- `githubCanonicalExecutionBridge` accepts only resolved `github.development.execute` plus a successful current GDE2 capability assessment;
+- it creates a bounded execution envelope and logical change set, revalidates the exact branch HEAD through the existing GH3 repository reader, then delegates create/resume to the existing `GitHubDevelopmentOrchestrator`;
+- the existing GH3 development-task contract now durably retains the bounded development plan in its task JSON state;
+- deterministic task identity makes retry transport-neutral and duplicate-safe while lifecycle status may advance;
+- stale HEAD, conflicting paths, empty mutation sets, missing post-conditions, unavailable capability and unsupported canonical actions fail closed before orchestrator mutation.
+
+GDE3 must not be described as CLOSED until SG 2.1 CI succeeds on the exact implementation HEAD.
+
 ### Goal
 
 Connect `github.development.execute` and related canonical actions to the already implemented GH3 development services.

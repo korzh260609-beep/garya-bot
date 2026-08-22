@@ -142,6 +142,7 @@ export function createGitHubDevelopmentTask(input) {
   const repository = createGitHubRepositoryIdentity(input.repository);
   const baseline = createGitHubRevision(input.baseline);
   invariant(baseline.repository.fullName === repository.fullName, 'baseline repository must match task repository');
+  const developmentPlan = input.developmentPlan == null ? null : object(input.developmentPlan, 'developmentTask.developmentPlan');
   return deepFreeze({
     taskId: string(input.taskId, 'developmentTask.taskId'),
     globalUserId: string(input.globalUserId, 'developmentTask.globalUserId'),
@@ -153,6 +154,7 @@ export function createGitHubDevelopmentTask(input) {
     allowedOperations: stringList(input.allowedOperations, 'developmentTask.allowedOperations'),
     allowedPaths: stringList(input.allowedPaths, 'developmentTask.allowedPaths'),
     completionCondition: createGitHubCompletionCondition(input.completionCondition),
+    developmentPlan,
     status
   });
 }

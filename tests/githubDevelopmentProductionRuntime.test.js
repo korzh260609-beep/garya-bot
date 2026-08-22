@@ -25,10 +25,10 @@ function harness({ authorities = [], allowed = true, capabilityBindingService = 
     resourceAuthorityRegistry,
     resourceAuthorityAccessContext: { actor: { globalUserId: 'system:runtime', grants: ['resource-authority:manage', 'resource-authority:read'] }, projectScope: 'sg2.1' },
     ownerGlobalUserId: 'telegram:1',
-    aiRouter: { async route() { throw new Error('not used by status test'); } },
+    aiRouter: { async route() { throw new Error('not used by status/preflight tests'); } },
     capabilityBindingService,
     platformOperationsService,
-    fetchImpl: async () => { throw new Error('not used by status test'); }
+    fetchImpl: async () => { throw new Error('not used by status/preflight tests'); }
   });
   return { runtime, credentials, grants, resources };
 }
@@ -42,6 +42,7 @@ test('GH3 production runtime exposes configured repository truth and bootstraps 
   assert.equal(runtime.availability.configured, true);
   assert.equal(runtime.availability.repository, 'korzh260609-beep/garya-bot');
   assert.equal(runtime.availability.branch, 'dev/sg2.1-semantic');
+  assert.equal(runtime.availability.canonicalRuntimeBinding, true);
   const result = await runtime.capability.execute({
     actor: { globalUserId: 'telegram:1' }, scope: { projectScope: 'sg2.1' }, input: { mode: 'status', locale: 'ru' },
     actionRequest: { actionType: 'github-development-status' }, traceContext: { traceId: 't', requestId: 'r' }
@@ -94,4 +95,33 @@ test('GDE6 production runtime routes canonical platform actions transport-neutra
   const {runtime}=harness({platformOperationsService});
   for(const transport of ['telegram','web-api']){const result=await runtime.capability.execute({actor:{globalUserId:'telegram:1'},scope:{projectScope:'sg2.1'},input:{canonicalAction:'github.ci.verify',platformOperation:{repository:{owner:'korzh260609-beep',name:'garya-bot'},branch:'dev/sg2.1-semantic'},transport},actionRequest:{actionType:'github-development'},traceContext:{traceId:'t',requestId:transport}});assert.equal(result.status,'success');assert.equal(result.data.canonicalAction,'github.ci.verify')}
   assert.equal(calls.length,2);assert.equal(calls[0].actor.globalUserId,'telegram:1');assert.equal(calls[1].projectScope,'sg2.1');
+});
+
+test('production execution fails closed when canonical repository or branch leaves the configured workspace', async () => {
+  const { runtime } = harness({ capabilityBindingService: { async assess() { throw new Error('must not assess mismatched target'); } } });
+  const result = await runtime.capability.execute({
+    actor: { globalUserId: 'telegram:1' }, scope: { projectScope: 'sg2.1' },
+    input: { canonicalAction: 'github.development.execute', mode: 'execute', instruction: 'Implement LA1', canonicalTarget: { repository: 'other/repo', branch: 'main' }, locale: 'ru' },
+    actionRequest: { actionType: 'github-development', confirmation: { confirmed: true } }, traceContext: { traceId: 't-target', requestId: 'r-target' }
+  });
+  assert.equal(result.status, 'failed');
+  assert.equal(result.error.code, 'github-development-target-outside-workspace');
+  assert.match(result.error.message, /outside the configured development workspace/);
+});
+
+test('production execution runs GDE2 capability assessment before repository mutation and exposes exact blocker', async () => {
+  const assessments = [];
+  const capabilityBindingService = { async assess(input) { assessments.push(input); return { available: false, message: 'missing-provider-permission', blockers: [{ code: 'missing-provider-permission' }] }; } };
+  const { runtime } = harness({ capabilityBindingService });
+  const result = await runtime.capability.execute({
+    actor: { globalUserId: 'telegram:1' }, scope: { projectScope: 'sg2.1' },
+    input: { canonicalAction: 'github.development.execute', mode: 'execute', instruction: 'Implement LA1', canonicalTarget: { repository: 'korzh260609-beep/garya-bot', branch: 'dev/sg2.1-semantic', stage: 'LA1' }, locale: 'ru' },
+    actionRequest: { actionType: 'github-development', confirmation: { confirmed: true }, traceContext: { traceId: 't-preflight', requestId: 'r-preflight' } }, traceContext: { traceId: 't-preflight', requestId: 'r-preflight' }
+  });
+  assert.equal(result.status, 'unavailable');
+  assert.equal(result.error.code, 'github-development-capability-unavailable');
+  assert.equal(result.data.capabilityAssessment.blockers[0].code, 'missing-provider-permission');
+  assert.equal(assessments.length, 1);
+  assert.equal(assessments[0].canonicalAction, 'github.development.execute');
+  assert.equal(assessments[0].branch, 'dev/sg2.1-semantic');
 });

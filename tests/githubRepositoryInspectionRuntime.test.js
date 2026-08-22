@@ -71,6 +71,23 @@ test('repository inspect reads exact-head evidence and never invokes mutation se
   assert.deepEqual(calls.map((item) => item.task), ['github-development-file-selection', 'github-repository-inspection-answer']);
 });
 
+test('repository inspect keeps original user language separate from translated internal instruction', async () => {
+  let answerInput;
+  const aiRouter = {
+    async route(request) {
+      if (request.task === 'github-development-file-selection') return aiResult({ files: ['README.md'], rationale: 'repository identity' });
+      answerInput = JSON.parse(request.messages.at(-1).content);
+      return aiResult('Репозиторий доступен.');
+    }
+  };
+  const repositoryReadService = { async readSnapshot(input) { return (input.files ?? []).length === 0 ? { revision: HEAD, tree: { entries: TREE }, files: [] } : { revision: HEAD, tree: { entries: TREE }, files: [{ path: 'README.md', sha: 'c'.repeat(40), content: '# Project', truncated: false }] }; } };
+  const service = createGitHubDevelopmentExecutionService({ aiRouter, repositoryReadService, atomicCommitService: { async applyAtomicCommit() {} }, repository: 'korzh260609-beep/garya-bot', branch: 'dev/sg2.1-semantic' });
+  await service.inspect({ instruction: 'Inspect the current repository.', originalUserText: 'Ты видишь свой репозиторий?', responseLanguage: 'ru', actor: { globalUserId: 'telegram:owner' }, traceContext: { traceId: 't-lang', requestId: 'r-lang' } });
+  assert.equal(answerInput.instruction, 'Inspect the current repository.');
+  assert.equal(answerInput.originalUserText, 'Ты видишь свой репозиторий?');
+  assert.equal(answerInput.requiredResponseLanguage, 'ru');
+});
+
 test('repository inspect fails closed when required file evidence is truncated', async () => {
   const aiRouter = { async route(request) { if (request.task === 'github-development-file-selection') return aiResult({ files: ['README.md'], rationale: 'read it' }); throw new Error('answer must not run after truncated evidence'); } };
   let reads = 0;

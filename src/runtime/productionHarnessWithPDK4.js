@@ -1,6 +1,10 @@
 import { createLocalProductionHarness } from './localProductionHarness.js';
 import { createProductionDevelopmentKnowledgeDeployment } from '../projectDevelopmentKnowledge/productionDevelopmentKnowledgeDeployment.js';
 import { createProductionGitHubDevelopmentRuntime, GITHUB_DEVELOPMENT_RUNTIME_CAPABILITY } from '../githubDevelopment/githubDevelopmentProductionRuntime.js';
+import { createGitHubCapabilityRegistry, GITHUB_CAPABILITY_DEFINITIONS } from '../githubDevelopment/githubCapabilityRegistry.js';
+import { createGitHubSecurityControlPlane } from '../githubDevelopment/githubSecurityControlPlane.js';
+import { createGitHubCapabilityBindingService, createGitHubProviderCapabilityProbe } from '../githubDevelopment/githubCapabilityBindingService.js';
+import { createGitHubTokenConnectionProvider } from '../githubDevelopment/githubTokenConnectionProvider.js';
 
 function mergeHealth(base, pdk4, githubDevelopment = null) {
   return Object.freeze({ ...base, pdk4: Object.freeze({ ...pdk4 }), ...(githubDevelopment ? { githubDevelopment: Object.freeze({ ...githubDevelopment }) } : {}) });
@@ -38,8 +42,9 @@ function wireRepositoryReadCapability(base, pdk4Deployment) {
 
 function withOwnerGitHubDevelopmentCapability(input, ownerGlobalUserId) {
   if (!ownerGlobalUserId || input?.identityContext?.globalUserId !== ownerGlobalUserId) return input;
-  const grants = new Set([...(input.identityContext.grants ?? []), `capability:${GITHUB_DEVELOPMENT_RUNTIME_CAPABILITY}`]);
-  const allowedCapabilities = new Set([...(input.scopeContext?.allowedCapabilities ?? []), GITHUB_DEVELOPMENT_RUNTIME_CAPABILITY]);
+  const githubCapabilities = GITHUB_CAPABILITY_DEFINITIONS.map((item) => item.name);
+  const grants = new Set([...(input.identityContext.grants ?? []), `capability:${GITHUB_DEVELOPMENT_RUNTIME_CAPABILITY}`, ...githubCapabilities.map((item) => `capability:${item}`)]);
+  const allowedCapabilities = new Set([...(input.scopeContext?.allowedCapabilities ?? []), GITHUB_DEVELOPMENT_RUNTIME_CAPABILITY, ...githubCapabilities]);
   return Object.freeze({
     ...input,
     identityContext: Object.freeze({ ...input.identityContext, grants: Object.freeze([...grants]) }),
@@ -52,6 +57,20 @@ export function createProductionHarnessWithPDK4({ env = {}, interpretationResolv
   const base = createLocalProductionHarness({ env, interpretationResolver, fetchImpl, clock });
   const pdk4Deployment = createProductionDevelopmentKnowledgeDeployment({ harness: base, env, fetchImpl, clock });
   const repositoryReadCapability = wireRepositoryReadCapability(base, pdk4Deployment);
+  const githubCapabilityRegistry = createGitHubCapabilityRegistry();
+  const githubTokenProvider = createGitHubTokenConnectionProvider({ credentialManager: base.credentialManager, credentialAccessContext: base.credentialAccessContext });
+  const githubSecurityControlPlane = createGitHubSecurityControlPlane({
+    capabilityRegistry: githubCapabilityRegistry,
+    accessControl: { async assertAllowed({ actor, capability }) { return { allowed: actor?.grants?.includes(`capability:${capability}`) === true, reason: 'identity-capability-grant' }; } },
+    resourceAuthority: base.resourceAuthorityRegistry,
+    actionGate: base.actionGate,
+    credentialManager: base.credentialManager,
+    ownerSecurity: base.ownerSecurityGateway,
+    emergencyMode: () => env.SG_GITHUB_EMERGENCY_MODE ?? 'normal',
+    audit: (event) => base.observability.record({ eventClass: 'audit_event', channel: 'audit', stage: 'github-security-control-plane', outcome: event.outcome ?? 'evaluated', reason: event.capability ?? 'github-capability-assessment', traceContext: { traceId: `gde2:${event.actorGlobalUserId ?? 'unknown'}`, requestId: `gde2:${event.capability ?? 'unknown'}`, environment: env.NODE_ENV ?? 'production', revision: env.RENDER_GIT_COMMIT ?? 'unknown' }, data: event }),
+    clock
+  });
+  const githubCapabilityBindingService = createGitHubCapabilityBindingService({ capabilityRegistry: githubCapabilityRegistry, securityControlPlane: githubSecurityControlPlane, providerCapabilityProbe: createGitHubProviderCapabilityProbe({ connectionProvider: githubTokenProvider }), clock });
   const githubDevelopment = createProductionGitHubDevelopmentRuntime({
     env,
     credentialManager: base.credentialManager,
@@ -60,6 +79,7 @@ export function createProductionHarnessWithPDK4({ env = {}, interpretationResolv
     resourceAuthorityAccessContext: base.resourceAuthorityAccessContext,
     ownerGlobalUserId: base.ownerSecurityConfig.monarchGlobalUserId,
     aiRouter: base.productionAI?.aiRouter ?? null,
+    capabilityBindingService: githubCapabilityBindingService,
     fetchImpl,
     clock
   });
@@ -82,5 +102,5 @@ export function createProductionHarnessWithPDK4({ env = {}, interpretationResolv
       return Object.freeze({ ...readiness, pdk4: pdk4Deployment.health(), githubDevelopment: githubDevelopment.availability });
     }
   });
-  return Object.freeze({ ...base, runtime, pdk4Deployment, repositoryReadCapability, githubDevelopment });
+  return Object.freeze({ ...base, runtime, pdk4Deployment, repositoryReadCapability, githubDevelopment, githubCapabilityBindingService, githubSecurityControlPlane });
 }

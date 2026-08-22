@@ -123,6 +123,19 @@ Deterministic tests prove semantic equivalence, target resolution, ambiguity han
 
 ## GDE2 — Existing Capability Binding + Runtime Self-Knowledge
 
+**Status: IMPLEMENTED / LOCAL TESTS VERIFIED / EXACT-HEAD CI PENDING.**
+
+Implementation evidence:
+
+- every bounded canonical GitHub action maps only to capability names already registered by GH3;
+- `githubCapabilityBindingService` composes the existing GH3 Capability Registry, GitHub Security Control Plane and provider connection boundary without granting authority or executing a repository mutation;
+- assessment uses current ACS grants, Resource Authority, Action Gate, emergency mode, credential/connection state, selected-repository scope and provider permissions;
+- production GitHub status responses consume the deterministic assessment and expose its bounded runtime Self Knowledge fact;
+- model statements and local `.git` availability are excluded from capability truth;
+- exact blocker regressions cover missing connection/provider permission, ACS/Resource Authority/Action Gate denial, confirmation, emergency mode and repository installation scope.
+
+GDE2 must not be described as CLOSED until SG 2.1 CI succeeds on the exact implementation HEAD.
+
 ### Goal
 
 Make SG determine whether it can perform a requested GitHub operation from real connected capabilities and current authority instead of model assumptions.

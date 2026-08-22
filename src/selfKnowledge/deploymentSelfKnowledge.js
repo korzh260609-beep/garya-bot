@@ -102,6 +102,8 @@ export function createDeploymentSelfKnowledgeSources({
             selfKnowledgeRefreshMode: capabilityCatalog.refreshMode,
             perRequestGitHubScan: capabilityCatalog.perRequestExternalScan,
             liveRepositoryProbePolicy: 'only-for-specific-current-state-requests'
+            ,capabilityResolution: 'registered capability + ACS + Resource Authority + connection/credential + provider permission + Action Gate + emergency mode'
+            ,localGitWorkspaceDeterminesAccess: false
           },
           status: 'implemented',
           sourceId: 'runtime:capability-catalog',

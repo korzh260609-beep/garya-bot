@@ -132,6 +132,8 @@ Closure requires proof that requests such as `реализуй LA1`, `испра
 
 ### GDE2 — Existing Capability Binding + Runtime Self-Knowledge
 
+**IMPLEMENTED / LOCAL TESTS VERIFIED / EXACT-HEAD CI PENDING.**
+
 Implementation order:
 
 ```text

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createProductionGitHubDevelopmentRuntime } from '../src/githubDevelopment/githubDevelopmentProductionRuntime.js';
 
-function harness({ authorities = [], allowed = true } = {}) {
+function harness({ authorities = [], allowed = true, capabilityBindingService = null } = {}) {
   const credentials = [];
   const grants = [];
   const resources = [];
@@ -26,6 +26,7 @@ function harness({ authorities = [], allowed = true } = {}) {
     resourceAuthorityAccessContext: { actor: { globalUserId: 'system:runtime', grants: ['resource-authority:manage', 'resource-authority:read'] }, projectScope: 'sg2.1' },
     ownerGlobalUserId: 'telegram:1',
     aiRouter: { async route() { throw new Error('not used by status test'); } },
+    capabilityBindingService,
     fetchImpl: async () => { throw new Error('not used by status test'); }
   });
   return { runtime, credentials, grants, resources };
@@ -47,6 +48,20 @@ test('GH3 production runtime exposes configured repository truth and bootstraps 
   assert.equal(result.status, 'success');
   assert.match(result.data.message, /готов/);
   assert.equal(result.data.authority.allowed, true);
+});
+
+test('GDE2 production status uses deterministic capability assessment instead of model or local-git assumptions', async () => {
+  const assessments = [];
+  const capabilityBindingService = { async assess(input) { assessments.push(input); return { available: true, message: 'deterministic-ready', blockers: [], selfKnowledge: { grantsAuthority: false } }; } };
+  const { runtime } = harness({ capabilityBindingService });
+  const result = await runtime.capability.execute({
+    actor: { globalUserId: 'telegram:1' }, scope: { projectScope: 'sg2.1' }, input: { mode: 'status', canonicalAction: 'github.development.execute', locale: 'ru' },
+    actionRequest: { actionType: 'github-development-status', traceContext: { traceId: 't', requestId: 'r' } }, traceContext: { traceId: 't', requestId: 'r' }
+  });
+  assert.equal(result.data.message, 'deterministic-ready');
+  assert.equal(result.data.capabilityAssessment.available, true);
+  assert.equal(assessments[0].repository.fullName, 'korzh260609-beep/garya-bot');
+  assert.equal(Object.hasOwn(assessments[0], 'localGitAvailable'), false);
 });
 
 test('GH3 bootstrap never silently restores a revoked authority', async () => {

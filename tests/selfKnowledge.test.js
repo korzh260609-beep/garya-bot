@@ -131,6 +131,8 @@ test('deployment Self Knowledge derives GH3 access from cached runtime facts wit
   assert.equal(github.value.selfKnowledgeRefreshMode, 'runtime-snapshot');
   assert.equal(github.value.perRequestGitHubScan, false);
   assert.equal(github.value.liveRepositoryProbePolicy, 'only-for-specific-current-state-requests');
+  assert.match(github.value.capabilityResolution, /ACS.*Resource Authority.*provider permission.*Action Gate/);
+  assert.equal(github.value.localGitWorkspaceDeterminesAccess, false);
   assert.equal(Object.hasOwn(github.value, 'interpretation'), false, 'user-facing answer wording must not be hard-coded into Self Knowledge');
 });
 

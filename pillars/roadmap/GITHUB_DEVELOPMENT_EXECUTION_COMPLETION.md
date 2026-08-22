@@ -2,7 +2,7 @@
 
 ## Status
 
-**IMPLEMENTED / RUNTIME-INTEGRATED / CI VERIFICATION PENDING.**
+**IMPLEMENTED / RUNTIME-INTEGRATED / CI-VERIFIED.**
 
 Production integration evidence:
 
@@ -12,6 +12,8 @@ Production integration evidence:
 - the production composition reuses the existing repository reader, validated atomic commit lifecycle, security control plane, Action Gate, credential provider and PostgreSQL development task store;
 - repository inspection and development execution both resolve the authoritative repository, non-`main` branch and exact baseline HEAD before continuing;
 - no second GitHub executor, capability system, Action Gate, CI service or semantic system is introduced.
+
+Runtime integration closure evidence: implementation HEAD `d94594b366288c70c1b2db78345d773a969ef921`, SG 2.1 CI #8807 `SUCCESS` (Run ID `32572801463`).
 
 This document extends the existing GitHub Development Workspace 3.0 (`GH3`) program. It does not create a second GitHub subsystem, semantic router, capability registry, authorization layer, Action Gate, CI service, task store, memory store or transport-specific execution path.
 

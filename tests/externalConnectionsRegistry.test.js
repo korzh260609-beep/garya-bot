@@ -99,6 +99,7 @@ test('deployment bootstrap registers existing GitHub App env as the canonical GH
   assert.equal(connection.metadata.appId, '42');
   assert.equal(connection.credentialId, 'sg.github.app.private-key');
   assert.equal(JSON.stringify(connection).includes('secret-private-key'), false);
+  assert.equal(credentials[0].type, 'service-credential');
   assert.equal(credentials[0].secretRef.key, 'GITHUB_APP_PRIVATE_KEY');
 });
 

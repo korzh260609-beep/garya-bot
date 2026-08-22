@@ -34,6 +34,29 @@ function inferredTimeExpression(canonicalInput, interpretation) {
   });
 }
 
+function resolveCanonicalTimeExpression({ canonicalInput, interpretation, temporalService }) {
+  const expression = inferredTimeExpression(canonicalInput, interpretation);
+  if (!expression || expression.type === 'resolved-temporal-expression' || !temporalService) {
+    return Object.freeze({ expression, failure: null });
+  }
+  const temporalContext = canonicalInput.metadata?.temporalContext;
+  if (!temporalContext?.timezoneKnown || !temporalContext.timeZone) {
+    return Object.freeze({ expression, failure: 'canonical-timezone-required' });
+  }
+  try {
+    const resolved = temporalService.resolveCanonicalExpression(expression, {
+      timeZone: temporalContext.timeZone,
+      referenceInstant: temporalContext.referenceInstant
+    });
+    if (resolved.ambiguous || !resolved.utcStart || !resolved.utcEndExclusive) {
+      return Object.freeze({ expression: resolved, failure: 'canonical-temporal-range-unresolved' });
+    }
+    return Object.freeze({ expression: resolved, failure: null });
+  } catch {
+    return Object.freeze({ expression, failure: 'canonical-temporal-range-invalid' });
+  }
+}
+
 function defaultClarification(locale) {
   const language = String(locale ?? 'en').trim().toLowerCase();
   if (language.startsWith('ru')) return 'Уточните, пожалуйста, что именно нужно сделать.';
@@ -41,7 +64,7 @@ function defaultClarification(locale) {
   return 'Please clarify what exactly should be done.';
 }
 
-export function createSemanticRequestResolver({ minimumConfidence = 0.35 } = {}) {
+export function createSemanticRequestResolver({ minimumConfidence = 0.35, temporalService = null } = {}) {
   if (!Number.isFinite(minimumConfidence) || minimumConfidence < 0 || minimumConfidence > 1) {
     throw new TypeError('minimumConfidence must be between 0 and 1');
   }
@@ -54,8 +77,16 @@ export function createSemanticRequestResolver({ minimumConfidence = 0.35 } = {})
 
       const selected = selectAction(interpretation);
       const confidence = interpretation.confidence;
+      if (temporalService && typeof temporalService.resolveCanonicalExpression !== 'function') {
+        throw new TypeError('temporalService.resolveCanonicalExpression must be a function');
+      }
+      const temporal = resolveCanonicalTimeExpression({ canonicalInput, interpretation, temporalService });
+      const missingInformation = temporal.failure
+        ? Object.freeze([...interpretation.missingInformation, temporal.failure])
+        : interpretation.missingInformation;
       const insufficient = confidence < minimumConfidence
-        || (interpretation.missingInformation.length > 0 && Boolean(interpretation.clarificationQuestion));
+        || (interpretation.missingInformation.length > 0 && Boolean(interpretation.clarificationQuestion))
+        || Boolean(temporal.failure);
       const clarificationQuestion = insufficient
         ? (interpretation.clarificationQuestion ?? defaultClarification(canonicalInput.locale))
         : interpretation.clarificationQuestion;
@@ -66,12 +97,12 @@ export function createSemanticRequestResolver({ minimumConfidence = 0.35 } = {})
         goal: interpretation.goal,
         target: interpretation.target,
         action: selected.action,
-        timeExpression: inferredTimeExpression(canonicalInput, interpretation),
+        timeExpression: temporal.expression,
         scope: interpretation.scope,
         parameters: interpretation.parameters,
         delivery: interpretation.delivery,
         confidence,
-        missingInformation: interpretation.missingInformation,
+        missingInformation,
         clarificationQuestion,
         provenance: {
           ...interpretation.provenance,
@@ -85,7 +116,9 @@ export function createSemanticRequestResolver({ minimumConfidence = 0.35 } = {})
           selectedActionSource: selected.source,
           selectedCandidateIndex: selected.index,
           selectedCandidatePriority: selected.priority,
-          minimumConfidence
+          minimumConfidence,
+          canonicalTemporalResolution: temporal.expression?.source === 'deterministic-canonical-temporal-resolver',
+          canonicalTemporalFailure: temporal.failure
         }
       });
     }

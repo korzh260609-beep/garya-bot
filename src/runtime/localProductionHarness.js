@@ -2,6 +2,7 @@ import { createIdentityContext, createScopeContext } from '../contracts/context.
 import { createVersionedCapabilityExecutor } from '../contracts/versionedCapabilityExecutor.js';
 import { createFixtureMeaningInterpreter } from '../semantic/meaningInterpreter.js';
 import { createSemanticKernel } from '../semantic/semanticKernel.js';
+import { createSemanticRequestResolver } from '../semantic/semanticRequestResolver.js';
 import { createContextAwareSemanticPipeline } from '../memory/contextAwareSemanticPipeline.js';
 import { createContextResolver } from '../memory/contextResolver.js';
 import { createPostgresObservabilityStore, createPostgresPersistence } from '../persistence/index.js';
@@ -193,7 +194,7 @@ export function createLocalProductionHarness({ env = {}, interpretationResolver,
   const contextResolver = createContextResolver({ memoryProvider });
   const baseMeaningInterpreter = productionAI?.meaningInterpreter ?? createFixtureMeaningInterpreter(interpretationResolver ?? ((input) => ({ meaning: `Runtime processed: ${input.text}`, goal: 'respond', intent: 'answer', contextNeeds: [], evidenceNeeds: [], candidateActions: [{ type: 'answer', name: 'compose-answer', actionClass: 'analysis' }], rationale: 'Deterministic production-like interpretation with AI disabled.' })));
   const meaningInterpreter = createTemporalAwareMeaningInterpreter({ baseInterpreter: baseMeaningInterpreter, temporalService });
-  const baseSemanticPipeline = createContextAwareSemanticPipeline({ semanticKernel: createSemanticKernel({ meaningInterpreter }), contextResolver });
+  const baseSemanticPipeline = createContextAwareSemanticPipeline({ semanticKernel: createSemanticKernel({ meaningInterpreter, semanticRequestResolver: createSemanticRequestResolver({ temporalService }) }), contextResolver });
   const semanticPipeline = Object.freeze({ async process(input) { const resolved = await controlPlane.contractVersioning.resolve('canonical-input', { version: '1.0', ...input }, { traceContext: enrichTrace(input.traceContext, config), source: 'production-runtime' }); const { version: _version, ...validatedInput } = resolved.record; return baseSemanticPipeline.process(Object.freeze(validatedInput)); } });
   const temporalCapabilities = createTemporalCapabilities({ temporalService, memoryProvider, recurringScheduler });
   const languageCapabilities = createLanguageCapabilities({ languageContextService });

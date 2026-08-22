@@ -1,6 +1,6 @@
 # SG 2.1 — Semantic Deterministic Execution
 
-Status: ACCEPTED ARCHITECTURE / PLANNED IMPLEMENTATION
+Status: ACCEPTED ARCHITECTURE / STAGES 1–3 IMPLEMENTED
 
 ## Purpose
 
@@ -88,6 +88,17 @@ rolling-24-hours
 ```
 
 Timezone resolution reuses the existing Temporal/Locale context and must remain explicit in execution evidence.
+
+Implemented Stage 3 behavior:
+
+- resolves the bounded canonical temporal enum through the existing Temporal Context service;
+- preserves the canonical temporal `type` while adding local and UTC half-open boundaries;
+- uses Monday-based calendar weeks and timezone-aware local midnight boundaries;
+- keeps `rolling-24-hours` as an exact elapsed duration across DST changes;
+- validates `custom-range` local boundaries deterministically;
+- fails closed when timezone or safe boundaries cannot be established;
+- records `deterministic-canonical-temporal-resolver` as execution evidence;
+- never reparses the source wording after canonicalization.
 
 ## Stage 4 — Structured Automation Plan
 

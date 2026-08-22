@@ -247,6 +247,30 @@ function dayRangeResult(expression, referenceInstant, timeZone, local) {
   return rangeForLocalDates(expression, referenceInstant, timeZone, start, calendarShift(start, { days: 1 }), 'day');
 }
 
+function mondayStart(local) {
+  const weekday = new Date(Date.UTC(local.year, local.month - 1, local.day)).getUTCDay();
+  const offset = weekday === 0 ? -6 : 1 - weekday;
+  return startOfLocalDay(calendarShift(local, { days: offset }));
+}
+
+function customRangeResult(expression, referenceInstant, timeZone) {
+  const localPattern = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})$/;
+  const parseLocal = (value, field) => {
+    const match = String(value ?? '').match(localPattern);
+    if (!match) throw new TypeError(`${field} must be a local ISO date-time without offset`);
+    const local = { year: Number(match[1]), month: Number(match[2]), day: Number(match[3]), hour: Number(match[4]), minute: Number(match[5]), second: Number(match[6]) };
+    if (!validCalendarDate(local) || local.hour > 23 || local.minute > 59 || local.second > 59) throw new TypeError(`${field} is invalid`);
+    return local;
+  };
+  const start = parseLocal(expression.localStart, 'timeExpression.localStart');
+  const end = parseLocal(expression.localEndExclusive, 'timeExpression.localEndExclusive');
+  const result = rangeForLocalDates(expression.type, referenceInstant, timeZone, start, end, 'custom-range');
+  if (result.utcStart && result.utcEndExclusive && Date.parse(result.utcStart) >= Date.parse(result.utcEndExclusive)) {
+    throw new TypeError('timeExpression custom range end must be after start');
+  }
+  return result;
+}
+
 function daypartResult(expression, referenceInstant, timeZone, local, daypart) {
   const start = { ...local, hour: daypart.startHour, minute: 0, second: 0 };
   const end = daypart.endHour === 24
@@ -394,6 +418,48 @@ export function createTemporalService({ clock = () => new Date(), timezoneStore 
     return Object.freeze({ status: 'unresolved', originalExpression: String(expression), referenceInstant: reference.toISOString(), timeZone: zone, reason: 'no-supported-temporal-expression' });
   }
 
+  function resolveCanonicalExpression(expression, { timeZone, referenceInstant = now() } = {}) {
+    if (!expression || typeof expression !== 'object' || Array.isArray(expression)) throw new TypeError('canonical timeExpression must be an object');
+    const type = String(expression.type ?? '').trim();
+    const zone = requireTimeZone(timeZone);
+    const reference = assertDate(referenceInstant, 'referenceInstant');
+    const localNow = partsAt(reference, zone);
+    let result;
+    if (type === 'previous-calendar-day') {
+      result = dayRangeResult(type, reference, zone, calendarShift(localNow, { days: -1 }));
+    } else if (type === 'current-calendar-day') {
+      result = dayRangeResult(type, reference, zone, localNow);
+    } else if (type === 'rolling-24-hours') {
+      const start = new Date(reference.getTime() - 86_400_000);
+      result = normalizedResult({
+        expression: type, referenceInstant: reference, timeZone: zone, precision: 'rolling-24-hours',
+        localStart: localDateTimeToIso(partsAt(start, zone)), localEndExclusive: localDateTimeToIso(partsAt(reference, zone)),
+        utcStart: start.toISOString(), utcEndExclusive: reference.toISOString()
+      });
+    } else if (type === 'previous-week' || type === 'current-week') {
+      const currentMonday = mondayStart(localNow);
+      const start = type === 'previous-week' ? calendarShift(currentMonday, { days: -7 }) : currentMonday;
+      result = rangeForLocalDates(type, reference, zone, start, calendarShift(start, { days: 7 }), 'week');
+    } else if (type === 'custom-range') {
+      result = customRangeResult(expression, reference, zone);
+    } else {
+      throw new TypeError(`unsupported canonical timeExpression.type: ${type}`);
+    }
+    return Object.freeze({
+      ...expression,
+      type,
+      referenceInstant: result.referenceInstant,
+      timeZone: result.timeZone,
+      localStart: result.localStart,
+      localEndExclusive: result.localEndExclusive,
+      utcStart: result.utcStart,
+      utcEndExclusive: result.utcEndExclusive,
+      precision: result.precision,
+      ambiguous: result.ambiguous,
+      source: 'deterministic-canonical-temporal-resolver'
+    });
+  }
+
   async function resolveForUser(globalUserId, expression, options = {}) {
     const reference = assertDate(options.referenceInstant ?? now(), 'referenceInstant');
     const setting = await getUserTimezone(globalUserId);
@@ -412,6 +478,6 @@ export function createTemporalService({ clock = () => new Date(), timezoneStore 
 
   return Object.freeze({
     now, isValidTimeZone, getUserTimezone, setUserTimezone, contextForTimeZone, contextForUser,
-    resolveExpression, resolveForUser, enrichInput
+    resolveExpression, resolveCanonicalExpression, resolveForUser, enrichInput
   });
 }

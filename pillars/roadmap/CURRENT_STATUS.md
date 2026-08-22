@@ -405,7 +405,7 @@ Canonical docs:
 
 ## GitHub Development Execution Completion
 
-**IMPLEMENTATION IN PROGRESS. GDE1–GDE5 CLOSED / CI-VERIFIED; GDE6 IMPLEMENTED / LOCAL TESTS VERIFIED / EXACT-HEAD CI PENDING.**
+**IMPLEMENTATION COMPLETE. GDE1–GDE6 CLOSED / CI-VERIFIED. GH3.12 LIVE ACCEPTANCE REMAINS PENDING.**
 
 GDE1 adds the bounded canonical `github.*` action vocabulary and a deterministic Development Target Resolver over the existing Canonical Semantic Model and GH3 repository reader. It resolves only authoritative project/repository/non-`main` branch bindings, verifies an immutable baseline HEAD, validates structured stage/block evidence and fails closed on missing or ambiguous targets. It does not add a second executor, capability system, Action Gate, CI service or semantic pipeline.
 
@@ -427,7 +427,9 @@ GDE5 adds exact-HEAD CI completion and bounded repair continuation over the exis
 
 GDE5 closure evidence: exact implementation HEAD `c69ac1007c61f78f4bad4d52171fecbf564e8445`, SG 2.1 CI #8763 `SUCCESS` (Run ID `32567164437`).
 
-GDE6 connects the full canonical GitHub operations surface, durable follow-up context and bounded audit to the existing GH3 execution/security/task stack. Exact-head CI is pending.
+GDE6 connects the full canonical GitHub operations surface, durable follow-up context and bounded audit to the existing GH3 execution/security/task stack.
+
+GDE6 closure evidence: exact implementation HEAD `63d17a15bb4027da2c41bf21d16288f3eca36fe7`, SG 2.1 CI #8769 `SUCCESS` (Run ID `32568488924`). GH3.12 live acceptance remains separately pending.
 
 Canonical doc: `GITHUB_DEVELOPMENT_EXECUTION_COMPLETION.md`.
 

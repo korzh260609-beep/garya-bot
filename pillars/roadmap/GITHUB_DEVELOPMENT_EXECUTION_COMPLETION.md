@@ -406,7 +406,7 @@ Regression tests cover failed exact-HEAD CI, actionable failure localization, re
 
 ## GDE6 — Full GitHub Platform Operations + Audit + Regression + Canonical Sync
 
-**Status: IMPLEMENTED / LOCAL TESTS VERIFIED / EXACT-HEAD CI PENDING.**
+**Status: CLOSED / CI-VERIFIED.**
 
 Implementation evidence:
 
@@ -417,7 +417,7 @@ Implementation evidence:
 - every operation records bounded actor/action/repository/ref/HEAD/path/identity/security/post-condition/trace/idempotency/timestamp evidence through the injected audit sink;
 - regression tests cover the supported canonical surface, durable continuity, security denial, `main` protection, exact-HEAD evidence and false-success prevention.
 
-GDE6 must not be described as CLOSED until SG 2.1 CI succeeds on the exact implementation HEAD.
+Closure evidence: exact implementation HEAD `63d17a15bb4027da2c41bf21d16288f3eca36fe7`, SG 2.1 CI #8769 `SUCCESS` (Run ID `32568488924`). GH3.12 live acceptance remains separately pending and is not implied by this CI closure.
 
 ### Goal
 

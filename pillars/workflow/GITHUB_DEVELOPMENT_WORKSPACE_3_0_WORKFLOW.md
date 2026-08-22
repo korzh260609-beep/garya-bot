@@ -1,7 +1,7 @@
 # SG 2.1 — GITHUB DEVELOPMENT WORKSPACE 3.0 WORKFLOW
 
 ## Status
-**IMPLEMENTATION COMPLETE THROUGH GH3.12. GH3.1–GH3.11 CLOSED / CI-VERIFIED; GH3.12 IMPLEMENTED / CI-VERIFIED / LIVE ACCEPTANCE PENDING. GDE1–GDE5 CLOSED / CI-VERIFIED; GDE6 IMPLEMENTED / LOCAL TESTS VERIFIED / EXACT-HEAD CI PENDING.**
+**IMPLEMENTATION COMPLETE THROUGH GH3.12 AND GDE6. GH3.1–GH3.11 AND GDE1–GDE6 CLOSED / CI-VERIFIED; GH3.12 LIVE ACCEPTANCE PENDING.**
 
 No GH3 or GDE stage is CLOSED from documentation alone.
 
@@ -220,7 +220,9 @@ Closure requires proof that `всё зелёное` is emitted only from success
 
 ### GDE6 — Full GitHub Platform Operations + Audit + Regression + Canonical Sync
 
-**IMPLEMENTED / LOCAL TESTS VERIFIED / EXACT-HEAD CI PENDING.**
+**CLOSED / CI-VERIFIED.**
+
+Closure evidence: exact implementation HEAD `63d17a15bb4027da2c41bf21d16288f3eca36fe7`, SG 2.1 CI #8769 `SUCCESS` (Run ID `32568488924`). GH3.12 live acceptance remains separately pending.
 
 Implementation order:
 

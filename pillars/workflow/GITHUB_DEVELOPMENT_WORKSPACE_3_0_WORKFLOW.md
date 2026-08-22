@@ -151,7 +151,7 @@ Closure requires proof that SG reports actual deterministic blockers and never c
 
 ### GDE3 — Canonical-to-GH3 Execution Bridge + Change Set
 
-**IMPLEMENTED / LOCAL TESTS VERIFIED / EXACT-HEAD CI PENDING.**
+**CLOSED / CI-VERIFIED** at exact implementation HEAD `479d5f5495d0ca107d3e59b1230922276b34fad0`, SG 2.1 CI #8755 `SUCCESS` (Run ID `32565617361`).
 
 Implementation order:
 

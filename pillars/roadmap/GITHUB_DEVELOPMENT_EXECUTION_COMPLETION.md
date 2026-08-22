@@ -206,7 +206,7 @@ Regression tests prove that:
 
 ## GDE3 — Canonical-to-GH3 Execution Bridge + Change Set
 
-**Status: IMPLEMENTED / LOCAL TESTS VERIFIED / EXACT-HEAD CI PENDING.**
+**Status: CLOSED / CI-VERIFIED.**
 
 Implementation evidence:
 
@@ -216,7 +216,7 @@ Implementation evidence:
 - deterministic task identity makes retry transport-neutral and duplicate-safe while lifecycle status may advance;
 - stale HEAD, conflicting paths, empty mutation sets, missing post-conditions, unavailable capability and unsupported canonical actions fail closed before orchestrator mutation.
 
-GDE3 must not be described as CLOSED until SG 2.1 CI succeeds on the exact implementation HEAD.
+Closure evidence: exact implementation HEAD `479d5f5495d0ca107d3e59b1230922276b34fad0`, SG 2.1 CI #8755 `SUCCESS` (Run ID `32565617361`).
 
 ### Goal
 

@@ -290,6 +290,45 @@ function taskTargetClarification(error, locale) {
   return ambiguous ? 'Найдено несколько одинаковых активных задач. Уточните, какую именно отменить.' : 'Не удалось найти эту активную задачу. Покажите актуальный список и выберите её ещё раз.';
 }
 
+async function verifyCancelledTaskPostcondition(taskStore, request, output) {
+  const mutated = output?.data?.task;
+  const taskId = mutated?.taskId;
+  if (typeof taskId !== 'string' || taskId.trim() === '') return { verified: false, code: 'task-cancel-post-condition-missing', message: 'Cancellation returned no canonical task identity' };
+  if (mutated?.automationId && typeof taskStore.listWorkflows === 'function') {
+    const workflows = await taskStore.listWorkflows({ scope: scopeFrom(request), limit: 100 });
+    const current = workflows.find((record) => record.automationId === mutated.automationId && record.taskId === taskId);
+    const state = taskStatus(current);
+    return {
+      verified: current != null && TERMINAL_TASK_STATUSES.has(state),
+      code: 'task-cancel-post-condition-not-satisfied', message: 'Canonical workflow remains operational after cancellation',
+      evidence: { store: 'canonical-workflow-store', taskId, automationId: mutated.automationId, status: state, version: current?.workflow?.version ?? null }
+    };
+  }
+  const current = await taskStore.get({ scope: scopeFrom(request), taskId });
+  const state = taskStatus(current);
+  return {
+    verified: current != null && TERMINAL_TASK_STATUSES.has(state),
+    code: 'task-cancel-post-condition-not-satisfied', message: 'Task remains operational after cancellation',
+    evidence: { store: 'authoritative-task-store', taskId, status: state }
+  };
+}
+
+async function verifyAutomationUpdatePostcondition(taskStore, request, output) {
+  const result = output?.data;
+  if (typeof taskStore.listWorkflows !== 'function') return { verified: false, code: 'automation-update-post-condition-unavailable', message: 'Canonical workflow reload is unavailable' };
+  if (typeof result?.automationId !== 'string' || !Number.isInteger(result?.version)) return { verified: false, code: 'automation-update-post-condition-missing', message: 'Automation mutation returned no canonical identity/version' };
+  const workflows = await taskStore.listWorkflows({ scope: scopeFrom(request), limit: 100 });
+  const current = workflows.find((record) => record.automationId === result.automationId);
+  const expectedStatus = result.lifecycleAction === 'pause' ? 'paused' : result.lifecycleAction === 'resume' ? 'active' : result.lifecycleAction === 'cancel' ? 'cancelled' : null;
+  const actualStatus = taskStatus(current);
+  const actualVersion = current?.workflow?.version ?? null;
+  return {
+    verified: current != null && actualVersion === result.version && (expectedStatus == null || actualStatus === expectedStatus),
+    code: 'automation-update-post-condition-not-satisfied', message: 'Canonical automation does not have the committed version/state',
+    evidence: { store: 'canonical-workflow-store', automationId: result.automationId, version: actualVersion, status: actualStatus }
+  };
+}
+
 function requestedTaskHistory(input = {}) {
   if (input.includeHistory === true) return true;
   const statuses = Array.isArray(input.statuses) ? input.statuses.map((value) => String(value).toLowerCase()) : [];
@@ -423,6 +462,7 @@ export function createProductionCapabilities({
     capability({
       name: 'automation-update', description: 'Patch an existing versioned automation in the current scope without creating a duplicate.',
       actionTypes: ['automation-update'], actionClasses: ['state-changing'], confirmationRequired: true,
+      verifyPostcondition: ({ actionRequest, output }) => verifyAutomationUpdatePostcondition(taskStore, actionRequest, output),
       execute: async (request) => {
         if (!workflowUpdateService?.update) return { status: 'unavailable', error: { code: 'automation-update-unavailable', message: 'Workflow update service is not configured', retryable: false } };
         const gateEvidence = Object.freeze({
@@ -499,6 +539,7 @@ export function createProductionCapabilities({
     capability({
       name: 'task-cancel', description: 'Cancel a task in the current scope.',
       actionTypes: ['task-cancel'], actionClasses: ['state-changing'], confirmationRequired: true,
+      verifyPostcondition: ({ actionRequest, output }) => verifyCancelledTaskPostcondition(taskStore, actionRequest, output),
       execute: async (request) => {
         const scope = scopeFrom(request);
         let target;

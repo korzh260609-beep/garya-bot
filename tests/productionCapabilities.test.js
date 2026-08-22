@@ -164,7 +164,7 @@ test('Stage 5 task target resolution fails closed for stale and ambiguous select
 
 test('Stage 5 cancels a displayed canonical workflow through the existing versioned mutation service', async () => {
   const calls = [];
-  const workflow = {
+  let workflow = {
     automationId: 'automation-2', taskId: 'task-2', lifecycleStatus: 'active',
     workflow: { version: 4, inputs: { message: 'Каноническая задача' }, trigger: { type: 'one-shot', runAt: '2026-08-23T07:00:00Z' }, delivery: {} }
   };
@@ -174,7 +174,8 @@ test('Stage 5 cancels a displayed canonical workflow through the existing versio
     workflowUpdateService: {
       async update(input) {
         calls.push(input);
-        return { ...workflow, lifecycleStatus: 'cancelled' };
+        workflow = { ...workflow, lifecycleStatus: 'cancelled', workflow: { ...workflow.workflow, version: 5 } };
+        return workflow;
       }
     }
   };
@@ -188,6 +189,23 @@ test('Stage 5 cancels a displayed canonical workflow through the existing versio
   assert.equal(calls[0].lifecycleAction, 'cancel');
   assert.deepEqual(calls[0].selector, { automationId: 'automation-2', taskId: 'task-2' });
   assert.equal(calls[0].expectedVersion, 4);
+  assert.deepEqual(result.data.postCondition, { verified: true, evidence: { store: 'canonical-workflow-store', taskId: 'task-2', automationId: 'automation-2', status: 'cancelled', version: 5 } });
+});
+
+test('Stage 6 never reports task cancellation success when authoritative state remains active', async () => {
+  const active = { taskId: 'task-active', status: 'queued', payload: { title: 'Неизменённая задача' } };
+  const taskStore = {
+    async create() {}, async list() { return [active]; }, async get() { return active; },
+    async cancel() { return { ...active, status: 'cancelled' }; }
+  };
+  const { registry, executor } = harness({ taskStore });
+  const cancel = registry.get('task-cancel');
+  const actionRequest = requestFor(cancel, { payload: { taskId: 'task-active', locale: 'ru' } });
+  const result = await executor.execute({ actionRequest, gateDecision: allowed(actionRequest) });
+  assert.equal(result.status, 'failed');
+  assert.equal(result.error.code, 'task-cancel-post-condition-not-satisfied');
+  assert.ok(result.warnings.includes('authoritative-post-condition-not-verified'));
+  assert.doesNotMatch(result.data.message, /отменена/i);
 });
 
 test('task list hides terminal history by default and exposes it only when explicitly requested', async () => {

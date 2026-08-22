@@ -31,6 +31,7 @@ export function createCapability(input) {
     throw new TypeError('actionClasses must contain supported action classes');
   }
   if (typeof input.execute !== 'function') throw new TypeError('capability.execute must be a function');
+  if (input.verifyPostcondition != null && typeof input.verifyPostcondition !== 'function') throw new TypeError('capability.verifyPostcondition must be a function');
   const timeoutMs = Number(input.timeoutMs ?? 5000);
   const maxRetries = Number(input.maxRetries ?? 0);
   if (!Number.isInteger(timeoutMs) || timeoutMs <= 0) throw new TypeError('timeoutMs must be a positive integer');
@@ -52,7 +53,8 @@ export function createCapability(input) {
     maxRetries,
     fallbackCapabilities: stringList(input.fallbackCapabilities, 'fallbackCapabilities'),
     priority: Number.isFinite(Number(input.priority)) ? Number(input.priority) : 0,
-    execute: input.execute
+    execute: input.execute,
+    verifyPostcondition: input.verifyPostcondition ?? null
   });
 }
 

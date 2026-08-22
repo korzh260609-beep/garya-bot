@@ -47,6 +47,23 @@ test('preserves partial results and warnings', async () => {
   assert.equal(result.status, 'partial'); assert.deepEqual(result.warnings, ['one-source-unavailable']);
 });
 
+test('Stage 6 rejects nominal success when the authoritative post-condition is not satisfied', async () => {
+  const item = capability({ verifyPostcondition: async () => ({ verified: false, code: 'state-still-active', message: 'state remains active' }) });
+  const request = actionRequest();
+  const result = await createCapabilityExecutor({ registry: createCapabilityRegistry({ capabilities: [item] }) }).execute({ actionRequest: request, gateDecision: gate(request) });
+  assert.equal(result.status, 'failed');
+  assert.equal(result.error.code, 'state-still-active');
+  assert.ok(result.warnings.includes('authoritative-post-condition-not-verified'));
+});
+
+test('Stage 6 attaches bounded authoritative evidence only after a verified post-condition', async () => {
+  const item = capability({ verifyPostcondition: async () => ({ verified: true, evidence: { store: 'authoritative', status: 'cancelled' } }) });
+  const request = actionRequest();
+  const result = await createCapabilityExecutor({ registry: createCapabilityRegistry({ capabilities: [item] }) }).execute({ actionRequest: request, gateDecision: gate(request) });
+  assert.equal(result.status, 'success');
+  assert.deepEqual(result.data.postCondition, { verified: true, evidence: { store: 'authoritative', status: 'cancelled' } });
+});
+
 test('bounded retry stops after configured attempts', async () => {
   let calls = 0; const item = capability({ maxRetries: 2, execute: async () => { calls += 1; const error = new Error('temporary'); error.retryable = true; throw error; } }); const request = actionRequest();
   const result = await createCapabilityExecutor({ registry: createCapabilityRegistry({ capabilities: [item] }) }).execute({ actionRequest: request, gateDecision: gate(request) });

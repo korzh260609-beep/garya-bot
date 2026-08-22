@@ -62,6 +62,25 @@ function normalizedOutput(output, capability) {
   return { status: output.status ?? 'success', data: output.data ?? null, error: output.error ?? null, warnings: output.warnings ?? [], sources: output.sources ?? capability.requiredSources, tools: output.tools ?? capability.requiredTools, costUsd: output.costUsd ?? capability.estimatedCostUsd };
 }
 
+async function verifiedOutput(capability, actionRequest, output) {
+  if (!['success', 'partial'].includes(output.status) || typeof capability.verifyPostcondition !== 'function') return output;
+  let verification;
+  try {
+    verification = await capability.verifyPostcondition(Object.freeze({ actionRequest, output }));
+  } catch (error) {
+    const data = output.data && typeof output.data === 'object' && !Array.isArray(output.data) ? { ...output.data, message: null } : output.data;
+    return { ...output, status: 'failed', data, error: { code: error?.code ?? 'post-condition-verification-failed', message: error?.message ?? 'Post-condition verification failed', retryable: Boolean(error?.retryable) }, warnings: [...(output.warnings ?? []), 'authoritative-post-condition-not-verified'] };
+  }
+  if (verification?.verified !== true) {
+    const data = output.data && typeof output.data === 'object' && !Array.isArray(output.data) ? { ...output.data, message: null } : output.data;
+    return { ...output, status: 'failed', data, error: { code: verification?.code ?? 'post-condition-not-satisfied', message: verification?.message ?? 'Authoritative post-condition was not satisfied', retryable: false }, warnings: [...(output.warnings ?? []), 'authoritative-post-condition-not-verified'] };
+  }
+  const data = output.data && typeof output.data === 'object' && !Array.isArray(output.data)
+    ? Object.freeze({ ...output.data, postCondition: Object.freeze({ verified: true, evidence: Object.freeze({ ...(verification.evidence ?? {}) }) }) })
+    : output.data;
+  return { ...output, data };
+}
+
 function declaredRequirementsCovered(capability, actionRequest) {
   const declaredPermissions = new Set([actionRequest.requiredPermission].filter(Boolean));
   const declaredSources = new Set(actionRequest.requiredSources ?? []);
@@ -81,7 +100,8 @@ export function createCapabilityExecutor({ registry, clock = () => Date.now() } 
       const startedAt = clock();
       const request = createCapabilityExecutionRequest({ capability, actionRequest, gateDecision, attempt, fallbackFrom });
       try {
-        const output = normalizedOutput(await executeWithTimeout(capability, request, limits.timeoutMs), capability);
+        const rawOutput = normalizedOutput(await executeWithTimeout(capability, request, limits.timeoutMs), capability);
+        const output = await verifiedOutput(capability, actionRequest, rawOutput);
         const durationMs = Math.max(0, clock() - startedAt);
         attempts.push(Object.freeze({ capability: capability.name, attempt, status: output.status, durationMs }));
         if ((output.status === 'failed' || output.status === 'timeout' || output.status === 'unavailable') && output.error?.retryable && attempt <= limits.maxRetries) continue;

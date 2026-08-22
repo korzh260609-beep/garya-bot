@@ -1,6 +1,6 @@
 # SG 2.1 — Semantic Deterministic Execution
 
-Status: ACCEPTED ARCHITECTURE / STAGES 1–5 IMPLEMENTED
+Status: ACCEPTED ARCHITECTURE / STAGES 1–6 IMPLEMENTED
 
 ## Purpose
 
@@ -190,6 +190,15 @@ Examples:
 - automation mutation: same canonical automation has the expected new version/state;
 - scheduled report: occurrence ran, report result exists, delivery outcome is recorded;
 - failed/denied delivery or mutation must never be reported as completed.
+
+Implemented Stage 6 behavior:
+
+- the existing Capability Executor supports an explicit post-condition verifier on a capability contract;
+- a nominal `success` or `partial` state change becomes `failed` when authoritative verification is absent, throws or rejects the expected state;
+- `task-cancel` reloads the current scoped task/workflow store and requires a terminal lifecycle state;
+- verified evidence identifies the authoritative store, canonical identity, resulting state and workflow version where applicable;
+- the existing AW2 execution-result policy continues to reject missing/failed delivery outcomes and persists occurrence, step-run and delivery evidence;
+- transports receive success only after the same transport-neutral core verification path.
 
 ## Transport-neutral contract
 

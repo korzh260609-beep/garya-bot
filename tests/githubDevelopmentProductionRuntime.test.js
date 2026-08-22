@@ -95,6 +95,17 @@ test('GDE2 production status uses deterministic assessment but presents configur
   assert.equal(Object.hasOwn(assessments[0], 'localGitAvailable'), false);
 });
 
+test('GH3 status uses resolved response language rather than platform locale', async () => {
+  const { runtime } = harness();
+  const result = await runtime.capability.execute({
+    actor: { globalUserId: 'telegram:1' }, scope: { projectScope: 'sg2.1' },
+    input: { mode: 'status', locale: 'uk', languageContext: { responseLanguage: 'ru' } },
+    actionRequest: { actionType: 'github-development-status' }, traceContext: { traceId: 't-language', requestId: 'r-language' }
+  });
+  assert.match(result.data.message, /готов:/);
+  assert.doesNotMatch(result.data.message, /готовий:/);
+});
+
 test('GH3 bootstrap never silently restores a revoked authority', async () => {
   const revoked = [{ authorityId: 'old', state: 'revoked', verificationState: 'verified', relation: 'can_modify' }];
   const { runtime, grants } = harness({ authorities: revoked, allowed: false });

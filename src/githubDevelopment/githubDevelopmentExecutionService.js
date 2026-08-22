@@ -1,7 +1,7 @@
 import { parseStructuredAIOutput } from '../ai/contracts.js';
 import { createGitHubMutationPlan } from './githubDevelopmentContract.js';
 
-const MAX_TREE_PATHS = 500;
+const MAX_TREE_PATHS = 5000;
 const MAX_SELECTED_FILES = 12;
 const MAX_CHANGE_FILES = 12;
 const MAX_FILE_CONTENT = 120000;
@@ -177,7 +177,13 @@ export function createGitHubDevelopmentExecutionService({
       connectionId: connection,
       files: selectedFiles
     });
-    const files = (snapshot.files ?? []).map((file) => ({ path: file.path, sha: file.sha, content: file.content, truncated: file.truncated === true }));
+    const selected = new Set(selectedFiles);
+    const files = (snapshot.files ?? [])
+      .filter((file) => selected.has(file.path))
+      .map((file) => ({ path: file.path, sha: file.sha, content: file.content, truncated: file.truncated === true }));
+    const returned = new Set(files.map((file) => file.path));
+    const missing = selectedFiles.filter((path) => !returned.has(path));
+    if (missing.length > 0) fail('gh3-execution-evidence-missing', `required repository file evidence is missing: ${missing.join(', ')}`);
     if (files.some((file) => file.truncated)) fail('gh3-execution-evidence-truncated', 'required repository file evidence is truncated');
     return freeze({
       instruction: text,
@@ -186,7 +192,7 @@ export function createGitHubDevelopmentExecutionService({
       exactHead: snapshot.revision,
       selectedFiles,
       files,
-      canonicalDocuments: (snapshot.files ?? []).filter((file) => /(?:README|ROADMAP|STATUS|LIFECYCLE_ACTIVITY)/iu.test(file.path ?? '')).map((file) => file.path),
+      canonicalDocuments: files.filter((file) => /(?:README|ROADMAP|STATUS|LIFECYCLE_ACTIVITY)/iu.test(file.path ?? '')).map((file) => file.path),
       snapshot
     });
   }

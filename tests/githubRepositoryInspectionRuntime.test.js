@@ -138,7 +138,11 @@ test('repository inspect keeps large discovery and GH3 file evidence below the A
       const size = request.messages.reduce((sum, message) => sum + message.content.length, 0);
       routedInputs.push({ task: request.task, size, body: request.messages.at(-1).content });
       assert.ok(size < 24000, `${request.task} input must stay below production policy, got ${size}`);
-      if (request.task === 'github-development-file-selection') return aiResult({ files: ['pillars/roadmap/GITHUB_DEVELOPMENT_WORKSPACE_3_0_PROGRAM.md'], rationale: 'GH3 program' });
+      if (request.task === 'github-development-file-selection') {
+        const paths = JSON.parse(request.messages.at(-1).content).paths;
+        return aiResult({ files: paths.includes('pillars/roadmap/GITHUB_DEVELOPMENT_WORKSPACE_3_0_PROGRAM.md') ? ['pillars/roadmap/GITHUB_DEVELOPMENT_WORKSPACE_3_0_PROGRAM.md'] : [], rationale: 'semantic batch scan' });
+      }
+      if (request.task === 'github-repository-inspection-chunk-analysis') return aiResult(request.messages.at(-1).content.includes('# GH3') ? 'GH3 heading is present.' : 'no relevant evidence');
       return aiResult('Блок GH3 подтверждён.');
     }
   };
@@ -152,6 +156,9 @@ test('repository inspect keeps large discovery and GH3 file evidence below the A
   const service = createGitHubDevelopmentExecutionService({ aiRouter, repositoryReadService, atomicCommitService: { async applyAtomicCommit() {} }, repository: 'korzh260609-beep/garya-bot', branch: 'dev/sg2.1-semantic' });
   const result = await service.inspect({ instruction: 'Ты видишь блок GH3 в репозитории?', actor: { globalUserId: 'telegram:owner' }, traceContext: { traceId: 't', requestId: 'r' } });
   assert.equal(result.status, 'success');
-  assert.match(routedInputs[0].body, /GITHUB_DEVELOPMENT_WORKSPACE_3_0_PROGRAM/);
-  assert.equal(JSON.parse(routedInputs[1].body).files[0].excerpt, true);
+  const selectionCalls = routedInputs.filter((item) => item.task === 'github-development-file-selection');
+  assert.equal(selectionCalls.length, 4);
+  assert.ok(selectionCalls.some((item) => item.body.includes('GITHUB_DEVELOPMENT_WORKSPACE_3_0_PROGRAM')));
+  assert.equal(routedInputs.filter((item) => item.task === 'github-repository-inspection-chunk-analysis').length, 4);
+  assert.match(routedInputs.at(-1).body, /semanticChunkFindings/);
 });

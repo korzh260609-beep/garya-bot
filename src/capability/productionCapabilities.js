@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { createCapability } from '../contracts/capability.js';
 import { captureSemanticMemoryCandidates } from '../memory2/semanticMemoryCandidatePolicy.js';
+import { createStructuredAutomationPlan } from '../automation/structuredAutomationPlan.js';
 
 export const PRODUCTION_CAPABILITY_NAMES = Object.freeze([
   'compose-answer',
@@ -102,6 +103,42 @@ function safeOriginTarget(value) {
 function taskCreateInput(request) {
   const input = request.input ?? {};
   const kind = String(input.kind ?? '').trim();
+  if (kind === 'structured-automation') {
+    const originTarget = safeOriginTarget(input.originTarget);
+    if (!originTarget) {
+      const error = new Error('Structured automation requires a verified transport origin target');
+      error.code = 'automation-origin-target-required';
+      throw error;
+    }
+    const plan = createStructuredAutomationPlan(input.plan);
+    return Object.freeze({
+      taskId: input.taskId ?? undefined,
+      kind: 'structured-automation',
+      recurrence: plan.trigger.recurrence,
+      localTime: plan.trigger.localTime,
+      scheduleId: input.scheduleId ?? undefined,
+      misfirePolicy: input.misfirePolicy ?? 'fire_once',
+      maxCatchup: input.maxCatchup ?? 1,
+      maxAttempts: Number.isInteger(input.maxAttempts) ? input.maxAttempts : 3,
+      idempotencyKey: input.idempotencyKey ?? `structured-automation:${request.traceContext.requestId}`,
+      protectedAction: true,
+      approvalRequired: false,
+      payload: Object.freeze({
+        plan,
+        delivery: Object.freeze({
+          originTarget,
+          recipientGlobalUserId: request.actor.globalUserId,
+          projectScope: request.scope.projectScope,
+          locale: input.locale ?? null,
+          originBoundAutomation: true
+        }),
+        identityContext: Object.freeze({ globalUserId: request.actor.globalUserId, roles: Object.freeze([...(request.actor.roles ?? [])]), grants: Object.freeze([...(request.actor.grants ?? [])]), authenticationLevel: request.actor.authenticationLevel ?? 'verified' }),
+        scopeContext: Object.freeze({ userScope: request.scope.userScope, projectScope: request.scope.projectScope, groupScope: request.scope.groupScope ?? null, threadScope: request.scope.threadScope ?? null }),
+        traceContext: Object.freeze({ ...request.traceContext }),
+        automation: Object.freeze({ source: 'canonical-structured-plan', capability: 'task-create', sourceText: input.sourceText ?? null })
+      })
+    });
+  }
   if (kind !== 'self-notification') return input;
 
   const originTarget = safeOriginTarget(input.originTarget);

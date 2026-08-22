@@ -187,3 +187,22 @@ test('ambiguous temporal resolution is never promoted into an executable self no
 
   assert.equal(result.candidateActions[0].payload.temporalExpression, undefined);
 });
+
+test('scheduled fresh report remains a structured automation and never becomes a self notification', async () => {
+  const plan = {
+    trigger: { type: 'recurring', recurrence: 'FREQ=DAILY', localTime: '07:00' },
+    action: { type: 'workspace-activity-report' },
+    scope: { type: 'authorized-current-workspaces' },
+    period: { type: 'previous-calendar-day' },
+    metrics: ['messages-count'],
+    delivery: { target: 'requester' }
+  };
+  const text = 'Каждый день в 07:00 присылай отчёт активности за прошедший день';
+  const interpreter = interpreterFor(semanticOutput([{ type: 'task-create', name: 'task-create', actionClass: 'state-change', payload: { kind: 'structured-automation', plan } }]));
+  const result = await interpreter.interpret(canonicalInput({ text }));
+  const action = result.candidateActions[0];
+  assert.equal(action.payload.kind, 'structured-automation');
+  assert.deepEqual(action.payload.plan, plan);
+  assert.equal(action.payload.notificationMessage, undefined);
+  assert.equal(action.payload.sourceText, text);
+});

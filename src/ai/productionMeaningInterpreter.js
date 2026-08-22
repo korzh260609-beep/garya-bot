@@ -100,6 +100,13 @@ const CANONICAL_TEMPORAL_ROUTING_PRIORITY = `CANONICAL TEMPORAL CONTRACT:
 - A trailing 24-hour duration maps to rolling-24-hours and MUST remain distinct from previous-calendar-day.
 - Do not calculate date boundaries; deterministic Temporal Context owns that later stage.`;
 
+const STRUCTURED_AUTOMATION_ROUTING_PRIORITY = `STRUCTURED AUTOMATION CONTRACT:
+- A scheduled request to collect, analyze, report or deliver fresh information is NOT a self-notification.
+- Select task-create/state-change with payload.kind=structured-automation and payload.plan containing trigger, action, scope, period, metrics and delivery.
+- trigger is recurring with canonical recurrence and HH:MM localTime; action.type is a canonical report action; period.type is a canonical temporal type; delivery.target is requester.
+- Use self-notification only when the requested runtime action is to send a static message.
+- Never put the original instruction into notificationMessage or use it as the executable result. Runtime persists source text only as provenance.`;
+
 function semanticConversationContext(canonicalInput) {
   const recentTurns = canonicalInput.metadata?.conversationContext?.recentTurns;
   if (!Array.isArray(recentTurns) || recentTurns.length === 0) return null;
@@ -192,6 +199,13 @@ function deterministicExactTemporalExpression(canonicalInput) {
 function canonicalizeAutomationCandidate(action, canonicalInput) {
   if (!action || action.name !== 'task-create' || !action.payload || typeof action.payload !== 'object' || Array.isArray(action.payload)) return action;
   const payload = action.payload;
+  if (payload.kind === 'structured-automation') {
+    return Object.freeze({
+      ...action,
+      actionClass: 'state-change',
+      payload: Object.freeze({ ...payload, sourceText: canonicalInput.text })
+    });
+  }
   if (payload.kind != null && payload.kind !== 'self-notification') return action;
   const recurrence = nonEmptyString(payload.recurrence) ? payload.recurrence.trim() : null;
   const temporalExpression = nonEmptyString(payload.temporalExpression)
@@ -248,7 +262,7 @@ export function createProductionMeaningInterpreter({ aiRouter, fallbackOnFailure
         )
       });
       try {
-        const result = await aiRouter.route({ task: 'semantic-interpretation', specialty: 'semantic-interpretation', reason: 'Interpret canonical user meaning for Semantic Kernel', traceContext: canonicalInput.traceContext, identityContext: canonicalInput.identityContext, role: canonicalInput.identityContext?.roles?.[0] ?? 'guest', messages: [{ role: 'system', content: `${AUTOMATION_ROUTING_PRIORITY}\n\n${CANONICAL_TEMPORAL_ROUTING_PRIORITY}\n\n${boundary.system}\n\nRecurring automation identifiers are internal. Never ask the user to read, copy or choose a scheduleId. If the user explicitly refers to a numbered automation from a previously displayed list (for example first, second or number 2), put that one-based number in payload.selector.position. Use position only when the user expressed it; never invent it. The scoped resolver must still fail closed when no explicit position or other selector uniquely identifies a target.` }, { role: 'user', content: boundary.user }], responseFormat: { name: 'semantic_interpretation', jsonSchema: SEMANTIC_SCHEMA, strict: false }, metadata: { locale: canonicalInput.locale, languageContext: canonicalInput.metadata?.languageContext ?? null, roles: canonicalInput.identityContext?.roles ?? [], context: userPayload } });
+        const result = await aiRouter.route({ task: 'semantic-interpretation', specialty: 'semantic-interpretation', reason: 'Interpret canonical user meaning for Semantic Kernel', traceContext: canonicalInput.traceContext, identityContext: canonicalInput.identityContext, role: canonicalInput.identityContext?.roles?.[0] ?? 'guest', messages: [{ role: 'system', content: `${AUTOMATION_ROUTING_PRIORITY}\n\n${CANONICAL_TEMPORAL_ROUTING_PRIORITY}\n\n${STRUCTURED_AUTOMATION_ROUTING_PRIORITY}\n\n${boundary.system}\n\nRecurring automation identifiers are internal. Never ask the user to read, copy or choose a scheduleId. If the user explicitly refers to a numbered automation from a previously displayed list (for example first, second or number 2), put that one-based number in payload.selector.position. Use position only when the user expressed it; never invent it. The scoped resolver must still fail closed when no explicit position or other selector uniquely identifies a target.` }, { role: 'user', content: boundary.user }], responseFormat: { name: 'semantic_interpretation', jsonSchema: SEMANTIC_SCHEMA, strict: false }, metadata: { locale: canonicalInput.locale, languageContext: canonicalInput.metadata?.languageContext ?? null, roles: canonicalInput.identityContext?.roles ?? [], context: userPayload } });
         const parsed = canonicalizeAutomationInterpretation(parseStructuredAIOutput(result), canonicalInput);
         return createSemanticInterpretation(canonicalizeOperationalTaskListInterpretation(parsed, canonicalInput));
       } catch (error) {

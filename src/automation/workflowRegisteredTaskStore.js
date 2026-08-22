@@ -1,4 +1,5 @@
 import { createWorkflowDefinition } from './workflowContract.js';
+import { createStructuredAutomationPlan, workflowStepsForStructuredPlan } from './structuredAutomationPlan.js';
 
 function requiredString(value, field) {
   if (typeof value !== 'string' || value.trim() === '') throw new TypeError(`${field} is required`);
@@ -12,6 +13,31 @@ function timestamp(value, field) {
 }
 
 function workflowForCreatedTask({ task, scope, input }) {
+  if (input?.kind === 'structured-automation') {
+    const payload = input.payload;
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) throw new TypeError('structured automation payload is required');
+    const plan = createStructuredAutomationPlan(payload.plan);
+    const schedule = task.recurringSchedule;
+    if (!schedule) throw new TypeError('structured automation requires a recurring schedule');
+    const automationId = requiredString(task.taskId, 'task.taskId');
+    const globalUserId = requiredString(scope.userScope ?? scope.globalUserId, 'scope.userScope');
+    const createdAt = timestamp(task.createdAt ?? new Date(), 'task.createdAt');
+    return createWorkflowDefinition({
+      automationId,
+      version: 1,
+      trigger: { type: 'recurring', recurrence: { rule: requiredString(schedule.recurrence, 'schedule.recurrence'), timeZone: requiredString(schedule.timeZone, 'schedule.timeZone'), dtstartLocal: requiredString(schedule.dtstartLocal, 'schedule.dtstartLocal') } },
+      steps: workflowStepsForStructuredPlan(plan),
+      inputs: { plan },
+      delivery: payload.delivery ?? {},
+      executionPolicy: { maxAttempts: Number.isInteger(input.maxAttempts) ? input.maxAttempts : 3, protectedAction: true, confirmationRequired: false },
+      scope: { globalUserId, projectScope: requiredString(scope.projectScope, 'scope.projectScope'), groupScope: scope.groupScope ?? null, threadScope: scope.threadScope ?? null },
+      createdBy: globalUserId,
+      updatedBy: globalUserId,
+      createdAt,
+      updatedAt: timestamp(task.updatedAt ?? createdAt, 'task.updatedAt'),
+      provenance: { source: 'canonical-structured-plan', capability: 'task-create', legacyTaskId: automationId, traceContext: payload.traceContext ?? {}, sourceText: payload.automation?.sourceText ?? null }
+    });
+  }
   if (input?.kind !== 'self-notification') return null;
   const payload = input.payload;
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) throw new TypeError('self-notification payload is required');

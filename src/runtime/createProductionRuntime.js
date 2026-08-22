@@ -10,6 +10,13 @@ function directUserConfirmation(selectedName, selectedPayload, requestInput, tra
     return { confirmed: true, requestId: traceContext.requestId, source: 'canonical-owner-github-development-instruction' };
   }
   if (selectedName !== 'task-create') return undefined;
+  if (selectedPayload?.kind === 'structured-automation') {
+    const plan = selectedPayload.plan;
+    const originTarget = requestInput.metadata?.originTarget;
+    if (!plan?.trigger?.recurrence || !plan?.trigger?.localTime || !plan?.action?.type) return undefined;
+    if (!originTarget || typeof originTarget.transport !== 'string' || typeof originTarget.address !== 'string') return undefined;
+    return { confirmed: true, requestId: traceContext.requestId, source: 'canonical-user-structured-automation' };
+  }
   if (selectedPayload?.kind !== 'self-notification') return undefined;
   if (typeof selectedPayload?.notificationMessage !== 'string' || selectedPayload.notificationMessage.trim() === '') return undefined;
   const hasSchedule = (typeof selectedPayload?.temporalExpression === 'string' && selectedPayload.temporalExpression.trim() !== '')

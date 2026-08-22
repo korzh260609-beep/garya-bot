@@ -15,6 +15,7 @@ export { WORKFLOW_MUTATION_FIELDS, WORKFLOW_LIFECYCLE_ACTIONS, WORKFLOW_SEMANTIC
 export { WORKFLOW_NATURAL_LANGUAGE_OPERATIONS, WorkflowLifecycleError, normalizeWorkflowLifecycleOperation, workflowLifecycleOperationNeedsHistory, compileWorkflowLifecycleOperation } from './workflowNaturalLanguageLifecycle.js';
 export { createPostgresWorkflowUpdateStore } from './postgresWorkflowUpdateStore.js';
 export { createWorkflowRegisteredTaskStore } from './workflowRegisteredTaskStore.js';
+export { STRUCTURED_AUTOMATION_ACTION_TYPES, STRUCTURED_AUTOMATION_SCOPE_TYPES, STRUCTURED_AUTOMATION_METRICS, createStructuredAutomationPlan, workflowStepsForStructuredPlan } from './structuredAutomationPlan.js';
 export { WORKFLOW_RUN_EVENT_TYPES, createPostgresWorkflowExecutionStore } from './postgresWorkflowExecutionStore.js';
 export { createAutomationEngine } from './automationEngine.js';
 export { PREPARE_ONLY_KINDS, createPrepareOnlyCapability } from './prepareOnly.js';

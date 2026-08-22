@@ -1,6 +1,6 @@
 # SG 2.1 — Semantic Deterministic Execution
 
-Status: ACCEPTED ARCHITECTURE / STAGES 1–3 IMPLEMENTED
+Status: ACCEPTED ARCHITECTURE / STAGES 1–4 IMPLEMENTED
 
 ## Purpose
 
@@ -129,6 +129,15 @@ delivery:
 ```
 
 The original user text may be retained as `sourceText` for provenance/audit, but runtime must not treat it as the action to execute unless the canonical action itself is an explicit static notification.
+
+Implemented Stage 4 behavior:
+
+- validates a bounded canonical plan containing `trigger`, `action`, `scope`, `period`, `metrics` and `delivery`;
+- compiles scheduled fresh-information requests into the existing AW2 `collect → compose → deliver` workflow;
+- registers the workflow against the existing durable task and recurring schedule identities;
+- stores source wording only in workflow provenance, outside executable inputs;
+- keeps explicit static reminders on the existing self-notification path;
+- rejects unsupported report actions, scopes, metrics, temporal types, delivery targets and malformed wall-clock times.
 
 ## Stage 5 — Deterministic Action Execution
 

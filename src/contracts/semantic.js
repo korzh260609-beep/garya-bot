@@ -17,9 +17,22 @@ function optionalString(value, field) {
   return requireNonEmptyString(value, field);
 }
 
+function freezeObject(value, field, { nullable = false } = {}) {
+  if (value == null && nullable) return null;
+  return Object.freeze({ ...requireObject(value, field) });
+}
+
 function freezeArray(value, field) {
   if (!Array.isArray(value)) throw new TypeError(`${field} must be an array`);
   return Object.freeze(value.map((item) => Object.freeze({ ...requireObject(item, `${field} item`) })));
+}
+
+function boundedConfidence(value, field = 'confidence') {
+  const confidence = Number(value);
+  if (!Number.isFinite(confidence) || confidence < 0 || confidence > 1) {
+    throw new TypeError(`${field} must be between 0 and 1`);
+  }
+  return confidence;
 }
 
 function conversationHistoryQuery(value) {
@@ -70,6 +83,14 @@ export function createSemanticInterpretation(input) {
     meaning: requireNonEmptyString(input.meaning, 'meaning'),
     goal: requireNonEmptyString(input.goal, 'goal'),
     intent: requireNonEmptyString(input.intent, 'intent'),
+    target: freezeObject(input.target, 'target', { nullable: true }),
+    action: freezeObject(input.action, 'action', { nullable: true }),
+    timeExpression: freezeObject(input.timeExpression, 'timeExpression', { nullable: true }),
+    scope: freezeObject(input.scope, 'scope', { nullable: true }),
+    parameters: freezeObject(input.parameters ?? {}, 'parameters'),
+    delivery: freezeObject(input.delivery, 'delivery', { nullable: true }),
+    confidence: boundedConfidence(input.confidence ?? (1 - uncertainty)),
+    provenance: freezeObject(input.provenance ?? {}, 'provenance'),
     entities: freezeArray(input.entities ?? [], 'entities'),
     constraints: freezeArray(input.constraints ?? [], 'constraints'),
     uncertainty,
@@ -83,6 +104,31 @@ export function createSemanticInterpretation(input) {
     memoryCandidates: freezeArray(input.memoryCandidates ?? [], 'memoryCandidates'),
     candidateActions: freezeArray(input.candidateActions ?? [], 'candidateActions'),
     rationale: optionalString(input.rationale, 'rationale')
+  });
+}
+
+export function createCanonicalSemanticModel(input) {
+  requireObject(input, 'canonical semantic model');
+  const resolutionStatus = requireNonEmptyString(input.resolutionStatus ?? 'resolved', 'resolutionStatus');
+  if (!['resolved', 'clarification-required'].includes(resolutionStatus)) {
+    throw new TypeError(`unsupported resolutionStatus: ${resolutionStatus}`);
+  }
+  return Object.freeze({
+    version: '1.0',
+    resolutionStatus,
+    intent: requireNonEmptyString(input.intent, 'intent'),
+    goal: requireNonEmptyString(input.goal, 'goal'),
+    target: freezeObject(input.target, 'target', { nullable: true }),
+    action: freezeObject(input.action, 'action'),
+    timeExpression: freezeObject(input.timeExpression, 'timeExpression', { nullable: true }),
+    scope: freezeObject(input.scope, 'scope', { nullable: true }),
+    parameters: freezeObject(input.parameters ?? {}, 'parameters'),
+    delivery: freezeObject(input.delivery, 'delivery', { nullable: true }),
+    confidence: boundedConfidence(input.confidence),
+    missingInformation: Object.freeze([...(input.missingInformation ?? [])].map((item) => requireNonEmptyString(item, 'missingInformation item'))),
+    clarificationQuestion: optionalString(input.clarificationQuestion, 'clarificationQuestion'),
+    provenance: freezeObject(input.provenance ?? {}, 'provenance'),
+    diagnostics: freezeObject(input.diagnostics ?? {}, 'diagnostics')
   });
 }
 

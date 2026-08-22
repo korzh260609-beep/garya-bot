@@ -344,6 +344,18 @@ Tests cover create/update/delete/multi-file changes, validation failure, stale b
 
 ## GDE5 — Exact-HEAD CI Completion + Failure Recovery Loop
 
+**Status: IMPLEMENTED / LOCAL TESTS VERIFIED / EXACT-HEAD CI PENDING.**
+
+Implementation evidence:
+
+- `githubExactHeadCICompletionService` reuses the existing GH3 Actions CI repair service for exact-SHA inspection and first actionable failure evidence;
+- final states are explicit: `SUCCESS`, `FAILURE`, `RUNNING`, `NOT_FOUND`, `CANCELLED`, `BLOCKED`;
+- repair commits must derive from the failed exact HEAD, remain in the same task envelope and are bounded by the task completion-attempt policy;
+- each repair SHA is inspected anew; another-SHA CI evidence and invalid repair ancestry fail closed;
+- successful completion can checkpoint exact-head evidence through the existing durable task store.
+
+GDE5 must not be described as CLOSED until SG 2.1 CI succeeds on the exact implementation HEAD.
+
 ### Goal
 
 Make `реализуй/исправь/заверши` capable of reaching a declared working completion condition instead of stopping after push.

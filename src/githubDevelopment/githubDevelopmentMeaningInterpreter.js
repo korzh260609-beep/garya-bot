@@ -55,6 +55,23 @@ function routedInterpretation(base, route, canonicalInput) {
   });
 }
 
+function baseGitHubRoute(base, canonicalInput) {
+  const action = (base?.candidateActions ?? []).find((item) => typeof item?.name === 'string' && item.name.startsWith('github.'));
+  if (!action) return null;
+  const mode = action.payload?.mode;
+  const route = mode === 'status' ? 'status'
+    : action.name === 'github.repository.inspect' || action.actionClass === 'read-only' ? 'inspect'
+      : action.actionClass === 'state-change' || action.actionClass === 'external' ? 'execute' : null;
+  if (!route) return null;
+  return Object.freeze({
+    route,
+    instruction: action.payload?.instruction ?? canonicalInput.text,
+    target: base.target ?? null,
+    confidence: Math.max(0.8, Number(base.confidence ?? (1 - Number(base.uncertainty ?? 1)))),
+    rationale: 'preserved canonical GitHub action from primary semantic interpretation'
+  });
+}
+
 export function createGitHubDevelopmentMeaningInterpreter({ baseInterpreter, aiRouter } = {}) {
   if (!baseInterpreter?.interpret) throw new TypeError('baseInterpreter.interpret is required');
   if (!aiRouter?.route) throw new TypeError('aiRouter.route is required');
@@ -78,8 +95,12 @@ export function createGitHubDevelopmentMeaningInterpreter({ baseInterpreter, aiR
         metadata: { semanticRouting: 'gh3', locale: canonicalInput.locale }
       });
       const route = parseStructuredAIOutput(result);
-      if (!['status', 'inspect', 'execute'].includes(route?.route)) return base;
-      return routedInterpretation(base, route, canonicalInput);
+      const preserved = baseGitHubRoute(base, canonicalInput);
+      if (!['status', 'inspect', 'execute'].includes(route?.route)) return preserved ? routedInterpretation(base, preserved, canonicalInput) : base;
+      const normalizedRoute = preserved && preserved.route === route.route && Number(route.confidence ?? 0) < preserved.confidence
+        ? { ...route, confidence: preserved.confidence, rationale: `${route.rationale}; ${preserved.rationale}` }
+        : route;
+      return routedInterpretation(base, normalizedRoute, canonicalInput);
     }
   });
 }

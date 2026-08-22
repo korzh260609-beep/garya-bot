@@ -35,6 +35,9 @@ function canonicalModel(action) {
     intent: 'github-development',
     goal: 'execute-github-development',
     action,
+    target: { repository: 'korzh260609-beep/garya-bot', branch: 'dev/sg2.1-semantic', stage: 'LA1', paths: [] },
+    parameters: { instruction: 'Implement LA1' },
+    provenance: { resolver: 'semantic-request-resolver' },
     diagnostics: { selectedCandidateIndex: 0, selectedCandidatePriority: 0 },
     confidence: 0.99
   };
@@ -59,6 +62,10 @@ test('canonical github development action binds to the existing GH3 runtime capa
   assert.equal(result.decisionEnvelope.selectedAction.type, 'github-development');
   assert.equal(result.decisionEnvelope.selectedAction.payload.canonicalAction, 'github.development.execute');
   assert.equal(result.decisionEnvelope.selectedAction.payload.instruction, 'Implement LA1');
+  assert.equal(result.decisionEnvelope.selectedAction.payload.canonicalTarget.repository, 'korzh260609-beep/garya-bot');
+  assert.equal(result.decisionEnvelope.selectedAction.payload.canonicalTarget.branch, 'dev/sg2.1-semantic');
+  assert.equal(result.decisionEnvelope.selectedAction.payload.canonicalTarget.stage, 'LA1');
+  assert.equal(result.decisionEnvelope.selectedAction.payload.canonicalResolution.status, 'resolved');
   assert.equal(result.decisionEnvelope.diagnostics.canonicalGitHubAction, 'github.development.execute');
 });
 

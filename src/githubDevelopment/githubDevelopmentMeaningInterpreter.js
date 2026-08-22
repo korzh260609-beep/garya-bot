@@ -42,7 +42,7 @@ function routedInterpretation(base, route, canonicalInput) {
     intent: status ? 'github-development-status' : inspect ? 'github-repository-inspect' : 'github-development',
     target: route.target ?? null,
     parameters: { ...(base.parameters ?? {}), instruction },
-    uncertainty: Math.max(0, Math.min(1, 1 - Number(route.confidence ?? 0))),
+    uncertainty: Math.max(0, Math.min(0.2, 1 - Number(route.confidence ?? 0))),
     missingInformation: [],
     clarificationQuestion: null,
     candidateActions: [{
@@ -97,9 +97,11 @@ export function createGitHubDevelopmentMeaningInterpreter({ baseInterpreter, aiR
       const route = parseStructuredAIOutput(result);
       const preserved = baseGitHubRoute(base, canonicalInput);
       if (!['status', 'inspect', 'execute'].includes(route?.route)) return preserved ? routedInterpretation(base, preserved, canonicalInput) : base;
-      const normalizedRoute = preserved && preserved.route === route.route && Number(route.confidence ?? 0) < preserved.confidence
-        ? { ...route, confidence: preserved.confidence, rationale: `${route.rationale}; ${preserved.rationale}` }
-        : route;
+      const normalizedRoute = {
+        ...route,
+        confidence: Math.max(0.8, Number(route.confidence ?? 0), preserved?.route === route.route ? preserved.confidence : 0),
+        rationale: preserved?.route === route.route ? `${route.rationale}; ${preserved.rationale}` : route.rationale
+      };
       return routedInterpretation(base, normalizedRoute, canonicalInput);
     }
   });

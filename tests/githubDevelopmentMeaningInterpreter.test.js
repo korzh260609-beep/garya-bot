@@ -66,14 +66,16 @@ test('GH3 semantic router preserves ordinary conversation only when route is non
   assert.equal(await none.interpret(input('Объясни что такое git')), base);
 });
 
-test('GH3 semantic router keeps a weak GitHub route so the global canonical resolver owns clarification', async () => {
+test('GH3 closed route remains executable instead of asking again after execute was already selected', async () => {
   const base = baseInterpretation();
   const weak = createGitHubDevelopmentMeaningInterpreter({ baseInterpreter: { interpret: async () => base }, aiRouter: router({ route: 'execute', instruction: 'do work', target: null, confidence: 0.4, rationale: 'uncertain' }) });
   const result = await weak.interpret(input());
   assert.equal(result.intent, 'github-development');
   assert.equal(result.candidateActions[0].name, 'github.development.execute');
-  assert.equal(result.confidence, 0.4);
-  assert.equal(result.uncertainty, 0.6);
+  assert.equal(result.confidence, 0.8);
+  assert.ok(result.uncertainty <= 0.2);
+  assert.equal(result.clarificationQuestion, null);
+  assert.deepEqual(result.missingInformation, []);
 });
 
 test('GH3 router cannot discard a canonical GitHub action already resolved by the primary interpreter', async () => {

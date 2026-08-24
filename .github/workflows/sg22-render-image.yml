@@ -9,6 +9,7 @@ on:
 permissions:
   contents: read
   packages: write
+  statuses: write
 
 concurrency:
   group: sg22-render-image-${{ github.ref }}
@@ -18,6 +19,18 @@ jobs:
   build-and-publish:
     runs-on: ubuntu-latest
     steps:
+      - name: Mark image build pending
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          curl -fsSL \
+            -X POST \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
+            -d '{"state":"pending","context":"sg22/render-image","description":"SG 2.2 image build in progress"}'
+
       - name: Checkout SG 2.2
         uses: actions/checkout@v4
 
@@ -64,3 +77,24 @@ jobs:
         run: |
           docker push ghcr.io/korzh260609-beep/garya-bot-sg22:${GITHUB_SHA}
           docker push ghcr.io/korzh260609-beep/garya-bot-sg22:dev
+
+      - name: Publish visible image build status
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          if [ "$JOB_STATUS" = "success" ]; then
+            state=success
+            description="SG 2.2 image published"
+          else
+            state=failure
+            description="SG 2.2 image build failed"
+          fi
+          curl -fsSL \
+            -X POST \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
+            -d "{\"state\":\"${state}\",\"context\":\"sg22/render-image\",\"description\":\"${description}\"}"

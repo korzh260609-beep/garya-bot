@@ -7,6 +7,7 @@ source_workspace="/app/sg/workspace"
 port="${PORT:-10000}"
 primary_model="${OPENCLAW_PRIMARY_MODEL:-openai/gpt-5.4-mini}"
 config_path="$state_dir/openclaw.json"
+telegram_owner_id="677128443"
 
 mkdir -p "$state_dir" "$workspace"
 
@@ -33,8 +34,12 @@ if [ ! -f "$config_path" ]; then
   "channels": {
     "telegram": {
       "enabled": true,
-      "dmPolicy": "pairing"
+      "dmPolicy": "allowlist",
+      "allowFrom": ["$telegram_owner_id"]
     }
+  },
+  "commands": {
+    "ownerAllowFrom": ["telegram:$telegram_owner_id"]
   },
   "plugins": {
     "entries": {
@@ -52,7 +57,9 @@ if [ -z "${OPENCLAW_GATEWAY_TOKEN:-}" ]; then
   exit 1
 fi
 
-node /app/openclaw.mjs config set --batch-json "[{\"path\":\"gateway.mode\",\"value\":\"local\"},{\"path\":\"gateway.bind\",\"value\":\"lan\"},{\"path\":\"gateway.port\",\"value\":${port}},{\"path\":\"gateway.auth.mode\",\"value\":\"token\"}]"
+# Restamp infrastructure and owner access on every boot so persistent state
+# cannot revert the one-owner Telegram policy.
+node /app/openclaw.mjs config set --batch-json "[{\"path\":\"gateway.mode\",\"value\":\"local\"},{\"path\":\"gateway.bind\",\"value\":\"lan\"},{\"path\":\"gateway.port\",\"value\":${port}},{\"path\":\"gateway.auth.mode\",\"value\":\"token\"},{\"path\":\"channels.telegram.dmPolicy\",\"value\":\"allowlist\"},{\"path\":\"channels.telegram.allowFrom\",\"value\":[\"${telegram_owner_id}\"]},{\"path\":\"commands.ownerAllowFrom\",\"value\":[\"telegram:${telegram_owner_id}\"]}]"
 
 echo "SG 2.2 starting OpenClaw gateway on 0.0.0.0:${port}"
 exec node /app/openclaw.mjs gateway --bind lan --port "$port"

@@ -6,13 +6,15 @@ import { LANGUAGE_CAPABILITY_NAMES, LANGUAGE_SAFE_CAPABILITY_NAMES } from '../la
 import { USER_SETTINGS_CAPABILITY_NAMES, USER_SETTINGS_SAFE_CAPABILITY_NAMES } from '../settings/userSettingsCapabilities.js';
 import { BUILT_IN_DOMAIN_PERMISSIONS } from '../domains/builtInDomains.js';
 import { generateGlobalUserId, isCanonicalGlobalUserId, isLegacyPlatformGlobalUserId } from './globalUserId.js';
+import { GITHUB_ACTION } from '../integrations/github/githubAccess.js';
 
 const ALL_CAPABILITY_NAMES = Object.freeze([
   ...PRODUCTION_CAPABILITY_NAMES,
   ...MEMORY2_CAPABILITY_NAMES,
   ...TEMPORAL_CAPABILITY_NAMES,
   ...LANGUAGE_CAPABILITY_NAMES,
-  ...USER_SETTINGS_CAPABILITY_NAMES
+  ...USER_SETTINGS_CAPABILITY_NAMES,
+  GITHUB_ACTION
 ]);
 
 const SAFE_GUEST_CAPABILITIES = Object.freeze([

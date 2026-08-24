@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { generateKeyPairSync } from 'node:crypto';
-import { createDirectGitHubApi } from '../src/integrations/github/githubCapability.js';
+import { createDirectGitHubApi } from '../src/integrations/github/githubAccess.js';
 import { resetGitHubAppAccessCacheForTests } from '../src/integrations/github/appAuth.js';
 
 const REPOSITORY = 'korzh260609-beep/garya-bot';

@@ -1,4 +1,3 @@
-import { GITHUB_CAPABILITY } from '../integrations/github/githubCapability.js';
 import { TELEGRAM_CAPABILITY_MANIFEST } from '../telegram/telegramCapabilityManifest.js';
 import { HISTORICAL_CAPABILITY_MANIFEST } from '../history/historicalCapabilityManifest.js';
 import { PROJECT_MEMORY_CAPABILITY_MANIFEST } from '../projectMemory/projectMemoryCapabilityManifest.js';
@@ -106,30 +105,10 @@ function runtimeManifest(runtimeCapabilityNames, sourceRevision) {
   });
 }
 
-function githubManifest(sourceRevision) {
-  return createCapabilityManifest({
-    sourceId: 'integration:github-app',
-    domain: 'github',
-    sourceRevision,
-    sourceOfTruth: 'src/integrations/github/appAuth.js',
-    capabilities: [{
-      id: GITHUB_CAPABILITY,
-      status: 'implemented',
-      requiresAuthorization: true,
-      requiresConnection: false,
-      connectionDependent: false,
-      permissionDependent: true,
-      riskTier: 2,
-      runtimeAvailability: 'registered'
-    }]
-  });
-}
-
 export function createSystemCapabilityCatalog({ runtimeCapabilityNames = [], sourceRevision = 'unknown', additionalManifests = [] } = {}) {
   return createCapabilityCatalog({
     manifests: [
       runtimeManifest(runtimeCapabilityNames, sourceRevision),
-      githubManifest(sourceRevision),
       TELEGRAM_CAPABILITY_MANIFEST,
       HISTORICAL_CAPABILITY_MANIFEST,
       PROJECT_MEMORY_CAPABILITY_MANIFEST,

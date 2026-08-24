@@ -108,6 +108,7 @@ test('deployment Self Knowledge derives direct GitHub App access from cached run
   const sources = createDeploymentSelfKnowledgeSources({
     config: { revision: 'github-app-self-report-test', environment: 'test' },
     capabilityNames: ['repository-analyze'],
+    githubAccess: { status() { return { configured: true, verified: true, repository: 'korzh260609-beep/garya-bot', branch: 'dev/sg2.1-semantic', authentication: 'github-app', exactHead: '1'.repeat(40), error: null }; } },
     connectionRegistry: noRead,
     resourceAuthorityRegistry: noRead
   });
@@ -119,17 +120,12 @@ test('deployment Self Knowledge derives direct GitHub App access from cached run
 
   assert.ok(github, 'GitHub capability fact must fit the bounded response Self Knowledge budget');
   assert.equal(github.status, 'implemented');
-  assert.equal(github.value.provider, 'github');
-  assert.equal(github.value.accessMode, 'github-app-direct-api');
-  assert.equal(github.value.localFilesystemMount, false);
-  assert.equal(github.value.capabilityStateSource, 'runtime-capability-catalog-snapshot');
-  assert.ok(github.value.capabilities.includes('github-development'));
-  assert.equal(github.value.specificRepositoryAccess, 'requires-current-owner-authorization-credential-and-provider-permission');
-  assert.equal(github.value.selfKnowledgeRefreshMode, 'runtime-snapshot');
-  assert.equal(github.value.perRequestGitHubScan, false);
-  assert.equal(github.value.liveRepositoryProbePolicy, 'only-for-specific-current-state-requests');
-  assert.match(github.value.capabilityResolution, /owner authorization.*credential.*provider permission.*Action Gate/);
-  assert.equal(github.value.localGitWorkspaceDeterminesAccess, false);
+  assert.equal(github.value.configured, true);
+  assert.equal(github.value.verified, true);
+  assert.equal(github.value.authentication, 'github-app');
+  assert.equal(github.value.repository, 'korzh260609-beep/garya-bot');
+  assert.equal(github.value.branch, 'dev/sg2.1-semantic');
+  assert.equal(github.value.exactHead, '1'.repeat(40));
   assert.equal(Object.hasOwn(github.value, 'interpretation'), false, 'user-facing answer wording must not be hard-coded into Self Knowledge');
 });
 

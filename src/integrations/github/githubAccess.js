@@ -1,8 +1,7 @@
-import { createCapability } from '../../contracts/capability.js';
 import { parseStructuredAIOutput } from '../../ai/contracts.js';
 import { getGitHubAppAccess, isGitHubAppConfigured } from './appAuth.js';
 
-export const GITHUB_CAPABILITY = 'github-development';
+export const GITHUB_ACTION = 'github-development';
 
 const MAX_TREE_PATHS = 6000;
 const MAX_PATHS_PER_BATCH = 240;
@@ -173,7 +172,7 @@ function normalizePlan(result, snapshot) {
   return Object.freeze({ summary: required(parsed.summary, 'summary', 2000), commitMessage: required(parsed.commitMessage, 'commitMessage', 240), changes: Object.freeze(changes) });
 }
 
-export function createGitHubCapability({ env = process.env, aiRouter, ownerGlobalUserId, fetchImpl = globalThis.fetch, clock = () => new Date() } = {}) {
+export function createGitHubAccess({ env = process.env, aiRouter, ownerGlobalUserId, fetchImpl = globalThis.fetch, clock = () => new Date() } = {}) {
   const repository = value(env.GITHUB_REPO) ?? 'korzh260609-beep/garya-bot';
   const branch = value(env.GITHUB_BRANCH) ?? 'dev/sg2.1-semantic';
   const owner = value(ownerGlobalUserId);
@@ -181,6 +180,7 @@ export function createGitHubCapability({ env = process.env, aiRouter, ownerGloba
   const github = createDirectGitHubApi({ repository, branch, env, fetchImpl, clock });
   const configured = Boolean(appConfigured && aiRouter?.route && owner);
   const availability = Object.freeze({ configured, repository, branch, authentication: appConfigured ? 'github-app' : 'unconfigured', ownerBound: Boolean(owner), aiAvailable: Boolean(aiRouter?.route) });
+  let verification = Object.freeze({ verified: false, exactHead: null, error: null });
 
   async function chooseFiles(instruction, actor, traceContext) {
     const discovery = await github.snapshot([]);
@@ -210,7 +210,7 @@ export function createGitHubCapability({ env = process.env, aiRouter, ownerGloba
     return Object.freeze({ ...result, message: successMessage(languageOf(request), result) });
   }
 
-  const capability = createCapability({ name: GITHUB_CAPABILITY, version: '2.0.0', description: 'Direct GitHub App API access for repository inspection and owner-authorized changes.', actionTypes: ['github-development', 'github-development-status'], actionClasses: ['read-only', 'state-changing'], requiredPermissions: [`capability:${GITHUB_CAPABILITY}`], requiredSources: [], requiredTools: [], risk: 'medium', estimatedCostUsd: 0.05, confirmationRequired: false, timeoutMs: 300000, maxRetries: 0, fallbackCapabilities: [], priority: 100, execute: async (request) => {
+  async function executeRequest(request) {
     const locale = languageOf(request);
     if (request.actor?.globalUserId !== owner) return { status: 'failed', data: { message: unavailableMessage(locale, 'owner authorization required'), availability }, error: { code: 'github-owner-required', message: 'owner authorization required', retryable: false } };
     if (!appConfigured) return { status: 'unavailable', data: { message: unavailableMessage(locale, 'GitHub App is not configured'), availability }, error: { code: 'github-app-unavailable', message: 'GitHub App is not configured', retryable: false } };
@@ -229,8 +229,19 @@ export function createGitHubCapability({ env = process.env, aiRouter, ownerGloba
       const code = error?.code ?? 'github-development-failed'; const message = error?.message ?? 'GitHub development failed';
       return { status: 'failed', data: { message: unavailableMessage(locale, `${code}: ${message}`), availability }, error: { code, message, retryable: Boolean(error?.retryable) } };
     }
-  }});
+  }
 
-  async function start() { if (!appConfigured) return availability; await github.head(); return availability; }
-  return Object.freeze({ capability, availability, github, start, stop: async () => undefined });
+  async function start() {
+    if (!appConfigured) return status();
+    try {
+      const exactHead = await github.head();
+      verification = Object.freeze({ verified: true, exactHead, error: null });
+      return status();
+    } catch (error) {
+      verification = Object.freeze({ verified: false, exactHead: null, error: error?.code ?? 'github-verification-failed' });
+      throw error;
+    }
+  }
+  function status() { return Object.freeze({ ...availability, ...verification }); }
+  return Object.freeze({ availability, github, executeRequest, status, start, stop: async () => undefined });
 }

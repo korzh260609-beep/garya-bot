@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { generateKeyPairSync } from 'node:crypto';
-import { createDirectGitHubApi, createGitHubCapability } from '../src/integrations/github/githubCapability.js';
+import { createDirectGitHubApi, createGitHubAccess } from '../src/integrations/github/githubAccess.js';
 import { getGitHubAppAccess, resetGitHubAppAccessCacheForTests } from '../src/integrations/github/appAuth.js';
 
 const REPOSITORY = 'korzh260609-beep/garya-bot';
@@ -67,9 +67,9 @@ test('direct GitHub API rejects protected default branches', () => {
 test('GitHub capability reports the exact configured branch through direct App API access', async () => {
   resetGitHubAppAccessCacheForTests();
   const { fetchImpl } = createFetch();
-  const github = createGitHubCapability({ env: APP_ENV, ownerGlobalUserId: 'owner-1', aiRouter: { async route() { throw new Error('status must not use AI'); } }, fetchImpl });
+  const github = createGitHubAccess({ env: APP_ENV, ownerGlobalUserId: 'owner-1', aiRouter: { async route() { throw new Error('status must not use AI'); } }, fetchImpl });
   await github.start();
-  const result = await github.capability.execute(request({ mode: 'status', canonicalAction: 'github.repository.inspect' }));
+  const result = await github.executeRequest(request({ mode: 'status', canonicalAction: 'github.repository.inspect' }));
   assert.equal(result.status, 'success');
   assert.equal(result.data.exactHead, HEAD);
   assert.match(result.data.message, /dev\/sg2\.1-semantic/u);
@@ -85,8 +85,8 @@ test('development execution reads exact evidence, makes an atomic commit, and re
       throw new Error(`unexpected AI task: ${input.task}`);
     }
   };
-  const github = createGitHubCapability({ env: APP_ENV, ownerGlobalUserId: 'owner-1', aiRouter, fetchImpl });
-  const result = await github.capability.execute(request({ mode: 'execute', canonicalAction: 'github.development.execute', instruction: 'Обнови пример' }));
+  const github = createGitHubAccess({ env: APP_ENV, ownerGlobalUserId: 'owner-1', aiRouter, fetchImpl });
+  const result = await github.executeRequest(request({ mode: 'execute', canonicalAction: 'github.development.execute', instruction: 'Обнови пример' }));
   assert.equal(result.status, 'success');
   assert.equal(result.data.commitSha, NEXT_COMMIT);
   assert.deepEqual(result.data.changedPaths, ['src/example.js']);
@@ -98,8 +98,8 @@ test('development execution reads exact evidence, makes an atomic commit, and re
 
 test('capability denies non-owner execution before repository access', async () => {
   let fetched = false;
-  const github = createGitHubCapability({ env: APP_ENV, ownerGlobalUserId: 'owner-1', aiRouter: { async route() { throw new Error('not expected'); } }, fetchImpl: async () => { fetched = true; throw new Error('not expected'); } });
-  const result = await github.capability.execute({ ...request({ mode: 'execute', instruction: 'change' }), actor: { globalUserId: 'other', roles: ['citizen'] } });
+  const github = createGitHubAccess({ env: APP_ENV, ownerGlobalUserId: 'owner-1', aiRouter: { async route() { throw new Error('not expected'); } }, fetchImpl: async () => { fetched = true; throw new Error('not expected'); } });
+  const result = await github.executeRequest({ ...request({ mode: 'execute', instruction: 'change' }), actor: { globalUserId: 'other', roles: ['citizen'] } });
   assert.equal(result.status, 'failed');
   assert.equal(result.error.code, 'github-owner-required');
   assert.equal(fetched, false);

@@ -90,7 +90,7 @@ async function closeResource(resource) {
   else if (resource?.stop) await resource.stop();
 }
 
-export function createProductionRuntime({ config, semanticPipeline, actionGate, capabilityRegistry = null, capabilityExecutor, domainRuntime = null, observability, languageContextService = null, conversationContextService = null, userSettingsService = null, policyLayer = null, resourceAuthorityRegistry = null, memoryCaptureService = null, resources = [] } = {}) {
+export function createProductionRuntime({ config, semanticPipeline, actionGate, capabilityRegistry = null, capabilityExecutor, directActionHandlers = {}, domainRuntime = null, observability, languageContextService = null, conversationContextService = null, userSettingsService = null, policyLayer = null, resourceAuthorityRegistry = null, memoryCaptureService = null, resources = [] } = {}) {
   if (!config?.environment || !config?.revision || !config?.shutdownTimeoutMs) throw new TypeError('validated runtime config is required');
   requireMethod(semanticPipeline, 'process', 'semanticPipeline');
   requireMethod(actionGate, 'evaluate', 'actionGate');
@@ -105,6 +105,7 @@ export function createProductionRuntime({ config, semanticPipeline, actionGate, 
   if (resourceAuthorityRegistry) requireMethod(resourceAuthorityRegistry, 'checkAuthority', 'resourceAuthorityRegistry');
   if (memoryCaptureService) requireMethod(memoryCaptureService, 'capture', 'memoryCaptureService');
   if (!Array.isArray(resources)) throw new TypeError('resources must be an array');
+  for (const [name, handler] of Object.entries(directActionHandlers)) requireMethod(handler, 'executeRequest', `directActionHandlers.${name}`);
 
   let phase = 'created', accepting = false, inFlight = 0, failure = null;
   let activeResources = [];
@@ -278,7 +279,14 @@ export function createProductionRuntime({ config, semanticPipeline, actionGate, 
       if (gatedResponse) return persistResponse(requestInput, { ...gatedResponse, data: { ...(gatedResponse.data ?? {}), languageContext, policyContext, memoryCapture } });
 
       let result;
-      if (actionRequest.payload?.domainId && actionRequest.capability !== 'domain-dispatch') {
+      const directHandler = directActionHandlers[actionRequest.capability] ?? null;
+      if (directHandler) {
+        observability.record({ eventClass: 'capability_started', channel: 'telemetry', stage: 'direct-service', traceContext, data: { capability: actionRequest.capability } });
+        const startedAt = Date.now();
+        const directResult = await directHandler.executeRequest({ actor: requestInput.identityContext, scope: requestInput.scopeContext, input: actionRequest.payload, actionRequest, traceContext });
+        result = Object.freeze({ capability: actionRequest.capability, durationMs: Math.max(0, Date.now() - startedAt), costUsd: 0, sources: [], tools: ['github-api'], ...directResult });
+        observability.record({ eventClass: 'capability_completed', channel: 'telemetry', stage: 'direct-service', traceContext, outcome: result.status, durationMs: result.durationMs, costUsd: result.costUsd, data: { capability: result.capability } });
+      } else if (actionRequest.payload?.domainId && actionRequest.capability !== 'domain-dispatch') {
         if (!domainRuntime) throw new Error('domain runtime is required for domain execution');
         result = await domainRuntime.execute({ domainId: actionRequest.payload.domainId, capability: actionRequest.capability, input: actionRequest.payload, identityContext: requestInput.identityContext, scopeContext: requestInput.scopeContext, traceContext, gateDecision });
       } else {

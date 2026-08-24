@@ -22,6 +22,7 @@ export function createDeploymentSelfKnowledgeSources({
   config,
   capabilityNames = [],
   capabilityManifests = [],
+  githubAccess = null,
   persistence = null,
   productionAI = null,
   connectionRegistry = null,
@@ -37,7 +38,6 @@ export function createDeploymentSelfKnowledgeSources({
 } = {}) {
   const revision = required(config?.revision, 'config.revision');
   const capabilityCatalog = createSystemCapabilityCatalog({ runtimeCapabilityNames: capabilityNames, sourceRevision: revision, additionalManifests: capabilityManifests });
-  const githubCapabilities = capabilityCatalog.capabilities.filter((item) => item.domain === 'github');
   const statusOverrides = Object.freeze(Object.fromEntries(capabilityCatalog.capabilities.filter((item) => item.status !== 'implemented').map((item) => [item.id, item.status])));
   const connectionDependent = Object.freeze(capabilityCatalog.capabilities.filter((item) => item.connectionDependent).map((item) => item.id));
   const permissionDependent = Object.freeze(capabilityCatalog.capabilities.filter((item) => item.permissionDependent).map((item) => item.id));
@@ -71,6 +71,14 @@ export function createDeploymentSelfKnowledgeSources({
         fact({ category: 'capabilities', key: 'registered-capabilities', value: [...capabilityNames].sort(), status: 'implemented', sourceId: 'runtime:capability-registry', sourceRevision: revision }),
         fact({
           category: 'capabilities',
+          key: 'github-direct-access',
+          value: githubAccess?.status ? githubAccess.status() : { configured: false, verified: false, error: 'github-service-unavailable' },
+          status: githubAccess?.status?.().verified === true ? 'implemented' : 'disabled',
+          sourceId: 'runtime:github-direct-access',
+          sourceRevision: revision
+        }),
+        fact({
+          category: 'capabilities',
           key: 'capability-catalog',
           value: {
             totalCapabilities: capabilityCatalog.totalCapabilities,
@@ -82,26 +90,6 @@ export function createDeploymentSelfKnowledgeSources({
             refreshMode: capabilityCatalog.refreshMode,
             perRequestExternalScan: capabilityCatalog.perRequestExternalScan,
             grantsAuthority: false
-          },
-          status: 'implemented',
-          sourceId: 'runtime:capability-catalog',
-          sourceRevision: revision
-        }),
-        fact({
-          category: 'capabilities',
-          key: 'github-direct-access',
-          value: {
-            provider: 'github',
-            accessMode: 'github-app-direct-api',
-            localFilesystemMount: false,
-            capabilityStateSource: 'runtime-capability-catalog-snapshot',
-            capabilities: githubCapabilities.map((item) => item.id),
-            specificRepositoryAccess: 'requires-current-owner-authorization-credential-and-provider-permission',
-            selfKnowledgeRefreshMode: capabilityCatalog.refreshMode,
-            perRequestGitHubScan: capabilityCatalog.perRequestExternalScan,
-            liveRepositoryProbePolicy: 'only-for-specific-current-state-requests'
-            ,capabilityResolution: 'registered capability + owner authorization + credential + provider permission + Action Gate + emergency mode'
-            ,localGitWorkspaceDeterminesAccess: false
           },
           status: 'implemented',
           sourceId: 'runtime:capability-catalog',

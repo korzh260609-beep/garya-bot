@@ -4,12 +4,12 @@ import { createCapabilityManifest, createSystemCapabilityCatalog } from '../src/
 import { createDeploymentSelfKnowledgeSources } from '../src/selfKnowledge/deploymentSelfKnowledge.js';
 import { createInMemorySelfKnowledgeStore, createSelfKnowledgeBuilder, createSelfKnowledgeService } from '../src/selfKnowledge/selfKnowledge.js';
 
-test('system capability catalog aggregates runtime, direct GitHub App and subsystem manifests', () => {
+test('system capability catalog aggregates registered runtime and subsystem manifests', () => {
   const catalog = createSystemCapabilityCatalog({ runtimeCapabilityNames: ['memory2-recall', 'task-create'], sourceRevision: 'r1' });
   const ids = new Set(catalog.capabilities.map((item) => item.id));
   assert.ok(ids.has('memory2-recall'));
   assert.ok(ids.has('task-create'));
-  assert.ok(ids.has('github-development'));
+  assert.equal(ids.has('github-development'), false);
   assert.ok(ids.has('telegram.group.observe'));
   assert.ok(ids.has('telegram.channel.publish'));
   assert.ok(ids.has('history.semantic-hybrid-search'));
@@ -53,19 +53,17 @@ test('deployment Self Knowledge consumes compact cached catalog without external
   assert.equal(fact.value.grantsAuthority, false);
   assert.ok(fact.value.domains.custom.includes('custom.dynamic.capability'));
   assert.ok(fact.value.domains.telegram.includes('telegram.group.observe'));
-  assert.ok(fact.value.domains.github.includes('github-development'));
+  assert.equal(Object.hasOwn(fact.value.domains, 'github'), false);
   assert.ok(fact.value.domains['historical-search'].includes('history.fact-history'));
   assert.equal(fact.value.defaultStatus, 'implemented');
   assert.equal(fact.value.statusOverrides['telegram.subscription.lifecycle'], 'partial');
-  assert.ok(fact.value.permissionDependent.includes('github-development'));
+  assert.equal(fact.value.permissionDependent.includes('github-development'), false);
   assert.equal(Object.hasOwn(fact.value, 'capabilities'), false, 'bounded Self Knowledge must not duplicate full catalog metadata on every response');
 });
 
 test('catalog distinguishes partial and authorization-dependent capabilities', () => {
   const catalog = createSystemCapabilityCatalog({ sourceRevision: 'r3' });
   const subscription = catalog.capabilities.find((item) => item.id === 'telegram.subscription.lifecycle');
-  const githubDevelopment = catalog.capabilities.find((item) => item.id === 'github-development');
   assert.equal(subscription.status, 'partial');
-  assert.equal(githubDevelopment.requiresAuthorization, true);
-  assert.equal(githubDevelopment.grantsAuthority, false);
+  assert.equal(catalog.capabilities.some((item) => item.id === 'github-development'), false);
 });

@@ -4,7 +4,6 @@ set -eu
 state_dir="${OPENCLAW_STATE_DIR:-/data/.openclaw}"
 workspace="${OPENCLAW_WORKSPACE_DIR:-/data/workspace}"
 source_workspace="/app/sg/workspace"
-# Render injects PORT (10000 by default) for web services.
 port="${PORT:-10000}"
 primary_model="${OPENCLAW_PRIMARY_MODEL:-openai/gpt-5.4-mini}"
 config_path="$state_dir/openclaw.json"
@@ -19,8 +18,6 @@ for file in IDENTITY.md SOUL.md AGENTS.md; do
   cp "$source_workspace/$file" "$workspace/$file"
 done
 
-# Seed SG-specific agent/channel config only on the first deployment.
-# Existing persistent OpenClaw state remains authoritative for later operator changes.
 if [ ! -f "$config_path" ]; then
   cat > "$config_path" <<EOF
 {
@@ -71,28 +68,40 @@ sleep 5
 i=1
 while [ "$i" -le 12 ]; do
   if ! kill -0 "$gateway_pid" 2>/dev/null; then
-    echo "[sg22/startupz-local] gateway_process_exited_before_probe"
+    echo "[sg22/startupz-net] gateway_process_exited_before_probe"
     wait "$gateway_pid"
     exit $?
   fi
 
   PORT_TO_CHECK="$port" node --input-type=module -e '
+    import os from "node:os";
     const port = process.env.PORT_TO_CHECK;
-    const url = `http://127.0.0.1:${port}/startupz`;
-    try {
-      const response = await fetch(url);
-      const body = await response.text();
-      console.log(`[sg22/startupz-local] status=${response.status} body=${body}`);
-      process.exit(response.status === 200 ? 0 : 2);
-    } catch (error) {
-      console.log(`[sg22/startupz-local] request_failed=${error?.message ?? String(error)}`);
-      process.exit(3);
+    const targets = [{label:"loopback", host:"127.0.0.1"}];
+    for (const [name, entries] of Object.entries(os.networkInterfaces())) {
+      for (const entry of entries ?? []) {
+        if (entry.family === "IPv4" && !entry.internal) {
+          targets.push({label:`${name}/${entry.address}`, host:entry.address});
+        }
+      }
     }
+    let ok = false;
+    for (const target of targets) {
+      const url = `http://${target.host}:${port}/startupz`;
+      try {
+        const response = await fetch(url);
+        const body = await response.text();
+        console.log(`[sg22/startupz-net] target=${target.label} status=${response.status} body=${body}`);
+        if (target.label !== "loopback" && response.status === 200) ok = true;
+      } catch (error) {
+        console.log(`[sg22/startupz-net] target=${target.label} request_failed=${error?.message ?? String(error)}`);
+      }
+    }
+    process.exit(ok ? 0 : 2);
   '
   probe_status=$?
 
   if [ "$probe_status" -eq 0 ]; then
-    echo "[sg22/startupz-local] startup_ready"
+    echo "[sg22/startupz-net] non_loopback_ready"
     break
   fi
 

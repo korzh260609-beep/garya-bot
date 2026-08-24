@@ -100,7 +100,7 @@ test('Self Knowledge query restores canonical priority when persistence hydrates
   assert.ok(result.facts.some((item) => item.category === 'identity' && item.key === 'system-name' && item.value.full === 'Советник GARYA'));
 });
 
-test('deployment Self Knowledge derives GH3 access from cached runtime facts without a per-request GitHub scan', async () => {
+test('deployment Self Knowledge derives unified GitHub runtime access from cached runtime facts without a per-request GitHub scan', async () => {
   const noRead = new Proxy({}, {
     get() { throw new Error('external registry must not be scanned while building cached self knowledge'); }
   });
@@ -117,21 +117,18 @@ test('deployment Self Knowledge derives GH3 access from cached runtime facts wit
   const result = await service.query({ environment: 'test', maxFacts: 12 });
   const github = result.facts.find((item) => item.category === 'capabilities' && item.key === 'github-development-workspace');
 
-  assert.ok(github, 'GH3 capability fact must fit the bounded response Self Knowledge budget');
+  assert.ok(github, 'GitHub capability fact must fit the bounded response Self Knowledge budget');
   assert.equal(github.status, 'implemented');
   assert.equal(github.value.provider, 'github');
-  assert.equal(github.value.accessMode, 'mediated-through-gh3');
+  assert.equal(github.value.accessMode, 'unified-github-development-runtime');
   assert.equal(github.value.localFilesystemMount, false);
   assert.equal(github.value.capabilityStateSource, 'runtime-capability-catalog-snapshot');
-  assert.ok(github.value.capabilities.includes('github.repository.read'));
-  assert.ok(github.value.capabilities.includes('github.code.search'));
-  assert.equal(github.value.connectionRegistryAvailable, true);
-  assert.equal(github.value.resourceAuthorityAvailable, true);
-  assert.equal(github.value.specificRepositoryAccess, 'requires-current-authorization-and-connection-evidence');
+  assert.ok(github.value.capabilities.includes('github-development'));
+  assert.equal(github.value.specificRepositoryAccess, 'requires-current-owner-authorization-credential-and-provider-permission');
   assert.equal(github.value.selfKnowledgeRefreshMode, 'runtime-snapshot');
   assert.equal(github.value.perRequestGitHubScan, false);
   assert.equal(github.value.liveRepositoryProbePolicy, 'only-for-specific-current-state-requests');
-  assert.match(github.value.capabilityResolution, /ACS.*Resource Authority.*provider permission.*Action Gate/);
+  assert.match(github.value.capabilityResolution, /owner authorization.*credential.*provider permission.*Action Gate/);
   assert.equal(github.value.localGitWorkspaceDeterminesAccess, false);
   assert.equal(Object.hasOwn(github.value, 'interpretation'), false, 'user-facing answer wording must not be hard-coded into Self Knowledge');
 });

@@ -5,7 +5,7 @@ services:
     plan: starter
     dockerfilePath: ./Dockerfile.render
     dockerContext: .
-    healthCheckPath: /startupz
+    healthCheckPath: /health
     envVars:
       - key: OPENCLAW_STATE_DIR
         value: /data/.openclaw

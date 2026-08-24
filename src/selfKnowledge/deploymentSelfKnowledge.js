@@ -92,17 +92,15 @@ export function createDeploymentSelfKnowledgeSources({
           key: 'github-development-workspace',
           value: {
             provider: 'github',
-            accessMode: 'mediated-through-gh3',
+            accessMode: 'unified-github-development-runtime',
             localFilesystemMount: false,
             capabilityStateSource: 'runtime-capability-catalog-snapshot',
             capabilities: githubCapabilities.map((item) => item.id),
-            connectionRegistryAvailable: Boolean(connectionRegistry),
-            resourceAuthorityAvailable: Boolean(resourceAuthorityRegistry),
-            specificRepositoryAccess: 'requires-current-authorization-and-connection-evidence',
+            specificRepositoryAccess: 'requires-current-owner-authorization-credential-and-provider-permission',
             selfKnowledgeRefreshMode: capabilityCatalog.refreshMode,
             perRequestGitHubScan: capabilityCatalog.perRequestExternalScan,
             liveRepositoryProbePolicy: 'only-for-specific-current-state-requests'
-            ,capabilityResolution: 'registered capability + ACS + Resource Authority + connection/credential + provider permission + Action Gate + emergency mode'
+            ,capabilityResolution: 'registered capability + owner authorization + credential + provider permission + Action Gate + emergency mode'
             ,localGitWorkspaceDeterminesAccess: false
           },
           status: 'implemented',

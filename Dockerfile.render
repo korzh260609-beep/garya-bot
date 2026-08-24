@@ -1,0 +1,38 @@
+FROM node:24-bookworm
+
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+      ca-certificates curl git openssl procps python3 tini && \
+    update-ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN corepack enable
+
+WORKDIR /app
+
+COPY . .
+
+# SG 2.2 source snapshot currently lacks pnpm-lock.yaml. For the Render test
+# runtime generate the dependency graph from the exact workspace manifests
+# instead of failing before OpenClaw can build.
+RUN pnpm install --no-frozen-lockfile \
+      --config.supportedArchitectures.os=linux \
+      --config.supportedArchitectures.cpu="$(node -p 'process.arch')" \
+      --config.supportedArchitectures.libc=glibc
+
+ENV OPENCLAW_PREFER_PNPM=1
+ENV NODE_ENV=production
+
+# Keep the upstream Docker-oriented build path. A2UI is optional for this
+# server deployment and may be stubbed by the normal OpenClaw build itself.
+RUN NODE_OPTIONS=--max-old-space-size=8192 \
+    pnpm build:docker && \
+    pnpm ui:build
+
+RUN chmod 755 /app/scripts/sg22-render-entrypoint.sh && \
+    chown -R node:node /app
+
+USER node
+
+ENTRYPOINT ["tini", "-s", "--"]
+CMD ["sh", "/app/scripts/sg22-render-entrypoint.sh"]

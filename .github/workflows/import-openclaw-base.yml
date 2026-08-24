@@ -45,13 +45,13 @@ jobs:
         run: |
           mkdir -p pillars/baselines
           {
-            echo "# SG 2.2 OpenClaw Base"
+            echo '# SG 2.2 OpenClaw Base'
             echo
-            echo "- Source: https://github.com/openclaw/openclaw"
-            echo "- Commit: `8fe2c1b83ca2a30d62892d3bf188588190155fd0`"
-            echo "- Imported: 2026-08-24"
-            echo "- Checklist item: 1. OpenClaw base"
-            echo "- Status: IMPLEMENTED"
+            echo '- Source: https://github.com/openclaw/openclaw'
+            echo '- Commit: 8fe2c1b83ca2a30d62892d3bf188588190155fd0'
+            echo '- Imported: 2026-08-24'
+            echo '- Checklist item: 1. OpenClaw base'
+            echo '- Status: IMPLEMENTED'
           } > pillars/baselines/OPENCLAW_BASE.md
 
       - name: Commit imported base

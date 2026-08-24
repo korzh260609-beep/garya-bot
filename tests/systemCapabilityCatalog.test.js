@@ -64,8 +64,8 @@ test('deployment Self Knowledge consumes compact cached catalog without external
 test('catalog distinguishes partial and authorization-dependent capabilities', () => {
   const catalog = createSystemCapabilityCatalog({ sourceRevision: 'r3' });
   const subscription = catalog.capabilities.find((item) => item.id === 'telegram.subscription.lifecycle');
-  const githubWrite = catalog.capabilities.find((item) => item.id === 'github.contents.write');
+  const githubDevelopment = catalog.capabilities.find((item) => item.id === 'github-development');
   assert.equal(subscription.status, 'partial');
-  assert.equal(githubWrite.requiresAuthorization, true);
-  assert.equal(githubWrite.grantsAuthority, false);
+  assert.equal(githubDevelopment.requiresAuthorization, true);
+  assert.equal(githubDevelopment.grantsAuthority, false);
 });

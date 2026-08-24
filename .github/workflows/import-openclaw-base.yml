@@ -1,4 +1,3 @@
-# trigger import
 name: Import OpenClaw base
 
 on:
@@ -37,8 +36,12 @@ jobs:
       - name: Replace branch contents with OpenClaw
         run: |
           cp pillars/roadmap/SG_2_2_OPENCLAW_MIGRATION.md /tmp/SG_2_2_OPENCLAW_MIGRATION.md
+          cp -a .github/workflows /tmp/sg-workflows
           find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
           tar -C /tmp/openclaw --exclude=.git -cf - . | tar -xf -
+          rm -rf .github/workflows
+          mkdir -p .github
+          cp -a /tmp/sg-workflows .github/workflows
           mkdir -p pillars/roadmap
           cp /tmp/SG_2_2_OPENCLAW_MIGRATION.md pillars/roadmap/SG_2_2_OPENCLAW_MIGRATION.md
 
@@ -53,6 +56,7 @@ jobs:
             echo '- Imported: 2026-08-24'
             echo '- Checklist item: 1. OpenClaw base'
             echo '- Status: IMPLEMENTED'
+            echo '- Repository workflows: preserved from SG 2.2 to satisfy GitHub token restrictions'
           } > pillars/baselines/OPENCLAW_BASE.md
 
       - name: Commit imported base
@@ -63,4 +67,3 @@ jobs:
           git diff --cached --quiet && exit 0
           git commit -m "feat(sg2.2): import pinned OpenClaw base"
           git push origin HEAD:dev/sg2.2-openclaw
-

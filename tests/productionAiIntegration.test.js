@@ -217,5 +217,5 @@ test('production composition is explicit and deterministic mode remains the defa
   });
   assert.equal(production.policy.enabled, true);
   assert.equal(typeof production.aiRouter.route, 'function');
-  assert.equal(production.meaningInterpreter.name, 'production-ai-meaning-interpreter-with-gh3');
+  assert.equal(production.meaningInterpreter.name, 'production-ai-meaning-interpreter');
 });

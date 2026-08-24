@@ -28,7 +28,7 @@ test('canonical github development action binds to the single runtime capability
   assert.equal(result.decisionEnvelope.diagnostics.canonicalGitHubAction, 'github.development.execute');
 });
 
-test('github workspace status request binds to the same single capability in read-only status mode', () => {
+test('github status request binds to the same single capability in read-only status mode', () => {
   const action = { type: 'github-development', name: 'github.repository.inspect', actionClass: 'read-only', payload: { mode: 'status' } };
   const result = createDecisionEngine().decide({ canonicalInput: canonicalInput(), interpretation: interpretation(action), canonicalSemanticModel: canonicalModel(action), interpreterName: 'production-ai-meaning-interpreter' });
   assert.equal(result.decisionEnvelope.decisionType, 'answer');

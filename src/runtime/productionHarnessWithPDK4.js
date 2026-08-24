@@ -1,12 +1,12 @@
 import { createLocalProductionHarness } from './localProductionHarness.js';
 import { createProductionDevelopmentKnowledgeDeployment } from '../projectDevelopmentKnowledge/productionDevelopmentKnowledgeDeployment.js';
-import { createGitHubDevelopmentRuntime, GITHUB_DEVELOPMENT_RUNTIME_CAPABILITY } from '../githubDevelopment/githubDevelopmentRuntime.js';
+import { createGitHubCapability, GITHUB_CAPABILITY } from '../integrations/github/githubCapability.js';
 
-function mergeHealth(base, pdk4, githubDevelopment = null) {
+function mergeHealth(base, pdk4, github = null) {
   return Object.freeze({
     ...base,
     pdk4: Object.freeze({ ...pdk4 }),
-    ...(githubDevelopment ? { githubDevelopment: Object.freeze({ ...githubDevelopment }) } : {})
+    ...(github ? { github: Object.freeze({ ...github }) } : {})
   });
 }
 
@@ -40,15 +40,15 @@ function wireRepositoryReadCapability(base, pdk4Deployment) {
   });
 }
 
-function withOwnerGitHubDevelopmentCapability(input, ownerGlobalUserId) {
+function withOwnerGitHubCapability(input, ownerGlobalUserId) {
   if (!ownerGlobalUserId || input?.identityContext?.globalUserId !== ownerGlobalUserId) return input;
-  const grants = new Set([...(input.identityContext.grants ?? []), `capability:${GITHUB_DEVELOPMENT_RUNTIME_CAPABILITY}`]);
-  const allowedCapabilities = new Set([...(input.scopeContext?.allowedCapabilities ?? []), GITHUB_DEVELOPMENT_RUNTIME_CAPABILITY]);
+  const grants = new Set([...(input.identityContext.grants ?? []), `capability:${GITHUB_CAPABILITY}`]);
+  const allowedCapabilities = new Set([...(input.scopeContext?.allowedCapabilities ?? []), GITHUB_CAPABILITY]);
   return Object.freeze({
     ...input,
     identityContext: Object.freeze({ ...input.identityContext, grants: Object.freeze([...grants]) }),
     scopeContext: Object.freeze({ ...input.scopeContext, allowedCapabilities: Object.freeze([...allowedCapabilities]) }),
-    metadata: Object.freeze({ ...(input.metadata ?? {}), githubDevelopmentRuntimeBound: true })
+    metadata: Object.freeze({ ...(input.metadata ?? {}), directGitHubAppAccess: true })
   });
 }
 
@@ -56,14 +56,14 @@ export function createProductionHarnessWithPDK4({ env = {}, interpretationResolv
   const base = createLocalProductionHarness({ env, interpretationResolver, fetchImpl, clock });
   const pdk4Deployment = createProductionDevelopmentKnowledgeDeployment({ harness: base, env, fetchImpl, clock });
   const repositoryReadCapability = wireRepositoryReadCapability(base, pdk4Deployment);
-  const githubDevelopment = createGitHubDevelopmentRuntime({
+  const github = createGitHubCapability({
     env,
     aiRouter: base.productionAI?.aiRouter ?? null,
     ownerGlobalUserId: base.ownerSecurityConfig.monarchGlobalUserId,
     fetchImpl,
     clock
   });
-  base.capabilityRegistry.register(githubDevelopment.capability);
+  base.capabilityRegistry.register(github.capability);
 
   const baseRuntime = base.runtime;
   const runtime = Object.freeze({
@@ -71,26 +71,26 @@ export function createProductionHarnessWithPDK4({ env = {}, interpretationResolv
       const started = await baseRuntime.start();
       try {
         await pdk4Deployment.start();
-        await githubDevelopment.start();
+        await github.start();
       } catch (error) {
         try { await pdk4Deployment.stop(); } catch {}
         try { await baseRuntime.stop(); } catch {}
         throw error;
       }
-      return mergeHealth(started, pdk4Deployment.health(), githubDevelopment.availability);
+      return mergeHealth(started, pdk4Deployment.health(), github.availability);
     },
     async stop() {
       try {
-        await githubDevelopment.stop();
+        await github.stop();
       } finally {
         try { await pdk4Deployment.stop(); } finally { await baseRuntime.stop(); }
       }
     },
-    handle: (input) => baseRuntime.handle(withOwnerGitHubDevelopmentCapability(input, base.ownerSecurityConfig.monarchGlobalUserId)),
-    health: () => mergeHealth(baseRuntime.health(), pdk4Deployment.health(), githubDevelopment.availability),
+    handle: (input) => baseRuntime.handle(withOwnerGitHubCapability(input, base.ownerSecurityConfig.monarchGlobalUserId)),
+    health: () => mergeHealth(baseRuntime.health(), pdk4Deployment.health(), github.availability),
     readiness: () => {
       const readiness = baseRuntime.readiness();
-      return Object.freeze({ ...readiness, pdk4: pdk4Deployment.health(), githubDevelopment: githubDevelopment.availability });
+      return Object.freeze({ ...readiness, pdk4: pdk4Deployment.health(), github: github.availability });
     }
   });
 
@@ -99,6 +99,6 @@ export function createProductionHarnessWithPDK4({ env = {}, interpretationResolv
     runtime,
     pdk4Deployment,
     repositoryReadCapability,
-    githubDevelopment
+    github
   });
 }

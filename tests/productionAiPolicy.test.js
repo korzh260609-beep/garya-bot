@@ -102,16 +102,16 @@ test("input size is bounded", () => {
   );
 });
 
-test("trusted GH3 change planning uses its bounded repository-context limit without weakening ordinary AI requests", () => {
+test("trusted GitHub change planning uses its bounded repository-context limit without weakening ordinary AI requests", () => {
   const policy = createProductionAiPolicy({ SG_AI_ENABLED: "true", SG_AI_MAX_INPUT_CHARACTERS: "24000" });
   const repositoryContext = "x".repeat(300000);
-  assert.equal(assertProductionAiAllowed({ policy, role: "monarch", task: "github-development-change-plan", reason: "bounded GH3 planning", inputText: repositoryContext }).allowed, true);
+  assert.equal(assertProductionAiAllowed({ policy, role: "monarch", task: "github-development-change-plan", reason: "bounded GitHub planning", inputText: repositoryContext }).allowed, true);
   assert.throws(
     () => assertProductionAiAllowed({ policy, role: "monarch", task: "semantic-interpretation", reason: "ordinary request", inputText: repositoryContext }),
     (error) => error instanceof ProductionAiPolicyError && error.code === "INPUT_TOO_LARGE",
   );
   assert.throws(
-    () => assertProductionAiAllowed({ policy, role: "monarch", task: "github-development-change-plan", reason: "bounded GH3 planning", inputText: "x".repeat(400001) }),
+    () => assertProductionAiAllowed({ policy, role: "monarch", task: "github-development-change-plan", reason: "bounded GitHub planning", inputText: "x".repeat(400001) }),
     (error) => error instanceof ProductionAiPolicyError && error.code === "INPUT_TOO_LARGE" && error.details.maxInputCharacters === 400000,
   );
 });

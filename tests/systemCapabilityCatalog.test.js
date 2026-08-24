@@ -4,7 +4,7 @@ import { createCapabilityManifest, createSystemCapabilityCatalog } from '../src/
 import { createDeploymentSelfKnowledgeSources } from '../src/selfKnowledge/deploymentSelfKnowledge.js';
 import { createInMemorySelfKnowledgeStore, createSelfKnowledgeBuilder, createSelfKnowledgeService } from '../src/selfKnowledge/selfKnowledge.js';
 
-test('system capability catalog aggregates runtime, unified GitHub and subsystem manifests', () => {
+test('system capability catalog aggregates runtime, direct GitHub App and subsystem manifests', () => {
   const catalog = createSystemCapabilityCatalog({ runtimeCapabilityNames: ['memory2-recall', 'task-create'], sourceRevision: 'r1' });
   const ids = new Set(catalog.capabilities.map((item) => item.id));
   assert.ok(ids.has('memory2-recall'));

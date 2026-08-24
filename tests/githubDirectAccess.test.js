@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createGitHubCredentialProvider, createGitHubRepositoryClient, createGitHubDevelopmentRuntime } from '../src/githubDevelopment/githubDevelopmentRuntime.js';
+import { generateKeyPairSync } from 'node:crypto';
+import { createDirectGitHubApi, createGitHubCapability } from '../src/integrations/github/githubCapability.js';
+import { getGitHubAppAccess, resetGitHubAppAccessCacheForTests } from '../src/integrations/github/appAuth.js';
 
 const REPOSITORY = 'korzh260609-beep/garya-bot';
 const BRANCH = 'dev/sg2.1-semantic';
@@ -9,6 +11,8 @@ const BASE_TREE = '2222222222222222222222222222222222222222';
 const BLOB = '3333333333333333333333333333333333333333';
 const NEXT_TREE = '4444444444444444444444444444444444444444';
 const NEXT_COMMIT = '5555555555555555555555555555555555555555';
+const PRIVATE_KEY = generateKeyPairSync('rsa', { modulusLength: 2048 }).privateKey.export({ type: 'pkcs8', format: 'pem' });
+const APP_ENV = Object.freeze({ GITHUB_APP_ID: '123', GITHUB_APP_INSTALLATION_ID: '456', GITHUB_APP_PRIVATE_KEY: PRIVATE_KEY, GITHUB_REPO: REPOSITORY, GITHUB_BRANCH: BRANCH });
 
 function response(body, status = 200) {
   return Object.freeze({ ok: status >= 200 && status < 300, status, async json() { return body; } });
@@ -22,6 +26,7 @@ function createFetch({ mutable = false } = {}) {
     const path = `${parsed.pathname}${parsed.search}`;
     const method = options.method ?? 'GET';
     calls.push({ path, method, authorization: options.headers?.Authorization, body: options.body ? JSON.parse(options.body) : null });
+    if (path === '/app/installations/456/access_tokens' && method === 'POST') return response({ token: 'installation-token', expires_at: '2099-01-01T00:00:00Z' });
     if (path === `/repos/${REPOSITORY}/commits/${encodeURIComponent(BRANCH)}` && method === 'GET') return response({ sha: head });
     if (path === `/repos/${REPOSITORY}/git/trees/${HEAD}?recursive=1` && method === 'GET') return response({ truncated: false, tree: [{ path: 'src/example.js', type: 'blob', sha: BLOB, size: 20 }] });
     if (path === `/repos/${REPOSITORY}/contents/src/example.js?ref=${HEAD}` && method === 'GET') return response({ type: 'file', sha: BLOB, encoding: 'base64', content: Buffer.from('export const oldValue = 1;').toString('base64') });
@@ -46,31 +51,32 @@ function request(input = {}) {
   });
 }
 
-test('GitHub credential provider uses a deployment token directly and does not expose a connectionId contract', async () => {
-  const provider = createGitHubCredentialProvider({ env: { GITHUB_TOKEN: 'token-value' }, fetchImpl: async () => { throw new Error('must not mint app token'); } });
-  assert.equal(provider.configured, true);
-  assert.equal(provider.authentication, 'deployment-token');
-  assert.equal(await provider.token(), 'token-value');
-  assert.equal(Object.hasOwn(provider, 'connectionId'), false);
+test('SG 2.0 appAuth mints and caches a short-lived GitHub App installation token', async () => {
+  resetGitHubAppAccessCacheForTests();
+  let calls = 0;
+  const fetchImpl = async () => { calls += 1; return response({ token: 'installation-token', expires_at: '2099-01-01T00:00:00Z' }); };
+  assert.equal(await getGitHubAppAccess({ env: APP_ENV, fetchImpl }), 'installation-token');
+  assert.equal(await getGitHubAppAccess({ env: APP_ENV, fetchImpl }), 'installation-token');
+  assert.equal(calls, 1);
 });
 
-test('repository client rejects protected default branches', () => {
-  const credentials = { token: async () => 'token' };
-  assert.throws(() => createGitHubRepositoryClient({ repository: REPOSITORY, branch: 'main', credentialProvider: credentials, fetchImpl: async () => response({}) }), /protected default branch/u);
+test('direct GitHub API rejects protected default branches', () => {
+  assert.throws(() => createDirectGitHubApi({ repository: REPOSITORY, branch: 'main', env: APP_ENV, fetchImpl: async () => response({}) }), /protected default branch/u);
 });
 
-test('single GitHub development runtime reports exact configured branch without connectionId', async () => {
+test('GitHub capability reports the exact configured branch through direct App API access', async () => {
+  resetGitHubAppAccessCacheForTests();
   const { fetchImpl } = createFetch();
-  const runtime = createGitHubDevelopmentRuntime({ env: { GITHUB_TOKEN: 'token', SG_GITHUB_DEVELOPMENT_REPOSITORY: REPOSITORY, SG_GITHUB_DEVELOPMENT_BRANCH: BRANCH }, ownerGlobalUserId: 'owner-1', aiRouter: { async route() { throw new Error('status must not use AI'); } }, fetchImpl });
-  assert.equal(runtime.availability.connectionIdRequired, false);
-  await runtime.start();
-  const result = await runtime.capability.execute(request({ mode: 'status', canonicalAction: 'github.repository.inspect' }));
+  const github = createGitHubCapability({ env: APP_ENV, ownerGlobalUserId: 'owner-1', aiRouter: { async route() { throw new Error('status must not use AI'); } }, fetchImpl });
+  await github.start();
+  const result = await github.capability.execute(request({ mode: 'status', canonicalAction: 'github.repository.inspect' }));
   assert.equal(result.status, 'success');
   assert.equal(result.data.exactHead, HEAD);
   assert.match(result.data.message, /dev\/sg2\.1-semantic/u);
 });
 
 test('development execution reads exact evidence, makes an atomic commit, and returns pending exact-head CI evidence', async () => {
+  resetGitHubAppAccessCacheForTests();
   const { fetchImpl, calls } = createFetch({ mutable: true });
   const aiRouter = {
     async route(input) {
@@ -79,21 +85,21 @@ test('development execution reads exact evidence, makes an atomic commit, and re
       throw new Error(`unexpected AI task: ${input.task}`);
     }
   };
-  const runtime = createGitHubDevelopmentRuntime({ env: { GITHUB_TOKEN: 'token', SG_GITHUB_DEVELOPMENT_REPOSITORY: REPOSITORY, SG_GITHUB_DEVELOPMENT_BRANCH: BRANCH }, ownerGlobalUserId: 'owner-1', aiRouter, fetchImpl });
-  const result = await runtime.capability.execute(request({ mode: 'execute', canonicalAction: 'github.development.execute', instruction: 'Обнови пример' }));
+  const github = createGitHubCapability({ env: APP_ENV, ownerGlobalUserId: 'owner-1', aiRouter, fetchImpl });
+  const result = await github.capability.execute(request({ mode: 'execute', canonicalAction: 'github.development.execute', instruction: 'Обнови пример' }));
   assert.equal(result.status, 'success');
   assert.equal(result.data.commitSha, NEXT_COMMIT);
   assert.deepEqual(result.data.changedPaths, ['src/example.js']);
   assert.equal(result.data.ci.pending, true);
   assert.equal(result.data.ci.exactHead, NEXT_COMMIT);
   assert.ok(calls.some((item) => item.method === 'PATCH' && item.path.includes('/git/refs/heads/dev/sg2.1-semantic')));
-  assert.ok(calls.every((item) => item.authorization === 'Bearer token'));
+  assert.ok(calls.filter((item) => item.path.startsWith('/repos/')).every((item) => item.authorization === 'Bearer installation-token'));
 });
 
-test('runtime denies non-owner execution before repository access', async () => {
+test('capability denies non-owner execution before repository access', async () => {
   let fetched = false;
-  const runtime = createGitHubDevelopmentRuntime({ env: { GITHUB_TOKEN: 'token', SG_GITHUB_DEVELOPMENT_REPOSITORY: REPOSITORY, SG_GITHUB_DEVELOPMENT_BRANCH: BRANCH }, ownerGlobalUserId: 'owner-1', aiRouter: { async route() { throw new Error('not expected'); } }, fetchImpl: async () => { fetched = true; throw new Error('not expected'); } });
-  const result = await runtime.capability.execute({ ...request({ mode: 'execute', instruction: 'change' }), actor: { globalUserId: 'other', roles: ['citizen'] } });
+  const github = createGitHubCapability({ env: APP_ENV, ownerGlobalUserId: 'owner-1', aiRouter: { async route() { throw new Error('not expected'); } }, fetchImpl: async () => { fetched = true; throw new Error('not expected'); } });
+  const result = await github.capability.execute({ ...request({ mode: 'execute', instruction: 'change' }), actor: { globalUserId: 'other', roles: ['citizen'] } });
   assert.equal(result.status, 'failed');
   assert.equal(result.error.code, 'github-owner-required');
   assert.equal(fetched, false);

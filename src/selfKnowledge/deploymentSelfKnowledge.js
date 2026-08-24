@@ -89,10 +89,10 @@ export function createDeploymentSelfKnowledgeSources({
         }),
         fact({
           category: 'capabilities',
-          key: 'github-development-workspace',
+          key: 'github-direct-access',
           value: {
             provider: 'github',
-            accessMode: 'unified-github-development-runtime',
+            accessMode: 'github-app-direct-api',
             localFilesystemMount: false,
             capabilityStateSource: 'runtime-capability-catalog-snapshot',
             capabilities: githubCapabilities.map((item) => item.id),

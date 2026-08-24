@@ -100,27 +100,27 @@ test('Self Knowledge query restores canonical priority when persistence hydrates
   assert.ok(result.facts.some((item) => item.category === 'identity' && item.key === 'system-name' && item.value.full === 'Советник GARYA'));
 });
 
-test('deployment Self Knowledge derives unified GitHub runtime access from cached runtime facts without a per-request GitHub scan', async () => {
+test('deployment Self Knowledge derives direct GitHub App access from cached runtime facts without a per-request GitHub scan', async () => {
   const noRead = new Proxy({}, {
     get() { throw new Error('external registry must not be scanned while building cached self knowledge'); }
   });
   const store = createInMemorySelfKnowledgeStore();
   const sources = createDeploymentSelfKnowledgeSources({
-    config: { revision: 'gh3-self-report-test', environment: 'test' },
+    config: { revision: 'github-app-self-report-test', environment: 'test' },
     capabilityNames: ['repository-analyze'],
     connectionRegistry: noRead,
     resourceAuthorityRegistry: noRead
   });
   const builder = createSelfKnowledgeBuilder({ store, sources });
-  await builder.rebuild({ sourceRevision: 'gh3-self-report-test', environment: 'test' });
+  await builder.rebuild({ sourceRevision: 'github-app-self-report-test', environment: 'test' });
   const service = createSelfKnowledgeService({ store });
   const result = await service.query({ environment: 'test', maxFacts: 12 });
-  const github = result.facts.find((item) => item.category === 'capabilities' && item.key === 'github-development-workspace');
+  const github = result.facts.find((item) => item.category === 'capabilities' && item.key === 'github-direct-access');
 
   assert.ok(github, 'GitHub capability fact must fit the bounded response Self Knowledge budget');
   assert.equal(github.status, 'implemented');
   assert.equal(github.value.provider, 'github');
-  assert.equal(github.value.accessMode, 'unified-github-development-runtime');
+  assert.equal(github.value.accessMode, 'github-app-direct-api');
   assert.equal(github.value.localFilesystemMount, false);
   assert.equal(github.value.capabilityStateSource, 'runtime-capability-catalog-snapshot');
   assert.ok(github.value.capabilities.includes('github-development'));

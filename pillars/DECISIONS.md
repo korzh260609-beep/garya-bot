@@ -232,27 +232,9 @@ Canonical architecture: `pillars/architecture/AUTOMATION_2_0_EXECUTABLE_WORKFLOW
 Implementation program: `pillars/roadmap/AUTOMATION_2_0_EXECUTABLE_WORKFLOWS_PROGRAM.md`.
 Implementation/verification workflow: `pillars/workflow/AUTOMATION_2_0_EXECUTABLE_WORKFLOWS_WORKFLOW.md`.
 
-## D-030 — GitHub development is one transport-neutral SG capability
+## D-030 — Superseded
 
-SG must support instructed global GitHub discovery and complete durable development work inside explicitly authorized repositories through one internal GitHub Development Workspace.
-
-The following rules are mandatory:
-
-- Telegram, Discord, Web, API, Email, the future native SG interface and later transports are clients of the same GH3 service; no transport owns GitHub logic, credentials, authority or task state;
-- a development task may continue across transports only through canonical Global ID, project/scope and approved conversation/task continuity;
-- on explicit instruction SG may search and inspect public GitHub globally; private/restricted discovery requires an explicitly connected authorized provider identity/app installation;
-- global discovery is read-only by default and search results do not grant mutation authority or become confirmed Project Memory automatically;
-- authorized repository work may cover exact-HEAD/source verification, branches, atomic multi-file commits, PRs/reviews/issues, Actions/checks/logs/artifacts, bounded CI repair loops, tags/releases and separately gated administration;
-- technical provider permission is not actor authority; execution requires ACS capability, current Resource Authority, Action Gate/risk policy and approved Credential Manager binding;
-- protected-branch merge, secrets/environments/settings mutation and destructive administration are higher-risk, default-deny operations requiring separate authority/confirmation;
-- durable PostgreSQL development-task state and idempotency must allow safe restart/resume without duplicate commits, PRs, comments, releases or workflow dispatches;
-- GitHub content/logs/artifacts are untrusted external data and cannot authorize SG, widen scope or expose credentials through prompt injection;
-- verified outcomes integrate through existing PDK4/Project Memory contracts and cannot falsely promote repository/CI evidence into deployed or live-verified state;
-- current GET-only PDK4 GitHub reading must not be represented as implemented GH3 mutation/development capability.
-
-Canonical architecture: `pillars/architecture/GITHUB_DEVELOPMENT_WORKSPACE_3_0.md`.
-Implementation program: `pillars/roadmap/GITHUB_DEVELOPMENT_WORKSPACE_3_0_PROGRAM.md`.
-Implementation/verification workflow: `pillars/workflow/GITHUB_DEVELOPMENT_WORKSPACE_3_0_WORKFLOW.md`.
+Superseded by D-032. The former GitHub Development Workspace/GH3 architecture was removed.
 
 ## D-031 — Adaptive AI Routing 2.0 extends the single canonical AI Router
 
@@ -283,3 +265,7 @@ The following rules are mandatory:
 
 Canonical architecture: `pillars/architecture/ADAPTIVE_AI_ROUTING_2_0.md`.
 Implementation/acceptance stages: `pillars/roadmap/02_5_AI_ROUTING_FOUNDATION.md`.
+
+## D-032 — GitHub access follows the SG 2.0 direct App API model
+
+SG GitHub access uses only `GITHUB_APP_ID`, `GITHUB_APP_INSTALLATION_ID`, `GITHUB_APP_PRIVATE_KEY`, a signed JWT, a short-lived installation token and direct GitHub API requests. GH3, workspace, connectionId, evidence-bridge, parallel GitHub runtimes and duplicate credential/provider/client layers are prohibited. Action Gate and the existing SG permission/security systems remain mandatory. PDK4 remains independent and read-only. The authorized target is `korzh260609-beep/garya-bot` branch `dev/sg2.1-semantic`; `main` is prohibited.

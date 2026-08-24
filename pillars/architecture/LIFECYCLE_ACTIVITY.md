@@ -163,7 +163,7 @@ Query filters are designed from the start for time range, event type, category, 
 - PDK4: PDK4 stores evidence-backed project-development knowledge; LA may provide activity evidence references but cannot promote itself to project truth.
 - Observability: telemetry/debug/audit traces explain runtime behavior; LA is the human-meaningful activity history. LA recording failures use existing observability.
 - Automation: automation remains authoritative for workflow definitions/runs; LA links to automation IDs and summarizes meaningful lifecycle events.
-- GH3/GitHub: GitHub development remains authoritative in GH3/GitHub state; LA records concise linked activity.
+- GitHub: GitHub development remains authoritative in GitHub state; LA records concise linked activity.
 - AI Router: AI Router remains authoritative for model/cost provenance; LA may reference a completed AI activity but does not duplicate cost accounting.
 
 ## Retention extensibility

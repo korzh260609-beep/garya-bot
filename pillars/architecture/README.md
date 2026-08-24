@@ -24,7 +24,6 @@ SG 2.1 is one global transport-independent project system whose reasoning layer 
 10. `TELEGRAM_WORKSPACE_MANAGER_1_15_COMMUNITY_OPERATIONS.md`
 11. `SG_ACCESS_CONTROL_SYSTEM_1_0.md`
 12. `AUTOMATION_2_0_EXECUTABLE_WORKFLOWS.md`
-13. `GITHUB_DEVELOPMENT_WORKSPACE_3_0.md`
 14. `DECISION_AND_ACTION_GATE.md`
 15. `CAPABILITY_SYSTEM.md`
 16. `IDENTITY_AND_SCOPE.md`
@@ -82,7 +81,6 @@ SG Access Control System 1.0 (ACS1) is the canonical transport-neutral access, e
 
 Automation 2.0 — Executable Workflows is the cross-cutting automation extension above the existing durable task/schedule/worker substrate. It defines a task as a versioned executable plan rather than only a stored message. SG may semantically identify and patch the same automation, execute ordered collect/retrieve/analyze/compose/invoke-capability/deliver steps, gather fresh authorized data at run time, and retain version/execution history. Every protected step reuses current Identity/Scope, Access, Resource Authority, Action Gate, Credential Manager, Capability System, Temporal Context, Durable Automation, Delivery Router and Observability. It does not create a second scheduler, worker, authorization, credential or transport system.
 
-GitHub Development Workspace 3.0 (GH3) is the planned transport-neutral GitHub discovery and development subsystem. It separates bounded global public/authorized-private discovery from state-changing authorized repository work, exposes one durable development service to every transport and future native SG interface, and composes ACS, Resource Authority, Action Gate, Credential Manager, PostgreSQL task state, GitHub Actions, PM3 and PDK4. Current GET-only PDK4 GitHub reading is not GH3 mutation implementation.
 
 Adaptive AI Routing 2.0 (AR2) is the accepted planned extension of the existing AI Routing Foundation. It introduces the L0 deterministic/no-LLM gate, L1/L2/L3 model tiers, deterministic task assessment, minimum-sufficient tier selection, independent reasoning-effort selection, deterministic-first validation and bounded semantic escalation while preserving the existing single AIRouter, provider fallback, production policy, Action Gate and transport-independent boundaries. Concrete provider model names remain configuration rather than domain logic. Canonical architecture: `ADAPTIVE_AI_ROUTING_2_0.md`.
 

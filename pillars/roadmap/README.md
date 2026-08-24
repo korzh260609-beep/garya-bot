@@ -12,7 +12,6 @@ Telegram Workspace Manager 1.0 is an in-progress cross-cutting Telegram manageme
 
 SG Access Control System 1.0 (ACS1) is a planned cross-cutting transport-neutral access, entitlement, scoped-capability, delegation and usage/budget program documented in `SG_ACCESS_CONTROL_SYSTEM_1_0_PROGRAM.md`. ACS1 applies to Telegram, Discord, Web, API, Email and the future native SG interface. SG is the default Access Authority inside a Monarch-defined deterministic policy envelope; human approval is escalation where policy requires it. Identity creation, transport login, workspace membership/admin status and private-result delivery do not grant conversational AI access. ACS1 does not renumber Blocks 0–19 and must compose with existing Identity/Scope, Resource Authority, Owner Security, Action Gate, Credential Manager, PostgreSQL, Delivery Router, AI Router accounting and Observability rather than create parallel systems.
 
-GitHub Development Workspace 3.0 (GH3) is a planned cross-cutting transport-neutral GitHub discovery and authorized development program documented in `GITHUB_DEVELOPMENT_WORKSPACE_3_0_PROGRAM.md`. It lets SG search/inspect GitHub globally on instruction and perform complete durable development work in explicitly authorized repositories through any current/future transport or native SG interface. GH3 does not renumber Blocks 0–19 and must reuse ACS, Resource Authority, Action Gate, Credential Manager, External Connections, PostgreSQL, Durable Workers, AI Router, Delivery Router, PM3 and PDK4.
 
 Universal Diagnostics is a separate planned cross-cutting diagnostic program documented in `UNIVERSAL_DIAGNOSTICS_PROGRAM.md`. It is implemented as an independent observer application around SG, not as a new core layer and not as a renumbering of Blocks 0–19.
 
@@ -64,8 +63,6 @@ Block 8.1 is a production extension of completed Block 8 Interfaces. It adds the
 42. `TELEGRAM_WORKSPACE_MANAGER_1_15_COMMUNITY_OPERATIONS_PROGRAM.md` — planned TWM1.15 community operations, engagement and analytics extension
 43. `SG_ACCESS_CONTROL_SYSTEM_1_0_PROGRAM.md` — planned transport-neutral ACS1 access/entitlement/usage-control program
 44. `UNIVERSAL_DIAGNOSTICS_PROGRAM.md` — planned cross-cutting Universal Diagnostics D1–D12 program
-45. `GITHUB_DEVELOPMENT_WORKSPACE_3_0_PROGRAM.md` — planned GH3.1–GH3.12 global discovery, authorized repository development, cross-transport continuity and live acceptance program
-46. `GITHUB_DEVELOPMENT_EXECUTION_COMPLETION.md` — in-progress GDE1–GDE6 bridge from the Canonical Semantic Model to the existing GH3 execution lifecycle
 
 ## Block 8.1 — Discord Transport Integration
 

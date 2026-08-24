@@ -1,4 +1,4 @@
-import { GITHUB_DEVELOPMENT_RUNTIME_CAPABILITY } from '../githubDevelopment/githubDevelopmentRuntime.js';
+import { GITHUB_CAPABILITY } from '../integrations/github/githubCapability.js';
 import { TELEGRAM_CAPABILITY_MANIFEST } from '../telegram/telegramCapabilityManifest.js';
 import { HISTORICAL_CAPABILITY_MANIFEST } from '../history/historicalCapabilityManifest.js';
 import { PROJECT_MEMORY_CAPABILITY_MANIFEST } from '../projectMemory/projectMemoryCapabilityManifest.js';
@@ -108,12 +108,12 @@ function runtimeManifest(runtimeCapabilityNames, sourceRevision) {
 
 function githubManifest(sourceRevision) {
   return createCapabilityManifest({
-    sourceId: 'runtime:github-development',
+    sourceId: 'integration:github-app',
     domain: 'github',
     sourceRevision,
-    sourceOfTruth: 'src/githubDevelopment/githubDevelopmentRuntime.js',
+    sourceOfTruth: 'src/integrations/github/appAuth.js',
     capabilities: [{
-      id: GITHUB_DEVELOPMENT_RUNTIME_CAPABILITY,
+      id: GITHUB_CAPABILITY,
       status: 'implemented',
       requiresAuthorization: true,
       requiresConnection: false,

@@ -94,7 +94,7 @@ test('deployment bootstrap never creates a parallel GitHub Development connectio
   const deployment = createDeploymentExternalConnections({
     credentialManager,
     observability: { record() {} },
-    config: { environment: 'test', revision: 'unified-github-runtime', projectScope: 'sg2.1' },
+    config: { environment: 'test', revision: 'direct-github-app', projectScope: 'sg2.1' },
     env: {
       GITHUB_APP_ID: '42',
       GITHUB_APP_INSTALLATION_ID: '7',

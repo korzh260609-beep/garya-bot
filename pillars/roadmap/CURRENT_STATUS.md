@@ -345,93 +345,9 @@ ACS1 is a separate transport-neutral access/entitlement layer. Do not confuse ex
 
 Canonical doc: `SG_ACCESS_CONTROL_SYSTEM_1_0_PROGRAM.md`.
 
-## GitHub Development Workspace 3.0
+## GitHub direct access
 
-**IMPLEMENTATION IN PROGRESS. GH3.1–GH3.10 CLOSED / CI-VERIFIED; GH3.11 IMPLEMENTED / NOT CI-VERIFIED; GH3.12 NOT IMPLEMENTED.**
-
-GH3 is the accepted transport-neutral program for two distinct capabilities:
-
-- instructed, bounded global public GitHub discovery and authorized private discovery;
-- complete development lifecycle work inside explicitly authorized repositories, including exact-HEAD verification, atomic multi-file commits, PR/review collaboration, Actions/CI diagnosis and repair, durable restart continuity and cross-transport continuation.
-
-Current PDK4.13 production GitHub reading remains GET-only and must not be reported as GH3 mutation/development implementation. GH3 documentation grants no provider permission, actor authority or credential access by itself.
-
-GH3.1 now defines transport-neutral repository/ref/revision/task/change/mutation-plan/CI/completion-condition contracts and the bounded GitHub capability registry. It does not implement GitHub authentication, provider calls or repository mutation.
-
-GH3.1 closure evidence: exact HEAD `243bb8835f65ba51cb9bd1e31ce599f4a5d25d5c`, SG 2.1 CI #8553 `SUCCESS`.
-
-GH3.2 now provides GitHub App installation authentication through the existing Credential Manager and External Connections Registry, with short-lived token caching, explicit invalidation, selected-repository and provider-permission enforcement, fail-closed connection checks and secret-safe health evidence. Production connection configuration/live acceptance remains unproven.
-
-GH3.2 closure evidence: exact HEAD `310aaf6b25ead13d3cb9ee32e0cf836b682aef30`, SG 2.1 CI #8555 `SUCCESS`.
-
-GH3.3 now provides bounded read-only discovery for repositories, code, commits, issues, pull requests, users, releases and documentation. Public discovery needs no project credential; private discovery is available only through an authorized GH3.2 connection. Every result retains source/currentness/rate-limit/license qualification and an explicit untrusted-external-data boundary.
-
-GH3.3 closure evidence: exact HEAD `74c4ade02eed94ca7be809c46a1e485ecf6f8a30`, SG 2.1 CI #8559 `SUCCESS`.
-
-GH3.4 now provides bounded repository metadata, immutable tree/file/canonical-document content, commit history, diffs, issue/PR/review facts and checks/workflow/job/artifact metadata. A moving ref is resolved once and all correctness-sensitive reads bind to the resulting full commit SHA; cross-repository responses, missing permissions, deleted refs and immutable-SHA mismatches fail closed.
-
-GH3.4 closure evidence: exact implementation HEAD `652d79d159fce06ef94dc960b7a58278a99dbdb8`, SG 2.1 CI #8563 `SUCCESS`.
-
-GH3.5 now provides exact-baseline branch create/reuse and atomic multi-file create/update/move/delete through Git data primitives. It preserves unrelated tree entries, rejects stale/non-fast-forward and path/blob conflicts, makes retries idempotent and returns explicit rollback/audit evidence.
-
-GH3.5 closure evidence: exact implementation HEAD `4a6c0d6194557b37cd7b9e0cdaad666168f5fc42`, SG 2.1 CI #8567 `SUCCESS`.
-
-GH3.6 now provides canonical PR create/update, bounded review reads, idempotent authorized replies, separately approved thread resolution, issue labels/milestones and separately approved exact-target tags/releases. Exact duplicate retries reuse provider state; conflicting identities and ambiguous retries fail closed.
-
-GH3.6 closure evidence: exact implementation HEAD `d20fa069d6004c9d433c0a14d930fd57432bfaef`, SG 2.1 CI #8571 `SUCCESS`.
-
-GH3.7 now provides exact-head workflow/run/job inspection, stale-safe and duplicate-safe dispatch, revision-bound failed-job rerun, bounded attempts and first actionable failure localization with redacted bounded logs.
-
-GH3.7 closure evidence: exact implementation HEAD `9db540f14a79a2016c7a4916b4c3303d8a609bd3`, SG 2.1 CI #8575 `SUCCESS`.
-
-GH3.8 now provides one transport-neutral GitHub development orchestrator for structured semantic create/status/resume operations. Verified Global ID/project scope owns the task; adapters cannot change authority, and Telegram/Web API paths produce equivalent results. Durable restart state remains GH3.9 scope.
-
-GH3.8 closure evidence: exact implementation HEAD `1005fe8cbc510c23ebb30fd4a326cf47d43e95a4`, SG 2.1 CI #8579 `SUCCESS` on Node.js 22.
-
-GH3.9 now provides versioned PostgreSQL development-task checkpoints, idempotency history and restart reconciliation. Resume rechecks current authority and live GitHub identity/state before continuing and does not repeat recorded external actions.
-
-GH3.9 closure evidence: exact implementation/fix HEAD `5c2d69d179d58f3d89d8708f914395405c1e8f5c`, SG 2.1 CI #8585 `SUCCESS` on Node.js 22.
-
-GH3.10 routes verified immutable GitHub commit/PR/workflow outcomes through the existing PDK4 event and PM3 project-fact candidate contracts. CI qualification requires a successful workflow on the same full target SHA; all PM3 projections remain deterministic, proposed and unconfirmed. Model self-confirmation, cross-project results, PM3 promotion and repository/CI claims of deployed or live-verified state fail closed.
-
-GH3.10 closure evidence: exact implementation HEAD `127b9435d19c845e00c74d88cc4a8b975968c7f0`, SG 2.1 CI #8589 `SUCCESS` on Node.js 22.
-
-GH3.11 now provides one fail-closed security control plane for GitHub operations. It composes capability risk, ACS, current Resource Authority, Action Gate, Owner Security, rate limits, emergency modes, Credential Manager and secret-safe audit. Tier 3–4 operations require separate request-bound controls; unavailable mutation audit blocks execution. Exact-head CI is pending.
-
-Canonical docs:
-- `GITHUB_DEVELOPMENT_WORKSPACE_3_0_PROGRAM.md`;
-- `../architecture/GITHUB_DEVELOPMENT_WORKSPACE_3_0.md`;
-- `../workflow/GITHUB_DEVELOPMENT_WORKSPACE_3_0_WORKFLOW.md`.
-
-## GitHub Development Execution Completion
-
-**IMPLEMENTATION COMPLETE. GDE1–GDE6 CLOSED / CI-VERIFIED. GH3.12 LIVE ACCEPTANCE REMAINS PENDING.**
-
-GDE1 adds the bounded canonical `github.*` action vocabulary and a deterministic Development Target Resolver over the existing Canonical Semantic Model and GH3 repository reader. It resolves only authoritative project/repository/non-`main` branch bindings, verifies an immutable baseline HEAD, validates structured stage/block evidence and fails closed on missing or ambiguous targets. It does not add a second executor, capability system, Action Gate, CI service or semantic pipeline.
-
-GDE1 closure evidence: exact implementation HEAD `2eac3632e2f99398c41a65dd81a5a446d4b04d4a`, SG 2.1 CI #8747 `SUCCESS` (Run ID `32564308591`).
-
-GDE2 binds canonical GitHub actions to the existing GH3 capability/security/provider boundaries and returns deterministic per-request capability state plus exact blockers for runtime Self Knowledge. Local filesystem state and model claims cannot grant or deny GitHub access.
-
-GDE2 closure evidence: exact implementation HEAD `4008554ad2015d8e499e07cba45364d29cb4bfac`, SG 2.1 CI #8751 `SUCCESS` (Run ID `32564921207`).
-
-GDE3 connects canonical `github.development.execute` to the existing GH3 orchestrator with one bounded, durable development task/change set and exact-baseline revalidation. It does not introduce another executor or task store.
-
-GDE3 closure evidence: exact implementation HEAD `479d5f5495d0ca107d3e59b1230922276b34fad0`, SG 2.1 CI #8755 `SUCCESS` (Run ID `32565617361`).
-
-GDE4 adds deterministic validation and verified commit/authorized-branch update around the existing GH3 security, atomic mutation and repository-read services.
-
-GDE4 closure evidence: exact implementation HEAD `dec36c2f6ba140a5429c56db9f0c1f6b68c51ec4`, SG 2.1 CI #8759 `SUCCESS` (Run ID `32566233727`).
-
-GDE5 adds exact-HEAD CI completion and bounded repair continuation over the existing GH3 Actions service and durable task state.
-
-GDE5 closure evidence: exact implementation HEAD `c69ac1007c61f78f4bad4d52171fecbf564e8445`, SG 2.1 CI #8763 `SUCCESS` (Run ID `32567164437`).
-
-GDE6 connects the full canonical GitHub operations surface, durable follow-up context and bounded audit to the existing GH3 execution/security/task stack.
-
-GDE6 closure evidence: exact implementation HEAD `63d17a15bb4027da2c41bf21d16288f3eca36fe7`, SG 2.1 CI #8769 `SUCCESS` (Run ID `32568488924`). GH3.12 live acceptance remains separately pending.
-
-Canonical doc: `GITHUB_DEVELOPMENT_EXECUTION_COMPLETION.md`.
+SG uses SG 2.0-compatible GitHub App authentication and direct GitHub API requests for `korzh260609-beep/garya-bot` on `dev/sg2.1-semantic`. PDK4 remains an independent read-only ingestion subsystem.
 
 ## Current-status rule for SG answers
 

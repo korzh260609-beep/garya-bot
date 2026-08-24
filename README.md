@@ -57,7 +57,7 @@ When sources conflict, SG must qualify the conflict instead of presenting stale 
   - **TWM1.14 and TWM1.15 are implementation/live-acceptance work in progress and remain NOT CLOSED.**
   - lifecycle labels in the original large TWM program saying TWM1.12 is next or TWM1.13–1.15 are merely planned are superseded for current-state reporting; their detailed requirements/gates remain valid.
 - SG Access Control System 1.0 — **PLANNED / NOT IMPLEMENTED** unless newer code/CI/live evidence explicitly supersedes that state.
-- GitHub Development Workspace 3.0 (GH3) — **PLANNED / NOT IMPLEMENTED**. GH3 is the transport-neutral program for instructed global GitHub discovery and complete authorized repository development through Telegram, Discord, Web/API, Email, the future native SG interface and later transports.
+- GitHub direct access — SG 2.0-compatible GitHub App JWT, short-lived installation token and direct API calls to `dev/sg2.1-semantic`.
 - Lifecycle Activity (LA) — **ACCEPTED ARCHITECTURE / PLANNED / NOT IMPLEMENTED**.
   - LA1: append-only Activity Event Core and bounded query API;
   - LA2: semantic activity queries such as “what did you do today?” or “what happened with GitHub?”;
@@ -98,7 +98,7 @@ Core invariants:
 - Resource Authority and Action Gate remain mandatory where applicable.
 - Owner Security only tightens privileged execution; it does not bypass existing gates.
 - A selected/authorized action is not considered completed until the authoritative state/result has been verified.
-- Current repository analysis remains read-only. Planned GH3 introduces separately authorized, scoped and gated GitHub mutation/development capabilities; its documentation does not prove those capabilities exist yet.
+- GitHub repository access uses direct GitHub App API calls; state-changing operations still require owner authority and Action Gate.
 - Current-state claims must respect provenance/currentness; historical or superseded facts remain qualified.
 - Lifecycle Activity, when implemented, remains a fail-open append-only observer of meaningful actions and cannot become an execution dependency, authority source, replacement memory store or duplicate domain state.
 
@@ -116,9 +116,6 @@ Core invariants:
 - `pillars/roadmap/TELEGRAM_WORKSPACE_MANAGER_1_0_PROGRAM.md` — requirements/history; current lifecycle labels are qualified by `CURRENT_STATUS.md` where they conflict.
 - `pillars/roadmap/TELEGRAM_WORKSPACE_MANAGER_1_15_COMMUNITY_OPERATIONS_PROGRAM.md` — requirements; current implementation/live state is qualified by `CURRENT_STATUS.md` where the older header conflicts.
 - `pillars/roadmap/SG_ACCESS_CONTROL_SYSTEM_1_0_PROGRAM.md`
-- `pillars/roadmap/GITHUB_DEVELOPMENT_WORKSPACE_3_0_PROGRAM.md`
-- `pillars/architecture/GITHUB_DEVELOPMENT_WORKSPACE_3_0.md`
-- `pillars/workflow/GITHUB_DEVELOPMENT_WORKSPACE_3_0_WORKFLOW.md`
 - `pillars/architecture/LIFECYCLE_ACTIVITY.md`
 - `pillars/roadmap/LIFECYCLE_ACTIVITY_PROGRAM.md`
 - `pillars/workflow/LIFECYCLE_ACTIVITY_WORKFLOW.md`

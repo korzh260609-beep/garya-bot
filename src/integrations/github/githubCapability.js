@@ -1,8 +1,8 @@
-import { createSign } from 'node:crypto';
-import { createCapability } from '../contracts/capability.js';
-import { parseStructuredAIOutput } from '../ai/contracts.js';
+import { createCapability } from '../../contracts/capability.js';
+import { parseStructuredAIOutput } from '../../ai/contracts.js';
+import { getGitHubAppAccess, isGitHubAppConfigured } from './appAuth.js';
 
-export const GITHUB_DEVELOPMENT_RUNTIME_CAPABILITY = 'github-development';
+export const GITHUB_CAPABILITY = 'github-development';
 
 const MAX_TREE_PATHS = 6000;
 const MAX_PATHS_PER_BATCH = 240;
@@ -51,22 +51,6 @@ function repoParts(fullName) {
   if (parts.length !== 2 || !parts[0] || !parts[1]) throw new TypeError('repository must use owner/name form');
   return Object.freeze({ owner: parts[0], name: parts[1], fullName: repository });
 }
-function normalizePrivateKey(input) {
-  let key = required(input, 'GitHub App private key', 50000).replace(/^["']|["']$/gu, '').trim();
-  if (key.includes('\\n') && !key.includes('\n')) key = key.replace(/\\n/gu, '\n');
-  if (!key.includes('-----BEGIN')) {
-    const decoded = Buffer.from(key, 'base64').toString('utf8').trim();
-    if (decoded.includes('-----BEGIN')) key = decoded;
-  }
-  return key;
-}
-function base64url(value) { return Buffer.from(JSON.stringify(value)).toString('base64url'); }
-function appJwt({ appId, privateKey, now }) {
-  const issuedAt = Math.floor(now.getTime() / 1000) - 30;
-  const unsigned = `${base64url({ alg: 'RS256', typ: 'JWT' })}.${base64url({ iat: issuedAt, exp: issuedAt + 570, iss: String(appId) })}`;
-  const signer = createSign('RSA-SHA256'); signer.update(unsigned); signer.end();
-  return `${unsigned}.${signer.sign(normalizePrivateKey(privateKey)).toString('base64url')}`;
-}
 function languageOf(request) {
   return value(request?.input?.languageContext?.responseLanguage) ?? value(request?.input?.locale) ?? 'ru';
 }
@@ -91,49 +75,14 @@ function successMessage(locale, result) {
   return `Выполнено. Commit ${sha}. Изменено: ${paths}. ${result.summary}`;
 }
 
-export function createGitHubCredentialProvider({ env = process.env, fetchImpl = globalThis.fetch, clock = () => new Date() } = {}) {
-  if (typeof fetchImpl !== 'function') throw new TypeError('fetchImpl is required');
-  const appId = value(env.GITHUB_APP_ID);
-  const installationId = value(env.GITHUB_APP_INSTALLATION_ID);
-  const privateKey = value(env.GITHUB_APP_PRIVATE_KEY) ?? value(env.GITHUB_APP_PRIVATE_KEY_BASE64);
-  const staticToken = value(env.SG_GITHUB_DEVELOPMENT_TOKEN) ?? value(env.GITHUB_TOKEN);
-  const appConfigured = Boolean(appId && installationId && privateKey);
-  let cached = null;
-
-  async function token() {
-    if (!appConfigured) {
-      if (!staticToken) throw Object.assign(new Error('GitHub credential is not configured'), { code: 'github-credential-unavailable' });
-      return staticToken;
-    }
-    if (cached && cached.expiresAt - clock().getTime() > 60000) return cached.token;
-    const jwt = appJwt({ appId, privateKey, now: clock() });
-    const response = await fetchImpl(`https://api.github.com/app/installations/${encodeURIComponent(installationId)}/access_tokens`, {
-      method: 'POST',
-      headers: { Accept: 'application/vnd.github+json', Authorization: `Bearer ${jwt}`, 'X-GitHub-Api-Version': '2022-11-28', 'User-Agent': 'sg-github-development' }
-    });
-    if (!response?.ok) throw Object.assign(new Error(`GitHub App installation token HTTP ${response?.status ?? 'unknown'}`), { code: 'github-app-token-failed', retryable: response?.status >= 500 });
-    const body = await response.json();
-    const installationToken = required(body.token, 'installation token', 1000);
-    const expiresAt = new Date(required(body.expires_at, 'installation token expiry', 100)).getTime();
-    cached = { token: installationToken, expiresAt };
-    return installationToken;
-  }
-
-  return Object.freeze({
-    configured: Boolean(appConfigured || staticToken),
-    authentication: appConfigured ? 'github-app' : (staticToken ? 'deployment-token' : 'unconfigured'),
-    token
-  });
-}
-
-export function createGitHubRepositoryClient({ repository, branch, credentialProvider, fetchImpl = globalThis.fetch } = {}) {
+export function createDirectGitHubApi({ repository, branch, env = process.env, fetchImpl = globalThis.fetch, clock = () => new Date() } = {}) {
   const repo = repoParts(repository);
   const targetBranch = required(branch, 'branch', 300);
   if (['main', 'master'].includes(targetBranch)) throw new TypeError('protected default branch is not allowed for SG development');
-  if (!credentialProvider?.token) throw new TypeError('credentialProvider.token is required');
+  if (typeof fetchImpl !== 'function') throw new TypeError('fetchImpl is required');
 
   async function request(path, options = {}) {
-    const token = await credentialProvider.token();
+    const token = await getGitHubAppAccess({ env, fetchImpl, clock });
     const response = await fetchImpl(`https://api.github.com/repos/${repo.owner}/${repo.name}${path}`, {
       ...options,
       headers: { Accept: 'application/vnd.github+json', Authorization: `Bearer ${token}`, 'X-GitHub-Api-Version': '2022-11-28', 'User-Agent': 'sg-github-development', ...(options.headers ?? {}) }
@@ -224,17 +173,17 @@ function normalizePlan(result, snapshot) {
   return Object.freeze({ summary: required(parsed.summary, 'summary', 2000), commitMessage: required(parsed.commitMessage, 'commitMessage', 240), changes: Object.freeze(changes) });
 }
 
-export function createGitHubDevelopmentRuntime({ env = process.env, aiRouter, ownerGlobalUserId, fetchImpl = globalThis.fetch, clock = () => new Date() } = {}) {
-  const repository = value(env.SG_GITHUB_DEVELOPMENT_REPOSITORY) ?? value(env.GITHUB_REPO) ?? 'korzh260609-beep/garya-bot';
-  const branch = value(env.SG_GITHUB_DEVELOPMENT_BRANCH) ?? value(env.GITHUB_BRANCH) ?? 'dev/sg2.1-semantic';
+export function createGitHubCapability({ env = process.env, aiRouter, ownerGlobalUserId, fetchImpl = globalThis.fetch, clock = () => new Date() } = {}) {
+  const repository = value(env.GITHUB_REPO) ?? 'korzh260609-beep/garya-bot';
+  const branch = value(env.GITHUB_BRANCH) ?? 'dev/sg2.1-semantic';
   const owner = value(ownerGlobalUserId);
-  const credentials = createGitHubCredentialProvider({ env, fetchImpl, clock });
-  const client = createGitHubRepositoryClient({ repository, branch, credentialProvider: credentials, fetchImpl });
-  const configured = Boolean(credentials.configured && aiRouter?.route && owner);
-  const availability = Object.freeze({ configured, repository, branch, authentication: credentials.authentication, ownerBound: Boolean(owner), aiAvailable: Boolean(aiRouter?.route), connectionIdRequired: false });
+  const appConfigured = isGitHubAppConfigured(env);
+  const github = createDirectGitHubApi({ repository, branch, env, fetchImpl, clock });
+  const configured = Boolean(appConfigured && aiRouter?.route && owner);
+  const availability = Object.freeze({ configured, repository, branch, authentication: appConfigured ? 'github-app' : 'unconfigured', ownerBound: Boolean(owner), aiAvailable: Boolean(aiRouter?.route) });
 
   async function chooseFiles(instruction, actor, traceContext) {
-    const discovery = await client.snapshot([]);
+    const discovery = await github.snapshot([]);
     const paths = discovery.tree.filter((item) => item.type === 'blob').map((item) => item.path);
     const chosen = [];
     for (const part of batches(paths)) {
@@ -242,7 +191,7 @@ export function createGitHubDevelopmentRuntime({ env = process.env, aiRouter, ow
       chosen.push(...selectedFiles(response, part));
     }
     const unique = [...new Set(chosen)];
-    return client.snapshot(unique.slice(0, MAX_SELECTED_FILES));
+    return github.snapshot(unique.slice(0, MAX_SELECTED_FILES));
   }
 
   async function inspect(request, instruction) {
@@ -255,22 +204,22 @@ export function createGitHubDevelopmentRuntime({ env = process.env, aiRouter, ow
     const snapshot = await chooseFiles(instruction, request.actor, request.traceContext);
     const planResponse = await aiRouter.route({ task: 'github-development-change-plan', specialty: 'coding', reason: 'Generate one bounded deterministic GitHub change set from exact repository evidence', traceContext: request.traceContext, identityContext: request.actor, role: request.actor.roles?.[0] ?? 'guest', messages: [{ role: 'system', content: 'Implement the user instruction using only the supplied repository evidence. Return schema-valid JSON only. You may create files; update/delete only files supplied in evidence. Never write secrets, .env, credentials, main or master. Preserve existing project architecture.' }, { role: 'user', content: JSON.stringify({ instruction, repository, branch, exactHead: snapshot.revision, files: snapshot.files }) }], responseFormat: { name: 'github_development_plan', jsonSchema: PLAN_SCHEMA, strict: false }, maxOutputTokens: 12000 });
     const plan = normalizePlan(planResponse, snapshot);
-    const commitSha = await client.commit({ baselineHead: snapshot.revision, message: plan.commitMessage, changes: plan.changes });
-    const runs = await client.workflowRuns(commitSha);
+    const commitSha = await github.commit({ baselineHead: snapshot.revision, message: plan.commitMessage, changes: plan.changes });
+    const runs = await github.workflowRuns(commitSha);
     const result = Object.freeze({ repository, branch, baselineHead: snapshot.revision, commitSha, changedPaths: plan.changes.map((item) => item.path), summary: plan.summary, ci: Object.freeze({ exactHead: commitSha, runs, green: runs.length > 0 && runs.every((run) => run.status === 'completed' && run.conclusion === 'success'), pending: runs.length === 0 || runs.some((run) => run.status !== 'completed') }) });
     return Object.freeze({ ...result, message: successMessage(languageOf(request), result) });
   }
 
-  const capability = createCapability({ name: GITHUB_DEVELOPMENT_RUNTIME_CAPABILITY, version: '2.0.0', description: 'Single canonical SG GitHub repository development capability with internal authentication and exact-HEAD atomic commits.', actionTypes: ['github-development', 'github-development-status'], actionClasses: ['read-only', 'state-changing'], requiredPermissions: [`capability:${GITHUB_DEVELOPMENT_RUNTIME_CAPABILITY}`], requiredSources: [], requiredTools: [], risk: 'medium', estimatedCostUsd: 0.05, confirmationRequired: false, timeoutMs: 300000, maxRetries: 0, fallbackCapabilities: [], priority: 100, execute: async (request) => {
+  const capability = createCapability({ name: GITHUB_CAPABILITY, version: '2.0.0', description: 'Direct GitHub App API access for repository inspection and owner-authorized changes.', actionTypes: ['github-development', 'github-development-status'], actionClasses: ['read-only', 'state-changing'], requiredPermissions: [`capability:${GITHUB_CAPABILITY}`], requiredSources: [], requiredTools: [], risk: 'medium', estimatedCostUsd: 0.05, confirmationRequired: false, timeoutMs: 300000, maxRetries: 0, fallbackCapabilities: [], priority: 100, execute: async (request) => {
     const locale = languageOf(request);
     if (request.actor?.globalUserId !== owner) return { status: 'failed', data: { message: unavailableMessage(locale, 'owner authorization required'), availability }, error: { code: 'github-owner-required', message: 'owner authorization required', retryable: false } };
-    if (!credentials.configured) return { status: 'unavailable', data: { message: unavailableMessage(locale, 'credential is not configured'), availability }, error: { code: 'github-credential-unavailable', message: 'credential is not configured', retryable: false } };
+    if (!appConfigured) return { status: 'unavailable', data: { message: unavailableMessage(locale, 'GitHub App is not configured'), availability }, error: { code: 'github-app-unavailable', message: 'GitHub App is not configured', retryable: false } };
     const requestedRepository = value(request.input?.canonicalTarget?.repository); const requestedBranch = value(request.input?.canonicalTarget?.branch);
-    if ((requestedRepository && requestedRepository.toLowerCase() !== repository.toLowerCase()) || (requestedBranch && requestedBranch !== branch)) return { status: 'failed', data: { message: unavailableMessage(locale, 'requested target is outside configured workspace'), availability }, error: { code: 'github-target-outside-workspace', message: 'requested target is outside configured workspace', retryable: false } };
+    if ((requestedRepository && requestedRepository.toLowerCase() !== repository.toLowerCase()) || (requestedBranch && requestedBranch !== branch)) return { status: 'failed', data: { message: unavailableMessage(locale, 'requested target does not match the configured repository and branch'), availability }, error: { code: 'github-target-mismatch', message: 'requested target does not match the configured repository and branch', retryable: false } };
     try {
       const mode = request.input?.mode;
       const canonicalAction = request.input?.canonicalAction ?? (mode === 'status' || mode === 'inspect' ? 'github.repository.inspect' : 'github.development.execute');
-      if (request.actionRequest?.actionType === 'github-development-status' || mode === 'status') { const exactHead = await client.head(); return { status: 'success', data: { message: statusMessage(locale, repository, branch), availability, exactHead } }; }
+      if (request.actionRequest?.actionType === 'github-development-status' || mode === 'status') { const exactHead = await github.head(); return { status: 'success', data: { message: statusMessage(locale, repository, branch), availability, exactHead } }; }
       const instruction = required(request.input?.instruction ?? request.input?.text ?? request.input?.semanticMessage, 'instruction', 50000);
       if (canonicalAction === 'github.repository.inspect' || mode === 'inspect') return { status: 'success', data: { ...(await inspect(request, instruction)), availability } };
       if (!['github.development.execute', 'github.development.plan'].includes(canonicalAction)) return { status: 'failed', data: { message: unavailableMessage(locale, `unsupported canonical action ${canonicalAction}`), availability }, error: { code: 'github-action-unsupported', message: `unsupported canonical action ${canonicalAction}`, retryable: false } };
@@ -282,6 +231,6 @@ export function createGitHubDevelopmentRuntime({ env = process.env, aiRouter, ow
     }
   }});
 
-  async function start() { if (!credentials.configured) return availability; await client.head(); return availability; }
-  return Object.freeze({ capability, availability, client, start, stop: async () => undefined });
+  async function start() { if (!appConfigured) return availability; await github.head(); return availability; }
+  return Object.freeze({ capability, availability, github, start, stop: async () => undefined });
 }

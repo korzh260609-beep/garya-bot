@@ -1,4 +1,4 @@
-import { GITHUB_CAPABILITY_DEFINITIONS } from '../githubDevelopment/githubCapabilityRegistry.js';
+import { GITHUB_DEVELOPMENT_RUNTIME_CAPABILITY } from '../githubDevelopment/githubDevelopmentRuntime.js';
 import { TELEGRAM_CAPABILITY_MANIFEST } from '../telegram/telegramCapabilityManifest.js';
 import { HISTORICAL_CAPABILITY_MANIFEST } from '../history/historicalCapabilityManifest.js';
 import { PROJECT_MEMORY_CAPABILITY_MANIFEST } from '../projectMemory/projectMemoryCapabilityManifest.js';
@@ -108,20 +108,20 @@ function runtimeManifest(runtimeCapabilityNames, sourceRevision) {
 
 function githubManifest(sourceRevision) {
   return createCapabilityManifest({
-    sourceId: 'runtime:gh3-capability-registry',
+    sourceId: 'runtime:github-development',
     domain: 'github',
     sourceRevision,
-    sourceOfTruth: 'src/githubDevelopment/githubCapabilityRegistry.js',
-    capabilities: GITHUB_CAPABILITY_DEFINITIONS.map((definition) => ({
-      id: definition.name,
+    sourceOfTruth: 'src/githubDevelopment/githubDevelopmentRuntime.js',
+    capabilities: [{
+      id: GITHUB_DEVELOPMENT_RUNTIME_CAPABILITY,
       status: 'implemented',
-      requiresAuthorization: definition.protected,
-      requiresConnection: definition.repositoryScopeRequired,
-      connectionDependent: definition.repositoryScopeRequired,
-      permissionDependent: definition.protected,
-      riskTier: definition.riskTier,
+      requiresAuthorization: true,
+      requiresConnection: false,
+      connectionDependent: false,
+      permissionDependent: true,
+      riskTier: 2,
       runtimeAvailability: 'registered'
-    }))
+    }]
   });
 }
 

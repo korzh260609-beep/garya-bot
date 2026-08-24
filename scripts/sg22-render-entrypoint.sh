@@ -3,6 +3,7 @@ set -eu
 
 workspace="${OPENCLAW_WORKSPACE_DIR:-/data/workspace}"
 source_workspace="/app/sg/workspace"
+port="${OPENCLAW_GATEWAY_PORT:-8080}"
 
 mkdir -p "$workspace"
 
@@ -14,4 +15,9 @@ for file in IDENTITY.md SOUL.md AGENTS.md; do
   cp "$source_workspace/$file" "$workspace/$file"
 done
 
-exec node /app/openclaw.mjs gateway --allow-unconfigured
+# Render reaches the service through its container network, therefore the
+# Gateway must bind to LAN/0.0.0.0 rather than OpenClaw's loopback default.
+exec node /app/openclaw.mjs gateway \
+  --allow-unconfigured \
+  --bind lan \
+  --port "$port"

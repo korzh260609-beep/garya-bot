@@ -20,18 +20,25 @@ RUN pnpm install --no-frozen-lockfile \
       --config.supportedArchitectures.cpu="$(node -p 'process.arch')" \
       --config.supportedArchitectures.libc=glibc
 
-ENV OPENCLAW_PREFER_PNPM=1
-ENV NODE_ENV=production
+# Match the upstream Docker build sequence. A2UI may fail on constrained/cross
+# build hosts; upstream treats that as non-fatal and creates the same stub.
+RUN pnpm_config_verify_deps_before_run=false pnpm canvas:a2ui:bundle || \
+    (echo "A2UI bundle unavailable: creating upstream-compatible stub" && \
+     mkdir -p extensions/canvas/src/host/a2ui && \
+     echo "/* A2UI bundle unavailable in this build */" > extensions/canvas/src/host/a2ui/a2ui.bundle.js && \
+     echo "stub" > extensions/canvas/src/host/a2ui/.bundle.hash && \
+     rm -rf vendor/a2ui apps/shared/OpenClawKit/Tools/CanvasA2UI)
 
-# Keep the upstream Docker-oriented build path. A2UI is optional for this
-# server deployment and may be stubbed by the normal OpenClaw build itself.
+ENV OPENCLAW_PREFER_PNPM=1
+
 RUN NODE_OPTIONS=--max-old-space-size=8192 \
-    pnpm build:docker && \
-    pnpm ui:build
+    pnpm_config_verify_deps_before_run=false pnpm build:docker && \
+    pnpm_config_verify_deps_before_run=false pnpm ui:build
 
 RUN chmod 755 /app/scripts/sg22-render-entrypoint.sh && \
     chown -R node:node /app
 
+ENV NODE_ENV=production
 USER node
 
 ENTRYPOINT ["tini", "-s", "--"]

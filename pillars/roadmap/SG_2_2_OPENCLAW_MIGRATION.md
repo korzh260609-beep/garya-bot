@@ -129,7 +129,7 @@ Exit:
 - state survives restart;
 - rollback to SG 2.1 remains possible.
 
-Point 3A does not close or replace Point 12.
+Point 3A does not close or replace Point 13.
 
 ## Point 4 — OpenClaw GitHub/repository access for SG
 

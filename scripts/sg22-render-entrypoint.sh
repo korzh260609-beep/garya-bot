@@ -35,7 +35,10 @@ if [ ! -f "$config_path" ]; then
     "telegram": {
       "enabled": true,
       "dmPolicy": "allowlist",
-      "allowFrom": ["$telegram_owner_id"]
+      "allowFrom": ["$telegram_owner_id"],
+      "isolatedIngress": {
+        "enabled": false
+      }
     }
   },
   "commands": {
@@ -58,8 +61,11 @@ if [ -z "${OPENCLAW_GATEWAY_TOKEN:-}" ]; then
 fi
 
 # Restamp infrastructure and owner access on every boot so persistent state
-# cannot revert the one-owner Telegram policy.
-node /app/openclaw.mjs config set --batch-json "[{\"path\":\"gateway.mode\",\"value\":\"local\"},{\"path\":\"gateway.bind\",\"value\":\"lan\"},{\"path\":\"gateway.port\",\"value\":${port}},{\"path\":\"gateway.auth.mode\",\"value\":\"token\"},{\"path\":\"channels.telegram.dmPolicy\",\"value\":\"allowlist\"},{\"path\":\"channels.telegram.allowFrom\",\"value\":[\"${telegram_owner_id}\"]},{\"path\":\"commands.ownerAllowFrom\",\"value\":[\"telegram:${telegram_owner_id}\"]}]"
+# cannot revert the one-owner Telegram policy. Isolated Telegram ingress is
+# disabled on Render because the durable spool can wedge after restarts while
+# the poller keeps advancing offsets; direct polling keeps inbound delivery on
+# the main Telegram handler path for this single-owner SG instance.
+node /app/openclaw.mjs config set --batch-json "[{\"path\":\"gateway.mode\",\"value\":\"local\"},{\"path\":\"gateway.bind\",\"value\":\"lan\"},{\"path\":\"gateway.port\",\"value\":${port}},{\"path\":\"gateway.auth.mode\",\"value\":\"token\"},{\"path\":\"channels.telegram.dmPolicy\",\"value\":\"allowlist\"},{\"path\":\"channels.telegram.allowFrom\",\"value\":[\"${telegram_owner_id}\"]},{\"path\":\"channels.telegram.isolatedIngress.enabled\",\"value\":false},{\"path\":\"commands.ownerAllowFrom\",\"value\":[\"telegram:${telegram_owner_id}\"]}]"
 
 echo "SG 2.2 starting OpenClaw gateway on 0.0.0.0:${port}"
 exec node /app/openclaw.mjs gateway --bind lan --port "$port"

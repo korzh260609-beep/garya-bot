@@ -1,12 +1,10 @@
 services:
   - type: web
-    name: openclaw
+    name: sg-2-2-openclaw
     runtime: docker
     plan: starter
-    # The image CMD has no --allow-unconfigured, so a fresh disk with no
-    # openclaw.json exits before binding. Render has no shell before the first
-    # boot, so the flag has to come from the blueprint.
-    dockerCommand: node openclaw.mjs gateway --allow-unconfigured
+    dockerfilePath: ./Dockerfile.render
+    dockerContext: .
     healthCheckPath: /startupz
     envVars:
       - key: OPENCLAW_GATEWAY_PORT
@@ -17,6 +15,12 @@ services:
         value: /data/workspace
       - key: OPENCLAW_GATEWAY_TOKEN
         generateValue: true
+      - key: OPENCLAW_PRIMARY_MODEL
+        value: openai/gpt-5.4-mini
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
     disk:
       name: openclaw-data
       mountPath: /data

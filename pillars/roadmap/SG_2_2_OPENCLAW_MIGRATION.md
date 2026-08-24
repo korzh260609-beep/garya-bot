@@ -31,17 +31,17 @@ Forbidden by default:
 2. SG entity overlay on OpenClaw workspace — IMPLEMENTED
 3. SG Identity / Global ID / roles integration with OpenClaw identity — CLOSED
 3A. Telegram Test Runtime through OpenClaw — NOT STARTED
-4. SG Memory 2.0 integration with OpenClaw memory — NOT STARTED
-5. SG Project Memory 3.0 extension of OpenClaw memory/workspace — NOT STARTED
-6. SG PDK4 integration with OpenClaw development runtime — NOT STARTED
-7. SG Historical & Semantic Search extension of OpenClaw memory search — NOT STARTED
-8. SG Canonical Semantic Model integration with OpenClaw dispatch — NOT STARTED
-9. SG Action Gate policy binding to OpenClaw security/approvals — NOT STARTED
-10. SG AI policy and cost accounting integration with OpenClaw models/providers — NOT STARTED
-11. SG Tasks/Automation integration with OpenClaw automations/tasks — NOT STARTED
-12. SG behavior integration with OpenClaw Telegram and future channels — NOT STARTED
-13. SG Sources integration with OpenClaw web/file/browser tools — NOT STARTED
-14. SG GitHub capability integration with OpenClaw/Codex development tools — NOT STARTED
+4. OpenClaw GitHub/repository access for SG — NOT STARTED
+5. SG Memory 2.0 integration with OpenClaw memory — NOT STARTED
+6. SG Project Memory 3.0 extension of OpenClaw memory/workspace — NOT STARTED
+7. SG PDK4 integration with OpenClaw development runtime — NOT STARTED
+8. SG Historical & Semantic Search extension of OpenClaw memory search — NOT STARTED
+9. SG Canonical Semantic Model integration with OpenClaw dispatch — NOT STARTED
+10. SG Action Gate policy binding to OpenClaw security/approvals — NOT STARTED
+11. SG AI policy and cost accounting integration with OpenClaw models/providers — NOT STARTED
+12. SG Tasks/Automation integration with OpenClaw automations/tasks — NOT STARTED
+13. SG behavior integration with OpenClaw Telegram and future channels — NOT STARTED
+14. SG Sources integration with OpenClaw web/file/browser tools — NOT STARTED
 15. SG groups/users/subscriptions extension of OpenClaw channel access — NOT STARTED
 16. SG observability extension of OpenClaw diagnostics/telemetry — NOT STARTED
 17. Verify OpenClaw remains authoritative and no duplicate SG systems exist — NOT STARTED
@@ -131,7 +131,46 @@ Exit:
 
 Point 3A does not close or replace Point 12.
 
-## Point 4 — SG Memory 2.0 integration with OpenClaw memory
+## Point 4 — OpenClaw GitHub/repository access for SG
+
+Purpose:
+give SG the standard repository-development abilities already available through OpenClaw and its Codex/development tools before Memory, Project Memory and PDK4 are implemented.
+
+OpenClaw ownership:
+- Codex/development runtime;
+- workspace, command, file and Git tools;
+- repository discovery and normal Git operations;
+- existing tool approvals, credentials and execution policy.
+
+Implementation:
+- connect the existing OpenClaw development runtime to GitHub using the credentials already available to the deployment;
+- show OpenClaw the current SG repository and current SG 2.2 branch as working context;
+- verify standard OpenClaw abilities to discover repositories and branches, read/search files and history, inspect diffs and CI, and perform commit/push when the user requests it and GitHub permissions allow it;
+- keep repository and branch selection dynamic and controlled by the user's current task;
+- use the current repository and branch as context, not as hard-coded runtime restrictions.
+
+Do not:
+- create an SG GitHub runtime, executor, capability system, Git client, credential stack or Action Gate;
+- hard-code one repository or branch;
+- restrict OpenClaw to the current SG repository or SG 2.2 branch;
+- forbid `main` or other branches in runtime code;
+- reduce standard OpenClaw repository capabilities;
+- introduce special PDK4-only GitHub access.
+
+Authority:
+- the user's instruction selects the repository, branch and requested operation;
+- configured GitHub permissions determine what is technically allowed;
+- existing OpenClaw security and approval mechanisms remain authoritative;
+- repository-specific rules belong to the task/context, not to a new SG restriction layer.
+
+Exit:
+- from the active SG interface, OpenClaw can discover and use the current SG repository and SG 2.2 branch;
+- read, search, history, diff and CI inspection are verified;
+- an authorized commit/push path is verified when explicitly requested;
+- OpenClaw remains able to work with other permitted repositories and branches;
+- no parallel SG GitHub subsystem exists.
+
+## Point 5 — SG Memory 2.0 integration with OpenClaw memory
 
 OpenClaw ownership:
 - `USER.md`, `MEMORY.md`, daily memory;
@@ -147,7 +186,7 @@ SG scope:
 Do not:
 - port a second RecallEngine, independent memory store, indexer or search engine.
 
-## Point 5 — SG Project Memory 3.0 extension
+## Point 6 — SG Project Memory 3.0 extension
 
 OpenClaw ownership:
 - workspace, agent memory, sessions and project context.
@@ -159,7 +198,7 @@ SG scope:
 Do not:
 - create an unrelated parallel project-memory runtime when OpenClaw memory can own storage/search.
 
-## Point 6 — SG PDK4 integration with OpenClaw development runtime
+## Point 7 — SG PDK4 integration with OpenClaw development runtime
 
 OpenClaw ownership:
 - Codex harness and agent runtime;
@@ -173,7 +212,7 @@ SG scope:
 Do not:
 - create a second coding agent, shell runtime, Git client or development executor.
 
-## Point 7 — SG Historical & Semantic Search extension
+## Point 8 — SG Historical & Semantic Search extension
 
 OpenClaw ownership:
 - semantic `memory_search`;
@@ -188,7 +227,7 @@ SG scope:
 Do not:
 - create a second semantic index, recall engine or disconnected search orchestrator.
 
-## Point 8 — SG Canonical Semantic Model integration
+## Point 9 — SG Canonical Semantic Model integration
 
 OpenClaw ownership:
 - model interpretation;
@@ -203,7 +242,7 @@ SG scope:
 Do not:
 - build a second agent loop, router, tool dispatcher or Telegram-only semantic pipeline.
 
-## Point 9 — SG Action Gate binding
+## Point 10 — SG Action Gate binding
 
 OpenClaw ownership:
 - approvals;
@@ -219,7 +258,7 @@ Do not:
 - create a second Action Gate, approval store or permission engine;
 - allow SG roles to bypass OpenClaw enforcement.
 
-## Point 10 — SG AI policy and cost accounting integration
+## Point 11 — SG AI policy and cost accounting integration
 
 OpenClaw ownership:
 - providers, models, authentication, routing, failover and runtime selection;
@@ -233,7 +272,7 @@ SG scope:
 Do not:
 - create a second provider client, model runtime, authentication store or failover stack.
 
-## Point 11 — SG Tasks/Automation integration
+## Point 12 — SG Tasks/Automation integration
 
 OpenClaw ownership:
 - persistent automations scheduler;
@@ -251,7 +290,7 @@ Do not:
 - port SG Automation 2.0 as a second scheduler;
 - create a second task queue, worker, executor, run ledger or cron service.
 
-## Point 12 — SG behavior across OpenClaw channels
+## Point 13 — SG behavior across OpenClaw channels
 
 OpenClaw ownership:
 - Telegram and other channel plugins;
@@ -268,7 +307,7 @@ SG scope:
 Do not:
 - create separate channel runtimes or channel-specific copies of SG core logic.
 
-## Point 13 — SG Sources integration
+## Point 14 — SG Sources integration
 
 OpenClaw ownership:
 - web search, web fetch, browser and file tools;
@@ -280,22 +319,6 @@ SG scope:
 
 Do not:
 - duplicate web/file/browser clients or source-provider plugins.
-
-## Point 14 — SG GitHub capability integration
-
-OpenClaw ownership:
-- Codex/development runtime;
-- command, file and Git tooling;
-- tool approvals and execution policy.
-
-SG scope:
-- GitHub App authentication where required;
-- repository/branch authority for SG;
-- canonical GitHub operations and exact-HEAD verification;
-- SG-specific development policy, evidence and presentation.
-
-Do not:
-- create a second GitHub development runtime, executor, capability system, Git client, Action Gate or credential stack.
 
 ## Point 15 — SG groups/users/subscriptions extension
 

@@ -4,7 +4,9 @@ set -eu
 state_dir="${OPENCLAW_STATE_DIR:-/data/.openclaw}"
 workspace="${OPENCLAW_WORKSPACE_DIR:-/data/workspace}"
 source_workspace="/app/sg/workspace"
-port="${OPENCLAW_GATEWAY_PORT:-8080}"
+# Render injects PORT (typically 10000) for web services. Prefer it so the
+# internal health check reaches the same socket the Gateway binds to.
+port="${PORT:-${OPENCLAW_GATEWAY_PORT:-8080}}"
 primary_model="${OPENCLAW_PRIMARY_MODEL:-openai/gpt-5.4-mini}"
 config_path="$state_dir/openclaw.json"
 
@@ -51,6 +53,7 @@ fi
 
 # Render reaches the service through its container network, therefore the
 # Gateway must bind to LAN/0.0.0.0 rather than OpenClaw's loopback default.
+echo "SG 2.2 starting OpenClaw gateway on port ${port}"
 exec node /app/openclaw.mjs gateway \
   --allow-unconfigured \
   --bind lan \

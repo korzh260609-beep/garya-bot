@@ -4,9 +4,8 @@ set -eu
 state_dir="${OPENCLAW_STATE_DIR:-/data/.openclaw}"
 workspace="${OPENCLAW_WORKSPACE_DIR:-/data/workspace}"
 source_workspace="/app/sg/workspace"
-# Render injects PORT (typically 10000) for web services. Prefer it so the
-# internal health check reaches the same socket the Gateway binds to.
-port="${PORT:-${OPENCLAW_GATEWAY_PORT:-8080}}"
+# Render injects PORT (10000 by default) for web services.
+port="${PORT:-10000}"
 primary_model="${OPENCLAW_PRIMARY_MODEL:-openai/gpt-5.4-mini}"
 config_path="$state_dir/openclaw.json"
 
@@ -20,8 +19,8 @@ for file in IDENTITY.md SOUL.md AGENTS.md; do
   cp "$source_workspace/$file" "$workspace/$file"
 done
 
-# Seed only the first deployment. Later operator/config changes in persistent
-# OpenClaw state remain authoritative and are not overwritten on restart.
+# Seed SG-specific agent/channel config only on the first deployment.
+# Existing persistent OpenClaw state remains authoritative for later operator changes.
 if [ ! -f "$config_path" ]; then
   cat > "$config_path" <<EOF
 {
@@ -51,10 +50,17 @@ if [ ! -f "$config_path" ]; then
 EOF
 fi
 
-# Render reaches the service through its container network, therefore the
-# Gateway must bind to LAN/0.0.0.0 rather than OpenClaw's loopback default.
-echo "SG 2.2 starting OpenClaw gateway on port ${port}"
-exec node /app/openclaw.mjs gateway \
-  --allow-unconfigured \
-  --bind lan \
-  --port "$port"
+# Render/OpenClaw runtime contract.
+# These infrastructure settings must be restamped on every boot because the
+# persistent disk can contain an older config created before Render support.
+# Official OpenClaw container guidance requires local gateway mode + LAN bind;
+# non-loopback bind requires auth, supplied by OPENCLAW_GATEWAY_TOKEN.
+if [ -z "${OPENCLAW_GATEWAY_TOKEN:-}" ]; then
+  echo "SG 2.2 startup error: OPENCLAW_GATEWAY_TOKEN is required for LAN gateway auth" >&2
+  exit 1
+fi
+
+node /app/openclaw.mjs config set --batch-json "[{\"path\":\"gateway.mode\",\"value\":\"local\"},{\"path\":\"gateway.bind\",\"value\":\"lan\"},{\"path\":\"gateway.port\",\"value\":${port}},{\"path\":\"gateway.auth.mode\",\"value\":\"token\"}]"
+
+echo "SG 2.2 starting OpenClaw gateway on 0.0.0.0:${port}"
+exec node /app/openclaw.mjs gateway --bind lan --port "$port"

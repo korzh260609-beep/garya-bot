@@ -250,3 +250,11 @@ Before adding any identity, profile, role, permission, session, or access compon
 ## Test evidence
 
 `src/sg/global-profile.test.ts` covers repeated lookup, different users, linked Telegram/Discord identities, unlinked identities, concurrent first contact, persistence reload, deterministic guest role, role/status transitions, and denied transitions. Existing OpenClaw session-key behavior is unchanged because the integration consumes `resolveLinkedDirectPeerId` without modifying routing or security enforcement.
+
+
+## Checklist synchronization
+
+- Canonical migration checklist: `pillars/roadmap/SG_2_2_OPENCLAW_MIGRATION.md`.
+- Checklist Point 3 status: CLOSED.
+- The next test-enablement block is Point 3A — Telegram Test Runtime.
+- Point 3A must expose this completed identity context through the existing OpenClaw Telegram channel without changing the identity architecture or reopening Point 3.

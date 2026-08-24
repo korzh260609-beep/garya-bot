@@ -4,12 +4,12 @@ import { createCapabilityManifest, createSystemCapabilityCatalog } from '../src/
 import { createDeploymentSelfKnowledgeSources } from '../src/selfKnowledge/deploymentSelfKnowledge.js';
 import { createInMemorySelfKnowledgeStore, createSelfKnowledgeBuilder, createSelfKnowledgeService } from '../src/selfKnowledge/selfKnowledge.js';
 
-test('system capability catalog aggregates runtime, GH3 and subsystem manifests', () => {
+test('system capability catalog aggregates runtime, unified GitHub and subsystem manifests', () => {
   const catalog = createSystemCapabilityCatalog({ runtimeCapabilityNames: ['memory2-recall', 'task-create'], sourceRevision: 'r1' });
   const ids = new Set(catalog.capabilities.map((item) => item.id));
   assert.ok(ids.has('memory2-recall'));
   assert.ok(ids.has('task-create'));
-  assert.ok(ids.has('github.repository.read'));
+  assert.ok(ids.has('github-development'));
   assert.ok(ids.has('telegram.group.observe'));
   assert.ok(ids.has('telegram.channel.publish'));
   assert.ok(ids.has('history.semantic-hybrid-search'));
@@ -53,11 +53,11 @@ test('deployment Self Knowledge consumes compact cached catalog without external
   assert.equal(fact.value.grantsAuthority, false);
   assert.ok(fact.value.domains.custom.includes('custom.dynamic.capability'));
   assert.ok(fact.value.domains.telegram.includes('telegram.group.observe'));
-  assert.ok(fact.value.domains.github.includes('github.code.search'));
+  assert.ok(fact.value.domains.github.includes('github-development'));
   assert.ok(fact.value.domains['historical-search'].includes('history.fact-history'));
   assert.equal(fact.value.defaultStatus, 'implemented');
   assert.equal(fact.value.statusOverrides['telegram.subscription.lifecycle'], 'partial');
-  assert.ok(fact.value.permissionDependent.includes('github.contents.write'));
+  assert.ok(fact.value.permissionDependent.includes('github-development'));
   assert.equal(Object.hasOwn(fact.value, 'capabilities'), false, 'bounded Self Knowledge must not duplicate full catalog metadata on every response');
 });
 

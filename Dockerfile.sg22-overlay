@@ -1,0 +1,14 @@
+ARG SG22_BASE_IMAGE
+FROM ${SG22_BASE_IMAGE}
+
+USER root
+WORKDIR /app
+
+# SG 2.2 entity overlay above the compiled OpenClaw runtime.
+COPY --chown=node:node sg/workspace /app/sg/workspace
+COPY --chown=node:node scripts/sg22-render-entrypoint.sh /app/scripts/sg22-render-entrypoint.sh
+RUN chmod 755 /app/scripts/sg22-render-entrypoint.sh
+
+USER node
+ENTRYPOINT ["tini", "-s", "--"]
+CMD ["sh", "/app/scripts/sg22-render-entrypoint.sh"]

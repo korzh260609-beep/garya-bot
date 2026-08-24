@@ -1,16 +1,4 @@
-FROM ghcr.io/openclaw/openclaw:2026.8.1
+FROM ghcr.io/korzh260609-beep/garya-bot-sg22:dev
 
-USER root
-WORKDIR /app
-
-# SG 2.2 is an entity overlay above the authoritative OpenClaw runtime.
-# Reuse the official prebuilt OpenClaw release image and add only SG-owned
-# workspace/bootstrap material; do not rebuild or fork OpenClaw on Render.
-COPY --chown=node:node sg/workspace /app/sg/workspace
-COPY --chown=node:node scripts/sg22-render-entrypoint.sh /app/scripts/sg22-render-entrypoint.sh
-RUN chmod 755 /app/scripts/sg22-render-entrypoint.sh
-
-USER node
-
-ENTRYPOINT ["tini", "-s", "--"]
-CMD ["sh", "/app/scripts/sg22-render-entrypoint.sh"]
+# Render runs the already-built SG 2.2/OpenClaw image published by GitHub Actions.
+# No OpenClaw compilation happens on the 512 MB Render instance.

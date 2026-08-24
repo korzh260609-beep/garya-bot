@@ -1,5 +1,0 @@
-const handlersByHarness=new WeakMap();
-function normalize(handler){const kind=typeof handler?.kind==='string'?handler.kind.trim():'';if(!kind)throw new TypeError('task handler kind is required');if(typeof handler.authorize!=='function'||typeof handler.execute!=='function')throw new TypeError(`task handler ${kind} must implement authorize and execute`);return Object.freeze({kind,authorize:handler.authorize,execute:handler.execute});}
-export function registerDeploymentTaskHandler(harness,handler){if(!harness||(typeof harness!=='object'&&typeof harness!=='function'))throw new TypeError('harness is required');const normalized=normalize(handler);let map=handlersByHarness.get(harness);if(!map){map=new Map();handlersByHarness.set(harness,map);}if(map.has(normalized.kind))throw new Error(`deployment task handler already registered: ${normalized.kind}`);map.set(normalized.kind,normalized);return normalized;}
-export function listDeploymentTaskHandlers(harness){const map=handlersByHarness.get(harness);return Object.freeze(map?[...map.values()]:[]);}
-export function clearDeploymentTaskHandlers(harness){handlersByHarness.delete(harness);}

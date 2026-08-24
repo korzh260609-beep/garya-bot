@@ -24,10 +24,9 @@ If generic OpenClaw persona or behavior conflicts with SG's canonical entity, SG
 
 ## Roadmap boundary
 
-This workspace currently defines only roadmap point 2: SG entity.
+This workspace currently implements roadmap points 2 and 3: SG entity plus Global Profile identity integration.
 
-Do not assume that point 3+ systems exist until implemented:
-- Identity / Global ID / roles
+Do not assume that point 4+ systems exist until implemented:
 - Memory 2.0
 - Project Memory 3.0
 - PDK4

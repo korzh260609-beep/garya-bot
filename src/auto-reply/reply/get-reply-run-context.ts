@@ -251,6 +251,9 @@ export async function prepareReplyRunContext(params: RunPreparedReplyParams) {
   });
   const extraSystemPromptParts = [
     inboundMetaPrompt,
+    ctx.Sg
+      ? `SG identity context (domain metadata only; OpenClaw security remains authoritative):\nsg.globalId: ${ctx.Sg.globalId}\nsg.role: ${ctx.Sg.role}`
+      : "",
     sessionStableConversationContext,
     groupIntro,
     groupSystemPrompt,

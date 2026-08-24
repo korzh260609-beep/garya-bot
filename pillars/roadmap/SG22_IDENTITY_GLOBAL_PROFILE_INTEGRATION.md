@@ -1,7 +1,7 @@
 # SG 2.2 — Block 3: Identity & Global Profile Integration
 
 ## Status
-PLANNED
+CLOSED
 
 ## Purpose
 Integrate SG Global ID, SG profile, and SG domain roles into the existing OpenClaw identity, session, routing, and access-control architecture without creating a parallel identity or permission system.
@@ -236,3 +236,17 @@ Block 3 is CLOSED only when:
 
 ## Implementation constraint for all future work
 Before adding any identity, profile, role, permission, session, or access component, first verify whether OpenClaw already provides the mechanism. If it exists, extend/reuse it. New SG-owned components are allowed only for SG-specific semantics that OpenClaw does not already provide.
+
+## Implemented architecture
+
+- OpenClaw remains authoritative for sender identity, `session.identityLinks`, canonical direct-peer linking, routing, session scoping, allowlists, pairing and access enforcement.
+- `src/sg/global-profile.ts` owns only SG domain data: persistent Global ID, profile lifecycle, role metadata and the deterministic `sg-<role>` policy selector.
+- The canonical SG lookup key is `linked:<OpenClaw canonical identity>` when `session.identityLinks` resolves the sender, otherwise `channel:<channel>:<sender>`.
+- Profiles persist at `<OPENCLAW_STATE_DIR>/sg/global-profiles.json` with atomic replacement, restrictive file mode and a fail-closed inter-process lock.
+- First contact creates `guest`; controlled profile mutation can transition `guest`, `citizen`, and `monarch` or change lifecycle status. Role metadata never authorizes an operation by itself.
+- Dispatch resolves the profile once and attaches `Sg` to the existing inbound context. The model runtime receives `sg.globalId` and `sg.role`; transport-specific identifiers remain outside downstream SG identity.
+- Missing sender identity leaves SG context absent. Invalid storage and unauthorized profile mutations fail closed instead of creating a second or guessed identity.
+
+## Test evidence
+
+`src/sg/global-profile.test.ts` covers repeated lookup, different users, linked Telegram/Discord identities, unlinked identities, concurrent first contact, persistence reload, deterministic guest role, role/status transitions, and denied transitions. Existing OpenClaw session-key behavior is unchanged because the integration consumes `resolveLinkedDirectPeerId` without modifying routing or security enforcement.

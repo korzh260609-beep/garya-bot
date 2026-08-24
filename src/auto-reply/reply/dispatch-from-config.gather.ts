@@ -23,6 +23,7 @@ import { createDiagnosticMessageLifecycle } from "../../logging/message-lifecycl
 import { stripLegacyMediaContextFields } from "../../media/media-facts.js";
 import { getGlobalHookRunner } from "../../plugins/hook-runner-global.js";
 import { normalizeTtsAutoMode } from "../../tts/tts-config.js";
+import { resolveSgIdentityContext } from "../../sg/global-profile.js";
 import type { FinalizedRuntimeMsgContext as FinalizedMsgContext } from "../templating.js";
 import { normalizeVerboseLevel } from "../thinking.js";
 import type {
@@ -65,6 +66,17 @@ export async function gatherDispatchRequest(
   const ctx = isFinalizedInboundContext(params.ctx)
     ? params.ctx
     : finalizeInboundContext(params.ctx);
+  if (!ctx.Sg) {
+    const channel = normalizeLowercaseStringOrEmpty(ctx.Surface ?? ctx.Provider ?? "");
+    const senderId = normalizeOptionalString(ctx.SenderId ?? ctx.From);
+    if (channel && senderId) {
+      ctx.Sg = await resolveSgIdentityContext({
+        channel,
+        senderId,
+        identityLinks: params.cfg.session?.identityLinks,
+      });
+    }
+  }
   const turnAdoptionLifecycle = params.replyOptions?.turnAdoptionLifecycle;
   const turnAdoptionState = { adopted: false };
   const normalizedParams: DispatchFromConfigParams = {

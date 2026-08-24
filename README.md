@@ -1,169 +1,126 @@
-# SG (Советник GARYA)
+# SG 2.1 Semantic
 
-[![SG Minimal CI](https://github.com/korzh260609-beep/garya-bot/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/korzh260609-beep/garya-bot/actions/workflows/ci.yml)
+This branch is the active development and production source for SG 2.1.
 
-SG (Советник GARYA) — модульный универсальный AI-ассистент и Task Engine-система, построенная по принципу identity-first архитектуры и строгой этапной разработки.
+- Repository: `korzh260609-beep/garya-bot`
+- Working/deployment branch: `dev/sg2.1-semantic`
+- `main` is not the SG 2.1 working branch.
 
-SG проектируется как мультиплатформенная decision-support система.  
-Telegram на текущем этапе используется как transport layer, а не как основа архитектуры.
+## Current canonical status
 
----
+**Canonical current-status index: `pillars/roadmap/CURRENT_STATUS.md`.**
 
-## 🏗 Архитектура
+Status statements in this README describe the current active branch. Historical checkpoints, `old/` and `archive/` documents remain historical evidence and must not override newer code/CI/live evidence. Large roadmap/program documents remain authoritative for requirements and acceptance contracts, but an old lifecycle label inside them does not override the current-status index plus stronger implementation/CI/live evidence.
 
-- Node.js (ESM)
-- Express — HTTP / Webhook
-- PostgreSQL — память, задачи, access-requests
-- Telegram — текущий транспорт
-- Render — хостинг
-- GitHub Actions — CI
-- Модульная AI-интеграция
+Evidence priority for current-state claims:
 
----
+`live runtime evidence → current HEAD/CI → production wiring + tests → current evidence/status docs → README/roadmap prose → historical/superseded docs`.
 
-## 🔑 Ключевые принципы
+When sources conflict, SG must qualify the conflict instead of presenting stale documentation as current implementation truth.
 
-- Identity-first (монарх определяется только через `process.env.MONARCH_USER_ID`)
-- Никакого доверия к `chat_id`
-- `senderIdStr (msg.from.id)` — source of truth
-- Жёсткое разделение слоёв (Transport / Core / Sources / AI)
-- Source-first подход
-- Строгая этапность (ROADMAP + WORKFLOW)
-- 1 шаг = 1 действие
-- Никакой автодеплой без контроля монарха
-- DEV-GATE: административные команды работают только в личном чате монарха
+### Core / numbered blocks
 
----
+- Blocks 0–16.17 — implemented; their recorded acceptance state remains as documented in the corresponding roadmap/evidence files.
+- **Block 16.18 — Monarch Control / Owner Security — IMPLEMENTED / WIRED / CI-VERIFIED; formal block closure is still pending explicit acceptance sign-off.**
+  - canonical Monarch Global ID binding exists;
+  - owner-only capability policy exists;
+  - Owner Security is composed before the ordinary Action Gate;
+  - fail-closed owner mismatch/unconfigured behavior, lockdown, rate limiting and audit exist;
+  - this does not replace or weaken Identity, Scope, Resource Authority or Action Gate.
+- **Block 17 — Render Deployment — production web runtime has live deployment evidence; formal closure remains dependent on the complete Block 17 acceptance checklist/evidence set.**
+- Blocks 18–19 — completed / acceptance-verified according to their canonical roadmap/evidence.
 
-## ⚙ Основные модули
+### Cross-cutting programs
 
-### 🧠 Core / Task Engine
+- Memory 2.0 M1–M9 — **CLOSED**.
+- Project Memory 3.0 PM3.1–PM3.12 — **CLOSED**.
+- Project Development Knowledge 4.0 PDK4.1–PDK4.12 — **CLOSED / CI-verified**.
+- **Semantic Deterministic Execution — ACCEPTED ARCHITECTURE / PLANNED IMPLEMENTATION.**
+  - natural-language meaning is resolved semantically and transport-neutrally;
+  - meaning is normalized into bounded canonical intent/action/time/scope/delivery values;
+  - after canonicalization, temporal resolution, authorization, state mutation, execution and post-condition verification are deterministic;
+  - equivalent requests across Telegram, Discord, Web/API, Email and future SG-native interfaces must produce the same core execution plan modulo transport/delivery metadata;
+  - static wording must never substitute for an executable workflow when the user requested work to be performed later;
+  - Action Gate selection/authorization is not success; authoritative post-condition evidence is required.
+- **PDK4.13 — LIVE ACCEPTANCE / NOT CLOSED.**
+  - production GitHub repository read is implemented and credential-bound;
+  - current branch HEAD, recursive tree, recent commits, changed files and bounded relevant file content are read with GET-only repository access;
+  - production `repository-analyze` uses the live read service;
+  - capability output is composed into a user-facing answer rather than exposed as a tool status;
+  - repository evidence and final response-composition input are bounded to prevent `INPUT_TOO_LARGE`;
+  - live Telegram acceptance has confirmed a substantive repository-derived answer;
+  - PDK4.13 remains open until its full production acceptance/closure criteria are explicitly satisfied.
+- Telegram Workspace Manager:
+  - TWM1.1–TWM1.11 have implementation/evidence records in the repository;
+  - TWM1.12 has advanced through real production/live acceptance and is not a future-only “NEXT” stage;
+  - TWM1.13 Mini App is implemented and live-exercised for the confirmed management flows;
+  - **TWM1.14 and TWM1.15 are implementation/live-acceptance work in progress and remain NOT CLOSED.**
+  - lifecycle labels in the original large TWM program saying TWM1.12 is next or TWM1.13–1.15 are merely planned are superseded for current-state reporting; their detailed requirements/gates remain valid.
+- SG Access Control System 1.0 — **PLANNED / NOT IMPLEMENTED** unless newer code/CI/live evidence explicitly supersedes that state.
+- GitHub direct access — SG 2.0-compatible GitHub App JWT, short-lived installation token and direct API calls to `dev/sg2.1-semantic`.
+- Lifecycle Activity (LA) — **ACCEPTED ARCHITECTURE / PLANNED / NOT IMPLEMENTED**.
+  - LA1: append-only Activity Event Core and bounded query API;
+  - LA2: semantic activity queries such as “what did you do today?” or “what happened with GitHub?”;
+  - LA3: human-readable short/normal/detailed activity summaries;
+  - the first-version contract reserves actor/workspace/transport/entity/correlation/importance/visibility fields for future scaling;
+  - LA is observational and non-authoritative: failure to record an activity event must not fail or roll back the authoritative domain action.
 
-- Создание задач
-- Запуск через AI
-- Статусы: active / paused / deleted
-- Планирование
-- Подготовка к масштабированию (JobRunner skeleton)
+## Requirements
 
-Команды:
+- Node.js 22
+- npm 10+
 
-/tasks  
-/newtask <title> | <note>  
-/run <id>  
-/stop_tasks_type  
+## Start / verification
 
----
+```bash
+npm ci
+npm test
+npm run check
+npm start
+npm run start:worker
+```
 
-### 🌐 Sources Layer
+Production AI remains reachable only through the SG AI Router and explicit production policy. Secrets must stay in the deployment credential/secret boundary and must not be committed or exposed through ordinary diagnostics or model context.
 
-Унифицированная система подключения источников данных.
+## Current production architecture
 
-Команды:
+Canonical request path:
 
-/sources  
-/sources_diag  
-/source <key>  
-/diag_source <key>  
+`Platform Input → Transport Adapter → Identity/Scope → Context/Settings/Language/Temporal layers → Semantic Kernel → Canonical Semantic Model → Deterministic Validation / Execution Plan → Decision Engine → Resource Authority where required → Owner Security where owner-sensitive → Action Gate → Deterministic Capability/Domain Runtime → Post-condition Verification → Response composition → Delivery → Observability`.
 
----
+Core invariants:
 
-### 📂 GitHub Integration (Read-only)
+- AI is an execution/reasoning component; SG owns decisions and system identity.
+- Natural-language meaning is semantic; authoritative execution after canonicalization is deterministic.
+- Telegram and other transports are adapters, not owners of task, automation, temporal or action semantics.
+- No production model provider is called directly outside AI Router.
+- Identity/roles/grants/owner authority cannot be created from wording, usernames, display names or AI inference.
+- Resource Authority and Action Gate remain mandatory where applicable.
+- Owner Security only tightens privileged execution; it does not bypass existing gates.
+- A selected/authorized action is not considered completed until the authoritative state/result has been verified.
+- GitHub repository access uses direct GitHub App API calls; state-changing operations still require owner authority and Action Gate.
+- Current-state claims must respect provenance/currentness; historical or superseded facts remain qualified.
+- Lifecycle Activity, when implemented, remains a fail-open append-only observer of meaningful actions and cannot become an execution dependency, authority source, replacement memory store or duplicate domain state.
 
-Интеграция с репозиторием:
+## Active status documents
 
-/reindex  
-/repo_tree  
-/repo_status  
-/repo_search  
-/repo_analyze  
-/repo_review  
-/repo_diff  
+- `pillars/roadmap/CURRENT_STATUS.md` — canonical current-state index; read this before interpreting older lifecycle labels in large program documents.
+- `pillars/architecture/SEMANTIC_DETERMINISTIC_EXECUTION.md` — SG-wide semantic→canonical→deterministic execution contract.
+- `pillars/roadmap/16_18_MONARCH_CONTROL_OWNER_SECURITY.md`
+- `pillars/architecture/MONARCH_OWNER_SECURITY.md`
+- `pillars/roadmap/17_RENDER_DEPLOYMENT.md`
+- `pillars/roadmap/PROJECT_DEVELOPMENT_KNOWLEDGE_4_0_PROGRAM.md`
+- `pillars/roadmap/PROJECT_DEVELOPMENT_KNOWLEDGE_4_13_LIVE_PRODUCTION_WIRING.md`
+- `pillars/architecture/PROJECT_DEVELOPMENT_KNOWLEDGE_4_13_LIVE_PRODUCTION_WIRING.md`
+- `pillars/workflow/PROJECT_DEVELOPMENT_KNOWLEDGE_4_13_LIVE_PRODUCTION_WIRING_WORKFLOW.md`
+- `pillars/roadmap/TELEGRAM_WORKSPACE_MANAGER_1_0_PROGRAM.md` — requirements/history; current lifecycle labels are qualified by `CURRENT_STATUS.md` where they conflict.
+- `pillars/roadmap/TELEGRAM_WORKSPACE_MANAGER_1_15_COMMUNITY_OPERATIONS_PROGRAM.md` — requirements; current implementation/live state is qualified by `CURRENT_STATUS.md` where the older header conflicts.
+- `pillars/roadmap/SG_ACCESS_CONTROL_SYSTEM_1_0_PROGRAM.md`
+- `pillars/architecture/LIFECYCLE_ACTIVITY.md`
+- `pillars/roadmap/LIFECYCLE_ACTIVITY_PROGRAM.md`
+- `pillars/workflow/LIFECYCLE_ACTIVITY_WORKFLOW.md`
+- `docs/checkpoints/SG2.1_2026-08-15_1946.md` — immutable historical rollback/live checkpoint.
+- `evidence/LIVE_RUNTIME_BASELINES.md`
+- `evidence/PDK4_13_LIVE_CONTINUOUS_INGESTION_PROBE_2026-08-16.md`
 
-Поддерживается snapshot-индексация и безопасный анализ файлов.  
-Запись кода по умолчанию отключена (manual apply only).
-
----
-
-### 🔐 Identity & Access
-
-Монарх определяется строго через ENV:
-
-MONARCH_USER_ID
-
-Access-request workflow:
-
-/approve <id>  
-/deny <id>  
-/ar_list  
-/ar_create_test  
-
-Административные команды защищены:
-- доступны только монарху (роль monarch + permissions.can())
-- guest получает access request
-- `cmd.admin.*` запрещены всем кроме монарха
-- DEV-GATE: выполняются только в личном чате монарха
-
-Identity логика не зависит от transport (группа/личка/будущие каналы).
-
----
-
-## 🚦 Rate Limit
-
-Для non-monarch команд используется in-memory rate limit.
-
-ENV:
-
-CMD_RL_WINDOW_MS=20000  
-CMD_RL_MAX=6  
-
-Монарх (роль monarch) не ограничивается rate-limit.
-
----
-
-## 🔐 Environment Variables
-
-Файл `.env.example` находится в корне репозитория и содержит шаблон переменных.
-
-Обязательные:
-
-BOT_TOKEN=  
-DATABASE_URL=  
-MONARCH_USER_ID=  
-
-Опциональные:
-
-CMD_RL_WINDOW_MS=20000  
-CMD_RL_MAX=6  
-NODE_ENV=production  
-PORT=3000  
-
-Файл `.env` не коммитится.
-
----
-
-## 🚀 CI
-
-GitHub Actions workflow:
-
-- Установка зависимостей
-- Проверка синтаксиса (`node --check`)
-- Автозапуск при push в `main`
-
-CI защищает проект от синтаксических ошибок.
-
----
-
-## 📌 Статус проекта
-
-Stage-based архитектурная разработка.  
-Transport может быть заменён без изменения Core.
-
----
-
-## 👑 Автор
-
-Monarch: GARYA
-
----
-
-SG — это управляемая архитектурная система с контролируемой эволюцией.
+Detailed architecture, decisions, module boundaries, security rules, acceptance criteria and historical evidence remain under `pillars/`, `evidence/` and `docs/checkpoints/`.

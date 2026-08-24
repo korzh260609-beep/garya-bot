@@ -1,116 +1,211 @@
-# ROADMAP SPLIT INDEX — SG AI SYSTEM
+# SG 2.1 ROADMAP
 
-This directory contains the active split version of `pillars/ROADMAP.md`.
+Roadmap defines what is built, dependency order, gates and acceptance boundaries. Blocks 0–10 are documented as individual roadmap files. The production continuation is documented canonically in `PRODUCTION_ROADMAP.md`, which contains Blocks 11–19, including intermediate Blocks 16.5–16.18, and Pilot Launch as one coordinated production program.
 
-Purpose:
-- keep roadmap aligned with the active split workflow;
-- avoid one very large roadmap file;
-- separate early memory foundation from later memory consumers;
-- preserve old `pillars/ROADMAP.md` as inactive legacy;
-- preserve SG entity integrity during planning;
-- preserve the controlled-action philosophy from `pillars/DECISIONS.md`.
+Memory 2.0 is a completed cross-cutting memory program documented separately in `MEMORY_2_0_ROADMAP.md`. It extends the existing Context/Memory foundation without changing the numbered production order.
 
-This roadmap must be interpreted together with:
+Project Memory 3.0 is a completed specialized cross-cutting program documented in `PROJECT_MEMORY_3_0_PROGRAM.md`. It strengthens only the Memory 2.0 `Project Memory` domain and does not renumber Blocks 0–19.
 
-- `pillars/DECISIONS.md`
-- `pillars/SG_ENTITY.md`
-- `pillars/SG_BEHAVIOR.md`
-- `pillars/PROJECT.md`
-- `pillars/architecture/README.md`
-- `pillars/workflow/README.md`
+Project Development Knowledge 4.0 has a completed CI-verified PDK4.1–PDK4.12 baseline plus a planned PDK4.13 Live Production Wiring & Autonomous Project History extension. PDK4.13 remains PLANNED / NOT IMPLEMENTED and would wire the existing engine into real production bootstrap/resume, continuous ingestion, protected diagnostics and live acceptance. It remains built on Project Memory 3.0 and does not create a parallel memory system or renumber Blocks 0–19.
 
-Important:
-- `pillars/DECISIONS.md` is the single root decisions file.
-- `pillars/DECISIONS.md` is the upper philosophical and architectural foundation for SG.
-- Roadmap files define implementation order, not SG philosophy.
-- If roadmap conflicts with `pillars/DECISIONS.md`, `DECISIONS.md` wins.
+Telegram Workspace Manager 1.0 is an in-progress cross-cutting Telegram management program documented in `TELEGRAM_WORKSPACE_MANAGER_1_0_PROGRAM.md`; TWM1.1–TWM1.9 are CLOSED / CI-verified and TWM1.10 Workspace Runtime Wiring is next. It lets any authorized SG user configure and operate SG for their own Telegram groups, supergroups and channels through native Telegram UI and natural language while reusing Block 14 Telegram Production Integration, canonical Identity/Scope, Resource Authority, Action Gate, PostgreSQL, Memory 2.0 isolation, Durable Automation and AI Router. TWM1.14 adds text/media publication, polls, quizzes/tests, scheduled content, deterministic result statistics and bounded AI analysis. TWM1.15 extends the same backend with community operations, engagement and analytics: forms, events, FAQ/onboarding, feedback, cases, tasks/reminders/decisions, content planning, summaries, owner briefs and exports. TWM1 does not renumber Blocks 0–19 and does not create a second Telegram transport, memory, task, scheduler or authorization system.
 
-## Active roadmap files
+SG Access Control System 1.0 (ACS1) is a planned cross-cutting transport-neutral access, entitlement, scoped-capability, delegation and usage/budget program documented in `SG_ACCESS_CONTROL_SYSTEM_1_0_PROGRAM.md`. ACS1 applies to Telegram, Discord, Web, API, Email and the future native SG interface. SG is the default Access Authority inside a Monarch-defined deterministic policy envelope; human approval is escalation where policy requires it. Identity creation, transport login, workspace membership/admin status and private-result delivery do not grant conversational AI access. ACS1 does not renumber Blocks 0–19 and must compose with existing Identity/Scope, Resource Authority, Owner Security, Action Gate, Credential Manager, PostgreSQL, Delivery Router, AI Router accounting and Observability rather than create parallel systems.
 
-1. `00_RULES_AND_ORDER.md`
-   - global roadmap rules
-   - canonical order
-   - memory-priority clarification
-   - active source-of-truth rules
 
-2. `01_STAGE_01_06_CORE.md`
-   - Stage 1 to Stage 6
-   - infrastructure, DB, access, identity, observability, transport
+Universal Diagnostics is a separate planned cross-cutting diagnostic program documented in `UNIVERSAL_DIAGNOSTICS_PROGRAM.md`. It is implemented as an independent observer application around SG, not as a new core layer and not as a renumbering of Blocks 0–19.
 
-3. `02_STAGE_07_MEMORY.md`
-   - Stage 7 Memory Layer V1
-   - Stage 7A Project Memory Core
-   - Stage 7B Chat History Core
+Block 8.1 is a production extension of completed Block 8 Interfaces. It adds the real Discord production transport on top of the existing Discord adapter contract and does not renumber Blocks 9–19.
 
-4. `03_STAGE_08_12_FOUNDATION.md`
-   - Stage 8A to Stage 12
-   - recall, already-seen, answer modes, sources, access expansion, file intake
+## Order
+0. `00_ENGINEERING_FOUNDATION.md`
+1. `00_PRINCIPLES_AND_GATES.md`
+2. `01_SEMANTIC_KERNEL.md`
+3. `02_CONTEXT_AND_MEMORY.md`
+4. `02_5_AI_ROUTING_FOUNDATION.md`
+5. `03_DECISION_ENGINE.md`
+6. `04_ACTION_GATE.md`
+7. `05_CAPABILITY_SYSTEM.md`
+8. `06_IDENTITY_AND_SCOPE.md`
+9. `07_OBSERVABILITY.md`
+10. `08_INTERFACES.md`
+11. `08_1_DISCORD_TRANSPORT_INTEGRATION.md` — Block 8.1 production extension of Interfaces
+12. `09_AUTOMATION_AND_AGENTS.md`
+13. `10_DOMAIN_MODULES.md`
+14. `PRODUCTION_ROADMAP.md`
+15. `11_RUNTIME_COMPOSITION.md` — implementation and acceptance evidence for Block 11
+16. `12_POSTGRESQL_PERSISTENCE.md` — implementation and acceptance evidence for Block 12
+17. `13_DURABLE_AUTOMATION_AND_WORKERS.md` — implementation and acceptance evidence for Block 13
+18. `14_TELEGRAM_PRODUCTION_INTEGRATION.md` — implementation and acceptance evidence for Block 14
+19. `15_PRODUCTION_AI_INTEGRATION.md` — implementation and acceptance evidence for Block 15
+20. `16_PRODUCTION_CAPABILITIES.md` — implementation and acceptance evidence for Block 16
+21. `16_5_TEMPORAL_CONTEXT.md` — Block 16.5 implementation and acceptance evidence
+22. `16_6_LANGUAGE_AND_LOCALE_CONTEXT.md` — Block 16.6 implementation and acceptance evidence
+23. `16_7_CONFIGURATION_AND_POLICY_LAYER.md` — Block 16.7 implementation and acceptance evidence
+24. `16_8_SECRETS_AND_CREDENTIALS_MANAGEMENT.md` — Block 16.8 implementation and acceptance evidence
+25. `16_9_EXTERNAL_CONNECTIONS_REGISTRY.md` — Block 16.9 implementation and acceptance evidence
+26. `16_10_RESOURCE_OWNERSHIP_AND_AUTHORITY_MODEL.md` — Block 16.10 implementation and acceptance evidence
+27. `16_11_SESSION_AND_CONVERSATION_CONTEXT.md` — Block 16.11 implementation and acceptance evidence
+28. `16_12_USER_SETTINGS_AND_PREFERENCES.md` — Block 16.12 implementation and acceptance evidence
+29. `16_13_NOTIFICATION_AND_DELIVERY_ROUTER.md` — Block 16.13 implementation and acceptance evidence
+30. `16_14_INTERNAL_EVENT_BUS.md` — Block 16.14 implementation and acceptance evidence
+31. `16_15_SCHEMA_AND_CONTRACT_VERSIONING.md` — Block 16.15 implementation and acceptance evidence
+32. `16_16_FEATURE_FLAGS_AND_CONTROLLED_ROLLOUT.md` — Block 16.16 implementation and acceptance evidence
+33. `16_17_SELF_KNOWLEDGE_SYSTEM_SELF_AWARENESS.md` — completed Block 16.17 implementation and acceptance evidence
+34. `16_18_MONARCH_CONTROL_OWNER_SECURITY.md` — planned Block 16.18 specification
+35. `18_END_TO_END_VERIFICATION.md` — completed Block 18 implementation and acceptance evidence
+36. `19_SECURITY_AND_OPERATIONS.md` — completed Block 19 implementation and acceptance evidence
+37. `MEMORY_2_0_ROADMAP.md` — completed cross-cutting Memory 2.0 M1–M9 program
+38. `PROJECT_MEMORY_3_0_PROGRAM.md` — completed specialized Project Memory 3.0 PM3.1–PM3.12 program
+39. `PROJECT_DEVELOPMENT_KNOWLEDGE_4_0_PROGRAM.md` — completed PDK4.1–PDK4.12 baseline program
+40. `PROJECT_DEVELOPMENT_KNOWLEDGE_4_13_LIVE_PRODUCTION_WIRING.md` — planned PDK4.13 live production wiring/autonomous history extension
+41. `TELEGRAM_WORKSPACE_MANAGER_1_0_PROGRAM.md` — in-progress TWM1 program; TWM1.1–TWM1.9 CLOSED / CI-verified, TWM1.10 next
+42. `TELEGRAM_WORKSPACE_MANAGER_1_15_COMMUNITY_OPERATIONS_PROGRAM.md` — planned TWM1.15 community operations, engagement and analytics extension
+43. `SG_ACCESS_CONTROL_SYSTEM_1_0_PROGRAM.md` — planned transport-neutral ACS1 access/entitlement/usage-control program
+44. `UNIVERSAL_DIAGNOSTICS_PROGRAM.md` — planned cross-cutting Universal Diagnostics D1–D12 program
 
-5. `04_STAGE_13_20_ADVANCED.md`
-   - Stage 13 to Stage 20
-   - initiative, PR/DIFF, real integrations, multi-model, hybrid intelligence, legal/billing, risk/market protection, psych module
-   - Critical Fixation appendix
+## Block 8.1 — Discord Transport Integration
 
-## Safety rule
+**Status: Planned / contract foundation already present.**
 
-The old `pillars/ROADMAP.md` is not deleted.
-It is kept only for historical continuity and must not be used as the active roadmap when split roadmap files exist.
+The existing Block 8 code already contains a thin Discord adapter and contract tests. Block 8.1 owns the missing production path: Gateway/REST connection, durable deduplication, production Discord identity resolution, safe verified cross-platform Global ID linking, Discord delivery through the existing Delivery Router, scope/resource isolation, diagnostics, observability and live acceptance evidence.
 
-Archived or old roadmap files must not be treated as current roadmap truth.
+Canonical specification: `08_1_DISCORD_TRANSPORT_INTEGRATION.md`.
 
-## Active source of truth
+## Block 18 — End-to-End Verification
 
-For current planning and development order, use only:
-- `pillars/roadmap/00_RULES_AND_ORDER.md`
-- `pillars/roadmap/01_STAGE_01_06_CORE.md`
-- `pillars/roadmap/02_STAGE_07_MEMORY.md`
-- `pillars/roadmap/03_STAGE_08_12_FOUNDATION.md`
-- `pillars/roadmap/04_STAGE_13_20_ADVANCED.md`
+**Status: Completed and CI-verified.**
 
-If old `pillars/ROADMAP.md` conflicts with split roadmap, the split roadmap wins for roadmap order.
+The dedicated `tests/e2eVerification.test.js` suite verifies the composed SG runtime across identity/scope/language/conversation/memory boundaries, approved cross-transport continuation, owner-security anti-impersonation, original actor preservation, feature controls, Self Knowledge/runtime evidence and PostgreSQL restart continuity. The remaining roadmap scenarios reuse existing production integration suites for Telegram deduplication, retry/DLQ/idempotency, external failures, delivery routing, resource authority and worker recovery.
 
-If split roadmap conflicts with `pillars/DECISIONS.md`, `DECISIONS.md` wins for SG philosophy and global architecture direction.
+Detailed completion evidence: `18_END_TO_END_VERIFICATION.md`.
 
-## SG entity rule
+## Block 19 — Security and Operations
 
-Roadmap planning must preserve:
+**Status: Completed and CI-verified.**
 
-```text
-SG = global project entity / global intellectual system
-components = organs / channels / instruments / subsystems of SG
-external AI operators = temporary helpers, not SG itself
-minimal controller/gate = action protection layer, not SG brain
-```
+Block 19 adds the operational security layer around the completed SG product: bounded identity/transport/network rate limiting, hardened Telegram HTTP ingress, emergency controls, security posture checks, secret scanning/redaction, production dependency audit, explicit retention/recovery policies, backup→restore verification, actionable alert classes and a mandatory CI security gate before Pilot Launch.
 
-Human Mode, Technical Mode, RepoStateAgent, agents, tools, transports, memory, sources, capability selectors, controller/gate layers and future interfaces are components/instruments of SG.
-They must not be planned as separate SG entities.
+Detailed completion evidence: `19_SECURITY_AND_OPERATIONS.md`.
 
-## Minimal controller / capability access rule
+## Memory 2.0
 
-Roadmap planning must preserve:
+**Status: Completed and CI/runtime verified.**
 
-```text
-Reasoning model / meaning provider understands meaning.
-Minimal controller/gate protects actions, permissions, scope, sources, risks, costs and confirmations.
-Heavy SemanticRouter as a separate SG brain is not the goal.
-Capability access != authority to redefine SG.
-```
+Canonical implementation order:
 
-No roadmap item may silently authorize:
-- connecting Human Mode runtime without gate;
-- building a heavy router that replaces reasoning model intelligence;
-- treating controller/gate as a separate SG brain;
-- converting old phrase/keyword/regex routes into Human Mode intelligence;
-- bypassing permissions, source checks, risk checks or confirmations;
-- treating capability access as governance authority.
+`M1 Scope Model → M2 Shared Group Memory → M7 Permissions & Privacy → M3 Automatic Capture → M4 Consolidation → M5 Intelligent Recall → M6 Cross-Platform Global Memory → M8 Lifecycle → M9 Control/Diagnostics/Tests`.
 
-## Memory priority
+Memory 2.0 preserves `global_user_id`, project/group/thread isolation, Conversation Context separation, System Self Knowledge separation, Action Gate, Resource Authority, provenance/trust, PostgreSQL durability and secret-safe observability.
 
-Current priority:
-1. Project Memory Core
-2. Long-Term Memory Core
-3. Controlled Memory Read/Write
-4. Auto-restore before project/repo work
+Detailed completion evidence: `MEMORY_2_0_ROADMAP.md`.
+Architecture: `../architecture/MEMORY_2_0.md`.
+Workflow: `../workflow/MEMORY_2_0_WORKFLOW.md`.
 
-Memory core is early foundation.
-Memory consumers remain later feature layers.
+## Project Memory 3.0
+
+**Status: Completed; PM3.1–PM3.12 CLOSED and CI/runtime verified.**
+
+Canonical implementation order:
+
+`PM3.1 Project Fact Contract & Namespaces → PM3.2 Durable PostgreSQL Store → PM3.3 Trusted Source Ingestion → PM3.4 Candidate/Confirmation/Monarch Control → PM3.5 Deduplication & Conflict Resolver → PM3.6 Temporal History & Supersession → PM3.7 Hybrid Retrieval & pgvector → PM3.8 Project Memory Context Guard → PM3.9 AI Router Integration → PM3.10 Decision & Incident Memory → PM3.11 Diagnostics & Observability → PM3.12 Production E2E & Live Acceptance`.
+
+Project Memory 3.0 remains inside the Memory 2.0 Project Memory domain. It does not create a parallel memory/authority system, cannot auto-confirm raw chat/model output, and cannot claim Render as a live trusted source until a real Render Connector exists and is verified. PM3.12 closes the program with a fail-closed PostgreSQL/runtime E2E covering trusted GitHub evidence, confirmation, replay idempotency, conflict visibility, temporal supersession, restart continuity, guarded ordinary SG requests, provenance/currentness qualification, raw-chat rejection and Render-source denial. Code/runtime gate passed in SG 2.1 CI #7028 before final documentation synchronization.
+
+Detailed completion evidence: `PROJECT_MEMORY_3_0_PROGRAM.md`.
+Architecture: `../architecture/PROJECT_MEMORY_3_0.md`.
+Workflow: `../workflow/PROJECT_MEMORY_3_0_WORKFLOW.md`.
+
+## Project Development Knowledge 4.0
+
+**Status: PDK4.1–PDK4.12 CLOSED / CI-verified; PDK4.13 PLANNED / NOT IMPLEMENTED.**
+
+Canonical implementation order:
+
+`PDK4.1 Development Knowledge Contract & Taxonomy → PDK4.2 GitHub Historical Scanner & Durable Cursor → PDK4.3 Source Normalization & Verification → PDK4.4 Development Significance Classifier → PDK4.5 Development Event Extraction → PDK4.6 Commit/Event Clustering & Milestones → PDK4.7 Historical Reconstruction & Project Genesis → PDK4.8 Temporal/Causal Linking & Reconciliation → PDK4.9 Continuous GitHub Ingestion → PDK4.10 Product Component Registry & Current Project Snapshot → PDK4.11 Development Query & Normal SG Answer Integration → PDK4.12 Diagnostics, Production Bootstrap & Live Acceptance → PDK4.13 Live Production Wiring & Autonomous Project History`.
+
+PDK4 builds on the completed Project Memory 3.0 foundation. PDK4.1–PDK4.12 provide the complete CI-verified development-history engine, PostgreSQL persistence/restart semantics, GitHub production source contract, diagnostics and production-like acceptance. PDK4.13 remains the next planned production extension: it must wire that engine into real SG startup/worker composition, automatically bootstrap/resume real repository history, continuously reconcile new commits, use a PostgreSQL single-flight guard, expose protected diagnostics and prove real production restart/new-commit/replay/query acceptance.
+
+PDK4.13 does not redefine evidence semantics. Canonical documents cannot by themselves prove implementation, CI cannot imply deployment/live state, supporting evidence cannot silently promote milestone state, and deployment/runtime evidence still requires an approved source. PDK4 continues to reuse PM3 PostgreSQL storage for durable project facts, provenance, trust, confirmation, dedup/conflict, temporal history, retrieval and Context Guard.
+
+PDK4.1–PDK4.12 final baseline was synchronized at commit `9b9f14afad4a2398e37f7b3e57548dfd4e5253f8` with SG 2.1 CI #7169 SUCCESS. PDK4.13 remains planned until code, CI, deployment and live acceptance are completed.
+
+Baseline program: `PROJECT_DEVELOPMENT_KNOWLEDGE_4_0_PROGRAM.md`.
+PDK4.13 roadmap: `PROJECT_DEVELOPMENT_KNOWLEDGE_4_13_LIVE_PRODUCTION_WIRING.md`.
+Architecture baseline: `../architecture/PROJECT_DEVELOPMENT_KNOWLEDGE_4_0.md`.
+PDK4.13 architecture: `../architecture/PROJECT_DEVELOPMENT_KNOWLEDGE_4_13_LIVE_PRODUCTION_WIRING.md`.
+Baseline workflow: `../workflow/PROJECT_DEVELOPMENT_KNOWLEDGE_4_0_WORKFLOW.md`.
+PDK4.13 workflow: `../workflow/PROJECT_DEVELOPMENT_KNOWLEDGE_4_13_LIVE_PRODUCTION_WIRING_WORKFLOW.md`.
+
+## Telegram Workspace Manager 1.0
+
+**Status: IN PROGRESS — TWM1.1–TWM1.9 CLOSED / CI-VERIFIED; TWM1.10 NEXT.**
+
+Canonical implementation order:
+
+`TWM1.1 Workspace Contract & Lifecycle → TWM1.2 PostgreSQL Workspace Persistence → TWM1.3 Telegram Workspace Discovery & Registry → TWM1.4 Workspace Authority Verification → TWM1.5 Bot Permission Discovery & Capability Health → TWM1.6 Workspace Configuration Service → TWM1.7 Decision/Action Gate Integration → TWM1.8 Telegram Native UI & Setup Wizard → TWM1.9 Natural-Language Configuration → TWM1.10 Workspace Runtime Wiring → TWM1.11 Audit/Rollback/Diagnostics/Observability → TWM1.12 Production E2E & Live Acceptance → TWM1.13 Telegram Mini App → TWM1.14 Content, Polls, Quizzes & Media Management → TWM1.15 Community Operations, Engagement & Analytics`.
+
+TWM1.1 establishes the canonical workspace contract/scope. TWM1.2 adds durable PostgreSQL workspaces, members/roles, bot-permission snapshots, versioned configuration and configuration history with restart/isolation/transaction gates. TWM1.3 adds the production-ingestion discovery/registry path for group/supergroup/channel facts, metadata refresh, bot membership lifecycle, replay-safe group→supergroup migration and durable PostgreSQL resolution. TWM1.4 adds human workspace authority verification through canonical Identity Links, current Telegram creator/administrator evidence, bounded workspace roles and revocable/expiring existing Resource Authority. TWM1.5 adds live SG bot membership/permission discovery, TTL-bounded PostgreSQL snapshots, capability health and fail-closed `requireCapabilities` using the existing Bot API client and production workspace store. TWM1.6 adds the sole authorized/versioned workspace configuration service; TWM1.7 converges its mutations on the canonical SG Action Gate; TWM1.8 adds native Telegram management/setup UI over that backend; TWM1.9 adds bounded natural-language configuration through AI Router with deterministic scope/validation and explicit confirmation. TWM1.10 is next and must make the real Telegram runtime consume effective persisted workspace settings.
+
+TWM1 is the SG-native alternative to a separate third-party bot constructor. Any authorized SG user can manage SG in their own Telegram groups/channels without programming. One user may manage many workspaces and one workspace may have several bounded managers, but every mutation remains tied to canonical `global_user_id`, verified workspace scope and revocable Resource Authority.
+
+The Telegram transport remains thin. Telegram creator/administrator metadata is only workspace-specific authority evidence and cannot create SG-global ownership. Actual SG bot permissions are independently verified for the target workspace and missing permissions are explicit degraded/denied capability health, never false success. AI may translate natural-language requests into structured proposals only through AI Router; protected writes/external actions remain owned by SG services and protected by validation, authorization and Action Gate.
+
+TWM1.14 adds a content-management plane over the same backend: authorized users may create/publish/schedule text content, Telegram polls, quiz-mode polls and SG-managed test sessions, and publish photos/videos/documents supplied to SG. Structured Telegram/SG result events are normalized/deduplicated and exact totals, percentages and scores are computed deterministically. AI Router may analyze or explain the resulting immutable snapshot but cannot invent or override numeric results. Anonymous Telegram polls remain aggregate-only. Scheduled publication reuses the existing durable automation/scheduler and revalidates authority/capability as required at execution time.
+
+TWM1.15 adds five bounded functional packages: Content, Engagement, Community, Operations and Analytics. It covers forms/questionnaires, feedback, events/registration/waitlists, competitions/challenges, FAQ/onboarding, unanswered-question/moderation workflows, request/case queues, tasks/reminders/decisions, content planning/recurring rubrics, discussion summaries, deterministic analytics, owner briefs and authorized exports. It reuses Memory 2.0, Conversation Context, existing tasks/capabilities, Durable Automation, Delivery Router, AI Router and Observability. Operational records do not become confirmed shared memory automatically, private data cannot leak through FAQ/analytics/exports, AI cannot fabricate exact metrics or mutate state, and poll/test results require a separate authorized decision transition before becoming binding decisions.
+
+Core TWM1 is complete only after real Telegram group+channel live acceptance proves configuration persistence, runtime effect, restart continuity, unauthorized denial, authority revocation and cross-workspace isolation. TWM1.13 is optional rich UI. TWM1.14 and TWM1.15 are separately closable functional extensions with their own code/CI/live acceptance gates.
+
+Program: `TELEGRAM_WORKSPACE_MANAGER_1_0_PROGRAM.md`.
+TWM1.15 program: `TELEGRAM_WORKSPACE_MANAGER_1_15_COMMUNITY_OPERATIONS_PROGRAM.md`.
+Architecture: `../architecture/TELEGRAM_WORKSPACE_MANAGER_1_0.md`.
+TWM1.15 architecture: `../architecture/TELEGRAM_WORKSPACE_MANAGER_1_15_COMMUNITY_OPERATIONS.md`.
+Workflow: `../workflow/TELEGRAM_WORKSPACE_MANAGER_1_0_WORKFLOW.md`.
+TWM1.15 workflow: `../workflow/TELEGRAM_WORKSPACE_MANAGER_1_15_COMMUNITY_OPERATIONS_WORKFLOW.md`.
+
+## SG Access Control System 1.0
+
+**Status: PLANNED / NOT IMPLEMENTED.**
+
+Canonical implementation order:
+
+`ACS1.1 Access Domain Foundation → ACS1.2 Identity / Access Separation → ACS1.3 Capability Registry → ACS1.4 Scope Authority Model → ACS1.5 Deterministic Policy Engine → ACS1.6 SG Default Access Authority → ACS1.7 Access Request Workflow → ACS1.8 Approval & Escalation → ACS1.9 Temporary / Conditional Grants → ACS1.10 AI Usage Gate → ACS1.11 Budget, Credits & Billing Scope → ACS1.12 Private Delivery & Own-Result Access → ACS1.13 Delegation → ACS1.14 Workspace / Transport Role Integration → ACS1.15 Resource Authority Integration → ACS1.16 Action Gate Integration → ACS1.17 Transport-Neutral Enforcement → ACS1.18 Access Management Service/API → ACS1.19 Management UI → ACS1.20 Audit & Observability → ACS1.21 Security Regression Suite → ACS1.22 Cross-Transport E2E → ACS1.23 Production / Live Acceptance`.
+
+ACS1 establishes one SG-wide access truth across transports. A new identity is not a user entitlement. By target design, an ordinary new subject receives only a `delivery-only` baseline with own-result/private-delivery/access-request rights; `ai.compose` is explicit policy/grant-controlled. The current Telegram production resolver behavior that auto-grants `compose-answer` to a new guest is an explicit ACS1.2 migration target, not accepted final behavior.
+
+SG is the default Access Authority and may automatically grant, limit or deny within a deterministic Monarch-defined policy envelope. Requests requiring authority beyond that envelope are escalated. AI may interpret a user's request for a capability, but final access decisions remain deterministic and auditable. Denied `ai.compose` or exhausted-budget requests must stop before AI Router so unauthorized users cannot consume model budget.
+
+Private test/poll/form/case results are authorized independently from general SG access: a user may retrieve only their own pending result without receiving conversational AI entitlement. ACS1 composes with existing Identity/Scope, Resource Authority, Owner/Monarch Security, Action Gate, Credential Manager, PostgreSQL, Delivery Router, AI Router accounting and Observability.
+
+Program: `SG_ACCESS_CONTROL_SYSTEM_1_0_PROGRAM.md`.
+Architecture: `../architecture/SG_ACCESS_CONTROL_SYSTEM_1_0.md`.
+Workflow: `../workflow/SG_ACCESS_CONTROL_SYSTEM_1_0_WORKFLOW.md`.
+
+## Universal Diagnostics
+
+**Status: Planned and architecturally specified.**
+
+Canonical implementation order:
+
+`D1 Diagnostic Contract & Read-Only Boundary → D2 Collector & Evidence Storage → D3 Trace Reconstruction → D4 Expected Paths & Invariants → D5 First Divergence Engine → D6 Root Cause Analyzer → D7 Deployment/Runtime/Infrastructure Diagnostics → D8 Live Diagnostic Runner → D9 Replay & Regression Library → D10 Reports/API/UI/Security → D11 E2E Verification → D12 Independent Production Deployment`.
+
+Universal Diagnostics is external to the mandatory SG request path. SG supplies bounded diagnostic facts; the separate application analyzes them. Diagnostics must be independently deployable, read-only by default, evidence-based, secret-safe, and unable to grant authority or block normal SG operation.
+
+Detailed specification: `UNIVERSAL_DIAGNOSTICS_PROGRAM.md`.
+Architecture: `../architecture/UNIVERSAL_DIAGNOSTICS.md`.
+Workflow: `../workflow/UNIVERSAL_DIAGNOSTICS_WORKFLOW.md`.
+
+## Production continuation
+
+`PRODUCTION_ROADMAP.md` remains the canonical numbered continuation after Block 10. Memory 2.0, Project Memory 3.0, Project Development Knowledge 4.0, Telegram Workspace Manager 1.0, SG Access Control System 1.0 and Universal Diagnostics are separate cross-cutting programs and do not renumber Blocks 11–19. Block 8.1 remains an extension of Block 8 rather than a renumbering of that continuation.
+
+Each production block/program stage must still be independently verifiable, reversible and completed through code, tests, documentation, CI and runtime evidence.
+
+## Foundation rule
+Before Semantic Kernel implementation begins, Block 0 establishes the repository, test and CI baseline plus minimal canonical `IdentityContext`, `ScopeContext` and `TraceContext` contracts.
+
+These foundation contracts exist only to make every later request scoped and traceable from the first executable slice. Production identity linking, role/grant resolution, durable audit storage, telemetry backends and retention remain in Blocks 6 and 7.
+
+## AI routing gate
+Block 2.5 connects the production reasoning path through AI Router after Semantic Kernel and Context and Memory are stable, but before Decision Engine development begins. Until Block 2.5 is implemented, only fixture-based reasoning is allowed in tests and local development.

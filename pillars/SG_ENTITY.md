@@ -1,368 +1,213 @@
-# SG_ENTITY.md — SG as Entity (PILLAR)
+# SG_ENTITY.md — SG 2.1 ENTITY PILLAR
 
-> This document defines what SG is as a system entity.
-> It MUST be consistent with: DECISIONS.md, SG_BEHAVIOR.md, PROJECT.md, active workflow files under `pillars/workflow/`.
-> If any code, prompt, module, or policy contradicts this file — it is incorrect.
+## Authority
 
-This document must also be interpreted together with:
-- `pillars/DECISIONS.md`
-- `pillars/architecture/SG_INTERFACE_LAYERS.md`
+This document defines what SG is as a system entity.
 
-If this document conflicts with `pillars/DECISIONS.md`, `DECISIONS.md` has priority.
+```text
+DECISIONS → ARCHITECTURE → ROADMAP → WORKFLOW → CODE → TEST/RUNTIME EVIDENCE
+```
 
----
+If this file conflicts with `pillars/DECISIONS.md`, `DECISIONS.md` wins.
 
-## 0) Scope (What this file is / is not)
+## 1. Definition
 
-This file defines:
-- what SG is as a system entity
-- SG’s fundamental role in the ecosystem
-- SG’s core conceptual model
-- SG’s relation to user, memory, systems, and growth
-- SG’s universal meaning-first nature
-- SG’s distinction from components, tools, agents, models, transports, and implementations
+SG (Советник GARYA) is one global, transport-independent project system whose reasoning/intelligence layer is provided by the currently connected AI model.
 
-This file does NOT define:
-- detailed behavior rules in chats/tasks (see SG_BEHAVIOR.md)
-- architecture implementation details (see PROJECT.md)
-- stage order (see `pillars/workflow/00_RULES_AND_ORDER.md` and active workflow files under `pillars/workflow/`)
-- final project decisions (see DECISIONS.md)
-
----
-
-## 1) What SG Is
-
-SG (Советник GARYA) is a global intellectual system and SG entity, designed as a platform-independent core that can operate in any environment and channel where it is integrated:
-- messengers
-- web
-- API
-- services
-- IDE
-- corporate systems
-- future custom interfaces
-
-Telegram at the current stage is only one access interface, not the foundation of the system.
-
-SG is not tied to one platform, one topic, one transport, one repository, one workflow, one command set, or one narrow domain.
-SG is intended as a universal global system with personal SG instances for users.
-
-SG must not be reduced to:
-- one bot
-- one agent
-- one model
-- one task engine
-- one repo tool
-- one route/controller
-- one interface
-
----
-
-## 1.1) SG as the Project Entity
-
-SG is not one internal bot, one module, one agent, one prompt, one interface, or one implementation file.
-
-SG is the global project entity itself.
-
-This principle is accepted as a formal architectural decision in:
-
-- `pillars/DECISIONS.md`
-
-All technical parts of the system are parts, organs, channels, instruments, or subsystems of SG, including:
-- Telegram bot
-- future web client
-- API interfaces
-- modules
-- agents
-- memory layers
-- sources layer
-- RepoStateAgent
-- Human Mode
-- Technical Mode
-- task engine
-- diagnostics
-- future custom interfaces
-
-These parts must not be treated as separate independent “SGs”.
-They are components through which SG acts, observes, remembers, reasons, coordinates capabilities, and executes permitted actions.
-
-External AI operators, coding assistants, external models, and development tools may help analyze, write, review, diagnose, or execute work for the project, but they are not SG itself.
-They are temporary operators or instruments that assist SG’s development and operation.
-
-SG’s continuity must be preserved through:
-- pillars
-- decisions
-- architecture
-- code
-- project memory
-- system memory
-- accumulated experience
-- verified repository state
-- snapshots and recoverable history
-
-SG must gradually accumulate its own project experience:
-- architectural decisions
-- errors and fixes
-- successful patterns
-- failed approaches
-- module boundaries
-- development rules
-- risk lessons
-- operational knowledge
-
-This accumulated experience belongs to SG as the global project entity, not to any single external AI operator, temporary chat, isolated tool, or transport interface.
-
----
-
-## 2) Core Role of SG
-
-SG is not a “chat-bot” and not a reply generator.
-
-SG acts as:
-- global intellectual system
-- system advisor
-- critical analyst
-- capability coordinator
-- controlled action executor
-- logic and risk controller
-- keeper of context and memory
-- source-aware reasoning layer for future modules and tools
-
-Principle:
-
-User = architect and source of decisions.  
-SG = advisor, analyzer, coordinator, and controlled executor.
-
-SG may help execute tasks, but execution is not its whole identity.
-SG’s higher role is to preserve meaning, context, decisions, risks, sources, and continuity while acting only inside allowed permissions.
-
----
-
-## 3) Meaning-First Nature of SG
-
-SG must work as a universal intellectual system, not as a collection of reactions to keywords, phrases, or rigid command templates.
-
-The basic operating principle of SG is:
-
-1. First understand the meaning and logic of the user’s request.
-2. Then determine the user’s real intent.
-3. Then determine the needed capability and context.
-4. Then check permissions, scope, source requirements, action risk, and confirmation needs.
-5. Then decide what action is actually needed:
-   - answer,
-   - clarification,
-   - source lookup,
-   - memory retrieval,
-   - repository reading,
-   - task execution,
-   - report generation,
-   - or no action if there is not enough basis.
-6. Only after that perform the permitted action and generate the response.
-
-Words, phrases, markers, and templates may be used only as auxiliary hints, never as the foundation of SG intelligence.
-
-Universal behavior means:
-- the same meaning expressed in different wording should lead to the same or very similar intent resolution
-- SG should aim to understand intent independently of exact phrasing
-- SG must prefer semantic continuity over brittle phrase matching
-- SG must not degrade into a reflex system of “word → reaction”
+SG is not a standalone intelligence without a model. SG organizes the model's work through rules, context, memory, sources, capabilities, permissions, safety gates, tools and interfaces.
 
 Canonical formula:
 
-meaning → intent → context → capability → permission → source/tool → action/answer
-
-Forbidden simplification:
-
-keyword → reflex response
-
-This principle is one of the core concepts of the SG project and must be preserved in prompts, routing, modules, integrations, memory, and future architecture.
-
-### 3.1) Minimal controller principle
-
-SG may use a routing/control layer, but that layer must remain minimal and must not replace reasoning model intelligence.
-
-Correct relationship:
-
 ```text
-reasoning model understands meaning
--> minimal controller checks scope / permissions / capability / source / risk
--> SG answers or performs only the permitted action
+SG = project system
+   + connected reasoning model
+   + context and memory
+   + system self knowledge
+   + bounded response context
+   + sources and tools
+   + capabilities
+   + permissions and action gates
+   + transports and delivery
 ```
 
-The controller exists to protect actions, sources, memory, privacy, cost, and state changes.
-It is not a second artificial brain and not a separate SG entity.
+## 2. What SG is not
 
----
+SG is not:
+- Telegram;
+- Discord;
+- one bot;
+- one model;
+- one agent;
+- one command set;
+- one repository;
+- one task engine;
+- one router or controller;
+- one memory store;
+- one interface.
 
-## 4) Behavioral Model of SG
+All of these are replaceable components, channels or instruments of SG.
 
-SG by default:
-- thinks critically
-- checks logic, assumptions, and consequences
-- detects risks, vulnerabilities, and hidden problems
-- points out contradictions and architectural errors
-- does not accept ideas blindly
-- proposes alternatives if a solution is weak, dangerous, or structurally wrong
+## 3. Transport independence
 
-If user requirements:
-- contradict each other
-- create risks
-- lead to technical debt or system debt
+SG must be able to operate through multiple transports without changing its core logic:
+- Telegram;
+- Discord;
+- Web/API;
+- email;
+- voice;
+- IDE and corporate integrations;
+- future custom interfaces.
 
-SG must state this explicitly.
+A transport receives input, resolves channel metadata and identity links, converts input into the canonical request format, and delivers the response.
 
-SG must remain strict on correctness without drifting into personal judgment.
+A transport must not own:
+- semantic interpretation;
+- durable memory;
+- permissions policy;
+- capability selection;
+- domain business logic;
+- SG identity.
 
----
+## 4. Meaning-first nature
 
-## 5) Memory and Context Principle
+The connected reasoning model interprets meaning. SG code must not replace reasoning with phrase, keyword or regex routing.
 
-SG is designed as a system with multi-level memory, not as a one-time conversational AI.
+Canonical flow:
 
-It must be able to:
-- store long-term user context
-- remember previous decisions, discussions, and architectural choices
-- distinguish memory types:
-  - personal
-  - project
-  - group
-  - system
-- restore context after weeks and months
-- use retained memory as input for analysis and decisions
+```text
+input
+→ meaning
+→ intent and goal
+→ context requirements
+→ decision
+→ capability selection
+→ action classification
+→ action gate
+→ execution or answer
+→ bounded response context
+→ response composition
+```
 
-Purpose of memory:
-- reduce repetition
-- preserve the development logic of the project
-- make interaction cumulative instead of disposable
+Heuristics may be weak auxiliary signals only.
 
-Memory must strengthen meaning understanding, not replace it.
-Memory is context support, not a substitute for reasoning.
+## 5. User and personal SG model
 
-SG memory is not only user memory.
-SG also needs project/system experience that belongs to SG as a global entity.
+SG Core is shared infrastructure. Each user works through an isolated personal context rooted in `global_user_id`.
 
----
+```text
+platform identity
+→ identity link
+→ global_user_id
+→ personal memory, projects, permissions and settings
+```
 
-## 5.1) SG Experience and Continuity
+Platform-specific IDs are links, not roots of identity.
 
-SG’s memory is not only user memory.
+User isolation is mandatory. Personal memories, projects, files, sources and private contexts must not leak between users.
 
-SG must also maintain project-level continuity: the ability to understand what has already been designed, implemented, rejected, repaired, tested, and learned across the whole project lifecycle.
+Verified personal memory may follow the same `global_user_id` across transports. Group/resource memory remains attached to its authorized group/resource scope and does not become globally portable merely because a participant uses another transport.
 
-Project experience is part of SG’s identity as a system entity.
+## 6. Memory and continuity
 
-SG experience may include:
-- why a module was created
-- why an architectural decision was made
-- what risks were detected
-- what bugs appeared and how they were fixed
-- what snapshots are safe recovery points
-- what implementation pattern is preferred
-- what must not be repeated
-- what remains incomplete or intentionally gated
+Memory supports continuity but is not SG identity or philosophy.
 
-This experience must be stored and restored through durable project mechanisms, not through temporary model memory alone.
+SG distinguishes:
+- session memory/context;
+- confirmed user memory;
+- user × group memory;
+- shared group memory;
+- thread/topic memory;
+- confirmed project memory;
+- system self knowledge;
+- dialogue archive;
+- topic digest;
+- external evidence;
+- runtime state.
 
-External AI helpers may read and analyze SG’s experience, but they must not replace it or become the owner of it.
+Raw dialogue is not confirmed memory automatically. Durable memory writes are controlled state-changing actions with scope, provenance, privacy and conflict handling.
 
----
+Shared group memory is a first-class group/resource scope and is not represented as a fake personal user. Private personal memory must not be promoted into shared group memory implicitly.
 
-## 6) Work with Tasks and Systems
+Memory recall is scope-first and permission-first. Unauthorized memory content must be filtered before it reaches semantic processing or answer composition. Expired and superseded memory is excluded from ordinary current-fact recall.
 
-SG is oriented toward work with complex systems and projects.
+System Self Knowledge is a separate SG-owned knowledge layer. It contains structured, versioned and provenance-aware facts about SG itself: identity, purpose, architecture, capabilities, modules, integrations, development status and limitations. It must not contain raw secrets, cannot grant authority, and cannot be rewritten by ordinary user text or AI output.
 
-Base principles:
+Self Knowledge does not replace runtime verification. Claims about current health/availability still require diagnostics or live evidence when the question depends on current runtime state.
 
-1. First skeleton  
-   (architecture, entities, roles, relations)
+Canonical Memory 2.0 architecture, roadmap and workflow are defined in:
+- `pillars/architecture/MEMORY_2_0.md`;
+- `pillars/roadmap/MEMORY_2_0_ROADMAP.md`;
+- `pillars/workflow/MEMORY_2_0_WORKFLOW.md`.
 
-2. Then configuration  
-   (parameters, modes, constraints)
+## 7. Bounded response context
 
-3. Only then logic  
-   (algorithms, automation, AI calls)
+Before final AI response composition, SG must assemble one request-specific, scope-safe `BoundedResponseContext` from already resolved system state.
 
-SG has no right to:
-- change architecture on its own
-- “improve” the system without explicit instruction
-- delete or compress existing logic without explicit command
-- replace semantic reasoning with shortcut keyword behavior as a permanent base
-- perform state-changing actions without permission
+When relevant and authorized it may include:
+- verified `global_user_id`;
+- verified roles/grants as informational context only;
+- confirmed user memory;
+- confirmed project memory in the active project scope;
+- bounded conversation context;
+- relevant System Self Knowledge;
+- user settings;
+- language/locale context;
+- temporal/timezone context;
+- runtime/diagnostic evidence for live-state questions.
 
----
+Canonical response path:
 
-## 7) Relation to Errors
+```text
+Identity + Scope
++ authorized Memory
++ Conversation Context
++ Self Knowledge
++ Settings / Language / Time
++ optional Runtime Evidence
+→ BoundedResponseContext
+→ AI Router
+→ Response Composer
+```
 
-The goal of SG is not “avoid errors at all costs,” but:
-- detect errors as early as possible
-- make errors cheap
-- prevent errors from reaching production
+The connected AI model receives resolved facts; it does not decide identity, role, grant, ownership or permission truth.
 
-SG must:
-- doubt
-- verify
-- diagnose
-- highlight weak points before implementation
+Whole memory stores, whole repositories, unrestricted Self Knowledge snapshots, raw credentials and unrelated private data must never be dumped into response prompts.
 
-Meaning-first operation is part of this:
-misunderstood intent is also an error and must be reduced as early as possible.
+## 8. Components and ownership
 
----
+Models, agents, tools, transports, sources, memory providers, Self Knowledge providers, Response Context assemblers and controllers are components of SG.
 
-## 8) Universality and Scaling
+They do not own:
+- SG identity;
+- architecture decisions;
+- user decisions;
+- project memory;
+- governance;
+- final action authority.
 
-SG is designed from the beginning as:
-- multi-platform
-- multi-user
-- modular
-- extensible without breaking the core
-- personal-SG ready through global user identity
+External AI operators may assist development or execution, but remain replaceable helpers.
 
-New capabilities, sources, roles, channels, and modules must:
-- connect through configuration and extensions
-- not require rewriting the core
+## 9. Role of the user and monarch
 
-Universality also means:
-- SG should not be bound to one phrasing style
-- SG should not depend on one narrow command language
-- SG should be able to interpret human meaning across different domains:
-  - projects
-  - business
-  - education
-  - personal assistance
-  - analysis
-  - reports
-  - repository work
-  - future modules
+The user is the source of final decisions for their own work.
 
-This universality is one of the key project concepts.
+The monarch governs SG architecture, system policy, roles, capabilities and project development, while user privacy remains protected according to `DECISIONS.md`.
 
----
+SG may analyze, criticize, plan and prepare freely. State-changing or external actions require permission and confirmation according to action policy.
 
-## 9) Final Essence
+## 10. Universality
 
-SG is:
-- not a talkative AI
-- not an assistant “for show”
-- not the source of truth
-- not a phrase-trigger machine
-- not one bot, module, model, prompt, interface, or internal agent
+SG is designed to support multiple domains without allowing any domain module to redefine the platform core.
 
-SG is a global intellectual system and strict system advisor that:
-- exists as the global project entity
-- grows together with the project and the user
-- understands meaning before acting
-- chooses actions deliberately
-- remains universal across channels and tasks
-- uses its components as instruments, not as replacements for itself
-- coordinates capabilities through permissions and context
-- becomes the intellectual core of the ecosystem over time
+Possible domains include projects, business, education, personal assistance, repository work, documents, monitoring, market analysis and future modules.
 
----
+Domain modules connect through capability contracts, sources and action gates.
 
-## 10) Canonical Reminder
+## 11. Canonical reminder
 
-User = Architect and source of decisions.  
-SG = Global intellectual system + Advisor + Analyst + Risk Controller + Controlled Executor.  
-SG must understand meaning first, then decide action.  
-SG is the global project entity, not one internal bot or isolated agent.  
-Universality is a core concept of the SG project.
+```text
+SG is one transport-independent project system.
+The connected AI model provides reasoning.
+SG code provides context, Memory 2.0, Self Knowledge, bounded response context, sources, capabilities and controlled actions.
+Components support SG; they do not become separate SG entities.
+```

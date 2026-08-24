@@ -63,7 +63,8 @@ forward_signal() {
 }
 trap forward_signal INT TERM
 
-sleep 5
+# Give the gateway enough time to finish plugin/channel startup before probing.
+sleep 15
 
 i=1
 while [ "$i" -le 12 ]; do
@@ -73,7 +74,9 @@ while [ "$i" -le 12 ]; do
     exit $?
   fi
 
-  PORT_TO_CHECK="$port" node --input-type=module -e '
+  # Keep probe failures non-fatal even with `set -e`; they are diagnostic only.
+  probe_status=0
+  if PORT_TO_CHECK="$port" node --input-type=module -e '
     import os from "node:os";
     const port = process.env.PORT_TO_CHECK;
     const targets = [{label:"loopback", host:"127.0.0.1"}];
@@ -84,27 +87,31 @@ while [ "$i" -le 12 ]; do
         }
       }
     }
-    let ok = false;
+    let nonLoopbackReady = false;
     for (const target of targets) {
       const url = `http://${target.host}:${port}/startupz`;
       try {
         const response = await fetch(url);
         const body = await response.text();
         console.log(`[sg22/startupz-net] target=${target.label} status=${response.status} body=${body}`);
-        if (target.label !== "loopback" && response.status === 200) ok = true;
+        if (target.label !== "loopback" && response.status === 200) nonLoopbackReady = true;
       } catch (error) {
         console.log(`[sg22/startupz-net] target=${target.label} request_failed=${error?.message ?? String(error)}`);
       }
     }
-    process.exit(ok ? 0 : 2);
-  '
-  probe_status=$?
+    process.exit(nonLoopbackReady ? 0 : 2);
+  '; then
+    probe_status=0
+  else
+    probe_status=$?
+  fi
 
   if [ "$probe_status" -eq 0 ]; then
     echo "[sg22/startupz-net] non_loopback_ready"
     break
   fi
 
+  echo "[sg22/startupz-net] probe_attempt=${i} not_ready status=${probe_status}"
   i=$((i + 1))
   sleep 10
 done

@@ -1,8 +1,6 @@
 FROM ghcr.io/korzh260609-beep/garya-bot-sg22:dev
 
-# Render runs the already-built SG 2.2/OpenClaw image published by GitHub Actions.
-# No OpenClaw compilation happens on the 512 MB Render instance.
-#
-# Render requires the web service to bind on 0.0.0.0 and the port supplied in PORT.
-# OpenClaw defaults to loopback, so override both bind and port explicitly here.
-CMD ["sh", "-c", "exec node openclaw.mjs gateway --bind lan --port \"${PORT:-10000}\""]
+# Render runs the prebuilt SG 2.2/OpenClaw image published by GitHub Actions.
+# Do not override CMD here: the overlay image already starts
+# /app/scripts/sg22-render-entrypoint.sh, which seeds SG/OpenClaw state and
+# launches the Gateway with --bind lan and Render's PORT.

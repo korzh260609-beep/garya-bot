@@ -258,3 +258,4 @@ Before adding any identity, profile, role, permission, session, or access compon
 - Checklist Point 3 status: CLOSED.
 - The next test-enablement block is Point 3A — Telegram Test Runtime.
 - Point 3A must expose this completed identity context through the existing OpenClaw Telegram channel without changing the identity architecture or reopening Point 3.
+- Point 4 then enables standard OpenClaw GitHub/repository access before Memory, Project Memory and PDK4, without hard-coded repository or branch restrictions.

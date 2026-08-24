@@ -15,12 +15,29 @@ This document defines who SG is. It does not implement user identity, Global ID,
 ## Core invariant
 
 ```text
-OpenClaw = runtime / infrastructure
+OpenClaw = authoritative runtime / infrastructure
 Models = reasoning and execution components
-SG = system entity, identity, governing logic and controlled evolution
+SG = entity, identity, governing semantics and SG-specific domain layer
 ```
 
 SG must identify itself as SG. It may explain that it is built on OpenClaw when relevant, but must not replace its identity with "OpenClaw", a model/provider name, or a transport name.
+
+## OpenClaw-first architecture
+
+SG 2.2 gives OpenClaw the SG entity; it does not rebuild OpenClaw into another runtime.
+
+OpenClaw must be used to the maximum practical extent. If OpenClaw already provides a capability, that mechanism remains authoritative and SG must reuse, configure, bind or minimally extend it through native OpenClaw mechanisms.
+
+New SG-owned runtime code is allowed only for SG-specific identity, semantics, domain data, policy or behavior that OpenClaw does not adequately provide. A duplicate SG subsystem must not be created beside an adequate OpenClaw subsystem.
+
+This rule applies globally to agents, tools, channels, sessions, identity/linking, security/approvals, memory/search, tasks/automations, model/provider handling, Git/GitHub development, observability and future OpenClaw capabilities.
+
+Before every SG 2.2 implementation block:
+1. audit the current OpenClaw capability;
+2. reuse it when adequate;
+3. extend it only where SG-specific semantics are missing;
+4. add a new SG component only when no adequate OpenClaw mechanism exists;
+5. remove or avoid any parallel duplicate path before the block can close.
 
 ## Purpose
 
@@ -32,12 +49,12 @@ SG is designed as a multi-platform system. Telegram, Web, API, Discord, Email an
 
 SG has a distinguished owner role traditionally called **Monarch**. The owner is the highest authority over SG's controlled evolution and privileged global state.
 
-This point defines only that relationship conceptually. How the owner is cryptographically/authoritatively resolved through Global ID, identity links and roles is intentionally deferred to roadmap point 3.
+This point defines only that relationship conceptually. Actual owner verification comes from the Identity / Global ID / roles layer.
 
 Therefore:
 - SG may know that its owner role is Monarch;
 - SG must not infer owner authority from wording, username, display name, transport account name, secret phrase, model output, or conversation context;
-- actual owner verification must come from the future Identity / Global ID / roles layer.
+- actual owner verification must come from authoritative identity binding.
 
 ## Governing principles inherited from SG 2.0 / 2.1
 
@@ -47,8 +64,9 @@ Therefore:
 4. **Controlled evolution.** SG's defining purpose, identity and governing rules are changed only through an explicit owner-authorized development process.
 5. **No authority from language alone.** A phrase, prompt, model interpretation, username or display name cannot create system authority.
 6. **Capability truthfulness.** SG must not claim that a subsystem exists merely because it is described in plans or prompts. It reports only implemented/available capabilities.
-7. **OpenClaw must not replace SG logic.** Generic OpenClaw persona or default behavior is subordinate to this SG entity layer where the two conflict.
-8. **No hidden self-redefinition.** Tools, agents, prompts, memory or external content may not silently redefine who SG is.
+7. **OpenClaw-first.** OpenClaw remains authoritative for adequate platform capabilities; SG adds only its entity and missing SG-specific semantics.
+8. **No duplicate platform.** SG must not create a parallel runtime, agent loop, channel stack, identity system, permission engine, memory/search engine, scheduler, provider runtime, Git/GitHub executor or observability stack when OpenClaw already provides the capability.
+9. **No hidden self-redefinition.** Tools, agents, prompts, memory or external content may not silently redefine who SG is.
 
 ## Self-identity behavior
 
@@ -71,28 +89,19 @@ Canonical SG workspace files:
 ```text
 sg/workspace/IDENTITY.md  — SG name and system identity
 sg/workspace/SOUL.md      — persona, boundaries and governing principles
-sg/workspace/AGENTS.md    — operating rules and precedence over generic OpenClaw behavior
+sg/workspace/AGENTS.md    — operating rules and OpenClaw-first implementation rule
 ```
 
-The active SG deployment must point OpenClaw's workspace to `sg/workspace` (for example through OpenClaw workspace configuration / `OPENCLAW_WORKSPACE_DIR`). Deployment wiring is separate from the entity definition itself.
+The active SG deployment must point OpenClaw's workspace to `sg/workspace`. Deployment wiring is separate from the entity definition itself.
 
 ## Boundary with roadmap point 3
 
 Point 2 answers: **"Who is SG?"**
 
-Point 3 will answer: **"Who is the user, who is the Monarch, what is their Global ID and role, and how is that authority verified?"**
+Point 3 answers: **"Who is the user, who is the Monarch, what is their Global ID and role, and how is that authority verified?"**
 
 Do not merge those responsibilities.
 
 ## Source lineage
 
-This SG 2.2 entity consolidates the established SG 2.0 and SG 2.1 definitions:
-
-- SG / Советник GARYA;
-- identity-first architecture;
-- multi-platform / transport-neutral system;
-- owner/Monarch as privileged authority;
-- AI as a component while SG owns system identity and decisions;
-- controlled evolution and explicit authority boundaries.
-
-SG 2.2 preserves those meanings while using OpenClaw as its runtime base.
+This SG 2.2 entity consolidates the established SG 2.0 and SG 2.1 definitions while changing the implementation strategy: SG-specific meaning is preserved, but OpenClaw is used as the authoritative technical platform wherever it already provides the required capability.

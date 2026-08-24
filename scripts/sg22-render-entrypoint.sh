@@ -50,11 +50,6 @@ if [ ! -f "$config_path" ]; then
 EOF
 fi
 
-# Render/OpenClaw runtime contract.
-# These infrastructure settings must be restamped on every boot because the
-# persistent disk can contain an older config created before Render support.
-# Official OpenClaw container guidance requires local gateway mode + LAN bind;
-# non-loopback bind requires auth, supplied by OPENCLAW_GATEWAY_TOKEN.
 if [ -z "${OPENCLAW_GATEWAY_TOKEN:-}" ]; then
   echo "SG 2.2 startup error: OPENCLAW_GATEWAY_TOKEN is required for LAN gateway auth" >&2
   exit 1
@@ -62,28 +57,48 @@ fi
 
 node /app/openclaw.mjs config set --batch-json "[{\"path\":\"gateway.mode\",\"value\":\"local\"},{\"path\":\"gateway.bind\",\"value\":\"lan\"},{\"path\":\"gateway.port\",\"value\":${port}},{\"path\":\"gateway.auth.mode\",\"value\":\"token\"}]"
 
-# Temporary Render startup diagnostics: query OpenClaw's local startup probe
-# from inside the same container and print the exact HTTP status/body.
-# This does not affect gateway readiness or Render health-check behaviour.
-(
-  sleep 5
-  i=1
-  while [ "$i" -le 12 ]; do
-    PORT_TO_CHECK="$port" node --input-type=module -e '
-      const port = process.env.PORT_TO_CHECK;
-      const url = `http://127.0.0.1:${port}/startupz`;
-      try {
-        const response = await fetch(url);
-        const body = await response.text();
-        console.log(`[sg22/startupz-local] status=${response.status} body=${body}`);
-      } catch (error) {
-        console.log(`[sg22/startupz-local] request_failed=${error?.message ?? String(error)}`);
-      }
-    ' || true
-    i=$((i + 1))
-    sleep 10
-  done
-) &
-
 echo "SG 2.2 starting OpenClaw gateway on 0.0.0.0:${port}"
-exec node /app/openclaw.mjs gateway --bind lan --port "$port"
+node /app/openclaw.mjs gateway --bind lan --port "$port" &
+gateway_pid=$!
+
+forward_signal() {
+  kill -TERM "$gateway_pid" 2>/dev/null || true
+}
+trap forward_signal INT TERM
+
+sleep 5
+
+i=1
+while [ "$i" -le 12 ]; do
+  if ! kill -0 "$gateway_pid" 2>/dev/null; then
+    echo "[sg22/startupz-local] gateway_process_exited_before_probe"
+    wait "$gateway_pid"
+    exit $?
+  fi
+
+  PORT_TO_CHECK="$port" node --input-type=module -e '
+    const port = process.env.PORT_TO_CHECK;
+    const url = `http://127.0.0.1:${port}/startupz`;
+    try {
+      const response = await fetch(url);
+      const body = await response.text();
+      console.log(`[sg22/startupz-local] status=${response.status} body=${body}`);
+      process.exit(response.status === 200 ? 0 : 2);
+    } catch (error) {
+      console.log(`[sg22/startupz-local] request_failed=${error?.message ?? String(error)}`);
+      process.exit(3);
+    }
+  '
+  probe_status=$?
+
+  if [ "$probe_status" -eq 0 ]; then
+    echo "[sg22/startupz-local] startup_ready"
+    break
+  fi
+
+  i=$((i + 1))
+  sleep 10
+done
+
+wait "$gateway_pid"
+exit $?

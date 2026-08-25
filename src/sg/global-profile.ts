@@ -151,10 +151,37 @@ function normalizeStore(value: unknown): SgProfileStore | null {
   return { version: 1, profiles: normalized };
 }
 
+function describeStoreShape(value: unknown): Record<string, unknown> {
+  if (value === undefined) {
+    return { exists: false };
+  }
+  if (Array.isArray(value)) {
+    return { exists: true, type: "array", length: value.length };
+  }
+  if (!value || typeof value !== "object") {
+    return { exists: true, type: typeof value };
+  }
+  const record = value as Record<string, unknown>;
+  const profiles = record.profiles;
+  return {
+    exists: true,
+    type: "object",
+    version: record.version ?? null,
+    topLevelKeys: Object.keys(record).sort(),
+    profilesType: Array.isArray(profiles) ? "array" : profiles === null ? "null" : typeof profiles,
+    profilesLength: Array.isArray(profiles) ? profiles.length : undefined,
+    firstProfileKeys:
+      Array.isArray(profiles) && profiles[0] && typeof profiles[0] === "object"
+        ? Object.keys(profiles[0] as Record<string, unknown>).sort()
+        : undefined,
+  };
+}
+
 async function readStore(storePath: string): Promise<SgProfileStore> {
   const value = await readJsonIfExists<unknown>(storePath);
   const store = normalizeStore(value);
   if (!store) {
+    console.error("[sg][diag] global-profile-store-shape", describeStoreShape(value));
     throw new Error("sg-global-profile-store-invalid");
   }
   return store;

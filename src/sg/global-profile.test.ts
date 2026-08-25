@@ -1,4 +1,4 @@
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -61,6 +61,62 @@ describe("SG global profile", () => {
       storePath,
     });
     expect(afterRestart.globalId).toBe(profiles[0].globalId);
+  });
+
+  it("recovers compatible legacy profile stores instead of aborting dispatch", async () => {
+    const storePath = await fixture();
+    await writeFile(
+      storePath,
+      JSON.stringify({
+        "channel:telegram:100": {
+          globalId: "usr_existing",
+          role: "monarch",
+        },
+      }),
+      "utf8",
+    );
+    const profile = await resolveSgGlobalProfile({
+      canonicalIdentity: "channel:telegram:100",
+      storePath,
+    });
+    expect(profile).toMatchObject({
+      globalId: "usr_existing",
+      canonicalIdentity: "channel:telegram:100",
+      role: "monarch",
+      status: "active",
+    });
+  });
+
+  it("still rejects ambiguous or corrupt stores", async () => {
+    const storePath = await fixture();
+    await writeFile(
+      storePath,
+      JSON.stringify({
+        version: 1,
+        profiles: [
+          {
+            globalId: "usr_dup",
+            canonicalIdentity: "channel:telegram:1",
+            role: "guest",
+            status: "active",
+            createdAt: "2026-01-01T00:00:00.000Z",
+            updatedAt: "2026-01-01T00:00:00.000Z",
+          },
+          {
+            globalId: "usr_dup",
+            canonicalIdentity: "channel:telegram:2",
+            role: "guest",
+            status: "active",
+            createdAt: "2026-01-01T00:00:00.000Z",
+            updatedAt: "2026-01-01T00:00:00.000Z",
+          },
+        ],
+      }),
+      "utf8",
+    );
+    await expect(
+      resolveSgGlobalProfile({ canonicalIdentity: "channel:telegram:1", storePath }),
+    ).rejects.toThrow("sg-global-profile-store-invalid");
   });
 
   it("creates distinct profiles and exposes role without granting permission", async () => {

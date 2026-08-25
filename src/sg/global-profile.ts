@@ -36,6 +36,8 @@ const STORE_LOCK_OPTIONS = {
   staleRecovery: "fail-closed" as const,
 };
 
+const LEGACY_TIMESTAMP = "1970-01-01T00:00:00.000Z";
+
 function profileStorePath(env: NodeJS.ProcessEnv): string {
   return path.join(resolveStateDir(env), "sg", "global-profiles.json");
 }
@@ -44,36 +46,118 @@ function isRole(value: unknown): value is SgRole {
   return typeof value === "string" && (SG_ROLES as readonly string[]).includes(value);
 }
 
-function isProfile(value: unknown): value is SgGlobalProfile {
+function isStatus(value: unknown): value is SgProfileStatus {
+  return typeof value === "string" && ["active", "suspended", "archived"].includes(value);
+}
+
+function normalizeProfile(value: unknown, canonicalIdentityHint?: string): SgGlobalProfile | null {
   if (!value || typeof value !== "object") {
-    return false;
+    return null;
   }
   const item = value as Record<string, unknown>;
+  const globalId = typeof item.globalId === "string" ? item.globalId.trim() : "";
+  const canonicalIdentity =
+    typeof item.canonicalIdentity === "string"
+      ? item.canonicalIdentity.trim()
+      : (canonicalIdentityHint?.trim() ?? "");
+  if (!globalId || !canonicalIdentity) {
+    return null;
+  }
+  if (item.role !== undefined && !isRole(item.role)) {
+    return null;
+  }
+  if (item.status !== undefined && !isStatus(item.status)) {
+    return null;
+  }
+  const createdAt =
+    typeof item.createdAt === "string" && item.createdAt.trim()
+      ? item.createdAt
+      : typeof item.updatedAt === "string" && item.updatedAt.trim()
+        ? item.updatedAt
+        : LEGACY_TIMESTAMP;
+  const updatedAt =
+    typeof item.updatedAt === "string" && item.updatedAt.trim() ? item.updatedAt : createdAt;
+  return {
+    globalId,
+    canonicalIdentity,
+    role: isRole(item.role) ? item.role : "guest",
+    status: isStatus(item.status) ? item.status : "active",
+    createdAt,
+    updatedAt,
+  };
+}
+
+function validateUniqueProfiles(profiles: SgGlobalProfile[]): boolean {
   return (
-    typeof item.globalId === "string" &&
-    typeof item.canonicalIdentity === "string" &&
-    isRole(item.role) &&
-    ["active", "suspended", "archived"].includes(String(item.status)) &&
-    typeof item.createdAt === "string" &&
-    typeof item.updatedAt === "string"
+    new Set(profiles.map((profile) => profile.globalId)).size === profiles.length &&
+    new Set(profiles.map((profile) => profile.canonicalIdentity)).size === profiles.length
   );
+}
+
+function normalizeStore(value: unknown): SgProfileStore | null {
+  if (value === undefined) {
+    return { version: 1, profiles: [] };
+  }
+
+  let rawProfiles: Array<{ value: unknown; canonicalIdentityHint?: string }> | null = null;
+
+  if (Array.isArray(value)) {
+    rawProfiles = value.map((profile) => ({ value: profile }));
+  } else if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    const keys = Object.keys(record);
+    if (keys.length === 0) {
+      rawProfiles = [];
+    } else if (Array.isArray(record.profiles) && (record.version === undefined || record.version === 1)) {
+      rawProfiles = record.profiles.map((profile) => ({ value: profile }));
+    } else if (
+      record.profiles &&
+      typeof record.profiles === "object" &&
+      !Array.isArray(record.profiles) &&
+      (record.version === undefined || record.version === 1)
+    ) {
+      rawProfiles = Object.entries(record.profiles as Record<string, unknown>).map(
+        ([canonicalIdentityHint, profile]) => ({ value: profile, canonicalIdentityHint }),
+      );
+    } else if (record.version === undefined) {
+      const entries = Object.entries(record);
+      if (
+        entries.every(([, profile]) =>
+          Boolean(profile && typeof profile === "object" && "globalId" in profile),
+        )
+      ) {
+        rawProfiles = entries.map(([canonicalIdentityHint, profile]) => ({
+          value: profile,
+          canonicalIdentityHint,
+        }));
+      }
+    }
+  }
+
+  if (!rawProfiles) {
+    return null;
+  }
+
+  const profiles = rawProfiles.map(({ value: profile, canonicalIdentityHint }) =>
+    normalizeProfile(profile, canonicalIdentityHint),
+  );
+  if (profiles.some((profile) => profile === null)) {
+    return null;
+  }
+  const normalized = profiles as SgGlobalProfile[];
+  if (!validateUniqueProfiles(normalized)) {
+    return null;
+  }
+  return { version: 1, profiles: normalized };
 }
 
 async function readStore(storePath: string): Promise<SgProfileStore> {
   const value = await readJsonIfExists<unknown>(storePath);
-  if (value === undefined) {
-    return { version: 1, profiles: [] };
-  }
-  if (
-    !value ||
-    typeof value !== "object" ||
-    (value as { version?: unknown }).version !== 1 ||
-    !Array.isArray((value as { profiles?: unknown }).profiles) ||
-    !(value as { profiles: unknown[] }).profiles.every(isProfile)
-  ) {
+  const store = normalizeStore(value);
+  if (!store) {
     throw new Error("sg-global-profile-store-invalid");
   }
-  return value as SgProfileStore;
+  return store;
 }
 
 async function writeStore(storePath: string, store: SgProfileStore): Promise<void> {

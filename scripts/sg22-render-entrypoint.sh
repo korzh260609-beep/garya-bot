@@ -7,7 +7,7 @@ source_workspace="/app/sg/workspace"
 port="${PORT:-10000}"
 primary_model="${OPENCLAW_PRIMARY_MODEL:-openai/gpt-5.4-mini}"
 config_path="$state_dir/openclaw.json"
-telegram_owner_id="677128443"
+telegram_owner_id="${SG_MONARCH_TELEGRAM_USER_ID:-${MONARCH_USER_ID:-}}"
 
 mkdir -p "$state_dir" "$workspace"
 
@@ -34,12 +34,9 @@ if [ ! -f "$config_path" ]; then
   "channels": {
     "telegram": {
       "enabled": true,
-      "dmPolicy": "allowlist",
-      "allowFrom": ["$telegram_owner_id"]
+      "dmPolicy": "open",
+      "allowFrom": ["*"]
     }
-  },
-  "commands": {
-    "ownerAllowFrom": ["telegram:$telegram_owner_id"]
   },
   "plugins": {
     "entries": {
@@ -71,9 +68,15 @@ node /app/openclaw.mjs onboard --non-interactive --accept-risk --skip-health --s
   --gateway-auth token \
   --gateway-token-ref-env OPENCLAW_GATEWAY_TOKEN
 
-# Restamp infrastructure and owner access on every boot so persistent state
-# cannot revert the one-owner Telegram policy.
-node /app/openclaw.mjs config set --batch-json "[{\"path\":\"gateway.mode\",\"value\":\"local\"},{\"path\":\"gateway.bind\",\"value\":\"lan\"},{\"path\":\"gateway.port\",\"value\":${port}},{\"path\":\"gateway.auth.mode\",\"value\":\"token\"},{\"path\":\"agents.defaults.model.primary\",\"value\":\"${primary_model}\"},{\"path\":\"auth.order.openai\",\"value\":[\"openai:api-key\"]},{\"path\":\"channels.telegram.dmPolicy\",\"value\":\"allowlist\"},{\"path\":\"channels.telegram.allowFrom\",\"value\":[\"${telegram_owner_id}\"]},{\"path\":\"commands.ownerAllowFrom\",\"value\":[\"telegram:${telegram_owner_id}\"]}]"
+# Restamp runtime settings on every boot so persistent state cannot restore
+# stale one-user access or stale provider configuration.
+config_batch='[{"path":"gateway.mode","value":"local"},{"path":"gateway.bind","value":"lan"},{"path":"gateway.port","value":'"${port}"'},{"path":"gateway.auth.mode","value":"token"},{"path":"agents.defaults.model.primary","value":"'"${primary_model}"'"},{"path":"auth.order.openai","value":["openai:api-key"]},{"path":"memory.search.provider","value":"openai"},{"path":"memory.search.remote.apiKey","value":{"source":"env","provider":"default","id":"OPENAI_API_KEY"}},{"path":"channels.telegram.dmPolicy","value":"open"},{"path":"channels.telegram.allowFrom","value":["*"]}]'
+
+if [ -n "$telegram_owner_id" ]; then
+  config_batch="${config_batch%]} ,{\"path\":\"commands.ownerAllowFrom\",\"value\":[\"telegram:${telegram_owner_id}\"]}]"
+fi
+
+node /app/openclaw.mjs config set --batch-json "$config_batch"
 node /app/openclaw.mjs config set agents.defaults.models "{\"${primary_model}\":{\"agentRuntime\":{\"id\":\"openclaw\"}}}" --strict-json --merge
 
 echo "SG 2.2 starting OpenClaw gateway on 0.0.0.0:${port}"

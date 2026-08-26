@@ -203,6 +203,24 @@ describe("SG global profile", () => {
     ]);
   });
 
+  it("accepts the native telegram-prefixed owner identity from deployment config", async () => {
+    const storePath = await fixture();
+    const context = await resolveSgIdentityContext({
+      channel: "telegram",
+      senderId: "677128443",
+      env: {
+        SG_MONARCH_GLOBAL_USER_ID: "usr_monarch",
+        SG_MONARCH_TELEGRAM_USER_ID: "telegram:677128443",
+      },
+      storePath,
+    });
+    expect(context).toMatchObject({
+      globalId: "usr_monarch",
+      role: "monarch",
+      accessGroup: "sg-monarch",
+    });
+  });
+
   it("does not classify arbitrary Telegram users as monarch from Global ID config alone", async () => {
     const storePath = await fixture();
     const context = await resolveSgIdentityContext({

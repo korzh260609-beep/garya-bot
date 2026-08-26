@@ -153,36 +153,31 @@ function normalizeStore(value: unknown): SgProfileStore | null {
 
 function logStoreShape(value: unknown): void {
   if (value === undefined) {
-    console.error("[sg][diag] exists=false");
+    console.error("[sg][diag] store=missing");
     return;
   }
   if (Array.isArray(value)) {
-    console.error("[sg][diag] type=array");
-    console.error(`[sg][diag] length=${value.length}`);
+    console.error(`[sg][diag] store=array length=${value.length}`);
     return;
   }
   if (!value || typeof value !== "object") {
-    console.error(`[sg][diag] type=${typeof value}`);
+    console.error(`[sg][diag] store=${typeof value}`);
     return;
   }
   const record = value as Record<string, unknown>;
   const profiles = record.profiles;
-  console.error("[sg][diag] type=object");
-  console.error(`[sg][diag] version=${String(record.version ?? "null")}`);
-  console.error(`[sg][diag] keys=${Object.keys(record).sort().join(",") || "<none>"}`);
+  const profilesType = Array.isArray(profiles)
+    ? `array(${profiles.length})`
+    : profiles === null
+      ? "null"
+      : typeof profiles;
+  const firstProfileKeys =
+    Array.isArray(profiles) && profiles[0] && typeof profiles[0] === "object"
+      ? Object.keys(profiles[0] as Record<string, unknown>).sort().join(",")
+      : "-";
   console.error(
-    `[sg][diag] profilesType=${Array.isArray(profiles) ? "array" : profiles === null ? "null" : typeof profiles}`,
+    `[sg][diag] store=object version=${String(record.version ?? "null")} keys=${Object.keys(record).sort().join(",") || "<none>"} profiles=${profilesType} first=${firstProfileKeys}`,
   );
-  if (Array.isArray(profiles)) {
-    console.error(`[sg][diag] profilesLength=${profiles.length}`);
-    if (profiles[0] && typeof profiles[0] === "object") {
-      console.error(
-        `[sg][diag] firstProfileKeys=${Object.keys(profiles[0] as Record<string, unknown>)
-          .sort()
-          .join(",")}`,
-      );
-    }
-  }
 }
 
 async function readStore(storePath: string): Promise<SgProfileStore> {

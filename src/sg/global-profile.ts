@@ -203,16 +203,14 @@ export function resolveSgCanonicalIdentity(params: {
   return `channel:${channel}:${normalizeLowercaseStringOrEmpty(senderId)}`;
 }
 
-function defaultRole(globalId: string, env: NodeJS.ProcessEnv): SgRole {
-  return env.SG_MONARCH_GLOBAL_USER_ID?.trim() === globalId ? "monarch" : "guest";
-}
-
 /** Atomically returns or creates the one SG profile bound to a canonical identity. */
 export async function resolveSgGlobalProfile(params: {
   canonicalIdentity: string;
   env?: NodeJS.ProcessEnv;
   storePath?: string;
   now?: () => Date;
+  fixedGlobalId?: string;
+  fixedRole?: SgRole;
 }): Promise<SgGlobalProfile> {
   const canonicalIdentity = params.canonicalIdentity.trim();
   if (!canonicalIdentity) {
@@ -227,14 +225,37 @@ export async function resolveSgGlobalProfile(params: {
       (profile) => profile.canonicalIdentity === canonicalIdentity,
     );
     if (existing) {
-      return existing;
+      const fixedGlobalId = params.fixedGlobalId?.trim();
+      const fixedRole = params.fixedRole;
+      if (!fixedGlobalId && !fixedRole) {
+        return existing;
+      }
+      if (
+        fixedGlobalId &&
+        store.profiles.some(
+          (profile) =>
+            profile.globalId === fixedGlobalId &&
+            profile.canonicalIdentity !== canonicalIdentity,
+        )
+      ) {
+        throw new Error("sg-global-profile-fixed-id-conflict");
+      }
+      const updated: SgGlobalProfile = {
+        ...existing,
+        ...(fixedGlobalId ? { globalId: fixedGlobalId } : {}),
+        ...(fixedRole ? { role: fixedRole } : {}),
+        updatedAt: (params.now?.() ?? new Date()).toISOString(),
+      };
+      store.profiles[store.profiles.indexOf(existing)] = updated;
+      await writeStore(storePath, store);
+      return updated;
     }
     const timestamp = (params.now?.() ?? new Date()).toISOString();
-    const globalId = `usr_${randomUUID().replaceAll("-", "")}`;
+    const globalId = params.fixedGlobalId?.trim() || `usr_${randomUUID().replaceAll("-", "")}`;
     const profile: SgGlobalProfile = {
       globalId,
       canonicalIdentity,
-      role: defaultRole(globalId, env),
+      role: params.fixedRole ?? "guest",
       status: "active",
       createdAt: timestamp,
       updatedAt: timestamp,
@@ -299,10 +320,18 @@ export async function resolveSgIdentityContext(params: {
   if (!canonicalIdentity) {
     return undefined;
   }
+  const env = params.env ?? process.env;
+  const monarchGlobalId = env.SG_MONARCH_GLOBAL_USER_ID?.trim();
+  const monarchTelegramId = env.SG_MONARCH_TELEGRAM_USER_ID?.trim() || "677128443";
+  const isMonarch =
+    normalizeLowercaseStringOrEmpty(params.channel) === "telegram" &&
+    params.senderId.trim() === monarchTelegramId &&
+    Boolean(monarchGlobalId);
   const profile = await resolveSgGlobalProfile({
     canonicalIdentity,
-    env: params.env,
+    env,
     storePath: params.storePath,
+    ...(isMonarch ? { fixedGlobalId: monarchGlobalId, fixedRole: "monarch" } : {}),
   });
   return buildSgIdentityContext(profile);
 }

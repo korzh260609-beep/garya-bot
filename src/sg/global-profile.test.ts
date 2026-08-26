@@ -55,8 +55,14 @@ describe("SG global profile", () => {
       ),
     );
     expect(new Set(profiles.map((profile) => profile.globalId)).size).toBe(1);
-    const persisted = JSON.parse(await readFile(storePath, "utf8")) as { profiles: unknown[] };
+    const persisted = JSON.parse(await readFile(storePath, "utf8")) as {
+      version: number;
+      profiles: unknown[];
+      identities: unknown[];
+    };
+    expect(persisted.version).toBe(2);
     expect(persisted.profiles).toHaveLength(1);
+    expect(persisted.identities).toHaveLength(1);
     const afterRestart = await resolveSgGlobalProfile({
       canonicalIdentity: "linked:gary",
       storePath,
@@ -93,7 +99,7 @@ describe("SG global profile", () => {
     await writeFile(
       storePath,
       JSON.stringify({
-        version: 1,
+        version: 2,
         profiles: [
           {
             globalId: "usr_dup",
@@ -103,11 +109,17 @@ describe("SG global profile", () => {
             createdAt: "2026-01-01T00:00:00.000Z",
             updatedAt: "2026-01-01T00:00:00.000Z",
           },
+        ],
+        identities: [
           {
+            canonicalIdentity: "channel:telegram:1",
             globalId: "usr_dup",
-            canonicalIdentity: "channel:telegram:2",
-            role: "guest",
-            status: "active",
+            createdAt: "2026-01-01T00:00:00.000Z",
+            updatedAt: "2026-01-01T00:00:00.000Z",
+          },
+          {
+            canonicalIdentity: "channel:telegram:1",
+            globalId: "usr_dup",
             createdAt: "2026-01-01T00:00:00.000Z",
             updatedAt: "2026-01-01T00:00:00.000Z",
           },
@@ -120,7 +132,7 @@ describe("SG global profile", () => {
     ).rejects.toThrow("sg-global-profile-store-invalid");
   });
 
-  it("creates distinct profiles and exposes role without granting permission", async () => {
+  it("creates distinct Global IDs for distinct users", async () => {
     const storePath = await fixture();
     const first = await resolveSgGlobalProfile({ canonicalIdentity: "channel:web:a", storePath });
     const second = await resolveSgGlobalProfile({ canonicalIdentity: "channel:web:b", storePath });
@@ -132,7 +144,31 @@ describe("SG global profile", () => {
     });
   });
 
-  it("binds the Telegram owner to the configured monarch Global ID and repairs a guest profile", async () => {
+  it("links multiple transports to one Global ID when OpenClaw identity links resolve the same person", async () => {
+    const storePath = await fixture();
+    const identityLinks = { gary: ["telegram:100", "discord:200"] };
+    const telegram = await resolveSgIdentityContext({
+      channel: "telegram",
+      senderId: "100",
+      identityLinks,
+      storePath,
+    });
+    const discord = await resolveSgIdentityContext({
+      channel: "discord",
+      senderId: "200",
+      identityLinks,
+      storePath,
+    });
+    expect(telegram?.globalId).toBe(discord?.globalId);
+    const persisted = JSON.parse(await readFile(storePath, "utf8")) as {
+      profiles: unknown[];
+      identities: unknown[];
+    };
+    expect(persisted.profiles).toHaveLength(1);
+    expect(persisted.identities).toHaveLength(1);
+  });
+
+  it("binds the configured Telegram monarch to the configured monarch Global ID", async () => {
     const storePath = await fixture();
     await resolveSgGlobalProfile({
       canonicalIdentity: "channel:telegram:677128443",
@@ -143,6 +179,7 @@ describe("SG global profile", () => {
       senderId: "677128443",
       env: {
         SG_MONARCH_GLOBAL_USER_ID: "usr_monarch",
+        SG_MONARCH_TELEGRAM_USER_ID: "677128443",
       },
       storePath,
     });
@@ -153,10 +190,41 @@ describe("SG global profile", () => {
     });
     const persisted = JSON.parse(await readFile(storePath, "utf8")) as {
       profiles: Array<{ globalId: string; role: string }>;
+      identities: Array<{ globalId: string; canonicalIdentity: string }>;
     };
     expect(persisted.profiles).toEqual([
       expect.objectContaining({ globalId: "usr_monarch", role: "monarch" }),
     ]);
+    expect(persisted.identities).toEqual([
+      expect.objectContaining({
+        globalId: "usr_monarch",
+        canonicalIdentity: "channel:telegram:677128443",
+      }),
+    ]);
+  });
+
+  it("does not classify arbitrary Telegram users as monarch from Global ID config alone", async () => {
+    const storePath = await fixture();
+    const context = await resolveSgIdentityContext({
+      channel: "telegram",
+      senderId: "999",
+      env: { SG_MONARCH_GLOBAL_USER_ID: "usr_monarch" },
+      storePath,
+    });
+    expect(context?.role).toBe("guest");
+    expect(context?.globalId).not.toBe("usr_monarch");
+  });
+
+  it("requires the monarch Global ID when a monarch Telegram identity is configured", async () => {
+    const storePath = await fixture();
+    await expect(
+      resolveSgIdentityContext({
+        channel: "telegram",
+        senderId: "100",
+        env: { SG_MONARCH_TELEGRAM_USER_ID: "100" },
+        storePath,
+      }),
+    ).rejects.toThrow("SG_MONARCH_GLOBAL_USER_ID is required");
   });
 
   it("allows controlled role and status transitions and rejects unauthorized updates", async () => {
@@ -178,7 +246,6 @@ describe("SG global profile", () => {
       storePath,
     });
     expect(updated).toMatchObject({ role: "citizen", status: "suspended" });
-    expect(updated.canonicalIdentity).toBe(profile.canonicalIdentity);
     const monarch = await updateSgGlobalProfile({
       globalId: profile.globalId,
       role: "monarch",

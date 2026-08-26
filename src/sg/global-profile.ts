@@ -13,6 +13,7 @@ export type SgProfileStatus = "active" | "suspended" | "archived";
 
 export type SgGlobalProfile = {
   globalId: string;
+  /** Primary identity retained for compatibility. Transport links are stored separately. */
   canonicalIdentity: string;
   role: SgRole;
   status: SgProfileStatus;
@@ -28,7 +29,18 @@ export type SgIdentityContext = {
   accessGroup: `sg-${SgRole}`;
 };
 
-type SgProfileStore = { version: 1; profiles: SgGlobalProfile[] };
+type SgIdentityLink = {
+  canonicalIdentity: string;
+  globalId: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type SgProfileStore = {
+  version: 2;
+  profiles: SgGlobalProfile[];
+  identities: SgIdentityLink[];
+};
 
 const STORE_LOCK_OPTIONS = {
   retries: { retries: 100, factor: 1.1, minTimeout: 10, maxTimeout: 100 },
@@ -87,19 +99,47 @@ function normalizeProfile(value: unknown, canonicalIdentityHint?: string): SgGlo
   };
 }
 
-function validateUniqueProfiles(profiles: SgGlobalProfile[]): boolean {
-  return (
-    new Set(profiles.map((profile) => profile.globalId)).size === profiles.length &&
-    new Set(profiles.map((profile) => profile.canonicalIdentity)).size === profiles.length
-  );
+function normalizeIdentityLink(value: unknown): SgIdentityLink | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const item = value as Record<string, unknown>;
+  const canonicalIdentity =
+    typeof item.canonicalIdentity === "string" ? item.canonicalIdentity.trim() : "";
+  const globalId = typeof item.globalId === "string" ? item.globalId.trim() : "";
+  if (!canonicalIdentity || !globalId) {
+    return null;
+  }
+  const createdAt =
+    typeof item.createdAt === "string" && item.createdAt.trim()
+      ? item.createdAt
+      : typeof item.updatedAt === "string" && item.updatedAt.trim()
+        ? item.updatedAt
+        : LEGACY_TIMESTAMP;
+  const updatedAt =
+    typeof item.updatedAt === "string" && item.updatedAt.trim() ? item.updatedAt : createdAt;
+  return { canonicalIdentity, globalId, createdAt, updatedAt };
+}
+
+function validateStore(store: SgProfileStore): boolean {
+  const profileIds = new Set(store.profiles.map((profile) => profile.globalId));
+  if (profileIds.size !== store.profiles.length) {
+    return false;
+  }
+  const identityKeys = new Set(store.identities.map((identity) => identity.canonicalIdentity));
+  if (identityKeys.size !== store.identities.length) {
+    return false;
+  }
+  return store.identities.every((identity) => profileIds.has(identity.globalId));
 }
 
 function normalizeStore(value: unknown): SgProfileStore | null {
   if (value === undefined) {
-    return { version: 1, profiles: [] };
+    return { version: 2, profiles: [], identities: [] };
   }
 
   let rawProfiles: Array<{ value: unknown; canonicalIdentityHint?: string }> | null = null;
+  let rawIdentities: unknown[] | null = null;
 
   if (Array.isArray(value)) {
     rawProfiles = value.map((profile) => ({ value: profile }));
@@ -108,8 +148,14 @@ function normalizeStore(value: unknown): SgProfileStore | null {
     const keys = Object.keys(record);
     if (keys.length === 0) {
       rawProfiles = [];
-    } else if (Array.isArray(record.profiles) && (record.version === undefined || record.version === 1)) {
+    } else if (Array.isArray(record.profiles) && (record.version === undefined || record.version === 1 || record.version === 2)) {
       rawProfiles = record.profiles.map((profile) => ({ value: profile }));
+      if (record.version === 2) {
+        if (!Array.isArray(record.identities)) {
+          return null;
+        }
+        rawIdentities = record.identities;
+      }
     } else if (
       record.profiles &&
       typeof record.profiles === "object" &&
@@ -144,11 +190,26 @@ function normalizeStore(value: unknown): SgProfileStore | null {
   if (profiles.some((profile) => profile === null)) {
     return null;
   }
-  const normalized = profiles as SgGlobalProfile[];
-  if (!validateUniqueProfiles(normalized)) {
+  const normalizedProfiles = profiles as SgGlobalProfile[];
+
+  const identities = rawIdentities
+    ? rawIdentities.map((identity) => normalizeIdentityLink(identity))
+    : normalizedProfiles.map((profile) => ({
+        canonicalIdentity: profile.canonicalIdentity,
+        globalId: profile.globalId,
+        createdAt: profile.createdAt,
+        updatedAt: profile.updatedAt,
+      }));
+  if (identities.some((identity) => identity === null)) {
     return null;
   }
-  return { version: 1, profiles: normalized };
+
+  const store: SgProfileStore = {
+    version: 2,
+    profiles: normalizedProfiles,
+    identities: identities as SgIdentityLink[],
+  };
+  return validateStore(store) ? store : null;
 }
 
 async function readStore(storePath: string): Promise<SgProfileStore> {
@@ -203,7 +264,10 @@ export function resolveSgCanonicalIdentity(params: {
   return `channel:${channel}:${normalizeLowercaseStringOrEmpty(senderId)}`;
 }
 
-/** Atomically returns or creates the one SG profile bound to a canonical identity. */
+/**
+ * Resolves transport identity -> persistent Global ID -> profile.
+ * This mirrors SG 2.1 identity-first semantics while keeping OpenClaw authorization authoritative.
+ */
 export async function resolveSgGlobalProfile(params: {
   canonicalIdentity: string;
   env?: NodeJS.ProcessEnv;
@@ -219,48 +283,92 @@ export async function resolveSgGlobalProfile(params: {
   const env = params.env ?? process.env;
   const storePath = params.storePath ?? profileStorePath(env);
   await mkdir(path.dirname(storePath), { recursive: true });
+
   return await withFileLock(storePath, STORE_LOCK_OPTIONS, async () => {
     const store = await readStore(storePath);
-    const existing = store.profiles.find(
-      (profile) => profile.canonicalIdentity === canonicalIdentity,
-    );
-    if (existing) {
-      const fixedGlobalId = params.fixedGlobalId?.trim();
-      const fixedRole = params.fixedRole;
-      if (!fixedGlobalId && !fixedRole) {
-        return existing;
-      }
-      if (
-        fixedGlobalId &&
-        store.profiles.some(
-          (profile) =>
-            profile.globalId === fixedGlobalId &&
-            profile.canonicalIdentity !== canonicalIdentity,
-        )
-      ) {
-        throw new Error("sg-global-profile-fixed-id-conflict");
-      }
-      const updated: SgGlobalProfile = {
-        ...existing,
-        ...(fixedGlobalId ? { globalId: fixedGlobalId } : {}),
-        ...(fixedRole ? { role: fixedRole } : {}),
-        updatedAt: (params.now?.() ?? new Date()).toISOString(),
-      };
-      store.profiles[store.profiles.indexOf(existing)] = updated;
-      await writeStore(storePath, store);
-      return updated;
-    }
     const timestamp = (params.now?.() ?? new Date()).toISOString();
-    const globalId = params.fixedGlobalId?.trim() || `usr_${randomUUID().replaceAll("-", "")}`;
+    const fixedGlobalId = params.fixedGlobalId?.trim();
+    const fixedRole = params.fixedRole;
+    const existingLink = store.identities.find(
+      (identity) => identity.canonicalIdentity === canonicalIdentity,
+    );
+
+    if (existingLink) {
+      let profile = store.profiles.find((item) => item.globalId === existingLink.globalId);
+      if (!profile) {
+        throw new Error("sg-global-profile-store-invalid");
+      }
+
+      if (fixedGlobalId && fixedGlobalId !== profile.globalId) {
+        const fixedProfile = store.profiles.find((item) => item.globalId === fixedGlobalId);
+        if (fixedProfile) {
+          const oldGlobalId = profile.globalId;
+          for (const identity of store.identities) {
+            if (identity.globalId === oldGlobalId) {
+              identity.globalId = fixedGlobalId;
+              identity.updatedAt = timestamp;
+            }
+          }
+          store.profiles = store.profiles.filter((item) => item.globalId !== oldGlobalId);
+          profile = fixedProfile;
+        } else {
+          const oldGlobalId = profile.globalId;
+          profile.globalId = fixedGlobalId;
+          profile.updatedAt = timestamp;
+          for (const identity of store.identities) {
+            if (identity.globalId === oldGlobalId) {
+              identity.globalId = fixedGlobalId;
+              identity.updatedAt = timestamp;
+            }
+          }
+        }
+      }
+
+      if (fixedRole && profile.role !== fixedRole) {
+        profile.role = fixedRole;
+        profile.updatedAt = timestamp;
+      }
+
+      if (fixedGlobalId || fixedRole) {
+        await writeStore(storePath, store);
+      }
+      return profile;
+    }
+
+    if (fixedGlobalId) {
+      const fixedProfile = store.profiles.find((item) => item.globalId === fixedGlobalId);
+      if (fixedProfile) {
+        if (fixedRole && fixedProfile.role !== fixedRole) {
+          fixedProfile.role = fixedRole;
+          fixedProfile.updatedAt = timestamp;
+        }
+        store.identities.push({
+          canonicalIdentity,
+          globalId: fixedGlobalId,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        });
+        await writeStore(storePath, store);
+        return fixedProfile;
+      }
+    }
+
+    const globalId = fixedGlobalId || `usr_${randomUUID().replaceAll("-", "")}`;
     const profile: SgGlobalProfile = {
       globalId,
       canonicalIdentity,
-      role: params.fixedRole ?? "guest",
+      role: fixedRole ?? "guest",
       status: "active",
       createdAt: timestamp,
       updatedAt: timestamp,
     };
     store.profiles.push(profile);
+    store.identities.push({
+      canonicalIdentity,
+      globalId,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
     await writeStore(storePath, store);
     return profile;
   });
@@ -320,18 +428,28 @@ export async function resolveSgIdentityContext(params: {
   if (!canonicalIdentity) {
     return undefined;
   }
+
   const env = params.env ?? process.env;
   const monarchGlobalId = env.SG_MONARCH_GLOBAL_USER_ID?.trim();
-  const monarchTelegramId = env.SG_MONARCH_TELEGRAM_USER_ID?.trim() || "677128443";
-  const isMonarch =
+  const monarchTelegramId =
+    env.SG_MONARCH_TELEGRAM_USER_ID?.trim() || env.MONARCH_USER_ID?.trim();
+  const isConfiguredMonarchTelegramAccount =
     normalizeLowercaseStringOrEmpty(params.channel) === "telegram" &&
-    params.senderId.trim() === monarchTelegramId &&
-    Boolean(monarchGlobalId);
+    Boolean(monarchTelegramId) &&
+    params.senderId.trim() === monarchTelegramId;
+
+  if (isConfiguredMonarchTelegramAccount && !monarchGlobalId) {
+    throw new Error("SG_MONARCH_GLOBAL_USER_ID is required when monarch Telegram identity is configured");
+  }
+
   const profile = await resolveSgGlobalProfile({
     canonicalIdentity,
     env,
     storePath: params.storePath,
-    ...(isMonarch ? { fixedGlobalId: monarchGlobalId, fixedRole: "monarch" } : {}),
+    ...(isConfiguredMonarchTelegramAccount && monarchGlobalId
+      ? { fixedGlobalId: monarchGlobalId, fixedRole: "monarch" as const }
+      : {}),
   });
+
   return buildSgIdentityContext(profile);
 }

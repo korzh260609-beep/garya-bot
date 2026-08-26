@@ -22,8 +22,9 @@ import {
 import { createDiagnosticMessageLifecycle } from "../../logging/message-lifecycle.js";
 import { stripLegacyMediaContextFields } from "../../media/media-facts.js";
 import { getGlobalHookRunner } from "../../plugins/hook-runner-global.js";
-import { normalizeTtsAutoMode } from "../../tts/tts-config.js";
 import { resolveSgIdentityContext } from "../../sg/global-profile.js";
+import { normalizeTtsAutoMode } from "../../tts/tts-config.js";
+import { resolveCommandAuthorization } from "../command-auth.js";
 import type { FinalizedRuntimeMsgContext as FinalizedMsgContext } from "../templating.js";
 import { normalizeVerboseLevel } from "../thinking.js";
 import type {
@@ -71,10 +72,16 @@ export async function gatherDispatchRequest(
     const senderId = normalizeOptionalString(ctx.SenderId ?? ctx.From);
     if (channel && senderId) {
       try {
+        const senderIsOwner = resolveCommandAuthorization({
+          ctx,
+          cfg: params.cfg,
+          commandAuthorized: ctx.CommandAuthorized === true,
+        }).senderIsOwner;
         ctx.Sg = await resolveSgIdentityContext({
           channel,
           senderId,
           identityLinks: params.cfg.session?.identityLinks,
+          senderIsOwner,
         });
       } catch (error) {
         if (!(error instanceof Error) || !error.message.startsWith("sg-global-profile-store-invalid")) {

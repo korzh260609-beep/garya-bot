@@ -147,7 +147,13 @@ async function main() {
   }
 
   let repaired = repair(raw);
-  if (repaired.profiles.length === 0 && text.trim() && text.trim() !== "{}" && text.trim() !== "[]" && text.trim() !== JSON.stringify({ version: 2, profiles: [], identities: [] })) {
+  if (
+    repaired.profiles.length === 0 &&
+    text.trim() &&
+    text.trim() !== "{}" &&
+    text.trim() !== "[]" &&
+    !(isObject(raw) && raw.version === 2 && Array.isArray(raw.profiles) && Array.isArray(raw.identities))
+  ) {
     const backup = `${storePath}.unrecognized-${Date.now()}.bak`;
     await copyFile(storePath, backup);
     console.error(`[sg] global profile store format is unrecognized; backup saved to ${backup}; rebuilding an empty valid store`);

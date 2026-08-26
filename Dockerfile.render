@@ -1,4 +1,4 @@
-FROM ghcr.io/korzh260609-beep/garya-bot-sg22:395718135a472746eafa6753ec06c9d1a77e208a
+FROM ghcr.io/korzh260609-beep/garya-bot-sg22:dfa2351cbe93fe204706d46679d030828826551a
 
 # Render runs the exact prebuilt SG 2.2/OpenClaw image published by GitHub Actions.
 # An immutable tag prevents Render's Docker cache from retaining an older :dev image.

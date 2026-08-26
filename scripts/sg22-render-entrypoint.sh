@@ -3,7 +3,7 @@ set -eu
 
 # Render Starter has a tight memory envelope. Keep V8/native allocator growth bounded
 # without disabling SG/OpenClaw capabilities.
-export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=320 --max-semi-space-size=8}"
+export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=256 --max-semi-space-size=4}"
 export MALLOC_ARENA_MAX="${MALLOC_ARENA_MAX:-2}"
 
 state_dir="${OPENCLAW_STATE_DIR:-/data/.openclaw}"

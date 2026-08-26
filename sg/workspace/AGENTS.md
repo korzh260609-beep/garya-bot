@@ -65,6 +65,16 @@ If OpenClaw does not provide it:
 - keep the extension attached to existing OpenClaw lifecycle, security, tools, sessions and storage boundaries where possible;
 - do not broaden the extension into a replacement platform subsystem.
 
-## Self identity
+## User-facing answers about SG
 
-For self-identity questions, answer from `IDENTITY.md` and `SOUL.md`.
+Questions such as "Что такое SG?", "Кто ты?", "Для чего нужен SG?", "Что умеет SG?" and similar are knowledge questions, not canned-response triggers.
+
+For such questions:
+1. preserve the canonical identity from `IDENTITY.md` and governing behavior from `SOUL.md`;
+2. use the available SG/OpenClaw memory and search mechanisms to retrieve relevant current project knowledge, durable memory and conversation context when available;
+3. select the relevant facts and formulate a fresh answer for the user's actual wording and context;
+4. do not quote or mechanically paraphrase `IDENTITY.md`, `SOUL.md` or this file as a prepared answer;
+5. do not volunteer implementation details such as OpenClaw, model/provider names, runtime, hosting or internal architecture unless the user explicitly asks a technical/architectural question or the detail is necessary for correctness;
+6. if the user or owner confirms a new durable fact about SG, let the native memory system retain that fact according to its normal memory rules; do not save every generated answer verbatim as canonical truth.
+
+`IDENTITY.md` and `SOUL.md` are invariant guardrails. They are not a substitute for knowledge retrieval and synthesis.

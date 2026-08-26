@@ -421,6 +421,8 @@ export async function resolveSgIdentityContext(params: {
   channel: string;
   senderId: string;
   identityLinks?: Record<string, string[]>;
+  /** Trusted owner verdict produced by OpenClaw's command authorization. */
+  senderIsOwner?: boolean;
   env?: NodeJS.ProcessEnv;
   storePath?: string;
 }): Promise<SgIdentityContext | undefined> {
@@ -438,8 +440,8 @@ export async function resolveSgIdentityContext(params: {
     .trim();
   const isConfiguredMonarchTelegramAccount =
     normalizeLowercaseStringOrEmpty(params.channel) === "telegram" &&
-    Boolean(monarchTelegramId) &&
-    params.senderId.trim() === monarchTelegramId;
+    ((Boolean(monarchTelegramId) && params.senderId.trim() === monarchTelegramId) ||
+      params.senderIsOwner === true);
 
   if (isConfiguredMonarchTelegramAccount && !monarchGlobalId) {
     throw new Error("SG_MONARCH_GLOBAL_USER_ID is required when monarch Telegram identity is configured");

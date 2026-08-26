@@ -221,6 +221,25 @@ describe("SG global profile", () => {
     });
   });
 
+  it("uses OpenClaw's trusted owner verdict for Telegram group identity", async () => {
+    const storePath = await fixture();
+    const context = await resolveSgIdentityContext({
+      channel: "telegram",
+      senderId: "677128443",
+      senderIsOwner: true,
+      env: {
+        SG_MONARCH_GLOBAL_USER_ID: "usr_monarch",
+        SG_MONARCH_TELEGRAM_USER_ID: "different-transport-form",
+      },
+      storePath,
+    });
+    expect(context).toMatchObject({
+      globalId: "usr_monarch",
+      role: "monarch",
+      accessGroup: "sg-monarch",
+    });
+  });
+
   it("does not classify arbitrary Telegram users as monarch from Global ID config alone", async () => {
     const storePath = await fixture();
     const context = await resolveSgIdentityContext({

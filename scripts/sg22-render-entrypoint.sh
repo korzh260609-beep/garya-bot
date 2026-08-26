@@ -1,6 +1,11 @@
 #!/bin/sh
 set -eu
 
+# Render Starter has a tight memory envelope. Keep V8/native allocator growth bounded
+# without disabling SG/OpenClaw capabilities.
+export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=192 --max-semi-space-size=8}"
+export MALLOC_ARENA_MAX="${MALLOC_ARENA_MAX:-2}"
+
 state_dir="${OPENCLAW_STATE_DIR:-/data/.openclaw}"
 workspace="${OPENCLAW_WORKSPACE_DIR:-/data/workspace}"
 source_workspace="/app/sg/workspace"
@@ -10,6 +15,11 @@ config_path="$state_dir/openclaw.json"
 telegram_owner_id="${SG_MONARCH_TELEGRAM_USER_ID:-${MONARCH_USER_ID:-}}"
 
 mkdir -p "$state_dir" "$workspace"
+
+# Repair/migrate the persistent SG Global ID store before any Telegram message can
+# enter dispatch. This preserves recognized legacy data and only removes invalid
+# duplicate/orphan links; unrecognized stores are backed up rather than overwritten.
+node /app/scripts/sg22-migrate-global-profiles.mjs
 
 for file in IDENTITY.md SOUL.md AGENTS.md; do
   if [ ! -f "$source_workspace/$file" ]; then

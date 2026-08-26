@@ -60,6 +60,7 @@ fi
 # Restamp infrastructure and owner access on every boot so persistent state
 # cannot revert the one-owner Telegram policy.
 node /app/openclaw.mjs config set --batch-json "[{\"path\":\"gateway.mode\",\"value\":\"local\"},{\"path\":\"gateway.bind\",\"value\":\"lan\"},{\"path\":\"gateway.port\",\"value\":${port}},{\"path\":\"gateway.auth.mode\",\"value\":\"token\"},{\"path\":\"channels.telegram.dmPolicy\",\"value\":\"allowlist\"},{\"path\":\"channels.telegram.allowFrom\",\"value\":[\"${telegram_owner_id}\"]},{\"path\":\"commands.ownerAllowFrom\",\"value\":[\"telegram:${telegram_owner_id}\"]}]"
+node /app/openclaw.mjs config set agents.defaults.models "{\"${primary_model}\":{\"agentRuntime\":{\"id\":\"openclaw\"}}}" --strict-json --merge
 
 echo "SG 2.2 starting OpenClaw gateway on 0.0.0.0:${port}"
 exec node /app/openclaw.mjs gateway --bind lan --port "$port"

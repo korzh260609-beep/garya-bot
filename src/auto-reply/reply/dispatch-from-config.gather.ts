@@ -70,11 +70,20 @@ export async function gatherDispatchRequest(
     const channel = normalizeLowercaseStringOrEmpty(ctx.Surface ?? ctx.Provider ?? "");
     const senderId = normalizeOptionalString(ctx.SenderId ?? ctx.From);
     if (channel && senderId) {
-      ctx.Sg = await resolveSgIdentityContext({
-        channel,
-        senderId,
-        identityLinks: params.cfg.session?.identityLinks,
-      });
+      try {
+        ctx.Sg = await resolveSgIdentityContext({
+          channel,
+          senderId,
+          identityLinks: params.cfg.session?.identityLinks,
+        });
+      } catch (error) {
+        if (!(error instanceof Error) || !error.message.startsWith("sg-global-profile-store-invalid")) {
+          throw error;
+        }
+        // SG identity is prompt metadata, not an authorization owner. A bad
+        // profile artifact must not suppress the transport's normal reply path.
+        console.error(`[sg] global profile unavailable; continuing dispatch: ${error.message}`);
+      }
     }
   }
   const turnAdoptionLifecycle = params.replyOptions?.turnAdoptionLifecycle;

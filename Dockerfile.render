@@ -1,7 +1,11 @@
 FROM ghcr.io/korzh260609-beep/garya-bot-sg22:ddd7a71d078865b1d95a57ec787a8d8113104578
 
-# Render runs the exact prebuilt SG 2.2/OpenClaw image published by GitHub Actions.
-# An immutable tag prevents Render's Docker cache from retaining an older :dev image.
-# Do not override CMD here: the overlay image already starts
-# /app/scripts/sg22-render-entrypoint.sh, which seeds SG/OpenClaw state and
-# launches the Gateway with --bind lan and Render's PORT.
+USER root
+COPY --chown=node:node scripts/sg22-rollback-entrypoint.sh /app/scripts/sg22-rollback-entrypoint.sh
+RUN chmod 755 /app/scripts/sg22-rollback-entrypoint.sh
+USER node
+CMD ["sh", "/app/scripts/sg22-rollback-entrypoint.sh"]
+
+# Render runs the exact last-known responding SG 2.2/OpenClaw image.
+# The rollback wrapper removes only stale sg-identity configuration left by
+# the newer image, then starts the image's original SG/OpenClaw entrypoint.

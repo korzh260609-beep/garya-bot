@@ -431,8 +431,11 @@ export async function resolveSgIdentityContext(params: {
 
   const env = params.env ?? process.env;
   const monarchGlobalId = env.SG_MONARCH_GLOBAL_USER_ID?.trim();
-  const monarchTelegramId =
+  const configuredMonarchTelegramIdentity =
     env.SG_MONARCH_TELEGRAM_USER_ID?.trim() || env.MONARCH_USER_ID?.trim();
+  const monarchTelegramId = configuredMonarchTelegramIdentity
+    ?.replace(/^telegram:/iu, "")
+    .trim();
   const isConfiguredMonarchTelegramAccount =
     normalizeLowercaseStringOrEmpty(params.channel) === "telegram" &&
     Boolean(monarchTelegramId) &&

@@ -1,4 +1,5 @@
 name: SG 2.2 Render Image
+# Rebuild trigger for SG 2.2 image publication.
 
 on:
   push:

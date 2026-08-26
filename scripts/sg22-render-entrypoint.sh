@@ -57,9 +57,23 @@ if [ -z "${OPENCLAW_GATEWAY_TOKEN:-}" ]; then
   exit 1
 fi
 
+if [ -z "${OPENAI_API_KEY:-}" ]; then
+  echo "SG 2.2 startup error: OPENAI_API_KEY is required" >&2
+  exit 1
+fi
+
+# Keep provider auth on the Render API key. A stale OAuth profile in the
+# persistent state must not take precedence over the deployment credential.
+node /app/openclaw.mjs onboard --non-interactive --accept-risk --skip-health --skip-daemon \
+  --mode local \
+  --auth-choice openai-api-key \
+  --secret-input-mode ref \
+  --gateway-auth token \
+  --gateway-token-ref-env OPENCLAW_GATEWAY_TOKEN
+
 # Restamp infrastructure and owner access on every boot so persistent state
 # cannot revert the one-owner Telegram policy.
-node /app/openclaw.mjs config set --batch-json "[{\"path\":\"gateway.mode\",\"value\":\"local\"},{\"path\":\"gateway.bind\",\"value\":\"lan\"},{\"path\":\"gateway.port\",\"value\":${port}},{\"path\":\"gateway.auth.mode\",\"value\":\"token\"},{\"path\":\"channels.telegram.dmPolicy\",\"value\":\"allowlist\"},{\"path\":\"channels.telegram.allowFrom\",\"value\":[\"${telegram_owner_id}\"]},{\"path\":\"commands.ownerAllowFrom\",\"value\":[\"telegram:${telegram_owner_id}\"]}]"
+node /app/openclaw.mjs config set --batch-json "[{\"path\":\"gateway.mode\",\"value\":\"local\"},{\"path\":\"gateway.bind\",\"value\":\"lan\"},{\"path\":\"gateway.port\",\"value\":${port}},{\"path\":\"gateway.auth.mode\",\"value\":\"token\"},{\"path\":\"agents.defaults.model.primary\",\"value\":\"${primary_model}\"},{\"path\":\"auth.order.openai\",\"value\":[\"openai:api-key\"]},{\"path\":\"channels.telegram.dmPolicy\",\"value\":\"allowlist\"},{\"path\":\"channels.telegram.allowFrom\",\"value\":[\"${telegram_owner_id}\"]},{\"path\":\"commands.ownerAllowFrom\",\"value\":[\"telegram:${telegram_owner_id}\"]}]"
 node /app/openclaw.mjs config set agents.defaults.models "{\"${primary_model}\":{\"agentRuntime\":{\"id\":\"openclaw\"}}}" --strict-json --merge
 
 echo "SG 2.2 starting OpenClaw gateway on 0.0.0.0:${port}"

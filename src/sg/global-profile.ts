@@ -151,18 +151,15 @@ function normalizeStore(value: unknown): SgProfileStore | null {
   return { version: 1, profiles: normalized };
 }
 
-function logStoreShape(value: unknown): void {
+function invalidStoreError(value: unknown): Error {
   if (value === undefined) {
-    console.error("[sg][diag] store=missing");
-    return;
+    return new Error("sg-global-profile-store-invalid:missing");
   }
   if (Array.isArray(value)) {
-    console.error(`[sg][diag] store=array length=${value.length}`);
-    return;
+    return new Error(`sg-global-profile-store-invalid:array(${value.length})`);
   }
   if (!value || typeof value !== "object") {
-    console.error(`[sg][diag] store=${typeof value}`);
-    return;
+    return new Error(`sg-global-profile-store-invalid:${typeof value}`);
   }
   const record = value as Record<string, unknown>;
   const profiles = record.profiles;
@@ -175,8 +172,8 @@ function logStoreShape(value: unknown): void {
     Array.isArray(profiles) && profiles[0] && typeof profiles[0] === "object"
       ? Object.keys(profiles[0] as Record<string, unknown>).sort().join(",")
       : "-";
-  console.error(
-    `[sg][diag] store=object version=${String(record.version ?? "null")} keys=${Object.keys(record).sort().join(",") || "<none>"} profiles=${profilesType} first=${firstProfileKeys}`,
+  return new Error(
+    `sg-global-profile-store-invalid:object;version=${String(record.version ?? "null")};keys=${Object.keys(record).sort().join(",") || "<none>"};profiles=${profilesType};first=${firstProfileKeys}`,
   );
 }
 
@@ -184,8 +181,7 @@ async function readStore(storePath: string): Promise<SgProfileStore> {
   const value = await readJsonIfExists<unknown>(storePath);
   const store = normalizeStore(value);
   if (!store) {
-    logStoreShape(value);
-    throw new Error("sg-global-profile-store-invalid");
+    throw invalidStoreError(value);
   }
   return store;
 }

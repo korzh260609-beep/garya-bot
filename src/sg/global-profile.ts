@@ -151,37 +151,11 @@ function normalizeStore(value: unknown): SgProfileStore | null {
   return { version: 1, profiles: normalized };
 }
 
-function invalidStoreError(value: unknown): Error {
-  if (value === undefined) {
-    return new Error("sg-global-profile-store-invalid:missing");
-  }
-  if (Array.isArray(value)) {
-    return new Error(`sg-global-profile-store-invalid:array(${value.length})`);
-  }
-  if (!value || typeof value !== "object") {
-    return new Error(`sg-global-profile-store-invalid:${typeof value}`);
-  }
-  const record = value as Record<string, unknown>;
-  const profiles = record.profiles;
-  const profilesType = Array.isArray(profiles)
-    ? `array(${profiles.length})`
-    : profiles === null
-      ? "null"
-      : typeof profiles;
-  const firstProfileKeys =
-    Array.isArray(profiles) && profiles[0] && typeof profiles[0] === "object"
-      ? Object.keys(profiles[0] as Record<string, unknown>).sort().join(",")
-      : "-";
-  return new Error(
-    `sg-global-profile-store-invalid:object;version=${String(record.version ?? "null")};keys=${Object.keys(record).sort().join(",") || "<none>"};profiles=${profilesType};first=${firstProfileKeys}`,
-  );
-}
-
 async function readStore(storePath: string): Promise<SgProfileStore> {
   const value = await readJsonIfExists<unknown>(storePath);
   const store = normalizeStore(value);
   if (!store) {
-    throw invalidStoreError(value);
+    throw new Error("sg-global-profile-store-invalid");
   }
   return store;
 }

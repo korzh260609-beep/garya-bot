@@ -7,6 +7,7 @@ import {
   buildSgIdentityContext,
   resolveSgCanonicalIdentity,
   resolveSgGlobalProfile,
+  resolveSgIdentityContext,
   updateSgGlobalProfile,
 } from "./global-profile.js";
 
@@ -129,6 +130,33 @@ describe("SG global profile", () => {
       role: "guest",
       accessGroup: "sg-guest",
     });
+  });
+
+  it("binds the Telegram owner to the configured monarch Global ID and repairs a guest profile", async () => {
+    const storePath = await fixture();
+    await resolveSgGlobalProfile({
+      canonicalIdentity: "channel:telegram:677128443",
+      storePath,
+    });
+    const context = await resolveSgIdentityContext({
+      channel: "telegram",
+      senderId: "677128443",
+      env: {
+        SG_MONARCH_GLOBAL_USER_ID: "usr_monarch",
+      },
+      storePath,
+    });
+    expect(context).toMatchObject({
+      globalId: "usr_monarch",
+      role: "monarch",
+      accessGroup: "sg-monarch",
+    });
+    const persisted = JSON.parse(await readFile(storePath, "utf8")) as {
+      profiles: Array<{ globalId: string; role: string }>;
+    };
+    expect(persisted.profiles).toEqual([
+      expect.objectContaining({ globalId: "usr_monarch", role: "monarch" }),
+    ]);
   });
 
   it("allows controlled role and status transitions and rejects unauthorized updates", async () => {

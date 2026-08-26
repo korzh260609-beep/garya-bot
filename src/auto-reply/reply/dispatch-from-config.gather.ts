@@ -1,8 +1,4 @@
 import {
-  normalizeLowercaseStringOrEmpty,
-  normalizeOptionalString,
-} from "@openclaw/normalization-core/string-coerce";
-import {
   resolveAgentConfig,
   resolveAgentWorkspaceDir,
   resolveSessionAgentId,
@@ -22,7 +18,6 @@ import {
 import { createDiagnosticMessageLifecycle } from "../../logging/message-lifecycle.js";
 import { stripLegacyMediaContextFields } from "../../media/media-facts.js";
 import { getGlobalHookRunner } from "../../plugins/hook-runner-global.js";
-import { resolveSgIdentityContext } from "../../sg/global-profile.js";
 import { normalizeTtsAutoMode } from "../../tts/tts-config.js";
 import { resolveCommandAuthorization } from "../command-auth.js";
 import type { FinalizedRuntimeMsgContext as FinalizedMsgContext } from "../templating.js";
@@ -67,32 +62,6 @@ export async function gatherDispatchRequest(
   const ctx = isFinalizedInboundContext(params.ctx)
     ? params.ctx
     : finalizeInboundContext(params.ctx);
-  if (!ctx.Sg) {
-    const channel = normalizeLowercaseStringOrEmpty(ctx.Surface ?? ctx.Provider ?? "");
-    const senderId = normalizeOptionalString(ctx.SenderId ?? ctx.From);
-    if (channel && senderId) {
-      try {
-        const senderIsOwner = resolveCommandAuthorization({
-          ctx,
-          cfg: params.cfg,
-          commandAuthorized: ctx.CommandAuthorized === true,
-        }).senderIsOwner;
-        ctx.Sg = await resolveSgIdentityContext({
-          channel,
-          senderId,
-          identityLinks: params.cfg.session?.identityLinks,
-          senderIsOwner,
-        });
-      } catch (error) {
-        if (!(error instanceof Error) || !error.message.startsWith("sg-global-profile-store-invalid")) {
-          throw error;
-        }
-        // SG identity is prompt metadata, not an authorization owner. A bad
-        // profile artifact must not suppress the transport's normal reply path.
-        console.error(`[sg] global profile unavailable; continuing dispatch: ${error.message}`);
-      }
-    }
-  }
   const turnAdoptionLifecycle = params.replyOptions?.turnAdoptionLifecycle;
   const turnAdoptionState = { adopted: false };
   const normalizedParams: DispatchFromConfigParams = {

@@ -63,7 +63,17 @@ if [ ! -f "$config_path" ]; then
     }
   },
   "plugins": {
+    "load": {
+      "paths": ["/app/sg/plugin"]
+    },
     "entries": {
+      "sg-identity": {
+        "enabled": true,
+        "hooks": {
+          "allowConversationAccess": true,
+          "allowPromptInjection": true
+        }
+      },
       "telegram": {
         "enabled": true
       }
@@ -94,7 +104,7 @@ node /app/openclaw.mjs onboard --non-interactive --accept-risk --skip-health --s
 
 # Restamp runtime settings on every boot so persistent state cannot restore
 # stale one-user access, stale Telegram group restrictions, or stale provider configuration.
-config_batch='[{"path":"gateway.mode","value":"local"},{"path":"gateway.bind","value":"lan"},{"path":"gateway.port","value":'"${port}"'},{"path":"gateway.auth.mode","value":"token"},{"path":"agents.defaults.model.primary","value":"'"${primary_model}"'"},{"path":"auth.order.openai","value":["openai:api-key"]},{"path":"memory.search.provider","value":"openai"},{"path":"memory.search.remote.apiKey","value":{"source":"env","provider":"default","id":"OPENAI_API_KEY"}},{"path":"messages.groupChat.mentionPatterns","value":["(^|[\\s,.:;!?])сг([\\s,.:;!?]|$)","(^|[\\s,.:;!?])sg([\\s,.:;!?]|$)"]},{"path":"channels.telegram.dmPolicy","value":"open"},{"path":"channels.telegram.allowFrom","value":["*"]},{"path":"channels.telegram.groupPolicy","value":"allowlist"},{"path":"channels.telegram.groups","value":{"*":{"requireMention":true}}}]'
+config_batch='[{"path":"gateway.mode","value":"local"},{"path":"gateway.bind","value":"lan"},{"path":"gateway.port","value":'"${port}"'},{"path":"gateway.auth.mode","value":"token"},{"path":"agents.defaults.model.primary","value":"'"${primary_model}"'"},{"path":"auth.order.openai","value":["openai:api-key"]},{"path":"memory.search.provider","value":"openai"},{"path":"memory.search.remote.apiKey","value":{"source":"env","provider":"default","id":"OPENAI_API_KEY"}},{"path":"plugins.load.paths","value":["/app/sg/plugin"]},{"path":"plugins.entries.sg-identity.enabled","value":true},{"path":"plugins.entries.sg-identity.hooks","value":{"allowConversationAccess":true,"allowPromptInjection":true}},{"path":"messages.groupChat.mentionPatterns","value":["(^|[\\s,.:;!?])сг([\\s,.:;!?]|$)","(^|[\\s,.:;!?])sg([\\s,.:;!?]|$)"]},{"path":"channels.telegram.dmPolicy","value":"open"},{"path":"channels.telegram.allowFrom","value":["*"]},{"path":"channels.telegram.groupPolicy","value":"allowlist"},{"path":"channels.telegram.groups","value":{"*":{"requireMention":true}}}]'
 
 if [ -n "$telegram_owner_id" ]; then
   config_batch="${config_batch%]} ,{\"path\":\"commands.ownerAllowFrom\",\"value\":[\"telegram:${telegram_owner_id}\"]}]"

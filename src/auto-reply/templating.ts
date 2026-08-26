@@ -156,8 +156,6 @@ export type MsgContext = Partial<CanonicalInboundText> & {
   RuntimePolicySessionKey?: string;
   /** Provider account id (multi-account). */
   AccountId?: string;
-  /** SG domain profile resolved from OpenClaw's authoritative sender identity. */
-  Sg?: import("../sg/global-profile.js").SgIdentityContext;
   ParentSessionKey?: string;
   /**
    * Session key used only for inheriting session-scoped model/provider

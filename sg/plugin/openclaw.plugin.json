@@ -1,0 +1,1 @@
+{"id":"sg-identity","name":"SG Global Identity","description":"Resolves transport identities to SG Global Profiles","activation":{"onStartup":true},"configSchema":{"type":"object","additionalProperties":false,"properties":{}}}

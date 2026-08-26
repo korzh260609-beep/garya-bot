@@ -10,6 +10,7 @@ WORKDIR /app
 
 # SG 2.2 entity overlay above the compiled OpenClaw runtime.
 COPY --chown=node:node sg/workspace /app/sg/workspace
+COPY --chown=node:node sg/plugin /app/sg/plugin
 COPY --chown=node:node scripts/sg22-render-entrypoint.sh /app/scripts/sg22-render-entrypoint.sh
 COPY --chown=node:node scripts/sg22-migrate-global-profiles.mjs /app/scripts/sg22-migrate-global-profiles.mjs
 RUN chmod 755 /app/scripts/sg22-render-entrypoint.sh /app/scripts/sg22-migrate-global-profiles.mjs

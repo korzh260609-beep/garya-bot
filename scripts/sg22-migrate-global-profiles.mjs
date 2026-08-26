@@ -126,14 +126,43 @@ function repair(raw) {
   return { version: 2, profiles, identities: [...byCanonical.values()] };
 }
 
+function seedMonarch(store) {
+  const globalId = clean(process.env.SG_MONARCH_GLOBAL_USER_ID);
+  const telegramId = clean(process.env.SG_MONARCH_TELEGRAM_USER_ID || process.env.MONARCH_USER_ID)
+    .replace(/^telegram:/i, "")
+    .trim();
+  if (!globalId || !telegramId) return store;
+  const now = new Date().toISOString();
+  const canonicalIdentity = `channel:telegram:${telegramId.toLowerCase()}`;
+  let profile = store.profiles.find((item) => item.globalId === globalId);
+  if (!profile) {
+    profile = { globalId, canonicalIdentity, role: "monarch", status: "active", createdAt: now, updatedAt: now };
+    store.profiles.push(profile);
+  } else if (profile.role !== "monarch" || profile.status !== "active") {
+    profile.role = "monarch";
+    profile.status = "active";
+    profile.updatedAt = now;
+  }
+  const link = store.identities.find((item) => item.canonicalIdentity === canonicalIdentity);
+  if (link) {
+    if (link.globalId !== globalId) {
+      link.globalId = globalId;
+      link.updatedAt = now;
+    }
+  } else {
+    store.identities.push({ canonicalIdentity, globalId, createdAt: now, updatedAt: now });
+  }
+  return store;
+}
+
 async function main() {
   await mkdir(path.dirname(storePath), { recursive: true });
   let text;
   try {
     text = await readFile(storePath, "utf8");
   } catch (error) {
-    if (error?.code === "ENOENT") return;
-    throw error;
+    if (error?.code === "ENOENT") text = "{}";
+    else throw error;
   }
 
   let raw;
@@ -159,6 +188,7 @@ async function main() {
     console.error(`[sg] global profile store format is unrecognized; backup saved to ${backup}; rebuilding an empty valid store`);
     repaired = { version: 2, profiles: [], identities: [] };
   }
+  repaired = seedMonarch(repaired);
 
   const normalized = `${JSON.stringify(repaired, null, 2)}\n`;
   if (normalized === `${JSON.stringify(raw, null, 2)}\n`) return;

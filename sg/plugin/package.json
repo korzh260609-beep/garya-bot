@@ -1,0 +1,1 @@
+{"name":"@sg/global-identity","version":"2.2.0","private":true,"description":"SG transport-independent Global Profile plugin","type":"module","openclaw":{"extensions":["./index.ts"]}}

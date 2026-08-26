@@ -142,16 +142,16 @@ async function main() {
   } catch {
     const backup = `${storePath}.invalid-json-${Date.now()}.bak`;
     await copyFile(storePath, backup);
-    console.error(`[sg] global profile JSON is invalid; backup saved to ${backup}`);
-    return;
+    console.error(`[sg] global profile JSON is invalid; backup saved to ${backup}; rebuilding an empty valid store`);
+    raw = { version: 2, profiles: [], identities: [] };
   }
 
-  const repaired = repair(raw);
-  if (repaired.profiles.length === 0 && text.trim() && text.trim() !== "{}" && text.trim() !== "[]") {
+  let repaired = repair(raw);
+  if (repaired.profiles.length === 0 && text.trim() && text.trim() !== "{}" && text.trim() !== "[]" && text.trim() !== JSON.stringify({ version: 2, profiles: [], identities: [] })) {
     const backup = `${storePath}.unrecognized-${Date.now()}.bak`;
     await copyFile(storePath, backup);
-    console.error(`[sg] global profile store format is unrecognized; backup saved to ${backup}`);
-    return;
+    console.error(`[sg] global profile store format is unrecognized; backup saved to ${backup}; rebuilding an empty valid store`);
+    repaired = { version: 2, profiles: [], identities: [] };
   }
 
   const normalized = `${JSON.stringify(repaired, null, 2)}\n`;

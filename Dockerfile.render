@@ -1,11 +1,5 @@
-FROM ghcr.io/korzh260609-beep/garya-bot-sg22:ddd7a71d078865b1d95a57ec787a8d8113104578
+FROM ghcr.io/korzh260609-beep/garya-bot-sg22:69c6a315e29a9533ecb86a3acfb35989c734fe8a
 
-USER root
-COPY --chown=node:node scripts/sg22-rollback-entrypoint.sh /app/scripts/sg22-rollback-entrypoint.sh
-RUN chmod 755 /app/scripts/sg22-rollback-entrypoint.sh
-USER node
-CMD ["sh", "/app/scripts/sg22-rollback-entrypoint.sh"]
-
-# Render runs the exact last-known responding SG 2.2/OpenClaw image.
-# The rollback wrapper removes only stale sg-identity configuration left by
-# the newer image, then starts the image's original SG/OpenClaw entrypoint.
+# Render runs the exact verified SG 2.2/OpenClaw image. The immutable SHA tag
+# prevents Docker cache from restoring an older identity implementation.
+# The image's native CMD starts scripts/sg22-render-entrypoint.sh.

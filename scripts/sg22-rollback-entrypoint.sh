@@ -25,6 +25,13 @@ if (Array.isArray(config.plugins?.load?.paths)) {
   );
 }
 config.gateway ??= {};
+config.gateway.auth ??= {};
+config.gateway.auth.mode = "token";
+config.gateway.auth.token = {
+  source: "env",
+  provider: "default",
+  id: "OPENCLAW_GATEWAY_TOKEN",
+};
 config.gateway.trustedProxies = ["127.0.0.1", "::1"];
 if (renderHostname) {
   config.gateway.controlUi ??= {};

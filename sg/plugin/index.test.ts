@@ -34,8 +34,8 @@ describe("SG Global Identity plugin", () => {
     await writeFile(storePath, JSON.stringify({ version: 2, profiles: [{ globalId: "usr_monarch", canonicalIdentity: "channel:telegram:100", role: "monarch", status: "active", createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" }], identities: [{ canonicalIdentity: "channel:telegram:100", globalId: "usr_monarch", createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" }] }));
     const profile = await resolveSgProfile("channel:telegram:100", stateDir);
     const prompt = profile ? buildSgPrompt(profile) : undefined;
-    expect(prompt).toContain("sg.globalId: usr_monarch");
-    expect(prompt).toContain("sg.role: monarch");
+    expect(prompt).toContain("identity.globalId: usr_monarch");
+    expect(prompt).toContain("identity.projectRole: monarch");
     expect(prompt).not.toContain("Корж Игорь");
     expect(profile ? buildSgPrompt({ ...profile, status: "suspended" }) : undefined).toBeUndefined();
   });

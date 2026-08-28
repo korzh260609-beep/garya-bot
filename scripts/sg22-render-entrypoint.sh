@@ -13,6 +13,7 @@ port="${PORT:-10000}"
 primary_model="${OPENCLAW_PRIMARY_MODEL:-openai/gpt-5.4-mini}"
 config_path="$state_dir/openclaw.json"
 telegram_owner_id="${SG_MONARCH_TELEGRAM_USER_ID:-${MONARCH_USER_ID:-}}"
+render_hostname="${RENDER_EXTERNAL_HOSTNAME:-}"
 
 mkdir -p "$state_dir" "$workspace"
 
@@ -104,7 +105,11 @@ node /app/openclaw.mjs onboard --non-interactive --accept-risk --skip-health --s
 
 # Restamp runtime settings on every boot so persistent state cannot restore
 # stale one-user access, stale Telegram group restrictions, or stale provider configuration.
-config_batch='[{"path":"gateway.mode","value":"local"},{"path":"gateway.bind","value":"lan"},{"path":"gateway.port","value":'"${port}"'},{"path":"gateway.auth.mode","value":"token"},{"path":"agents.defaults.model.primary","value":"'"${primary_model}"'"},{"path":"auth.order.openai","value":["openai:api-key"]},{"path":"memory.search.provider","value":"openai"},{"path":"memory.search.remote.apiKey","value":{"source":"env","provider":"default","id":"OPENAI_API_KEY"}},{"path":"plugins.load.paths","value":["/app/sg/plugin"]},{"path":"plugins.entries.sg-identity.enabled","value":true},{"path":"plugins.entries.sg-identity.hooks","value":{"allowConversationAccess":true,"allowPromptInjection":true}},{"path":"messages.groupChat.mentionPatterns","value":["(^|[\\s,.:;!?])сг([\\s,.:;!?]|$)","(^|[\\s,.:;!?])sg([\\s,.:;!?]|$)"]},{"path":"channels.telegram.dmPolicy","value":"open"},{"path":"channels.telegram.allowFrom","value":["*"]},{"path":"channels.telegram.groupPolicy","value":"allowlist"},{"path":"channels.telegram.groups","value":{"*":{"requireMention":true}}}]'
+config_batch='[{"path":"gateway.mode","value":"local"},{"path":"gateway.bind","value":"lan"},{"path":"gateway.port","value":'"${port}"'},{"path":"gateway.auth.mode","value":"token"},{"path":"gateway.trustedProxies","value":["127.0.0.1","::1"]},{"path":"agents.defaults.model.primary","value":"'"${primary_model}"'"},{"path":"auth.order.openai","value":["openai:api-key"]},{"path":"memory.search.provider","value":"openai"},{"path":"memory.search.remote.apiKey","value":{"source":"env","provider":"default","id":"OPENAI_API_KEY"}},{"path":"plugins.load.paths","value":["/app/sg/plugin"]},{"path":"plugins.entries.sg-identity.enabled","value":true},{"path":"plugins.entries.sg-identity.hooks","value":{"allowConversationAccess":true,"allowPromptInjection":true}},{"path":"messages.groupChat.mentionPatterns","value":["(^|[\\s,.:;!?])сг([\\s,.:;!?]|$)","(^|[\\s,.:;!?])sg([\\s,.:;!?]|$)"]},{"path":"channels.telegram.dmPolicy","value":"open"},{"path":"channels.telegram.allowFrom","value":["*"]},{"path":"channels.telegram.groupPolicy","value":"allowlist"},{"path":"channels.telegram.groups","value":{"*":{"requireMention":true}}}]'
+
+if [ -n "$render_hostname" ]; then
+  config_batch="${config_batch%]} ,{\"path\":\"gateway.controlUi.allowedOrigins\",\"value\":[\"https://${render_hostname}\"]}]"
+fi
 
 if [ -n "$telegram_owner_id" ]; then
   config_batch="${config_batch%]} ,{\"path\":\"commands.ownerAllowFrom\",\"value\":[\"telegram:${telegram_owner_id}\"]}]"

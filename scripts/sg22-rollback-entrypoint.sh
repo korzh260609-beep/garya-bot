@@ -34,7 +34,12 @@ fs.writeFileSync(path, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 });
 NODE
 fi
 
-mkdir -p /tmp/sg22-client-body /tmp/sg22-proxy
+mkdir -p \
+  /tmp/sg22-client-body \
+  /tmp/sg22-proxy \
+  /tmp/sg22-fastcgi \
+  /tmp/sg22-uwsgi \
+  /tmp/sg22-scgi
 
 cat > /tmp/sg22-nginx.conf <<EOF
 pid /tmp/sg22-nginx.pid;
@@ -46,6 +51,9 @@ http {
   access_log /dev/stdout;
   client_body_temp_path /tmp/sg22-client-body;
   proxy_temp_path /tmp/sg22-proxy;
+  fastcgi_temp_path /tmp/sg22-fastcgi;
+  uwsgi_temp_path /tmp/sg22-uwsgi;
+  scgi_temp_path /tmp/sg22-scgi;
 
   map \$http_upgrade \$connection_upgrade {
     default upgrade;

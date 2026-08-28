@@ -21,6 +21,7 @@ export const registerTelegramHandlers = (params: RegisterTelegramHandlerParams) 
       registerTelegramInboundHandlers({ bot: params.bot, pipeline: inboundPipeline }),
   });
 
+  eventBindings.registerMembershipCache();
   eventBindings.registerReaction();
   eventBindings.registerPolls();
   params.bot.on("callback_query", async (ctx) => {

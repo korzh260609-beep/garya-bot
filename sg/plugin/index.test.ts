@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { buildSgPrompt, resolveSgCanonicalIdentity, resolveSgProfile } from "./index.js";
+import { buildSgPrompt, decideSgRegistration, listPendingSgRegistrations, requestSgRegistration, resolveSgCanonicalIdentity, resolveSgProfile } from "./index.js";
 
 describe("SG Global Identity plugin", () => {
   it("uses one canonical identity across linked transports", () => {
@@ -38,5 +38,36 @@ describe("SG Global Identity plugin", () => {
     expect(prompt).toContain("sg.role: monarch");
     expect(prompt).not.toContain("Корж Игорь");
     expect(profile ? buildSgPrompt({ ...profile, status: "suspended" }) : undefined).toBeUndefined();
+  });
+
+  it("binds host-verified owner to the canonical monarch Global ID", async () => {
+    const stateDir = await mkdtemp(path.join(os.tmpdir(), "sg-identity-"));
+    process.env.SG_MONARCH_GLOBAL_USER_ID = "usr_monarch";
+    try {
+      const profile = await resolveSgProfile("channel:telegram:100", stateDir, { senderIsOwner: true });
+      expect(profile).toMatchObject({ globalId: "usr_monarch", role: "monarch" });
+      const repeated = await resolveSgProfile("channel:telegram:100", stateDir);
+      expect(repeated?.globalId).toBe("usr_monarch");
+    } finally {
+      delete process.env.SG_MONARCH_GLOBAL_USER_ID;
+    }
+  });
+
+  it("keeps guests restricted until the monarch approves their registration", async () => {
+    const stateDir = await mkdtemp(path.join(os.tmpdir(), "sg-identity-"));
+    const guest = await resolveSgProfile("channel:telegram:200", stateDir);
+    expect(guest?.role).toBe("guest");
+    expect(await requestSgRegistration(guest!, "telegram", "200", stateDir)).toBe(true);
+    expect(await requestSgRegistration(guest!, "telegram", "200", stateDir)).toBe(false);
+    expect(await listPendingSgRegistrations(stateDir)).toHaveLength(1);
+    const citizen = await decideSgRegistration(guest!.globalId, "approve", "usr_monarch", stateDir);
+    expect(citizen?.role).toBe("citizen");
+    expect(await listPendingSgRegistrations(stateDir)).toHaveLength(0);
+  });
+
+  it("marks guest access as information-only in verified context", async () => {
+    const stateDir = await mkdtemp(path.join(os.tmpdir(), "sg-identity-"));
+    const guest = await resolveSgProfile("channel:telegram:300", stateDir);
+    expect(buildSgPrompt(guest!)).toContain("access.mode: information_only");
   });
 });

@@ -129,9 +129,13 @@ export function buildAgentHookContextChannelFields(params: {
 export function buildAgentHookContextIdentityFields(params: {
   trigger?: string | null;
   senderId?: string | null;
+  senderIsOwner?: boolean | null;
   chatId?: string | null;
   channelContext?: PluginHookChannelContext;
-}): Pick<PluginHookAgentContext, "senderId" | "chatId" | "channelContext"> {
+}): Pick<
+  PluginHookAgentContext,
+  "senderId" | "senderIsOwner" | "chatId" | "channelContext"
+> {
   const trigger = normalizeOptionalString(params.trigger);
   if (trigger && trigger !== "user") {
     return {};
@@ -156,6 +160,9 @@ export function buildAgentHookContextIdentityFields(params: {
 
   return {
     ...(senderId ? { senderId } : {}),
+    ...(typeof params.senderIsOwner === "boolean"
+      ? { senderIsOwner: params.senderIsOwner }
+      : {}),
     ...(chatId ? { chatId } : {}),
     ...(channelContext ? { channelContext } : {}),
   };

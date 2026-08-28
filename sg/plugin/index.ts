@@ -223,6 +223,6 @@ export default definePluginEntry({
         api.logger.error(`sg-identity: profile unavailable; denying SG tools: ${String(error)}`);
         return { toolsAllow: [] };
       }
-    }, { requiresToolAuthority: true });
+    });
   },
 });

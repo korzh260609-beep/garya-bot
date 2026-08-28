@@ -60,7 +60,6 @@ import {
   resolveTelegramStatusReactionEmojis,
 } from "./status-reaction-variants.js";
 import { getTopicName, resolveTopicNameCacheScope, updateTopicName } from "./topic-name-cache.js";
-import { resolveTelegramSgResourceAuthority } from "./sg-resource-authority.js";
 
 export type {
   BuildTelegramMessageContextParams,
@@ -153,18 +152,6 @@ export const buildTelegramMessageContext = async ({
   const chatId = msg.chat.id;
   const isGroup = msg.chat.type === "group" || msg.chat.type === "supergroup";
   const senderId = msg.from?.id ? String(msg.from.id) : "";
-  const resourceAuthority = senderId
-    ? await resolveTelegramSgResourceAuthority({
-        chatId,
-        senderId,
-        isGroup,
-        getChatMember: bot.api.getChatMember.bind(bot.api),
-      })
-    : {
-        resourceId: `telegram:${String(chatId)}`,
-        resourceRole: "unknown" as const,
-        verified: false,
-      };
   const isDirectMessagesChat = msg.chat.is_direct_messages === true;
   const reactionApi =
     typeof bot.api.setMessageReaction === "function"
@@ -312,7 +299,6 @@ export const buildTelegramMessageContext = async ({
     effectiveGroupAllow,
     senderId,
     senderUsername,
-    resourceAuthority,
     enforceAllowOverride: true,
     requireSenderForAllowOverride: false,
   });

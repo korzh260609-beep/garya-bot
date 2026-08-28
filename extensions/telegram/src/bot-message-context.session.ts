@@ -229,11 +229,6 @@ export async function buildTelegramInboundContextPayload(params: {
   chatId: number | string;
   senderId: string;
   senderUsername: string;
-  resourceAuthority?: {
-    resourceId: string;
-    resourceRole: "creator" | "administrator" | "member" | "outsider" | "unknown";
-    verified: boolean;
-  };
   resolvedThreadId?: number;
   dmThreadId?: number;
   threadSpec: TelegramThreadSpec;
@@ -287,7 +282,6 @@ export async function buildTelegramInboundContextPayload(params: {
     chatId,
     senderId,
     senderUsername,
-    resourceAuthority,
     resolvedThreadId,
     dmThreadId,
     threadSpec,
@@ -685,9 +679,6 @@ export async function buildTelegramInboundContextPayload(params: {
       name: senderName,
       username: senderUsername || undefined,
       isBot: msg.from?.is_bot,
-    },
-    channelContext: {
-      authority: resourceAuthority,
     },
     conversation: {
       kind: conversationKind,

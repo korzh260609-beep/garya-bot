@@ -116,7 +116,6 @@ export interface TelegramCallbackRouter {
 }
 
 export interface TelegramEventBindings {
-  registerMembershipCache(): void;
   registerReaction(): void;
   registerPolls(): void;
   registerMigration(): void;

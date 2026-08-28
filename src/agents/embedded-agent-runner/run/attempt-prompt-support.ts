@@ -324,7 +324,6 @@ export function observeEmbeddedAttemptPrompt(input: {
           ...buildAgentHookContextIdentityFields({
             trigger: attempt.trigger,
             senderId: attempt.senderId,
-            senderIsOwner: attempt.senderIsOwner,
             chatId: attempt.chatId,
             channelContext: attempt.channelContext,
           }),

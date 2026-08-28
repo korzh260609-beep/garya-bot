@@ -14,7 +14,6 @@ import { resolveTelegramThreadSpec, type TelegramThreadSpec } from "./bot/helper
 import { resolveTelegramConversationRoute } from "./conversation-route.js";
 import { migrateTelegramGroupConfig } from "./group-migration.js";
 import { getPreparedTelegramPollAnswer } from "./poll-answer-context.js";
-import { invalidateTelegramSgResourceAuthority } from "./sg-resource-authority.js";
 import { findTelegramPollRegistryEntry, retireTelegramPollRegistryEntry } from "./poll-registry.js";
 
 /** Stable operator-facing reason for a scoped reaction dropped without a known topic. */
@@ -61,17 +60,6 @@ export function createTelegramEventBindings({
     processMessageWithReplyChain,
     resolveCachedMessageThreadSpec,
   } = message;
-
-  const registerMembershipCache = () => {
-    bot.on("chat_member", async (ctx) => {
-      const update = ctx.chatMember;
-      if (update) invalidateTelegramSgResourceAuthority(update.chat.id, update.new_chat_member.user.id);
-    });
-    bot.on("my_chat_member", async (ctx) => {
-      const update = ctx.myChatMember;
-      if (update) invalidateTelegramSgResourceAuthority(update.chat.id);
-    });
-  };
 
   const registerReaction = () => {
     bot.on("message_reaction", async (ctx) => {
@@ -423,5 +411,5 @@ export function createTelegramEventBindings({
     });
   };
 
-  return { registerMembershipCache, registerReaction, registerPolls, registerMigration, registerMessages };
+  return { registerReaction, registerPolls, registerMigration, registerMessages };
 }

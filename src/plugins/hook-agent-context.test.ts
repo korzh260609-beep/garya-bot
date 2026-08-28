@@ -46,12 +46,10 @@ describe("buildAgentHookContextIdentityFields", () => {
     expect(
       buildAgentHookContextIdentityFields({
         senderId: "open-id-1",
-        senderIsOwner: true,
         chatId: "chat-1",
       }),
     ).toEqual({
       senderId: "open-id-1",
-      senderIsOwner: true,
       chatId: "chat-1",
       channelContext: {
         sender: { id: "open-id-1" },

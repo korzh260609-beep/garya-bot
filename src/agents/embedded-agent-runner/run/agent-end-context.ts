@@ -46,7 +46,6 @@ export function buildEmbeddedAgentEndContext(params: {
     ...buildAgentHookContextIdentityFields({
       trigger: run.trigger,
       senderId: run.senderId,
-      senderIsOwner: run.senderIsOwner,
       chatId: run.chatId,
       channelContext: run.channelContext,
     }),

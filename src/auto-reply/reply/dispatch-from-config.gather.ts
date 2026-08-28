@@ -1,4 +1,8 @@
 import {
+  normalizeLowercaseStringOrEmpty,
+  normalizeOptionalString,
+} from "@openclaw/normalization-core/string-coerce";
+import {
   resolveAgentConfig,
   resolveAgentWorkspaceDir,
   resolveSessionAgentId,
@@ -19,7 +23,6 @@ import { createDiagnosticMessageLifecycle } from "../../logging/message-lifecycl
 import { stripLegacyMediaContextFields } from "../../media/media-facts.js";
 import { getGlobalHookRunner } from "../../plugins/hook-runner-global.js";
 import { normalizeTtsAutoMode } from "../../tts/tts-config.js";
-import { resolveCommandAuthorization } from "../command-auth.js";
 import type { FinalizedRuntimeMsgContext as FinalizedMsgContext } from "../templating.js";
 import { normalizeVerboseLevel } from "../thinking.js";
 import type {

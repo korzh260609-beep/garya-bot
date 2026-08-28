@@ -410,7 +410,6 @@ async function runEmbeddedAgentInternal(
             ...buildAgentHookContextIdentityFields({
               trigger: params.trigger,
               senderId: params.senderId,
-              senderIsOwner: params.senderIsOwner,
               chatId: params.chatId,
               channelContext: params.channelContext,
             }),

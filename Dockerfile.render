@@ -1,4 +1,4 @@
-FROM ghcr.io/korzh260609-beep/garya-bot-sg22:ddd7a71d078865b1d95a57ec787a8d8113104578
+FROM ghcr.io/korzh260609-beep/garya-bot-sg22:4068ce1b9a6ec7ae281e32ab79159302f80adeeb
 
 USER root
 RUN apt-get update \
@@ -11,6 +11,5 @@ RUN chmod 755 /app/scripts/sg22-rollback-entrypoint.sh
 USER node
 CMD ["sh", "/app/scripts/sg22-rollback-entrypoint.sh"]
 
-# Last live-verified image: replies in Telegram and resolves the project owner.
-# Keep this runtime pinned until the role-aware image passes a real Telegram
-# reply test rather than only a container build.
+# Clean OpenClaw core image with the unstable SG identity plugin kept disabled.
+# Preserve the verified Render ingress wrapper and existing Telegram runtime.

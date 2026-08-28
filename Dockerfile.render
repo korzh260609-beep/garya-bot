@@ -5,8 +5,8 @@ RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends gh \
     && rm -rf /var/lib/apt/lists/* \
     && gh --version
-COPY --chown=node:node scripts/sg22-render-entrypoint.sh scripts/sg22-rollback-entrypoint.sh /app/scripts/
-RUN chmod 755 /app/scripts/sg22-render-entrypoint.sh /app/scripts/sg22-rollback-entrypoint.sh
+COPY --chown=node:node scripts/sg22-rollback-entrypoint.sh /app/scripts/sg22-rollback-entrypoint.sh
+RUN chmod 755 /app/scripts/sg22-rollback-entrypoint.sh
 USER node
 CMD ["sh", "/app/scripts/sg22-rollback-entrypoint.sh"]
 

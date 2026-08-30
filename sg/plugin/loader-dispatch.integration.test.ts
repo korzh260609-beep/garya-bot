@@ -23,6 +23,7 @@ describe("SG Workspace Manager real loader and dispatch runner", () => {
       pluginLoaded: true,
       hookRegistered: true,
       promptHookRegistered: true,
+      diagnosticHooksRegistered: true,
       toolsRegistered: true,
       errorDiagnostics: [],
       dispatchResult: { handled: true },

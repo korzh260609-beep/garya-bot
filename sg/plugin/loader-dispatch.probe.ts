@@ -78,6 +78,17 @@ console.log(
     promptHookRegistered: registry.typedHooks.some(
       (hook) => hook.pluginId === "sg-workspace-manager" && hook.hookName === "before_prompt_build",
     ),
+    diagnosticHooksRegistered: [
+      "before_prompt_build",
+      "model_call_started",
+      "before_tool_call",
+      "after_tool_call",
+      "before_agent_reply",
+    ].every((hookName) =>
+      registry.typedHooks.some(
+        (hook) => hook.pluginId === "sg-workspace-manager" && hook.hookName === hookName,
+      ),
+    ),
     toolsRegistered: registry.tools.some(
       (tool) =>
         tool.pluginId === "sg-workspace-manager" &&

@@ -2,7 +2,7 @@
 
 ## Status
 
-NOT STARTED
+IN PROGRESS — WSP1 CLOSED
 
 This document is the canonical implementation plan for the external SG workspace/community plugin above OpenClaw.
 
@@ -164,7 +164,7 @@ Status flow for every stage:
 
 ### WSP1 — OpenClaw plugin seam and safe context proof
 
-Status: `IMPLEMENTED` — local contract proof passed; live Telegram verification pending.
+Status: `CLOSED`
 
 Goal: prove the external integration point before implementing business functions.
 
@@ -206,11 +206,16 @@ Local proof completed:
 - disabled-plugin no-registration path;
 - manifest JSON and Render entrypoint shell syntax.
 
-Pending before `VERIFIED` / `CLOSED`:
+Live verification completed:
 
-- exact-head image build;
-- manual Render deploy (autodeploy remains off);
-- live Telegram checks for monarch DM, monarch group, unknown user, restart, disabled plugin and ordinary SG replies.
+- exact-head image build succeeded;
+- manual Render deploy succeeded with autodeploy still off;
+- monarch DM and group returned the same existing Global ID and `monarch` role;
+- unknown user returned their existing Global ID and fail-closed `guest` role;
+- restart preserved both identities and roles;
+- disabling the plugin removed it from the OpenClaw runtime while ordinary SG replies continued;
+- re-enabling the plugin restored `/sg_context` through the normal OpenClaw reply path;
+- no OpenClaw core or Telegram adapter files changed.
 
 ### WSP2 — Workspace registry and isolation
 

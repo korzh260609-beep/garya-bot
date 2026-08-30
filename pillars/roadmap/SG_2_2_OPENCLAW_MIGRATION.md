@@ -354,6 +354,9 @@ Do not:
 
 ## Point 15 — SG groups/users/subscriptions semantics above OpenClaw channel access
 
+Canonical staged plugin plan:
+`pillars/roadmap/SG22_WORKSPACE_COMMUNITY_PLUGIN.md`.
+
 Default work type: **OpenClaw audit + SG business-semantic overlay**.
 
 OpenClaw ownership:

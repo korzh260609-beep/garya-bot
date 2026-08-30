@@ -134,11 +134,15 @@ describe("SG Workspace Manager WSP1", () => {
       registerCommand,
       runtime: { state: { resolveStateDir: () => "/tmp/sg-wsp-test" } },
     });
-    expect(registerCommand).toHaveBeenCalledTimes(2);
+    expect(registerCommand).toHaveBeenCalledTimes(3);
     const command = registerCommand.mock.calls[0]?.[0];
     expect(command).toMatchObject({ name: "sg_context", requireAuth: false });
     expect(registerCommand.mock.calls[1]?.[0]).toMatchObject({
       name: "sg_workspace",
+      requireAuth: false,
+    });
+    expect(registerCommand.mock.calls[2]?.[0]).toMatchObject({
+      name: "sg_workspace_register",
       requireAuth: false,
     });
   });
@@ -162,6 +166,52 @@ describe("SG Workspace Manager WSP1", () => {
     ).resolves.toEqual({ text: "SG Workspace Manager — ресурс не зарегистрирован" });
     await expect(stat(path.join(root, "sg", "workspaces.json"))).rejects.toMatchObject({
       code: "ENOENT",
+    });
+  });
+
+  it("lets only the existing monarch register the current resource", async () => {
+    const { root } = await stateDirWithProfiles();
+    const registerCommand = vi.fn();
+    registerWorkspaceManager({
+      registerCommand,
+      runtime: { state: { resolveStateDir: () => root } },
+    });
+    const command = registerCommand.mock.calls[2]?.[0];
+    const base = {
+      channel: "telegram",
+      accountId: "default",
+      to: "telegram:-100500",
+      config: {},
+    };
+    await expect(
+      command.handler({ ...base, senderId: "999", args: "group Sandbox" }),
+    ).resolves.toEqual({ text: "SG Workspace Manager — регистрация разрешена только monarch" });
+    await expect(
+      command.handler({ ...base, senderId: "100", args: "group Sandbox" }),
+    ).resolves.toMatchObject({ text: expect.stringContaining("Название: Sandbox") });
+    await expect(
+      command.handler({ ...base, senderId: "100", args: "group Changed" }),
+    ).resolves.toMatchObject({ text: expect.stringContaining("Название: Sandbox") });
+  });
+
+  it("requires an explicit resource kind and title for registration", async () => {
+    const { root } = await stateDirWithProfiles();
+    const registerCommand = vi.fn();
+    registerWorkspaceManager({
+      registerCommand,
+      runtime: { state: { resolveStateDir: () => root } },
+    });
+    const command = registerCommand.mock.calls[2]?.[0];
+    await expect(
+      command.handler({
+        channel: "telegram",
+        to: "telegram:100",
+        senderId: "100",
+        args: "group",
+        config: {},
+      }),
+    ).resolves.toEqual({
+      text: "Использование: /sg_workspace_register <group|channel|room|topic> <название>",
     });
   });
 

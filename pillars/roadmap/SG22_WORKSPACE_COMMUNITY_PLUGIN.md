@@ -247,6 +247,9 @@ Implemented WSP2 scope:
 - idempotent registration, resource resolution, suspend and archive state;
 - separate workspaces for groups, channels and forum topics;
 - read-only `/sg_workspace` command through the normal OpenClaw reply path;
+- explicit `/sg_workspace_register <kind> <title>` command for the current resource;
+- registration is allowed only for an existing active SG `monarch` profile and remains
+  independent from the workspace-role model deferred to WSP3;
 - no automatic registration or platform-role inference before WSP3.
 
 Persistence decision:
@@ -257,6 +260,10 @@ Persistence decision:
 - migration to native keyed plugin state remains possible if OpenClaw later permits it for this external plugin.
 
 Local proof completed:
+
+- monarch can register the current resource while a guest fails closed;
+- repeated registration of the same resource is idempotent;
+- registration requires an explicit cross-channel resource kind and title;
 
 - two groups and one channel remain isolated;
 - a forum topic remains isolated from its parent group;

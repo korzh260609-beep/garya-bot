@@ -105,7 +105,19 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
   });
   api.on("before_prompt_build", async (_event, ctx) => {
     const runKey = currentRunKey(ctx);
-    if (!runKey || !ctx.channel || !ctx.chatId || !ctx.senderId || isDirectConversation(ctx)) {
+    const missingContext = [
+      !runKey ? "runKey" : undefined,
+      !ctx.channel ? "channel" : undefined,
+      !ctx.chatId ? "chatId" : undefined,
+      !ctx.senderId ? "senderId" : undefined,
+    ].filter((field): field is string => field !== undefined);
+    if (missingContext.length > 0) {
+      api.logger?.warn(
+        `SG workspace automatic onboarding skipped: missing ${missingContext.join(",")}`,
+      );
+      return { appendSystemContext: WSP3_AGENT_GUIDANCE };
+    }
+    if (isDirectConversation(ctx)) {
       return { appendSystemContext: WSP3_AGENT_GUIDANCE };
     }
     try {

@@ -25,6 +25,10 @@ describe("SG Workspace Manager real loader and dispatch runner", () => {
       toolsRegistered: true,
       errorDiagnostics: [],
       dispatchResult: { handled: true },
+      repeatDispatchResult: {
+        handled: true,
+        text: expect.stringContaining("уже ожидает подтверждения"),
+      },
       pendingCount: 1,
     });
     expect(await readFile(path.join(stateDir, "sg", "workspace-requests.json"), "utf8")).toContain(

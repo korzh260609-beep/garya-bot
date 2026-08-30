@@ -241,6 +241,35 @@ describe("SG Workspace Manager WSP1", () => {
     ]);
   });
 
+  it("announces an existing pending request instead of falling through to the model", async () => {
+    const { root } = await stateDirWithProfiles();
+    const hooks = new Map<string, (...args: any[]) => Promise<unknown> | unknown>();
+    registerWorkspaceManager({
+      registerCommand: vi.fn(),
+      registerTool: vi.fn(),
+      on: vi.fn((name, handler) => hooks.set(name, handler)),
+      runtime: { state: { resolveStateDir: () => root } },
+    });
+    const event = { isGroup: true, channel: "telegram", senderId: "200" };
+    const context = {
+      messageId: "message-1",
+      sessionKey: "agent:main:telegram:group:-100500",
+      channelId: "telegram",
+      accountId: "default",
+      conversationId: "telegram:-100500",
+      senderId: "200",
+    };
+
+    await hooks.get("before_dispatch")?.(event, context);
+    await expect(
+      hooks.get("before_dispatch")?.(event, { ...context, messageId: "message-2" }),
+    ).resolves.toMatchObject({
+      handled: true,
+      text: expect.stringContaining("уже ожидает подтверждения"),
+    });
+    await expect(new SgWorkspaceRequestRegistry(root).listPending()).resolves.toHaveLength(1);
+  });
+
   it("records which required hook context fields are unavailable without logging their values", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "sg-wsp3-missing-context-"));
     const hooks = new Map<string, (...args: any[]) => Promise<unknown> | unknown>();

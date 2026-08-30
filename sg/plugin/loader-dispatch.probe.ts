@@ -49,6 +49,23 @@ const dispatchResult = await createHookRunner(registry).runBeforeDispatch(
     senderId: "200",
   },
 );
+const repeatDispatchResult = await createHookRunner(registry).runBeforeDispatch(
+  {
+    messageId: "telegram-message-43",
+    content: "СГ, привет",
+    channel: "telegram",
+    senderId: "200",
+    isGroup: true,
+  },
+  {
+    messageId: "telegram-message-43",
+    channelId: "telegram",
+    accountId: "default",
+    conversationId: "telegram:-100500",
+    sessionKey: "agent:main:telegram:group:-100500",
+    senderId: "200",
+  },
+);
 
 console.log(
   `SG_LOADER_PROBE=${JSON.stringify({
@@ -67,6 +84,7 @@ console.log(
     ),
     errorDiagnostics: registry.diagnostics.filter((item) => item.level === "error"),
     dispatchResult,
+    repeatDispatchResult,
     pendingCount: (await new SgWorkspaceRequestRegistry(stateDir).listPending()).length,
   })}`,
 );

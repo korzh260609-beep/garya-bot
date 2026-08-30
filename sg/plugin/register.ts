@@ -54,6 +54,8 @@ type DispatchHookContext = {
 
 const ONBOARDING_NOTICE =
   "Я обнаружил новое сообщество и отправил запрос на подключение. Сообщу после подтверждения владельца.";
+const PENDING_NOTICE =
+  "Запрос на подключение этого сообщества уже ожидает подтверждения владельца.";
 
 function canonicalResourceId(channel: string, conversationId: string): string {
   const normalizedChannel = channel.trim().toLowerCase();
@@ -123,6 +125,11 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
       trace(api, traceId, "workspace-lookup", workspace ? "found" : "missing");
       const request = workspace ? undefined : await requests.resolve(resource);
       trace(api, traceId, "request-lookup", request ? "found" : "missing");
+      if (!workspace && request) {
+        trace(api, traceId, "pending-create", "existing");
+        trace(api, traceId, "dispatch-handle", "true");
+        return { handled: true, text: PENDING_NOTICE };
+      }
       if (!workspace && !request) {
         const actor = await resolveWorkspaceContext(
           {

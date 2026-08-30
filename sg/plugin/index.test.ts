@@ -152,6 +152,21 @@ describe("SG Workspace Manager WSP1", () => {
     expect(on).toHaveBeenCalledWith("before_dispatch", expect.any(Function));
   });
 
+  it("adds pending-list tool guidance through the native prompt hook", async () => {
+    const hooks = new Map<string, (...args: unknown[]) => unknown>();
+    registerWorkspaceManager({
+      registerCommand: vi.fn(),
+      registerTool: vi.fn(),
+      on: vi.fn((name, handler) => hooks.set(name, handler)),
+      runtime: { state: { resolveStateDir: () => "/tmp/sg-wsp-test" } },
+    });
+
+    const result = await hooks.get("before_prompt_build")?.({}, {});
+    expect(result).toMatchObject({
+      prependSystemContext: expect.stringContaining("обязательно используй sg_workspace_pending"),
+    });
+  });
+
   it("returns an explicit unregistered workspace through the normal reply payload", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "sg-wsp2-command-"));
     const registerCommand = vi.fn();

@@ -22,6 +22,7 @@ describe("SG Workspace Manager real loader and dispatch runner", () => {
     expect(JSON.parse(marker!.slice("SG_LOADER_PROBE=".length))).toMatchObject({
       pluginLoaded: true,
       hookRegistered: true,
+      promptHookRegistered: true,
       toolsRegistered: true,
       errorDiagnostics: [],
       dispatchResult: { handled: true },

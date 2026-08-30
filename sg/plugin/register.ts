@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { formatWorkspaceContext, resolveWorkspaceContext } from "./context.js";
 import { formatWorkspaceResolution, SgWorkspaceRegistry } from "./workspace-registry.js";
 import { SgWorkspaceRequestRegistry } from "./workspace-requests.js";
-import { createWorkspaceTools } from "./workspace-tools.js";
+import { createWorkspaceTools, WSP3_AGENT_GUIDANCE } from "./workspace-tools.js";
 
 type CommandContext = {
   channel: string;
@@ -39,6 +39,10 @@ type WorkspacePluginApi = {
       event: { isGroup?: boolean; channel?: string; senderId?: string },
       ctx: DispatchHookContext,
     ) => Promise<{ handled: boolean; text?: string }>,
+  ): void;
+  on(
+    hook: "before_prompt_build",
+    handler: () => Promise<{ prependSystemContext: string }> | { prependSystemContext: string },
   ): void;
   logger?: { info(message: string): void; warn(message: string): void };
 };
@@ -90,6 +94,9 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
     names: ["sg_workspace_onboard", "sg_workspace_pending", "sg_workspace_decide"],
   });
   api.logger?.info("[sg-workspace] stage=register-tools-complete");
+  api.on("before_prompt_build", async () => ({
+    prependSystemContext: WSP3_AGENT_GUIDANCE,
+  }));
   api.logger?.info("[sg-workspace] stage=register-before-dispatch");
   api.on("before_dispatch", async (event, ctx) => {
     const traceId = traceIdFor(ctx.messageId);

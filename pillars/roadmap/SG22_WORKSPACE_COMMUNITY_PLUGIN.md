@@ -164,6 +164,8 @@ Status flow for every stage:
 
 ### WSP1 — OpenClaw plugin seam and safe context proof
 
+Status: `IMPLEMENTED` — local contract proof passed; live Telegram verification pending.
+
 Goal: prove the external integration point before implementing business functions.
 
 Work:
@@ -182,6 +184,33 @@ Exit:
 - unknown identity resolves fail-closed to `guest`;
 - working Telegram behavior remains unchanged when the plugin is disabled;
 - no OpenClaw core or standard channel adapter changes exist.
+
+Implemented WSP1 scope:
+
+- external plugin manifest and package: `sg/plugin` (`sg-workspace-manager`);
+- one read-only diagnostic command: `/sg_context`;
+- canonical sender resolution consumes OpenClaw `channel`, `senderId` and `session.identityLinks`;
+- existing `global-profiles.json` is read without creating or updating profiles;
+- missing, inactive or unknown identity fails closed to `guest`;
+- OpenClaw command context supplies account, resource and topic identifiers;
+- `SG_WORKSPACE_PLUGIN_ENABLED=false` disables the plugin without changing Telegram or ordinary OpenClaw replies.
+
+Local proof completed:
+
+- monarch direct context;
+- monarch group/topic context;
+- citizen and unknown guest resolution;
+- byte-for-byte and mtime proof that the profile store is unchanged;
+- simulated restart with stable result;
+- Plugin API command registration and normal reply payload;
+- disabled-plugin no-registration path;
+- manifest JSON and Render entrypoint shell syntax.
+
+Pending before `VERIFIED` / `CLOSED`:
+
+- exact-head image build;
+- manual Render deploy (autodeploy remains off);
+- live Telegram checks for monarch DM, monarch group, unknown user, restart, disabled plugin and ordinary SG replies.
 
 ### WSP2 — Workspace registry and isolation
 

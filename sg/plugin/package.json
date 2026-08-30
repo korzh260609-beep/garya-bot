@@ -1,1 +1,1 @@
-{"name":"@sg/global-identity","version":"2.2.0","private":true,"description":"SG transport-independent Global Profile plugin","type":"module","openclaw":{"extensions":["./index.ts"]}}
+{"name":"@sg/workspace-manager","version":"2.2.0","private":true,"description":"SG workspace semantics above OpenClaw","type":"module","peerDependencies":{"openclaw":"2026.8.1"},"openclaw":{"extensions":["./index.ts"],"compat":{"pluginApi":">=2026.8.1","minGatewayVersion":">=2026.8.1"},"build":{"openclawVersion":"2026.8.1","pluginSdkVersion":"2026.8.1"}}}

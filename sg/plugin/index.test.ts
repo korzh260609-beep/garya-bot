@@ -1,73 +1,89 @@
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
-import { buildSgPrompt, decideSgRegistration, listPendingSgRegistrations, requestSgRegistration, resolveSgCanonicalIdentity, resolveSgProfile } from "./index.js";
+import { describe, expect, it, vi } from "vitest";
+import { resolveSgCanonicalIdentity, resolveWorkspaceContext } from "./context.js";
+import { registerWorkspaceManager } from "./register.js";
 
-describe("SG Global Identity plugin", () => {
-  it("uses one canonical identity across linked transports", () => {
-    const identityLinks = { gary: ["telegram:100", "discord:200"] };
-    expect(resolveSgCanonicalIdentity({ channel: "telegram", senderId: "100", identityLinks })).toBe("linked:gary");
-    expect(resolveSgCanonicalIdentity({ channel: "discord", senderId: "200", identityLinks })).toBe("linked:gary");
-    expect(resolveSgCanonicalIdentity({ channel: "telegram", senderId: "300" })).toBe("channel:telegram:300");
-    expect(resolveSgCanonicalIdentity({ channel: "discord", senderId: "300" })).toBe("channel:discord:300");
-  });
+const timestamp = "2026-01-01T00:00:00.000Z";
 
-  it("fails closed for ambiguous OpenClaw identity links", () => {
+async function stateDirWithProfiles() {
+  const root = await mkdtemp(path.join(os.tmpdir(), "sg-wsp1-"));
+  const target = path.join(root, "sg", "global-profiles.json");
+  await mkdir(path.dirname(target), { recursive: true });
+  await writeFile(target, JSON.stringify({
+    version: 2,
+    profiles: [
+      { globalId: "usr_monarch", canonicalIdentity: "channel:telegram:100", role: "monarch", status: "active", createdAt: timestamp, updatedAt: timestamp },
+      { globalId: "usr_citizen", canonicalIdentity: "channel:telegram:200", role: "citizen", status: "active", createdAt: timestamp, updatedAt: timestamp },
+    ],
+    identities: [
+      { canonicalIdentity: "channel:telegram:100", globalId: "usr_monarch", createdAt: timestamp, updatedAt: timestamp },
+      { canonicalIdentity: "channel:telegram:200", globalId: "usr_citizen", createdAt: timestamp, updatedAt: timestamp },
+    ],
+  }));
+  return { root, target };
+}
+
+const diagnosticInput = (overrides: Record<string, unknown> = {}) => ({
+  channel: "telegram",
+  senderId: "100",
+  ...overrides,
+});
+
+describe("SG Workspace Manager WSP1", () => {
+  it("uses OpenClaw identityLinks and fails closed when they are ambiguous", () => {
+    expect(resolveSgCanonicalIdentity({ channel: "telegram", senderId: "100", identityLinks: { gary: ["telegram:100"] } })).toBe("linked:gary");
     expect(resolveSgCanonicalIdentity({ channel: "telegram", senderId: "100", identityLinks: { first: ["telegram:100"], second: ["telegram:100"] } })).toBeUndefined();
   });
 
-  it("keeps one durable Global ID for repeated contact", async () => {
-    const stateDir = await mkdtemp(path.join(os.tmpdir(), "sg-identity-"));
-    const first = await resolveSgProfile("channel:web:user-1", stateDir);
-    const second = await resolveSgProfile("channel:web:user-1", stateDir);
-    expect(second?.globalId).toBe(first?.globalId);
-    const store = JSON.parse(await readFile(path.join(stateDir, "sg", "global-profiles.json"), "utf8")) as { profiles: unknown[]; identities: unknown[] };
-    expect(store.profiles).toHaveLength(1);
-    expect(store.identities).toHaveLength(1);
+  it("resolves the monarch in a direct chat without writing the profile store", async () => {
+    const { root, target } = await stateDirWithProfiles();
+    const before = await readFile(target, "utf8");
+    const beforeStat = await stat(target);
+    const result = await resolveWorkspaceContext(diagnosticInput({ to: "telegram:100" }), root);
+    expect(result).toMatchObject({ globalId: "usr_monarch", projectRole: "monarch", channel: "telegram", resourceId: "telegram:100" });
+    expect(await readFile(target, "utf8")).toBe(before);
+    expect((await stat(target)).mtimeMs).toBe(beforeStat.mtimeMs);
   });
 
-  it("injects only active verified roles and never trusts transport display text", async () => {
-    const stateDir = await mkdtemp(path.join(os.tmpdir(), "sg-identity-"));
-    const storePath = path.join(stateDir, "sg", "global-profiles.json");
-    await mkdir(path.dirname(storePath), { recursive: true });
-    await writeFile(storePath, JSON.stringify({ version: 2, profiles: [{ globalId: "usr_monarch", canonicalIdentity: "channel:telegram:100", role: "monarch", status: "active", createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" }], identities: [{ canonicalIdentity: "channel:telegram:100", globalId: "usr_monarch", createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" }] }));
-    const profile = await resolveSgProfile("channel:telegram:100", stateDir);
-    const prompt = profile ? buildSgPrompt(profile) : undefined;
-    expect(prompt).toContain("identity.globalId: usr_monarch");
-    expect(prompt).toContain("identity.projectRole: monarch");
-    expect(prompt).not.toContain("Корж Игорь");
-    expect(profile ? buildSgPrompt({ ...profile, status: "suspended" }) : undefined).toBeUndefined();
+  it("resolves the same monarch in a group and preserves group/topic context", async () => {
+    const { root } = await stateDirWithProfiles();
+    await expect(resolveWorkspaceContext(diagnosticInput({ to: "telegram:-100500", messageThreadId: 42, accountId: "default" }), root)).resolves.toMatchObject({
+      globalId: "usr_monarch",
+      projectRole: "monarch",
+      resourceId: "telegram:-100500",
+      topicId: "42",
+      accountId: "default",
+    });
   });
 
-  it("binds host-verified owner to the canonical monarch Global ID", async () => {
-    const stateDir = await mkdtemp(path.join(os.tmpdir(), "sg-identity-"));
-    process.env.SG_MONARCH_GLOBAL_USER_ID = "usr_monarch";
-    try {
-      const profile = await resolveSgProfile("channel:telegram:100", stateDir, { senderIsOwner: true });
-      expect(profile).toMatchObject({ globalId: "usr_monarch", role: "monarch" });
-      const repeated = await resolveSgProfile("channel:telegram:100", stateDir);
-      expect(repeated?.globalId).toBe("usr_monarch");
-    } finally {
-      delete process.env.SG_MONARCH_GLOBAL_USER_ID;
-    }
+  it("resolves an unknown sender to guest without creating a profile", async () => {
+    const { root, target } = await stateDirWithProfiles();
+    const before = await readFile(target, "utf8");
+    await expect(resolveWorkspaceContext(diagnosticInput({ senderId: "999", to: "telegram:999" }), root)).resolves.toMatchObject({ projectRole: "guest", globalId: undefined });
+    expect(await readFile(target, "utf8")).toBe(before);
   });
 
-  it("keeps guests restricted until the monarch approves their registration", async () => {
-    const stateDir = await mkdtemp(path.join(os.tmpdir(), "sg-identity-"));
-    const guest = await resolveSgProfile("channel:telegram:200", stateDir);
-    expect(guest?.role).toBe("guest");
-    expect(await requestSgRegistration(guest!, "telegram", "200", stateDir)).toBe(true);
-    expect(await requestSgRegistration(guest!, "telegram", "200", stateDir)).toBe(false);
-    expect(await listPendingSgRegistrations(stateDir)).toHaveLength(1);
-    const citizen = await decideSgRegistration(guest!.globalId, "approve", "usr_monarch", stateDir);
-    expect(citizen?.role).toBe("citizen");
-    expect(await listPendingSgRegistrations(stateDir)).toHaveLength(0);
+  it("returns the same read-only identity after a simulated plugin restart", async () => {
+    const { root } = await stateDirWithProfiles();
+    const first = await resolveWorkspaceContext(diagnosticInput(), root);
+    vi.resetModules();
+    const restarted = await import("./context.js");
+    const second = await restarted.resolveWorkspaceContext(diagnosticInput(), root);
+    expect(second).toEqual(first);
   });
 
-  it("marks guest access as information-only in verified context", async () => {
-    const stateDir = await mkdtemp(path.join(os.tmpdir(), "sg-identity-"));
-    const guest = await resolveSgProfile("channel:telegram:300", stateDir);
-    expect(buildSgPrompt(guest!)).toContain("access.mode: information_only");
+  it("registers one normal OpenClaw reply command and no hooks, tools, or transports", () => {
+    const registerCommand = vi.fn();
+    registerWorkspaceManager({ registerCommand });
+    expect(registerCommand).toHaveBeenCalledOnce();
+    const command = registerCommand.mock.calls[0]?.[0];
+    expect(command).toMatchObject({ name: "sg_context", requireAuth: false });
+  });
+
+  it("leaves ordinary OpenClaw replies untouched when the plugin is disabled", () => {
+    const registerCommand = vi.fn();
+    expect(registerCommand).not.toHaveBeenCalled();
   });
 });

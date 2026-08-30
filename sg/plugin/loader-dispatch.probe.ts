@@ -109,6 +109,7 @@ console.log(
     ),
     diagnosticHooksRegistered: [
       "before_prompt_build",
+      "llm_input",
       "model_call_started",
       "before_tool_call",
       "after_tool_call",

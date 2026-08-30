@@ -205,6 +205,25 @@ describe("SG Workspace Manager WSP1", () => {
         toolAuthority: { allows: (name: string) => name === "sg_workspace_pending" },
       },
     );
+    await hooks.get("llm_input")?.(
+      {
+        runId: "run-pending",
+        sessionId: "session-pending",
+        provider: "openai",
+        model: "gpt-test",
+        prompt: "Покажи ожидающие заявки на подключение сообществ",
+        historyMessages: [],
+        imagesCount: 0,
+        tools: [{ name: "sg_workspace_pending" }],
+      },
+      {
+        runId: "run-pending",
+        sessionKey: "agent:main:telegram:isolated-model-session",
+        channel: "telegram",
+        accountId: "default",
+        senderId: "100",
+      },
+    );
     await hooks.get("model_call_started")?.(
       { runId: "run-pending", callId: "call-1" },
       {
@@ -238,7 +257,7 @@ describe("SG Workspace Manager WSP1", () => {
     };
     await expect(diagnostic!.handler(diagnosticContext)).resolves.toEqual({
       text: expect.stringMatching(
-        /trace_match: route[\s\S]*hook_counts: prompt=1, model=1, tool_selected=0, tool_result=0, reply=1[\s\S]*prompt_hook: OK[\s\S]*pending_tool_surface: UNKNOWN[\s\S]*pending_store: OK \(1: SG Freelander 2\)[\s\S]*failure: model_did_not_select_pending_tool/,
+        /trace_match: route[\s\S]*hook_counts: prompt=1, llm_input=1, model=1, tool_selected=0, tool_result=0, reply=1[\s\S]*prompt_hook: OK[\s\S]*pending_tool_surface: OK[\s\S]*pending_store: OK \(1: SG Freelander 2\)[\s\S]*failure: model_did_not_select_pending_tool/,
       ),
     });
 
@@ -332,7 +351,7 @@ describe("SG Workspace Manager WSP1", () => {
 
     await expect(diagnostic.handler(commandContext)).resolves.toEqual({
       text: expect.stringMatching(
-        /last_trace: NONE[\s\S]*hook_counts: prompt=0, model=0, tool_selected=0, tool_result=0, reply=0[\s\S]*failure: lifecycle_hooks_not_observed/,
+        /last_trace: NONE[\s\S]*hook_counts: prompt=0, llm_input=0, model=0, tool_selected=0, tool_result=0, reply=0[\s\S]*failure: lifecycle_hooks_not_observed/,
       ),
     });
 
@@ -342,7 +361,7 @@ describe("SG Workspace Manager WSP1", () => {
     );
     await expect(diagnostic.handler(commandContext)).resolves.toEqual({
       text: expect.stringMatching(
-        /trace_match: none[\s\S]*last_trace: PRESENT[\s\S]*hook_counts: prompt=0, model=1[\s\S]*failure: trace_identity_mismatch/,
+        /trace_match: none[\s\S]*last_trace: PRESENT[\s\S]*hook_counts: prompt=0, llm_input=0, model=1[\s\S]*failure: trace_identity_mismatch/,
       ),
     });
   });
@@ -379,6 +398,19 @@ describe("SG Workspace Manager WSP1", () => {
         toolAuthority: { allows: (name: string) => name === "sg_workspace_pending" },
       },
     );
+    await lifecycleHooks.get("llm_input")?.(
+      {
+        runId: lifecycleContext.runId,
+        sessionId: "cross-instance-session",
+        provider: "openai",
+        model: "gpt-test",
+        prompt: "Покажи ожидающие заявки",
+        historyMessages: [],
+        imagesCount: 0,
+        tools: [{ name: "sg_workspace_pending" }],
+      },
+      lifecycleContext,
+    );
     await lifecycleHooks.get("model_call_started")?.(
       { runId: lifecycleContext.runId, callId: "call-1" },
       lifecycleContext,
@@ -407,7 +439,7 @@ describe("SG Workspace Manager WSP1", () => {
       }),
     ).resolves.toEqual({
       text: expect.stringMatching(
-        /hook_counts: prompt=0, model=0, tool_selected=0, tool_result=0, reply=0[\s\S]*durable_trace: OK[\s\S]*durable_instances: 2, pids=1[\s\S]*durable_hook_location: other-instance[\s\S]*durable_hook_counts: prompt=1, model=1, tool_selected=0, tool_result=0, reply=1[\s\S]*failure: lifecycle_hooks_observed_other_instance/,
+        /hook_counts: prompt=0, llm_input=0, model=0, tool_selected=0, tool_result=0, reply=0[\s\S]*durable_trace: OK[\s\S]*durable_instances: 2, pids=1[\s\S]*durable_hook_location: other-instance[\s\S]*durable_hook_counts: prompt=1, llm_input=1, model=1, tool_selected=0, tool_result=0, reply=1[\s\S]*failure: lifecycle_hooks_observed_other_instance/,
       ),
     });
   });

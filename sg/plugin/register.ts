@@ -53,6 +53,7 @@ const MAX_DURABLE_INSTANCES = 20;
 type DurableDiagnosticStage =
   | "plugin-loaded"
   | "prompt-hook"
+  | "llm-input"
   | "model-call"
   | "pending-tool-selected"
   | "pending-tool-result"
@@ -74,6 +75,7 @@ type DurableDiagnosticEvent = {
 
 type DiagnosticHookCounts = {
   prompt: number;
+  llmInput: number;
   model: number;
   toolSelected: number;
   toolResult: number;
@@ -281,6 +283,7 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
   const diagnosticTraces: Wsp3DiagnosticTrace[] = [];
   const hookCounts: DiagnosticHookCounts = {
     prompt: 0,
+    llmInput: 0,
     model: 0,
     toolSelected: 0,
     toolResult: 0,
@@ -357,6 +360,41 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
     });
     diagnosticLog(ctx.sessionKey, ctx.runId, "prompt-hook", "guidance-injected");
     return { prependSystemContext: WSP3_AGENT_GUIDANCE };
+  });
+  api.on("llm_input", async (event, ctx) => {
+    hookCounts.llmInput += 1;
+    const routeKey = normalizedRouteKey({
+      channel: ctx.channel ?? ctx.messageProvider,
+      accountId: ctx.accountId,
+      senderId: ctx.senderId,
+    });
+    const pendingToolAllowed =
+      event.tools?.some(
+        (tool) =>
+          Boolean(tool) &&
+          typeof tool === "object" &&
+          (tool as { name?: unknown }).name === PENDING_TOOL,
+      ) === true;
+    updateDiagnostic(
+      { sessionKey: ctx.sessionKey, routeKey },
+      ctx.runId ?? event.runId,
+      (current) => {
+        current.pendingToolAllowed = pendingToolAllowed;
+      },
+    );
+    await recordDurableDiagnostic({
+      stage: "llm-input",
+      sessionKey: ctx.sessionKey,
+      routeKey,
+      runId: ctx.runId ?? event.runId,
+      result: pendingToolAllowed ? "pending-tool-present" : "pending-tool-missing",
+    });
+    diagnosticLog(
+      ctx.sessionKey,
+      ctx.runId ?? event.runId,
+      "llm-input",
+      pendingToolAllowed ? "pending-tool-present" : "pending-tool-missing",
+    );
   });
   api.on("model_call_started", async (event, ctx) => {
     hookCounts.model += 1;
@@ -653,6 +691,7 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
       );
       const durableHookCounts = {
         prompt: durableHookEvents.filter((event) => event.stage === "prompt-hook").length,
+        llmInput: durableHookEvents.filter((event) => event.stage === "llm-input").length,
         model: durableHookEvents.filter((event) => event.stage === "model-call").length,
         toolSelected: durableHookEvents.filter((event) => event.stage === "pending-tool-selected")
           .length,
@@ -715,11 +754,11 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
           `command_session: ${traceIdFor(ctx.sessionKey)}`,
           `command_route: ${traceIdFor(commandRouteKey)}`,
           `last_trace: ${latestObservedTrace ? `PRESENT (session=${traceIdFor(latestObservedTrace.sessionKey)}, route=${traceIdFor(latestObservedTrace.routeKey)}, run=${traceIdFor(latestObservedTrace.runId)})` : "NONE"}`,
-          `hook_counts: prompt=${hookCounts.prompt}, model=${hookCounts.model}, tool_selected=${hookCounts.toolSelected}, tool_result=${hookCounts.toolResult}, reply=${hookCounts.reply}`,
+          `hook_counts: prompt=${hookCounts.prompt}, llm_input=${hookCounts.llmInput}, model=${hookCounts.model}, tool_selected=${hookCounts.toolSelected}, tool_result=${hookCounts.toolResult}, reply=${hookCounts.reply}`,
           `durable_trace: ${recentDurableEvents.length > 0 ? "OK" : "FAIL"}`,
           `durable_instances: ${durableInstances.size}, pids=${durablePids.size}`,
           `durable_hook_location: ${durableHookLocation}`,
-          `durable_hook_counts: prompt=${durableHookCounts.prompt}, model=${durableHookCounts.model}, tool_selected=${durableHookCounts.toolSelected}, tool_result=${durableHookCounts.toolResult}, reply=${durableHookCounts.reply}`,
+          `durable_hook_counts: prompt=${durableHookCounts.prompt}, llm_input=${durableHookCounts.llmInput}, model=${durableHookCounts.model}, tool_selected=${durableHookCounts.toolSelected}, tool_result=${durableHookCounts.toolResult}, reply=${durableHookCounts.reply}`,
           `prompt_hook: ${traceStatus(lastTrace?.promptHook)}`,
           `pending_tool_surface: ${traceStatus(lastTrace?.pendingToolAllowed)}`,
           `model_call: ${lastTrace ? `OK (${lastTrace.modelCalls})` : "UNKNOWN"}`,

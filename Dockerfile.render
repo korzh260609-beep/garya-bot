@@ -1,4 +1,4 @@
-FROM ghcr.io/korzh260609-beep/garya-bot-sg22:73b68b557940b3d1a10d604570fa94b21134272c
+FROM ghcr.io/korzh260609-beep/garya-bot-sg22:81580bf1c5e2ade2de045a990e15d4927c7ac4ca
 
 USER root
 RUN apt-get update \
@@ -11,5 +11,5 @@ RUN chmod 755 /app/scripts/sg22-rollback-entrypoint.sh
 USER node
 CMD ["sh", "/app/scripts/sg22-rollback-entrypoint.sh"]
 
-# Clean OpenClaw core with the read-only SG Workspace Manager WSP1 plugin.
+# Clean OpenClaw core with the SG Workspace Manager WSP1-WSP2 plugin.
 # Preserve the verified Render ingress wrapper and existing Telegram runtime.

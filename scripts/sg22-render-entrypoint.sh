@@ -23,6 +23,12 @@ case "$workspace_plugin_enabled" in
     ;;
 esac
 
+if [ "$workspace_plugin_enabled" = "true" ]; then
+  workspace_plugin_paths='["/app/sg/plugin"]'
+else
+  workspace_plugin_paths='[]'
+fi
+
 mkdir -p "$state_dir" "$workspace"
 
 # Repair/migrate the persistent SG Global ID store before any Telegram message can
@@ -73,7 +79,7 @@ if [ ! -f "$config_path" ]; then
   },
   "plugins": {
     "load": {
-      "paths": ["/app/sg/plugin"]
+      "paths": $workspace_plugin_paths
     },
     "entries": {
       "telegram": {
@@ -109,7 +115,7 @@ node /app/openclaw.mjs onboard --non-interactive --accept-risk --skip-health --s
 
 # Restamp runtime settings on every boot so persistent state cannot restore
 # stale one-user access, stale Telegram group restrictions, or stale provider configuration.
-config_batch='[{"path":"gateway.mode","value":"local"},{"path":"gateway.bind","value":"lan"},{"path":"gateway.port","value":'"${port}"'},{"path":"gateway.auth.mode","value":"token"},{"path":"agents.defaults.model.primary","value":"'"${primary_model}"'"},{"path":"auth.order.openai","value":["openai:api-key"]},{"path":"memory.search.provider","value":"openai"},{"path":"memory.search.remote.apiKey","value":{"source":"env","provider":"default","id":"OPENAI_API_KEY"}},{"path":"messages.groupChat.mentionPatterns","value":["(^|[\\s,.:;!?])сг([\\s,.:;!?]|$)","(^|[\\s,.:;!?])sg([\\s,.:;!?]|$)"]},{"path":"channels.telegram.dmPolicy","value":"open"},{"path":"channels.telegram.allowFrom","value":["*"]},{"path":"channels.telegram.groupPolicy","value":"allowlist"},{"path":"channels.telegram.groups","value":{"*":{"requireMention":true}}},{"path":"plugins.load.paths","value":["/app/sg/plugin"]},{"path":"plugins.entries.sg-workspace-manager.enabled","value":'"${workspace_plugin_enabled}"'}]'
+config_batch='[{"path":"gateway.mode","value":"local"},{"path":"gateway.bind","value":"lan"},{"path":"gateway.port","value":'"${port}"'},{"path":"gateway.auth.mode","value":"token"},{"path":"agents.defaults.model.primary","value":"'"${primary_model}"'"},{"path":"auth.order.openai","value":["openai:api-key"]},{"path":"memory.search.provider","value":"openai"},{"path":"memory.search.remote.apiKey","value":{"source":"env","provider":"default","id":"OPENAI_API_KEY"}},{"path":"messages.groupChat.mentionPatterns","value":["(^|[\\s,.:;!?])сг([\\s,.:;!?]|$)","(^|[\\s,.:;!?])sg([\\s,.:;!?]|$)"]},{"path":"channels.telegram.dmPolicy","value":"open"},{"path":"channels.telegram.allowFrom","value":["*"]},{"path":"channels.telegram.groupPolicy","value":"allowlist"},{"path":"channels.telegram.groups","value":{"*":{"requireMention":true}}},{"path":"plugins.load.paths","value":'"${workspace_plugin_paths}"'},{"path":"plugins.entries.sg-workspace-manager.enabled","value":'"${workspace_plugin_enabled}"'}]'
 
 if [ -n "$telegram_owner_id" ]; then
   config_batch="${config_batch%]} ,{\"path\":\"commands.ownerAllowFrom\",\"value\":[\"telegram:${telegram_owner_id}\"]}]"

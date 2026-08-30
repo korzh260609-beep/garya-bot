@@ -128,5 +128,20 @@ fi
 node /app/openclaw.mjs config set --batch-json "$config_batch"
 node /app/openclaw.mjs config set agents.defaults.models "{\"${primary_model}\":{\"agentRuntime\":{\"id\":\"openclaw\"}}}" --strict-json --merge
 
+echo "SG workspace diagnostic: image_commit=${SG22_IMAGE_COMMIT:-unknown} enabled=${workspace_plugin_enabled}"
+if [ "$workspace_plugin_enabled" = "true" ]; then
+  for plugin_file in index.ts register.ts openclaw.plugin.json package.json; do
+    if [ ! -f "/app/sg/plugin/$plugin_file" ]; then
+      echo "SG 2.2 startup error: missing plugin file $plugin_file" >&2
+      exit 1
+    fi
+    checksum="$(sha256sum "/app/sg/plugin/$plugin_file" | cut -d ' ' -f 1)"
+    echo "SG workspace diagnostic: file=$plugin_file sha256=$checksum"
+  done
+  if ! node /app/openclaw.mjs plugins status; then
+    echo "SG workspace diagnostic: plugins status failed; gateway startup continues" >&2
+  fi
+fi
+
 echo "SG 2.2 starting OpenClaw gateway on 0.0.0.0:${port}"
 exec node /app/openclaw.mjs gateway --bind lan --port "$port"

@@ -245,11 +245,12 @@ describe("SG Workspace Manager WSP1", () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "sg-wsp3-missing-context-"));
     const hooks = new Map<string, (...args: any[]) => Promise<unknown> | unknown>();
     const warn = vi.fn();
+    const info = vi.fn();
     registerWorkspaceManager({
       registerCommand: vi.fn(),
       registerTool: vi.fn(),
       on: vi.fn((name, handler) => hooks.set(name, handler)),
-      logger: { warn },
+      logger: { info, warn },
       runtime: { state: { resolveStateDir: () => root } },
     });
 

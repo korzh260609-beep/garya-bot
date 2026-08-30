@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { formatWorkspaceContext, resolveWorkspaceContext } from "./context.js";
 import { formatWorkspaceResolution, SgWorkspaceRegistry } from "./workspace-registry.js";
 import { SgWorkspaceRequestRegistry } from "./workspace-requests.js";
@@ -39,10 +40,11 @@ type WorkspacePluginApi = {
       ctx: DispatchHookContext,
     ) => Promise<{ handled: boolean; text?: string }>,
   ): void;
-  logger?: { warn(message: string): void };
+  logger?: { info(message: string): void; warn(message: string): void };
 };
 
 type DispatchHookContext = {
+  messageId?: string;
   sessionKey?: string;
   channelId?: string;
   accountId?: string;
@@ -61,15 +63,38 @@ function canonicalResourceId(channel: string, conversationId: string): string {
     : `${normalizedChannel}:${normalizedConversationId}`;
 }
 
+function traceIdFor(messageId: string | undefined): string {
+  return createHash("sha256")
+    .update(messageId ?? "missing-message-id")
+    .digest("hex")
+    .slice(0, 12);
+}
+
+function trace(api: WorkspacePluginApi, traceId: string, stage: string, result?: string): void {
+  api.logger?.info(
+    `[sg-workspace] trace=${traceId} stage=${stage}${result ? ` result=${result}` : ""}`,
+  );
+}
+
 export function registerWorkspaceManager(api: WorkspacePluginApi): void {
-  const stateDir = api.runtime.state.resolveStateDir(process.env);
+  api.logger?.info("[sg-workspace] stage=register-workspace-manager");
+  const stateDir =
+    process.env.OPENCLAW_STATE_DIR?.trim() || api.runtime.state.resolveStateDir(process.env);
+  api.logger?.info("[sg-workspace] stage=resolve-state-dir");
   const registry = new SgWorkspaceRegistry(stateDir);
   const requests = new SgWorkspaceRequestRegistry(stateDir);
+  api.logger?.info("[sg-workspace] stage=register-tools");
   api.registerTool((ctx) => createWorkspaceTools(ctx, stateDir), {
     names: ["sg_workspace_onboard", "sg_workspace_pending", "sg_workspace_decide"],
   });
+  api.logger?.info("[sg-workspace] stage=register-tools-complete");
+  api.logger?.info("[sg-workspace] stage=register-before-dispatch");
   api.on("before_dispatch", async (event, ctx) => {
+    const traceId = traceIdFor(ctx.messageId);
+    trace(api, traceId, "hook-enter");
     if (event.isGroup !== true) {
+      trace(api, traceId, "context-check", "direct-chat");
+      trace(api, traceId, "dispatch-handle", "false");
       return { handled: false };
     }
     const channel = ctx.channelId ?? event.channel;
@@ -80,11 +105,13 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
       !senderId ? "senderId" : undefined,
     ].filter((field): field is string => field !== undefined);
     if (missingContext.length > 0) {
+      trace(api, traceId, "context-check", `missing-${missingContext.join("-")}`);
       api.logger?.warn(
         `SG workspace automatic onboarding skipped: missing ${missingContext.join(",")}`,
       );
       return { handled: false };
     }
+    trace(api, traceId, "context-check", "valid");
     try {
       const resourceId = canonicalResourceId(channel, ctx.conversationId);
       const resource = {
@@ -92,7 +119,11 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
         accountId: ctx.accountId,
         resourceId,
       };
-      if (!(await registry.resolve(resource)) && !(await requests.resolve(resource))) {
+      const workspace = await registry.resolve(resource);
+      trace(api, traceId, "workspace-lookup", workspace ? "found" : "missing");
+      const request = workspace ? undefined : await requests.resolve(resource);
+      trace(api, traceId, "request-lookup", request ? "found" : "missing");
+      if (!workspace && !request) {
         const actor = await resolveWorkspaceContext(
           {
             channel,
@@ -103,6 +134,7 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
           },
           stateDir,
         );
+        trace(api, traceId, "actor-resolve", actor.canonicalIdentity ? "resolved" : "missing");
         if (actor.canonicalIdentity) {
           await requests.create({
             ...resource,
@@ -111,6 +143,8 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
             initiatorCanonicalIdentity: actor.canonicalIdentity,
             ...(actor.globalId ? { initiatorGlobalId: actor.globalId } : {}),
           });
+          trace(api, traceId, "pending-create", "created");
+          trace(api, traceId, "dispatch-handle", "true");
           return { handled: true, text: ONBOARDING_NOTICE };
         }
       }
@@ -119,6 +153,7 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
         `SG workspace automatic onboarding failed safely: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
+    trace(api, traceId, "dispatch-handle", "false");
     return { handled: false };
   });
   api.registerCommand({

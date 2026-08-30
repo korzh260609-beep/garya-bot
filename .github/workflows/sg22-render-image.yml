@@ -69,6 +69,7 @@ jobs:
         run: |
           docker build \
             --build-arg SG22_BASE_IMAGE="sg22-openclaw-base:${GITHUB_SHA}" \
+            --build-arg SG22_IMAGE_COMMIT="${GITHUB_SHA}" \
             -f Dockerfile.sg22-overlay \
             -t ghcr.io/korzh260609-beep/garya-bot-sg22:${GITHUB_SHA} \
             -t ghcr.io/korzh260609-beep/garya-bot-sg22:dev \

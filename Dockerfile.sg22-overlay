@@ -1,6 +1,9 @@
 ARG SG22_BASE_IMAGE
 FROM ${SG22_BASE_IMAGE}
 
+ARG SG22_IMAGE_COMMIT=unknown
+ENV SG22_IMAGE_COMMIT=${SG22_IMAGE_COMMIT}
+
 LABEL org.opencontainers.image.source="https://github.com/korzh260609-beep/garya-bot" \
       org.opencontainers.image.title="SG 2.2 on OpenClaw" \
       org.opencontainers.image.description="SG 2.2 entity overlay above the authoritative OpenClaw runtime"

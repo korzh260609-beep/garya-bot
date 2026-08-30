@@ -198,55 +198,63 @@ describe("SG Workspace Manager WSP1", () => {
       { prompt: "Покажи ожидающие заявки на подключение сообществ" },
       {
         runId: "run-pending",
-        sessionKey: "agent:main:telegram:direct:100",
+        sessionKey: "agent:main:telegram:isolated-model-session",
+        channel: "telegram",
+        accountId: "default",
+        senderId: "100",
         toolAuthority: { allows: (name: string) => name === "sg_workspace_pending" },
       },
     );
     await hooks.get("model_call_started")?.(
       { runId: "run-pending", callId: "call-1" },
-      { runId: "run-pending", sessionKey: "agent:main:telegram:direct:100" },
+      {
+        runId: "run-pending",
+        sessionKey: "agent:main:telegram:isolated-model-session",
+        channel: "telegram",
+        accountId: "default",
+        senderId: "100",
+      },
     );
     await hooks.get("before_agent_reply")?.(
       { cleanedBody: "Не вижу ожидающих заявок" },
-      { runId: "run-pending", sessionKey: "agent:main:telegram:direct:100" },
+      {
+        runId: "run-pending",
+        sessionKey: "agent:main:telegram:isolated-model-session",
+        channel: "telegram",
+        accountId: "default",
+        senderId: "100",
+      },
     );
 
     const diagnostic = commands.find((command) => command.name === "sg_wsp3_diag");
     expect(diagnostic).toBeDefined();
-    await expect(
-      diagnostic!.handler({
-        channel: "telegram",
-        accountId: "default",
-        to: "telegram:100",
-        senderId: "100",
-        sessionKey: "agent:main:telegram:direct:100",
-        config: {},
-      }),
-    ).resolves.toEqual({
+    const diagnosticContext = {
+      channel: "telegram",
+      accountId: "default",
+      to: "telegram:100",
+      senderId: "100",
+      sessionKey: "agent:main:telegram:isolated-command-session",
+      config: {},
+    };
+    await expect(diagnostic!.handler(diagnosticContext)).resolves.toEqual({
       text: expect.stringMatching(
-        /prompt_hook: OK[\s\S]*pending_tool_surface: OK[\s\S]*pending_store: OK \(1: SG Freelander 2\)[\s\S]*failure: model_did_not_select_pending_tool/,
+        /trace_match: route[\s\S]*hook_counts: prompt=1, model=1, tool_selected=0, tool_result=0, reply=1[\s\S]*prompt_hook: OK[\s\S]*pending_tool_surface: OK[\s\S]*pending_store: OK \(1: SG Freelander 2\)[\s\S]*failure: model_did_not_select_pending_tool/,
       ),
     });
 
     const hookContext = {
       runId: "run-pending",
-      sessionKey: "agent:main:telegram:direct:100",
+      sessionKey: "agent:main:telegram:isolated-model-session",
       toolName: "sg_workspace_pending",
+      requester: { channel: "telegram", accountId: "default", senderId: "100" },
     };
     await hooks.get("before_tool_call")?.(
       { toolName: "sg_workspace_pending", params: {}, runId: "run-pending" },
       hookContext,
     );
-    await expect(
-      diagnostic!.handler({
-        channel: "telegram",
-        accountId: "default",
-        to: "telegram:100",
-        senderId: "100",
-        sessionKey: hookContext.sessionKey,
-        config: {},
-      }),
-    ).resolves.toEqual({ text: expect.stringContaining("failure: pending_tool_result_missing") });
+    await expect(diagnostic!.handler(diagnosticContext)).resolves.toEqual({
+      text: expect.stringContaining("failure: pending_tool_result_missing"),
+    });
 
     await hooks.get("after_tool_call")?.(
       {
@@ -257,16 +265,9 @@ describe("SG Workspace Manager WSP1", () => {
       },
       hookContext,
     );
-    await expect(
-      diagnostic!.handler({
-        channel: "telegram",
-        accountId: "default",
-        to: "telegram:100",
-        senderId: "100",
-        sessionKey: hookContext.sessionKey,
-        config: {},
-      }),
-    ).resolves.toEqual({ text: expect.stringContaining("failure: pending_tool_result_invalid") });
+    await expect(diagnostic!.handler(diagnosticContext)).resolves.toEqual({
+      text: expect.stringContaining("failure: pending_tool_result_invalid"),
+    });
 
     await hooks.get("after_tool_call")?.(
       {
@@ -277,16 +278,7 @@ describe("SG Workspace Manager WSP1", () => {
       },
       hookContext,
     );
-    await expect(
-      diagnostic!.handler({
-        channel: "telegram",
-        accountId: "default",
-        to: "telegram:100",
-        senderId: "100",
-        sessionKey: hookContext.sessionKey,
-        config: {},
-      }),
-    ).resolves.toEqual({
+    await expect(diagnostic!.handler(diagnosticContext)).resolves.toEqual({
       text: expect.stringContaining("failure: pending_tool_result_store_mismatch"),
     });
 
@@ -301,17 +293,57 @@ describe("SG Workspace Manager WSP1", () => {
       },
       hookContext,
     );
-    await expect(
-      diagnostic!.handler({
-        channel: "telegram",
-        accountId: "default",
-        to: "telegram:100",
-        senderId: "100",
-        sessionKey: hookContext.sessionKey,
-        config: {},
-      }),
-    ).resolves.toEqual({
+    await expect(diagnostic!.handler(diagnosticContext)).resolves.toEqual({
       text: expect.stringMatching(/pending_tool_payload: OK \(ok: 1\)[\s\S]*failure: none/),
+    });
+  });
+
+  it("distinguishes missing lifecycle hooks from trace identity mismatch", async () => {
+    const { root } = await stateDirWithProfiles();
+    await new SgWorkspaceRequestRegistry(root).create({
+      platform: "telegram",
+      accountId: "default",
+      resourceId: "telegram:-100501",
+      resourceKind: "group",
+      title: "Pending community",
+      initiatorCanonicalIdentity: "channel:telegram:200",
+      initiatorGlobalId: "usr_citizen",
+    });
+    const commands: Array<{
+      name: string;
+      handler: (ctx: Record<string, unknown>) => Promise<{ text: string }>;
+    }> = [];
+    const hooks = new Map<string, (...args: unknown[]) => unknown>();
+    registerWorkspaceManager({
+      registerCommand: vi.fn((command) => commands.push(command)),
+      registerTool: vi.fn(),
+      on: vi.fn((name, handler) => hooks.set(name, handler)),
+      runtime: { state: { resolveStateDir: () => root } },
+    });
+    const diagnostic = commands.find((command) => command.name === "sg_wsp3_diag")!;
+    const commandContext = {
+      channel: "telegram",
+      accountId: "default",
+      to: "telegram:100",
+      senderId: "100",
+      sessionKey: "command-session",
+      config: {},
+    };
+
+    await expect(diagnostic.handler(commandContext)).resolves.toEqual({
+      text: expect.stringMatching(
+        /last_trace: NONE[\s\S]*hook_counts: prompt=0, model=0, tool_selected=0, tool_result=0, reply=0[\s\S]*failure: lifecycle_hooks_not_observed/,
+      ),
+    });
+
+    await hooks.get("model_call_started")?.(
+      { runId: "unmatched-run", callId: "call-1" },
+      { runId: "unmatched-run", sessionKey: "different-session" },
+    );
+    await expect(diagnostic.handler(commandContext)).resolves.toEqual({
+      text: expect.stringMatching(
+        /trace_match: none[\s\S]*last_trace: PRESENT[\s\S]*hook_counts: prompt=0, model=1[\s\S]*failure: trace_identity_mismatch/,
+      ),
     });
   });
 

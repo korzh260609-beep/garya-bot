@@ -46,8 +46,19 @@ const PENDING_NOTICE =
 const PENDING_TOOL = "sg_workspace_pending";
 const MAX_DIAGNOSTIC_SESSIONS = 100;
 
+type DiagnosticHookCounts = {
+  prompt: number;
+  model: number;
+  toolSelected: number;
+  toolResult: number;
+  reply: number;
+};
+
 type Wsp3DiagnosticTrace = {
   runId?: string;
+  sessionKey?: string;
+  routeKey?: string;
+  sequence: number;
   promptHook: boolean;
   pendingToolAllowed?: boolean;
   modelCalls: number;
@@ -60,15 +71,29 @@ type Wsp3DiagnosticTrace = {
   finalReply: boolean;
 };
 
-function newDiagnosticTrace(runId?: string): Wsp3DiagnosticTrace {
+function newDiagnosticTrace(runId: string | undefined, sequence: number): Wsp3DiagnosticTrace {
   return {
     runId,
+    sequence,
     promptHook: false,
     modelCalls: 0,
     pendingToolSelected: false,
     pendingToolCompleted: false,
     finalReply: false,
   };
+}
+
+function normalizedRouteKey(params: {
+  channel?: string;
+  accountId?: string;
+  senderId?: string;
+}): string | undefined {
+  const channel = params.channel?.trim().toLowerCase();
+  const senderId = params.senderId?.trim().toLowerCase();
+  if (!channel || !senderId) {
+    return undefined;
+  }
+  return `${channel}|${params.accountId?.trim().toLowerCase() || "default"}|${senderId}`;
 }
 
 function diagnosticFailure(params: {
@@ -150,23 +175,41 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
   api.logger?.info("[sg-workspace] stage=resolve-state-dir");
   const registry = new SgWorkspaceRegistry(stateDir);
   const requests = new SgWorkspaceRequestRegistry(stateDir);
-  const diagnosticTraces = new Map<string, Wsp3DiagnosticTrace>();
+  const diagnosticTraces: Wsp3DiagnosticTrace[] = [];
+  const hookCounts: DiagnosticHookCounts = {
+    prompt: 0,
+    model: 0,
+    toolSelected: 0,
+    toolResult: 0,
+    reply: 0,
+  };
+  let diagnosticSequence = 0;
   const updateDiagnostic = (
-    sessionKey: string | undefined,
+    identity: { sessionKey?: string; routeKey?: string },
     runId: string | undefined,
     update: (trace: Wsp3DiagnosticTrace) => void,
   ) => {
-    if (!sessionKey) {
+    if (!identity.sessionKey && !identity.routeKey && !runId) {
       return;
     }
-    let current = diagnosticTraces.get(sessionKey);
-    if (!current || (runId && current.runId !== runId)) {
-      current = newDiagnosticTrace(runId);
-      if (!diagnosticTraces.has(sessionKey) && diagnosticTraces.size >= MAX_DIAGNOSTIC_SESSIONS) {
-        diagnosticTraces.delete(diagnosticTraces.keys().next().value as string);
+    let current = diagnosticTraces
+      .toReversed()
+      .find(
+        (candidate) =>
+          (runId && candidate.runId === runId) ||
+          (identity.sessionKey && candidate.sessionKey === identity.sessionKey) ||
+          (identity.routeKey && candidate.routeKey === identity.routeKey),
+      );
+    if (!current || (runId && current.runId && current.runId !== runId)) {
+      current = newDiagnosticTrace(runId, ++diagnosticSequence);
+      diagnosticTraces.push(current);
+      if (diagnosticTraces.length > MAX_DIAGNOSTIC_SESSIONS) {
+        diagnosticTraces.shift();
       }
-      diagnosticTraces.set(sessionKey, current);
     }
+    current.runId ??= runId;
+    current.sessionKey ??= identity.sessionKey;
+    current.routeKey ??= identity.routeKey;
     update(current);
   };
   const diagnosticLog = (
@@ -187,11 +230,23 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
   api.on(
     "before_prompt_build",
     async (_event, ctx) => {
+      hookCounts.prompt += 1;
       const pendingToolAllowed = ctx.toolAuthority?.allows(PENDING_TOOL) === true;
-      updateDiagnostic(ctx.sessionKey, ctx.runId, (current) => {
-        current.promptHook = true;
-        current.pendingToolAllowed = pendingToolAllowed;
-      });
+      updateDiagnostic(
+        {
+          sessionKey: ctx.sessionKey,
+          routeKey: normalizedRouteKey({
+            channel: ctx.channel ?? ctx.messageProvider,
+            accountId: ctx.accountId,
+            senderId: ctx.senderId,
+          }),
+        },
+        ctx.runId,
+        (current) => {
+          current.promptHook = true;
+          current.pendingToolAllowed = pendingToolAllowed;
+        },
+      );
       diagnosticLog(
         ctx.sessionKey,
         ctx.runId,
@@ -203,20 +258,40 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
     { requiresToolAuthority: true },
   );
   api.on("model_call_started", (event, ctx) => {
+    hookCounts.model += 1;
     const runId = ctx.runId ?? event.runId;
     const sessionKey = ctx.sessionKey ?? event.sessionKey;
-    updateDiagnostic(sessionKey, runId, (current) => {
-      current.modelCalls += 1;
-    });
+    updateDiagnostic(
+      {
+        sessionKey,
+        routeKey: normalizedRouteKey({
+          channel: ctx.channel ?? ctx.messageProvider,
+          accountId: ctx.accountId,
+          senderId: ctx.senderId,
+        }),
+      },
+      runId,
+      (current) => {
+        current.modelCalls += 1;
+      },
+    );
     diagnosticLog(sessionKey, runId, "model-call", "started");
   });
   api.on(
     "before_tool_call",
     (event, ctx) => {
+      hookCounts.toolSelected += 1;
       const runId = ctx.runId ?? event.runId;
-      updateDiagnostic(ctx.sessionKey, runId, (current) => {
-        current.pendingToolSelected = true;
-      });
+      updateDiagnostic(
+        {
+          sessionKey: ctx.sessionKey,
+          routeKey: normalizedRouteKey(ctx.requester ?? {}),
+        },
+        runId,
+        (current) => {
+          current.pendingToolSelected = true;
+        },
+      );
       diagnosticLog(ctx.sessionKey, runId, "pending-tool", "selected");
     },
     { matcher: [PENDING_TOOL] },
@@ -224,6 +299,7 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
   api.on(
     "after_tool_call",
     (event, ctx) => {
+      hookCounts.toolResult += 1;
       const runId = ctx.runId ?? event.runId;
       const result =
         event.result && typeof event.result === "object"
@@ -236,16 +312,23 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
       const resultReadable =
         typeof details?.status === "string" &&
         (details.status !== "ok" || Array.isArray(details.requests));
-      updateDiagnostic(ctx.sessionKey, runId, (current) => {
-        current.pendingToolCompleted = !event.error;
-        current.pendingToolResultReadable = resultReadable;
-        current.pendingToolResultStatus =
-          typeof details?.status === "string" ? details.status : undefined;
-        current.pendingToolResultCount = Array.isArray(details?.requests)
-          ? details.requests.length
-          : undefined;
-        current.toolError = event.error;
-      });
+      updateDiagnostic(
+        {
+          sessionKey: ctx.sessionKey,
+          routeKey: normalizedRouteKey(ctx.requester ?? {}),
+        },
+        runId,
+        (current) => {
+          current.pendingToolCompleted = !event.error;
+          current.pendingToolResultReadable = resultReadable;
+          current.pendingToolResultStatus =
+            typeof details?.status === "string" ? details.status : undefined;
+          current.pendingToolResultCount = Array.isArray(details?.requests)
+            ? details.requests.length
+            : undefined;
+          current.toolError = event.error;
+        },
+      );
       diagnosticLog(
         ctx.sessionKey,
         runId,
@@ -260,9 +343,21 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
     { matcher: [PENDING_TOOL] },
   );
   api.on("before_agent_reply", (event, ctx) => {
-    updateDiagnostic(ctx.sessionKey, ctx.runId, (current) => {
-      current.finalReply = Boolean(event.cleanedBody.trim());
-    });
+    hookCounts.reply += 1;
+    updateDiagnostic(
+      {
+        sessionKey: ctx.sessionKey,
+        routeKey: normalizedRouteKey({
+          channel: ctx.channel ?? ctx.messageProvider,
+          accountId: ctx.accountId,
+          senderId: ctx.senderId,
+        }),
+      },
+      ctx.runId,
+      (current) => {
+        current.finalReply = Boolean(event.cleanedBody.trim());
+      },
+    );
     diagnosticLog(
       ctx.sessionKey,
       ctx.runId,
@@ -404,16 +499,31 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
       } catch (error) {
         storeError = error instanceof Error ? error.message : String(error);
       }
-      const lastTrace = ctx.sessionKey ? diagnosticTraces.get(ctx.sessionKey) : undefined;
+      const commandRouteKey = normalizedRouteKey(ctx);
+      const sessionTrace = ctx.sessionKey
+        ? diagnosticTraces.toReversed().find((candidate) => candidate.sessionKey === ctx.sessionKey)
+        : undefined;
+      const routeTrace = commandRouteKey
+        ? diagnosticTraces.toReversed().find((candidate) => candidate.routeKey === commandRouteKey)
+        : undefined;
+      const lastTrace = sessionTrace ?? routeTrace;
+      const traceMatch = sessionTrace ? "session" : routeTrace ? "route" : "none";
+      const latestObservedTrace = diagnosticTraces.at(-1);
       const pendingTitles = pending
         .map((request) => request.title.replace(/\s+/g, " ").trim())
         .slice(0, 5);
-      const failure = diagnosticFailure({
+      let failure = diagnosticFailure({
         trace: lastTrace,
         projectRole: actor.projectRole,
         pendingCount: pending.length,
         storeError,
       });
+      const observedHookCount = Object.values(hookCounts).reduce((sum, count) => sum + count, 0);
+      if (!lastTrace && observedHookCount === 0) {
+        failure = "lifecycle_hooks_not_observed";
+      } else if (!lastTrace && latestObservedTrace) {
+        failure = "trace_identity_mismatch";
+      }
       diagnosticLog(ctx.sessionKey, lastTrace?.runId, "summary", failure);
       const traceStatus = (value: boolean | undefined) =>
         value === undefined ? "UNKNOWN" : value ? "OK" : "FAIL";
@@ -422,6 +532,11 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
           "WSP3 DIAG",
           "plugin_loader: OK",
           `identity: OK (${actor.projectRole})`,
+          `trace_match: ${traceMatch}`,
+          `command_session: ${traceIdFor(ctx.sessionKey)}`,
+          `command_route: ${traceIdFor(commandRouteKey)}`,
+          `last_trace: ${latestObservedTrace ? `PRESENT (session=${traceIdFor(latestObservedTrace.sessionKey)}, route=${traceIdFor(latestObservedTrace.routeKey)}, run=${traceIdFor(latestObservedTrace.runId)})` : "NONE"}`,
+          `hook_counts: prompt=${hookCounts.prompt}, model=${hookCounts.model}, tool_selected=${hookCounts.toolSelected}, tool_result=${hookCounts.toolResult}, reply=${hookCounts.reply}`,
           `prompt_hook: ${traceStatus(lastTrace?.promptHook)}`,
           `pending_tool_surface: ${traceStatus(lastTrace?.pendingToolAllowed)}`,
           `model_call: ${lastTrace ? `OK (${lastTrace.modelCalls})` : "UNKNOWN"}`,

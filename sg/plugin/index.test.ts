@@ -149,10 +149,7 @@ describe("SG Workspace Manager WSP1", () => {
     expect(registerTool).toHaveBeenCalledWith(expect.any(Function), {
       names: ["sg_workspace_onboard", "sg_workspace_pending", "sg_workspace_decide"],
     });
-    expect(on).toHaveBeenCalledWith("before_prompt_build", expect.any(Function));
-    await expect(on.mock.calls[0]?.[1]({}, {})).resolves.toMatchObject({
-      appendSystemContext: expect.stringContaining("Добавивший SG — только инициатор"),
-    });
+    expect(on).toHaveBeenCalledWith("before_dispatch", expect.any(Function));
   });
 
   it("returns an explicit unregistered workspace through the normal reply payload", async () => {
@@ -221,18 +218,19 @@ describe("SG Workspace Manager WSP1", () => {
       runtime: { state: { resolveStateDir: () => root } },
     });
 
-    const promptResult = await hooks.get("before_prompt_build")?.(
-      { prompt: "СГ, привет", messages: [] },
+    const dispatchResult = await hooks.get("before_dispatch")?.(
+      { isGroup: true, channel: "telegram", senderId: "200" },
       {
-        runId: "run-1",
-        channel: "telegram",
+        sessionKey: "agent:main:telegram:group:-100500",
+        channelId: "telegram",
         accountId: "default",
-        chatId: "-100500",
+        conversationId: "telegram:-100500",
         senderId: "200",
       },
     );
-    expect(promptResult).toMatchObject({
-      appendSystemContext: expect.stringContaining("Заявка уже создана"),
+    expect(dispatchResult).toMatchObject({
+      handled: true,
+      text: expect.stringContaining("запрос на подключение"),
     });
     await expect(new SgWorkspaceRequestRegistry(root).listPending()).resolves.toMatchObject([
       {
@@ -241,13 +239,6 @@ describe("SG Workspace Manager WSP1", () => {
         initiatorGlobalId: "usr_citizen",
       },
     ]);
-
-    expect(
-      hooks.get("before_agent_reply")?.({ cleanedBody: "Привет!" }, { runId: "run-1" }),
-    ).toMatchObject({
-      handled: true,
-      reply: { text: expect.stringContaining("запрос на подключение") },
-    });
   });
 
   it("records which required hook context fields are unavailable without logging their values", async () => {
@@ -262,9 +253,13 @@ describe("SG Workspace Manager WSP1", () => {
       runtime: { state: { resolveStateDir: () => root } },
     });
 
-    await hooks.get("before_prompt_build")?.(
-      { prompt: "СГ, привет", messages: [] },
-      { runId: "private-run-id", channel: "telegram", chatId: "private-chat-id" },
+    await hooks.get("before_dispatch")?.(
+      { isGroup: true, channel: "telegram" },
+      {
+        sessionKey: "private-run-id",
+        channelId: "telegram",
+        conversationId: "private-chat-id",
+      },
     );
 
     expect(warn).toHaveBeenCalledWith(
@@ -284,13 +279,17 @@ describe("SG Workspace Manager WSP1", () => {
       on: vi.fn((name, handler) => hooks.set(name, handler)),
       runtime: { state: { resolveStateDir: () => root } },
     });
-    await hooks.get("before_prompt_build")?.(
-      { prompt: "Привет", messages: [] },
-      { runId: "run-dm", channel: "telegram", chatId: "200", senderId: "200" },
-    );
+    await expect(
+      hooks.get("before_dispatch")?.(
+        { isGroup: false, channel: "telegram", senderId: "200" },
+        {
+          sessionKey: "run-dm",
+          channelId: "telegram",
+          conversationId: "telegram:200",
+          senderId: "200",
+        },
+      ),
+    ).resolves.toEqual({ handled: false });
     await expect(new SgWorkspaceRequestRegistry(root).listPending()).resolves.toEqual([]);
-    expect(
-      await hooks.get("before_agent_reply")?.({ cleanedBody: "Привет!" }, { runId: "run-dm" }),
-    ).toBeUndefined();
   });
 });

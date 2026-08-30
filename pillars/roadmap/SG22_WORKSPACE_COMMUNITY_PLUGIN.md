@@ -258,7 +258,6 @@ Persistence decision:
 
 Local proof completed:
 
-
 - two groups and one channel remain isolated;
 - a forum topic remains isolated from its parent group;
 - duplicate normalized registration is idempotent;
@@ -269,6 +268,8 @@ Local proof completed:
 - WSP1 and WSP2 targeted tests pass together.
 
 ### WSP3 — Workspace authority
+
+Status: `IMPLEMENTED` — internal onboarding and monarch-confirmed owner assignment pass local tests; live verification pending.
 
 Goal: establish the exact user role for a concrete workspace.
 
@@ -289,6 +290,34 @@ Exit:
 - the same person may have different roles in different workspaces;
 - OpenClaw denial cannot be overridden;
 - protected operations fail closed when authority evidence is missing or stale.
+
+Implemented WSP3 onboarding scope:
+
+- SG receives static agent guidance to discover an unregistered group, channel, room or topic itself;
+- users do not need to know the term `workspace` or any registration command;
+- internal `sg_workspace_onboard` creates an idempotent pending request from trusted current-route context;
+- the person who adds or first invokes SG is recorded only as the initiator and is never assigned as owner automatically;
+- internal pending-list and decision tools are protected by the existing active SG `monarch` profile;
+- approval requires a separately identified active owner Global ID;
+- monarch confirmation is recorded as the authority source before WSP2 creates the active workspace;
+- rejection leaves the resource unregistered;
+- pending requests persist atomically at `<OPENCLAW_STATE_DIR>/sg/workspace-requests.json` using the same SDK locking and JSON helpers as WSP2;
+- no public technical registration command, Telegram API client, transport, identity store, session store or general approval system was added.
+
+Current platform-evidence boundary:
+
+- this OpenClaw release does not expose Telegram `getChatMember` or `getChatAdministrators` through its generic channel-action surface to an external plugin;
+- therefore the initiator cannot be treated as the resource owner from the add event alone;
+- owner assignment remains fail-closed and requires monarch confirmation until OpenClaw exposes supported platform-authority evidence.
+
+Local proof completed:
+
+- repeated discovery of the same resource produces one request;
+- initiator and owner remain distinct fields;
+- a missing or inactive owner profile cannot activate a workspace;
+- monarch approval activates WSP2 with the confirmed owner Global ID;
+- rejection creates no workspace;
+- ordinary commands and the normal OpenClaw reply path remain registered unchanged.
 
 ### WSP4 — Citizen and membership workflow
 

@@ -128,10 +128,14 @@ describe("SG Workspace Manager WSP1", () => {
     expect(second).toEqual(first);
   });
 
-  it("registers normal OpenClaw reply commands and no hooks, tools, or transports", () => {
+  it("registers normal reply commands plus only internal WSP3 tools and guidance", () => {
     const registerCommand = vi.fn();
+    const registerTool = vi.fn();
+    const on = vi.fn();
     registerWorkspaceManager({
       registerCommand,
+      registerTool,
+      on,
       runtime: { state: { resolveStateDir: () => "/tmp/sg-wsp-test" } },
     });
     expect(registerCommand).toHaveBeenCalledTimes(2);
@@ -141,6 +145,13 @@ describe("SG Workspace Manager WSP1", () => {
       name: "sg_workspace",
       requireAuth: false,
     });
+    expect(registerTool).toHaveBeenCalledWith(expect.any(Function), {
+      names: ["sg_workspace_onboard", "sg_workspace_pending", "sg_workspace_decide"],
+    });
+    expect(on).toHaveBeenCalledWith("before_prompt_build", expect.any(Function));
+    expect(on.mock.calls[0]?.[1]()).toMatchObject({
+      appendSystemContext: expect.stringContaining("Добавивший SG — только инициатор"),
+    });
   });
 
   it("returns an explicit unregistered workspace through the normal reply payload", async () => {
@@ -148,6 +159,8 @@ describe("SG Workspace Manager WSP1", () => {
     const registerCommand = vi.fn();
     registerWorkspaceManager({
       registerCommand,
+      registerTool: vi.fn(),
+      on: vi.fn(),
       runtime: { state: { resolveStateDir: () => root } },
     });
     const command = registerCommand.mock.calls[1]?.[0];
@@ -168,5 +181,32 @@ describe("SG Workspace Manager WSP1", () => {
   it("leaves ordinary OpenClaw replies untouched when the plugin is disabled", () => {
     const registerCommand = vi.fn();
     expect(registerCommand).not.toHaveBeenCalled();
+  });
+
+  it("creates a pending request from trusted current-route context without assigning owner", async () => {
+    const { root } = await stateDirWithProfiles();
+    const registerTool = vi.fn();
+    registerWorkspaceManager({
+      registerCommand: vi.fn(),
+      registerTool,
+      on: vi.fn(),
+      runtime: { state: { resolveStateDir: () => root } },
+    });
+    const factory = registerTool.mock.calls[0]?.[0];
+    const tools = factory({
+      messageChannel: "telegram",
+      agentAccountId: "default",
+      nativeChannelId: "telegram:-100500",
+      requesterSenderId: "200",
+    });
+    const onboard = tools.find((tool: { name: string }) => tool.name === "sg_workspace_onboard");
+    const result = await onboard.execute("call-1", {
+      resourceKind: "group",
+      title: "Sandbox",
+    });
+    expect(JSON.parse(result.content[0].text)).toMatchObject({
+      status: "pending",
+      ownerAssigned: false,
+    });
   });
 });

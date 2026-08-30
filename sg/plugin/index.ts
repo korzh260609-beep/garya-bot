@@ -4,6 +4,8 @@ import { registerWorkspaceManager } from "./register.js";
 export * from "./context.js";
 export * from "./register.js";
 export * from "./workspace-registry.js";
+export * from "./workspace-requests.js";
+export * from "./workspace-tools.js";
 
 export default definePluginEntry({
   id: "sg-workspace-manager",

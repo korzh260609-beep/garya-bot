@@ -25,6 +25,8 @@ describe("SG Workspace Manager real loader and dispatch runner", () => {
       promptHookRegistered: true,
       diagnosticHooksRegistered: true,
       toolsRegistered: true,
+      promptGuidanceInjected: true,
+      pendingToolInModelSurface: true,
       errorDiagnostics: [],
       dispatchResult: { handled: true },
       repeatDispatchResult: {

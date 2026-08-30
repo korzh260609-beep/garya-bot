@@ -143,7 +143,7 @@ function diagnosticFailure(params: {
   if (!params.trace.promptHook) {
     return "prompt_hook_missing";
   }
-  if (params.trace.pendingToolAllowed !== true) {
+  if (params.trace.pendingToolAllowed === false) {
     return "pending_tool_not_in_model_surface";
   }
   if (params.trace.modelCalls === 0) {
@@ -330,44 +330,34 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
     names: ["sg_workspace_onboard", "sg_workspace_pending", "sg_workspace_decide"],
   });
   api.logger?.info("[sg-workspace] stage=register-tools-complete");
-  api.on(
-    "before_prompt_build",
-    async (_event, ctx) => {
-      hookCounts.prompt += 1;
-      const pendingToolAllowed = ctx.toolAuthority?.allows(PENDING_TOOL) === true;
-      const routeKey = normalizedRouteKey({
-        channel: ctx.channel ?? ctx.messageProvider,
-        accountId: ctx.accountId,
-        senderId: ctx.senderId,
-      });
-      updateDiagnostic(
-        {
-          sessionKey: ctx.sessionKey,
-          routeKey,
-        },
-        ctx.runId,
-        (current) => {
-          current.promptHook = true;
-          current.pendingToolAllowed = pendingToolAllowed;
-        },
-      );
-      await recordDurableDiagnostic({
-        stage: "prompt-hook",
+  api.on("before_prompt_build", async (_event, ctx) => {
+    hookCounts.prompt += 1;
+    const routeKey = normalizedRouteKey({
+      channel: ctx.channel ?? ctx.messageProvider,
+      accountId: ctx.accountId,
+      senderId: ctx.senderId,
+    });
+    updateDiagnostic(
+      {
         sessionKey: ctx.sessionKey,
         routeKey,
-        runId: ctx.runId,
-        result: pendingToolAllowed ? "pending-tool-allowed" : "pending-tool-blocked",
-      });
-      diagnosticLog(
-        ctx.sessionKey,
-        ctx.runId,
-        "prompt-hook",
-        pendingToolAllowed ? "pending-tool-allowed" : "pending-tool-blocked",
-      );
-      return { prependSystemContext: WSP3_AGENT_GUIDANCE };
-    },
-    { requiresToolAuthority: true },
-  );
+      },
+      ctx.runId,
+      (current) => {
+        current.promptHook = true;
+        current.pendingToolAllowed = undefined;
+      },
+    );
+    await recordDurableDiagnostic({
+      stage: "prompt-hook",
+      sessionKey: ctx.sessionKey,
+      routeKey,
+      runId: ctx.runId,
+      result: "guidance-injected",
+    });
+    diagnosticLog(ctx.sessionKey, ctx.runId, "prompt-hook", "guidance-injected");
+    return { prependSystemContext: WSP3_AGENT_GUIDANCE };
+  });
   api.on("model_call_started", async (event, ctx) => {
     hookCounts.model += 1;
     const runId = ctx.runId ?? event.runId;

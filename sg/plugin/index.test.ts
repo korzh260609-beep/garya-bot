@@ -238,7 +238,7 @@ describe("SG Workspace Manager WSP1", () => {
     };
     await expect(diagnostic!.handler(diagnosticContext)).resolves.toEqual({
       text: expect.stringMatching(
-        /trace_match: route[\s\S]*hook_counts: prompt=1, model=1, tool_selected=0, tool_result=0, reply=1[\s\S]*prompt_hook: OK[\s\S]*pending_tool_surface: OK[\s\S]*pending_store: OK \(1: SG Freelander 2\)[\s\S]*failure: model_did_not_select_pending_tool/,
+        /trace_match: route[\s\S]*hook_counts: prompt=1, model=1, tool_selected=0, tool_result=0, reply=1[\s\S]*prompt_hook: OK[\s\S]*pending_tool_surface: UNKNOWN[\s\S]*pending_store: OK \(1: SG Freelander 2\)[\s\S]*failure: model_did_not_select_pending_tool/,
       ),
     });
 

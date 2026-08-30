@@ -347,6 +347,71 @@ describe("SG Workspace Manager WSP1", () => {
     });
   });
 
+  it("detects lifecycle hooks recorded by another plugin instance", async () => {
+    const { root } = await stateDirWithProfiles();
+    await new SgWorkspaceRequestRegistry(root).create({
+      platform: "telegram",
+      accountId: "default",
+      resourceId: "telegram:-100502",
+      resourceKind: "group",
+      title: "Cross-instance community",
+      initiatorCanonicalIdentity: "channel:telegram:200",
+      initiatorGlobalId: "usr_citizen",
+    });
+    const lifecycleHooks = new Map<string, (...args: unknown[]) => unknown>();
+    registerWorkspaceManager({
+      registerCommand: vi.fn(),
+      registerTool: vi.fn(),
+      on: vi.fn((name, handler) => lifecycleHooks.set(name, handler)),
+      runtime: { state: { resolveStateDir: () => root } },
+    });
+    const lifecycleContext = {
+      runId: "cross-instance-run",
+      sessionKey: "model-instance-session",
+      channel: "telegram",
+      accountId: "default",
+      senderId: "100",
+    };
+    await lifecycleHooks.get("before_prompt_build")?.(
+      { prompt: "Покажи ожидающие заявки" },
+      {
+        ...lifecycleContext,
+        toolAuthority: { allows: (name: string) => name === "sg_workspace_pending" },
+      },
+    );
+    await lifecycleHooks.get("model_call_started")?.(
+      { runId: lifecycleContext.runId, callId: "call-1" },
+      lifecycleContext,
+    );
+    await lifecycleHooks.get("before_agent_reply")?.({ cleanedBody: "Пусто" }, lifecycleContext);
+
+    const commands: Array<{
+      name: string;
+      handler: (ctx: Record<string, unknown>) => Promise<{ text: string }>;
+    }> = [];
+    registerWorkspaceManager({
+      registerCommand: vi.fn((command) => commands.push(command)),
+      registerTool: vi.fn(),
+      on: vi.fn(),
+      runtime: { state: { resolveStateDir: () => root } },
+    });
+    const diagnostic = commands.find((command) => command.name === "sg_wsp3_diag")!;
+    await expect(
+      diagnostic.handler({
+        channel: "telegram",
+        accountId: "default",
+        to: "telegram:100",
+        senderId: "100",
+        sessionKey: "command-instance-session",
+        config: {},
+      }),
+    ).resolves.toEqual({
+      text: expect.stringMatching(
+        /hook_counts: prompt=0, model=0, tool_selected=0, tool_result=0, reply=0[\s\S]*durable_trace: OK[\s\S]*durable_instances: 2, pids=1[\s\S]*durable_hook_location: other-instance[\s\S]*durable_hook_counts: prompt=1, model=1, tool_selected=0, tool_result=0, reply=1[\s\S]*failure: lifecycle_hooks_observed_other_instance/,
+      ),
+    });
+  });
+
   it("returns an explicit unregistered workspace through the normal reply payload", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "sg-wsp2-command-"));
     const registerCommand = vi.fn();

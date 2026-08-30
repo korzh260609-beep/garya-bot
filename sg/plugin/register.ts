@@ -1,4 +1,6 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
+import { mkdir, readFile, readdir, rename, writeFile } from "node:fs/promises";
+import path from "node:path";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
 import { formatWorkspaceContext, resolveWorkspaceContext } from "./context.js";
 import { formatWorkspaceResolution, SgWorkspaceRegistry } from "./workspace-registry.js";
@@ -45,6 +47,30 @@ const PENDING_NOTICE =
   "Запрос на подключение этого сообщества уже ожидает подтверждения владельца.";
 const PENDING_TOOL = "sg_workspace_pending";
 const MAX_DIAGNOSTIC_SESSIONS = 100;
+const MAX_DURABLE_EVENTS = 100;
+const MAX_DURABLE_INSTANCES = 20;
+
+type DurableDiagnosticStage =
+  | "plugin-loaded"
+  | "prompt-hook"
+  | "model-call"
+  | "pending-tool-selected"
+  | "pending-tool-result"
+  | "final-reply"
+  | "diagnostic-command";
+
+type DurableDiagnosticEvent = {
+  version: 1;
+  instanceId: string;
+  pid: number;
+  startedAt: string;
+  recordedAt: string;
+  stage: DurableDiagnosticStage;
+  sessionHash: string;
+  routeHash: string;
+  runHash: string;
+  result: string;
+};
 
 type DiagnosticHookCounts = {
   prompt: number;
@@ -173,6 +199,83 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
   const stateDir =
     process.env.OPENCLAW_STATE_DIR?.trim() || api.runtime.state.resolveStateDir(process.env);
   api.logger?.info("[sg-workspace] stage=resolve-state-dir");
+  const diagnosticInstanceId = randomUUID();
+  const diagnosticStartedAt = new Date().toISOString();
+  const diagnosticDirectory = path.join(stateDir, "sg-workspace-diagnostics");
+  const diagnosticFile = path.join(
+    diagnosticDirectory,
+    `wsp3-${Date.now()}-${process.pid}-${diagnosticInstanceId}.json`,
+  );
+  const durableEvents: DurableDiagnosticEvent[] = [];
+  let durableWriteQueue: Promise<void> = Promise.resolve();
+  const recordDurableDiagnostic = (params: {
+    stage: DurableDiagnosticStage;
+    sessionKey?: string;
+    routeKey?: string;
+    runId?: string;
+    result: string;
+  }): Promise<void> => {
+    durableWriteQueue = durableWriteQueue
+      .then(async () => {
+        durableEvents.push({
+          version: 1,
+          instanceId: diagnosticInstanceId,
+          pid: process.pid,
+          startedAt: diagnosticStartedAt,
+          recordedAt: new Date().toISOString(),
+          stage: params.stage,
+          sessionHash: traceIdFor(params.sessionKey),
+          routeHash: traceIdFor(params.routeKey),
+          runHash: traceIdFor(params.runId),
+          result: params.result,
+        });
+        if (durableEvents.length > MAX_DURABLE_EVENTS) {
+          durableEvents.shift();
+        }
+        await mkdir(diagnosticDirectory, { recursive: true });
+        const temporaryFile = `${diagnosticFile}.tmp`;
+        await writeFile(temporaryFile, JSON.stringify(durableEvents), "utf8");
+        await rename(temporaryFile, diagnosticFile);
+      })
+      .catch((error: unknown) => {
+        api.logger?.warn(`[sg-wsp3-diag] durable-write-failed error=${String(error)}`);
+      });
+    return durableWriteQueue;
+  };
+  const readDurableDiagnostics = async (): Promise<DurableDiagnosticEvent[]> => {
+    await durableWriteQueue;
+    try {
+      const files = (await readdir(diagnosticDirectory))
+        .filter((file) => file.startsWith("wsp3-") && file.endsWith(".json"))
+        .toSorted()
+        .toReversed()
+        .slice(0, MAX_DURABLE_INSTANCES);
+      const snapshots = await Promise.all(
+        files.map(async (file) => {
+          try {
+            const parsed: unknown = JSON.parse(
+              await readFile(path.join(diagnosticDirectory, file), "utf8"),
+            );
+            return Array.isArray(parsed)
+              ? parsed.filter(
+                  (event): event is DurableDiagnosticEvent =>
+                    Boolean(event) &&
+                    typeof event === "object" &&
+                    (event as { version?: unknown }).version === 1 &&
+                    typeof (event as { stage?: unknown }).stage === "string",
+                )
+              : [];
+          } catch {
+            return [];
+          }
+        }),
+      );
+      return snapshots.flat();
+    } catch {
+      return [];
+    }
+  };
+  void recordDurableDiagnostic({ stage: "plugin-loaded", result: "ok" });
   const registry = new SgWorkspaceRegistry(stateDir);
   const requests = new SgWorkspaceRequestRegistry(stateDir);
   const diagnosticTraces: Wsp3DiagnosticTrace[] = [];
@@ -232,14 +335,15 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
     async (_event, ctx) => {
       hookCounts.prompt += 1;
       const pendingToolAllowed = ctx.toolAuthority?.allows(PENDING_TOOL) === true;
+      const routeKey = normalizedRouteKey({
+        channel: ctx.channel ?? ctx.messageProvider,
+        accountId: ctx.accountId,
+        senderId: ctx.senderId,
+      });
       updateDiagnostic(
         {
           sessionKey: ctx.sessionKey,
-          routeKey: normalizedRouteKey({
-            channel: ctx.channel ?? ctx.messageProvider,
-            accountId: ctx.accountId,
-            senderId: ctx.senderId,
-          }),
+          routeKey,
         },
         ctx.runId,
         (current) => {
@@ -247,6 +351,13 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
           current.pendingToolAllowed = pendingToolAllowed;
         },
       );
+      await recordDurableDiagnostic({
+        stage: "prompt-hook",
+        sessionKey: ctx.sessionKey,
+        routeKey,
+        runId: ctx.runId,
+        result: pendingToolAllowed ? "pending-tool-allowed" : "pending-tool-blocked",
+      });
       diagnosticLog(
         ctx.sessionKey,
         ctx.runId,
@@ -257,50 +368,67 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
     },
     { requiresToolAuthority: true },
   );
-  api.on("model_call_started", (event, ctx) => {
+  api.on("model_call_started", async (event, ctx) => {
     hookCounts.model += 1;
     const runId = ctx.runId ?? event.runId;
     const sessionKey = ctx.sessionKey ?? event.sessionKey;
+    const routeKey = normalizedRouteKey({
+      channel: ctx.channel ?? ctx.messageProvider,
+      accountId: ctx.accountId,
+      senderId: ctx.senderId,
+    });
     updateDiagnostic(
       {
         sessionKey,
-        routeKey: normalizedRouteKey({
-          channel: ctx.channel ?? ctx.messageProvider,
-          accountId: ctx.accountId,
-          senderId: ctx.senderId,
-        }),
+        routeKey,
       },
       runId,
       (current) => {
         current.modelCalls += 1;
       },
     );
+    await recordDurableDiagnostic({
+      stage: "model-call",
+      sessionKey,
+      routeKey,
+      runId,
+      result: "started",
+    });
     diagnosticLog(sessionKey, runId, "model-call", "started");
   });
   api.on(
     "before_tool_call",
-    (event, ctx) => {
+    async (event, ctx) => {
       hookCounts.toolSelected += 1;
       const runId = ctx.runId ?? event.runId;
+      const routeKey = normalizedRouteKey(ctx.requester ?? {});
       updateDiagnostic(
         {
           sessionKey: ctx.sessionKey,
-          routeKey: normalizedRouteKey(ctx.requester ?? {}),
+          routeKey,
         },
         runId,
         (current) => {
           current.pendingToolSelected = true;
         },
       );
+      await recordDurableDiagnostic({
+        stage: "pending-tool-selected",
+        sessionKey: ctx.sessionKey,
+        routeKey,
+        runId,
+        result: "selected",
+      });
       diagnosticLog(ctx.sessionKey, runId, "pending-tool", "selected");
     },
     { matcher: [PENDING_TOOL] },
   );
   api.on(
     "after_tool_call",
-    (event, ctx) => {
+    async (event, ctx) => {
       hookCounts.toolResult += 1;
       const runId = ctx.runId ?? event.runId;
+      const routeKey = normalizedRouteKey(ctx.requester ?? {});
       const result =
         event.result && typeof event.result === "object"
           ? (event.result as { details?: unknown })
@@ -315,7 +443,7 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
       updateDiagnostic(
         {
           sessionKey: ctx.sessionKey,
-          routeKey: normalizedRouteKey(ctx.requester ?? {}),
+          routeKey,
         },
         runId,
         (current) => {
@@ -329,6 +457,17 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
           current.toolError = event.error;
         },
       );
+      await recordDurableDiagnostic({
+        stage: "pending-tool-result",
+        sessionKey: ctx.sessionKey,
+        routeKey,
+        runId,
+        result: event.error
+          ? "execution-error"
+          : resultReadable
+            ? `${String(details?.status)}:${Array.isArray(details?.requests) ? details.requests.length : 0}`
+            : "invalid-payload",
+      });
       diagnosticLog(
         ctx.sessionKey,
         runId,
@@ -342,22 +481,30 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
     },
     { matcher: [PENDING_TOOL] },
   );
-  api.on("before_agent_reply", (event, ctx) => {
+  api.on("before_agent_reply", async (event, ctx) => {
     hookCounts.reply += 1;
+    const routeKey = normalizedRouteKey({
+      channel: ctx.channel ?? ctx.messageProvider,
+      accountId: ctx.accountId,
+      senderId: ctx.senderId,
+    });
     updateDiagnostic(
       {
         sessionKey: ctx.sessionKey,
-        routeKey: normalizedRouteKey({
-          channel: ctx.channel ?? ctx.messageProvider,
-          accountId: ctx.accountId,
-          senderId: ctx.senderId,
-        }),
+        routeKey,
       },
       ctx.runId,
       (current) => {
         current.finalReply = Boolean(event.cleanedBody.trim());
       },
     );
+    await recordDurableDiagnostic({
+      stage: "final-reply",
+      sessionKey: ctx.sessionKey,
+      routeKey,
+      runId: ctx.runId,
+      result: event.cleanedBody.trim() ? "present" : "empty",
+    });
     diagnosticLog(
       ctx.sessionKey,
       ctx.runId,
@@ -500,6 +647,43 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
         storeError = error instanceof Error ? error.message : String(error);
       }
       const commandRouteKey = normalizedRouteKey(ctx);
+      await recordDurableDiagnostic({
+        stage: "diagnostic-command",
+        sessionKey: ctx.sessionKey,
+        routeKey: commandRouteKey,
+        result: "started",
+      });
+      const durableSnapshot = await readDurableDiagnostics();
+      const durableWindowStart = Date.now() - 10 * 60 * 1000;
+      const recentDurableEvents = durableSnapshot.filter(
+        (event) => Date.parse(event.recordedAt) >= durableWindowStart,
+      );
+      const durableHookEvents = recentDurableEvents.filter(
+        (event) => event.stage !== "plugin-loaded" && event.stage !== "diagnostic-command",
+      );
+      const durableHookCounts = {
+        prompt: durableHookEvents.filter((event) => event.stage === "prompt-hook").length,
+        model: durableHookEvents.filter((event) => event.stage === "model-call").length,
+        toolSelected: durableHookEvents.filter((event) => event.stage === "pending-tool-selected")
+          .length,
+        toolResult: durableHookEvents.filter((event) => event.stage === "pending-tool-result")
+          .length,
+        reply: durableHookEvents.filter((event) => event.stage === "final-reply").length,
+      };
+      const durableInstances = new Set(recentDurableEvents.map((event) => event.instanceId));
+      const durablePids = new Set(recentDurableEvents.map((event) => event.pid));
+      const currentInstanceHookCount = durableHookEvents.filter(
+        (event) => event.instanceId === diagnosticInstanceId,
+      ).length;
+      const otherInstanceHookCount = durableHookEvents.length - currentInstanceHookCount;
+      const durableHookLocation =
+        currentInstanceHookCount > 0 && otherInstanceHookCount > 0
+          ? "mixed"
+          : otherInstanceHookCount > 0
+            ? "other-instance"
+            : currentInstanceHookCount > 0
+              ? "current-instance"
+              : "none";
       const sessionTrace = ctx.sessionKey
         ? diagnosticTraces.toReversed().find((candidate) => candidate.sessionKey === ctx.sessionKey)
         : undefined;
@@ -520,7 +704,12 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
       });
       const observedHookCount = Object.values(hookCounts).reduce((sum, count) => sum + count, 0);
       if (!lastTrace && observedHookCount === 0) {
-        failure = "lifecycle_hooks_not_observed";
+        failure =
+          otherInstanceHookCount > 0
+            ? "lifecycle_hooks_observed_other_instance"
+            : currentInstanceHookCount > 0
+              ? "lifecycle_memory_trace_lost"
+              : "lifecycle_hooks_not_observed";
       } else if (!lastTrace && latestObservedTrace) {
         failure = "trace_identity_mismatch";
       }
@@ -537,6 +726,10 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
           `command_route: ${traceIdFor(commandRouteKey)}`,
           `last_trace: ${latestObservedTrace ? `PRESENT (session=${traceIdFor(latestObservedTrace.sessionKey)}, route=${traceIdFor(latestObservedTrace.routeKey)}, run=${traceIdFor(latestObservedTrace.runId)})` : "NONE"}`,
           `hook_counts: prompt=${hookCounts.prompt}, model=${hookCounts.model}, tool_selected=${hookCounts.toolSelected}, tool_result=${hookCounts.toolResult}, reply=${hookCounts.reply}`,
+          `durable_trace: ${recentDurableEvents.length > 0 ? "OK" : "FAIL"}`,
+          `durable_instances: ${durableInstances.size}, pids=${durablePids.size}`,
+          `durable_hook_location: ${durableHookLocation}`,
+          `durable_hook_counts: prompt=${durableHookCounts.prompt}, model=${durableHookCounts.model}, tool_selected=${durableHookCounts.toolSelected}, tool_result=${durableHookCounts.toolResult}, reply=${durableHookCounts.reply}`,
           `prompt_hook: ${traceStatus(lastTrace?.promptHook)}`,
           `pending_tool_surface: ${traceStatus(lastTrace?.pendingToolAllowed)}`,
           `model_call: ${lastTrace ? `OK (${lastTrace.modelCalls})` : "UNKNOWN"}`,

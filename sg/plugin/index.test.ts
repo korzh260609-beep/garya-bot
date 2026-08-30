@@ -250,6 +250,31 @@ describe("SG Workspace Manager WSP1", () => {
     });
   });
 
+  it("records which required hook context fields are unavailable without logging their values", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "sg-wsp3-missing-context-"));
+    const hooks = new Map<string, (...args: any[]) => Promise<unknown> | unknown>();
+    const warn = vi.fn();
+    registerWorkspaceManager({
+      registerCommand: vi.fn(),
+      registerTool: vi.fn(),
+      on: vi.fn((name, handler) => hooks.set(name, handler)),
+      logger: { warn },
+      runtime: { state: { resolveStateDir: () => root } },
+    });
+
+    await hooks.get("before_prompt_build")?.(
+      { prompt: "СГ, привет", messages: [] },
+      { runId: "private-run-id", channel: "telegram", chatId: "private-chat-id" },
+    );
+
+    expect(warn).toHaveBeenCalledWith(
+      "SG workspace automatic onboarding skipped: missing senderId",
+    );
+    expect(warn.mock.calls.flat().join(" ")).not.toContain("private-run-id");
+    expect(warn.mock.calls.flat().join(" ")).not.toContain("private-chat-id");
+    await expect(new SgWorkspaceRequestRegistry(root).listPending()).resolves.toEqual([]);
+  });
+
   it("does not create a workspace request in a direct chat", async () => {
     const { root } = await stateDirWithProfiles();
     const hooks = new Map<string, (...args: any[]) => Promise<unknown> | unknown>();

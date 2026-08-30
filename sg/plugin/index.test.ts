@@ -4,6 +4,7 @@ import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { resolveSgCanonicalIdentity, resolveWorkspaceContext } from "./context.js";
 import { registerWorkspaceManager } from "./register.js";
+import { SgWorkspaceRequestRegistry } from "./workspace-requests.js";
 
 const timestamp = "2026-01-01T00:00:00.000Z";
 
@@ -128,7 +129,7 @@ describe("SG Workspace Manager WSP1", () => {
     expect(second).toEqual(first);
   });
 
-  it("registers normal reply commands plus only internal WSP3 tools and guidance", () => {
+  it("registers normal reply commands plus only internal WSP3 tools and guidance", async () => {
     const registerCommand = vi.fn();
     const registerTool = vi.fn();
     const on = vi.fn();
@@ -149,7 +150,7 @@ describe("SG Workspace Manager WSP1", () => {
       names: ["sg_workspace_onboard", "sg_workspace_pending", "sg_workspace_decide"],
     });
     expect(on).toHaveBeenCalledWith("before_prompt_build", expect.any(Function));
-    expect(on.mock.calls[0]?.[1]()).toMatchObject({
+    await expect(on.mock.calls[0]?.[1]({}, {})).resolves.toMatchObject({
       appendSystemContext: expect.stringContaining("Добавивший SG — только инициатор"),
     });
   });
@@ -208,5 +209,63 @@ describe("SG Workspace Manager WSP1", () => {
       status: "pending",
       ownerAssigned: false,
     });
+  });
+
+  it("creates and announces a pending request before replying to an ordinary group greeting", async () => {
+    const { root } = await stateDirWithProfiles();
+    const hooks = new Map<string, (...args: any[]) => Promise<unknown> | unknown>();
+    registerWorkspaceManager({
+      registerCommand: vi.fn(),
+      registerTool: vi.fn(),
+      on: vi.fn((name, handler) => hooks.set(name, handler)),
+      runtime: { state: { resolveStateDir: () => root } },
+    });
+
+    const promptResult = await hooks.get("before_prompt_build")?.(
+      { prompt: "СГ, привет", messages: [] },
+      {
+        runId: "run-1",
+        channel: "telegram",
+        accountId: "default",
+        chatId: "-100500",
+        senderId: "200",
+      },
+    );
+    expect(promptResult).toMatchObject({
+      appendSystemContext: expect.stringContaining("Заявка уже создана"),
+    });
+    await expect(new SgWorkspaceRequestRegistry(root).listPending()).resolves.toMatchObject([
+      {
+        status: "pending",
+        resourceId: "telegram:-100500",
+        initiatorGlobalId: "usr_citizen",
+      },
+    ]);
+
+    expect(
+      hooks.get("before_agent_reply")?.({ cleanedBody: "Привет!" }, { runId: "run-1" }),
+    ).toMatchObject({
+      handled: true,
+      reply: { text: expect.stringContaining("запрос на подключение") },
+    });
+  });
+
+  it("does not create a workspace request in a direct chat", async () => {
+    const { root } = await stateDirWithProfiles();
+    const hooks = new Map<string, (...args: any[]) => Promise<unknown> | unknown>();
+    registerWorkspaceManager({
+      registerCommand: vi.fn(),
+      registerTool: vi.fn(),
+      on: vi.fn((name, handler) => hooks.set(name, handler)),
+      runtime: { state: { resolveStateDir: () => root } },
+    });
+    await hooks.get("before_prompt_build")?.(
+      { prompt: "Привет", messages: [] },
+      { runId: "run-dm", channel: "telegram", chatId: "200", senderId: "200" },
+    );
+    await expect(new SgWorkspaceRequestRegistry(root).listPending()).resolves.toEqual([]);
+    expect(
+      await hooks.get("before_agent_reply")?.({ cleanedBody: "Привет!" }, { runId: "run-dm" }),
+    ).toBeUndefined();
   });
 });

@@ -145,6 +145,11 @@ export class SgWorkspaceRequestRegistry {
     return (await this.read()).requests.filter((request) => request.status === "pending");
   }
 
+  async resolve(resource: SgWorkspaceResource): Promise<SgWorkspaceRequest | undefined> {
+    const key = workspaceResourceKey(resource);
+    return (await this.read()).requests.find((request) => workspaceResourceKey(request) === key);
+  }
+
   async approve(params: {
     requestId: string;
     decidedByGlobalId: string;

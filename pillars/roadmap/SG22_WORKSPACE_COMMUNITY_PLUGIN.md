@@ -219,6 +219,8 @@ Live verification completed:
 
 ### WSP2 — Workspace registry and isolation
 
+Status: `IMPLEMENTED` — local registry and normal reply-path proof passed; live verification pending.
+
 Goal: represent every managed resource independently.
 
 Work:
@@ -236,6 +238,34 @@ Exit:
 - no state crosses workspace boundaries;
 - restart preserves registry state;
 - unregistered resources fail safely without breaking normal OpenClaw chat.
+
+Implemented WSP2 scope:
+
+- canonical cross-channel workspace contract and stable normalized resource key;
+- SG-owned atomic registry at `<OPENCLAW_STATE_DIR>/sg/workspaces.json`;
+- OpenClaw SDK atomic JSON writes plus fail-closed file locking;
+- idempotent registration, resource resolution, suspend and archive state;
+- separate workspaces for groups, channels and forum topics;
+- read-only `/sg_workspace` command through the normal OpenClaw reply path;
+- no automatic registration or platform-role inference before WSP3.
+
+Persistence decision:
+
+- OpenClaw SQLite plugin state was audited first;
+- this OpenClaw release exposes `openKeyedStore` only to bundled or trusted official plugins and rejects an ordinary external workspace plugin;
+- the external SG plugin therefore uses the supported plugin SDK JSON and locking helpers without adding a database, session store or parallel runtime;
+- migration to native keyed plugin state remains possible if OpenClaw later permits it for this external plugin.
+
+Local proof completed:
+
+- two groups and one channel remain isolated;
+- a forum topic remains isolated from its parent group;
+- duplicate normalized registration is idempotent;
+- concurrent registrations do not lose state;
+- suspend and archive survive a simulated restart;
+- an unknown resource returns an explicit unregistered result;
+- an invalid registry fails closed instead of being overwritten;
+- WSP1 and WSP2 targeted tests pass together.
 
 ### WSP3 — Workspace authority
 

@@ -1,5 +1,6 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { resolveEmbeddedAttemptToolConstructionPlan } from "../../src/agents/embedded-agent-runner/run/attempt-tool-construction-plan.js";
 import { createHookRunner } from "../../src/plugins/hooks.js";
 import {
   loadOpenClawPlugins,
@@ -34,6 +35,19 @@ const registry = loadOpenClawPlugins({
   config: pluginConfig,
 });
 const hookRunner = createHookRunner(registry);
+const workspaceToolGrant = [
+  "sg_workspace_onboard",
+  "sg_workspace_pending",
+  "sg_workspace_decide",
+];
+const withoutWorkspaceGrant = resolveEmbeddedAttemptToolConstructionPlan({
+  toolsEnabled: true,
+  toolsAllow: ["read"],
+});
+const withWorkspaceGrant = resolveEmbeddedAttemptToolConstructionPlan({
+  toolsEnabled: true,
+  toolsAllow: ["read", ...workspaceToolGrant],
+});
 const pluginTools = resolvePluginTools({
   context: {
     config: pluginConfig,
@@ -44,6 +58,7 @@ const pluginTools = resolvePluginTools({
     nativeChannelId: "telegram:100",
     requesterSenderId: "100",
   },
+  toolAllowlist: withWorkspaceGrant.runtimeToolAllowlist,
   runtimeRegistry: registry,
 });
 
@@ -131,6 +146,10 @@ console.log(
         "обязательно используй sg_workspace_pending",
       ) === true,
     pendingToolInModelSurface: pluginTools.some((tool) => tool.name === "sg_workspace_pending"),
+    pluginToolsExcludedWithoutGrant:
+      withoutWorkspaceGrant.codingToolConstructionPlan.includePluginTools === false,
+    pluginToolsIncludedWithGrant:
+      withWorkspaceGrant.codingToolConstructionPlan.includePluginTools === true,
     errorDiagnostics: registry.diagnostics.filter((item) => item.level === "error"),
     dispatchResult,
     repeatDispatchResult,

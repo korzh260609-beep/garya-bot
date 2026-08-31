@@ -16,5 +16,14 @@ describe("SG 2.2 Render entrypoint", () => {
     expect(script).toContain(
       '{"path":"plugins.entries.sg-workspace-manager.hooks.allowConversationAccess","value":true}',
     );
+    expect(script).toContain(
+      'workspace_plugin_tools=' +
+        "'[\"sg_workspace_onboard\",\"sg_workspace_pending\",\"sg_workspace_decide\"]'",
+    );
+    expect(script).toContain(
+      '{"path":"agents.defaults.tools.alsoAllow","value":' +
+        "'\"${workspace_plugin_tools}\"'" +
+        "}",
+    );
   });
 });

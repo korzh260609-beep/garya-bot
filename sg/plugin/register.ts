@@ -713,6 +713,62 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
             : currentInstanceHookCount > 0
               ? "current-instance"
               : "none";
+      const commandRouteHash = traceIdFor(commandRouteKey);
+      const durableRuns = new Map<string, DurableDiagnosticEvent[]>();
+      for (const event of durableHookEvents) {
+        if (event.routeHash !== commandRouteHash) {
+          continue;
+        }
+        const key = `${event.instanceId}:${event.runHash}`;
+        const runEvents = durableRuns.get(key) ?? [];
+        runEvents.push(event);
+        durableRuns.set(key, runEvents);
+      }
+      const latestDurableRunEvents = [...durableRuns.values()]
+        .filter((events) =>
+          events.some((event) => event.stage === "model-call" || event.stage === "final-reply"),
+        )
+        .sort((left, right) => {
+          const leftTime = Math.max(...left.map((event) => Date.parse(event.recordedAt)));
+          const rightTime = Math.max(...right.map((event) => Date.parse(event.recordedAt)));
+          return rightTime - leftTime;
+        })[0];
+      const durableLlmInput = latestDurableRunEvents
+        ?.filter((event) => event.stage === "llm-input")
+        .at(-1);
+      const durableToolResult = latestDurableRunEvents
+        ?.filter((event) => event.stage === "pending-tool-result")
+        .at(-1);
+      const durableToolPayload = durableToolResult?.result.match(/^([^:]+):(\d+)$/);
+      const durableTrace: Wsp3DiagnosticTrace | undefined = latestDurableRunEvents
+        ? {
+            sequence: 0,
+            promptHook: latestDurableRunEvents.some((event) => event.stage === "prompt-hook"),
+            pendingToolAllowed:
+              durableLlmInput?.result === "pending-tool-present"
+                ? true
+                : durableLlmInput?.result === "pending-tool-missing"
+                  ? false
+                  : undefined,
+            modelCalls: latestDurableRunEvents.filter((event) => event.stage === "model-call")
+              .length,
+            pendingToolSelected: latestDurableRunEvents.some(
+              (event) => event.stage === "pending-tool-selected",
+            ),
+            pendingToolCompleted:
+              Boolean(durableToolResult) && durableToolResult?.result !== "execution-error",
+            pendingToolResultReadable: Boolean(durableToolPayload),
+            pendingToolResultStatus: durableToolPayload?.[1],
+            pendingToolResultCount: durableToolPayload
+              ? Number.parseInt(durableToolPayload[2] ?? "", 10)
+              : undefined,
+            toolError:
+              durableToolResult?.result === "execution-error" ? "execution-error" : undefined,
+            finalReply: latestDurableRunEvents.some(
+              (event) => event.stage === "final-reply" && event.result === "present",
+            ),
+          }
+        : undefined;
       const sessionTrace = ctx.sessionKey
         ? diagnosticTraces.toReversed().find((candidate) => candidate.sessionKey === ctx.sessionKey)
         : undefined;
@@ -720,26 +776,33 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
         ? diagnosticTraces.toReversed().find((candidate) => candidate.routeKey === commandRouteKey)
         : undefined;
       const lastTrace = sessionTrace ?? routeTrace;
-      const traceMatch = sessionTrace ? "session" : routeTrace ? "route" : "none";
+      const effectiveTrace = lastTrace ?? durableTrace;
+      const traceMatch = sessionTrace
+        ? "session"
+        : routeTrace
+          ? "route"
+          : durableTrace
+            ? "durable-route"
+            : "none";
       const latestObservedTrace = diagnosticTraces.at(-1);
       const pendingTitles = pending
         .map((request) => request.title.replace(/\s+/g, " ").trim())
         .slice(0, 5);
       let failure = diagnosticFailure({
-        trace: lastTrace,
+        trace: effectiveTrace,
         projectRole: actor.projectRole,
         pendingCount: pending.length,
         storeError,
       });
       const observedHookCount = Object.values(hookCounts).reduce((sum, count) => sum + count, 0);
-      if (!lastTrace && observedHookCount === 0) {
+      if (!effectiveTrace && observedHookCount === 0) {
         failure =
           otherInstanceHookCount > 0
             ? "lifecycle_hooks_observed_other_instance"
             : currentInstanceHookCount > 0
               ? "lifecycle_memory_trace_lost"
               : "lifecycle_hooks_not_observed";
-      } else if (!lastTrace && latestObservedTrace) {
+      } else if (!effectiveTrace && latestObservedTrace) {
         failure = "trace_identity_mismatch";
       }
       diagnosticLog(ctx.sessionKey, lastTrace?.runId, "summary", failure);
@@ -753,26 +816,32 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
           `trace_match: ${traceMatch}`,
           `command_session: ${traceIdFor(ctx.sessionKey)}`,
           `command_route: ${traceIdFor(commandRouteKey)}`,
-          `last_trace: ${latestObservedTrace ? `PRESENT (session=${traceIdFor(latestObservedTrace.sessionKey)}, route=${traceIdFor(latestObservedTrace.routeKey)}, run=${traceIdFor(latestObservedTrace.runId)})` : "NONE"}`,
+          `last_trace: ${
+            lastTrace
+              ? `PRESENT (session=${traceIdFor(lastTrace.sessionKey)}, route=${traceIdFor(lastTrace.routeKey)}, run=${traceIdFor(lastTrace.runId)})`
+              : latestDurableRunEvents
+                ? `PRESENT (durable session=${latestDurableRunEvents[0]?.sessionHash}, route=${latestDurableRunEvents[0]?.routeHash}, run=${latestDurableRunEvents[0]?.runHash})`
+                : "NONE"
+          }`,
           `hook_counts: prompt=${hookCounts.prompt}, llm_input=${hookCounts.llmInput}, model=${hookCounts.model}, tool_selected=${hookCounts.toolSelected}, tool_result=${hookCounts.toolResult}, reply=${hookCounts.reply}`,
           `durable_trace: ${recentDurableEvents.length > 0 ? "OK" : "FAIL"}`,
           `durable_instances: ${durableInstances.size}, pids=${durablePids.size}`,
           `durable_hook_location: ${durableHookLocation}`,
           `durable_hook_counts: prompt=${durableHookCounts.prompt}, llm_input=${durableHookCounts.llmInput}, model=${durableHookCounts.model}, tool_selected=${durableHookCounts.toolSelected}, tool_result=${durableHookCounts.toolResult}, reply=${durableHookCounts.reply}`,
-          `prompt_hook: ${traceStatus(lastTrace?.promptHook)}`,
-          `pending_tool_surface: ${traceStatus(lastTrace?.pendingToolAllowed)}`,
-          `model_call: ${lastTrace ? `OK (${lastTrace.modelCalls})` : "UNKNOWN"}`,
-          `pending_tool_selected: ${traceStatus(lastTrace?.pendingToolSelected)}`,
+          `prompt_hook: ${traceStatus(effectiveTrace?.promptHook)}`,
+          `pending_tool_surface: ${traceStatus(effectiveTrace?.pendingToolAllowed)}`,
+          `model_call: ${effectiveTrace ? `OK (${effectiveTrace.modelCalls})` : "UNKNOWN"}`,
+          `pending_tool_selected: ${traceStatus(effectiveTrace?.pendingToolSelected)}`,
           `pending_store: ${storeError ? `FAIL (${storeError})` : `OK (${pending.length}: ${pendingTitles.join(", ") || "empty"})`}`,
-          `pending_tool_result: ${traceStatus(lastTrace?.pendingToolCompleted)}`,
+          `pending_tool_result: ${traceStatus(effectiveTrace?.pendingToolCompleted)}`,
           `pending_tool_payload: ${
-            !lastTrace?.pendingToolCompleted
+            !effectiveTrace?.pendingToolCompleted
               ? "UNKNOWN"
-              : lastTrace.pendingToolResultReadable !== true
+              : effectiveTrace.pendingToolResultReadable !== true
                 ? "FAIL (invalid)"
-                : `${lastTrace.pendingToolResultStatus === "ok" ? "OK" : "FAIL"} (${lastTrace.pendingToolResultStatus}: ${lastTrace.pendingToolResultCount ?? "n/a"})`
+                : `${effectiveTrace.pendingToolResultStatus === "ok" ? "OK" : "FAIL"} (${effectiveTrace.pendingToolResultStatus}: ${effectiveTrace.pendingToolResultCount ?? "n/a"})`
           }`,
-          `reply_path: ${traceStatus(lastTrace?.finalReply)}`,
+          `reply_path: ${traceStatus(effectiveTrace?.finalReply)}`,
           `failure: ${failure}`,
         ].join("\n"),
       };

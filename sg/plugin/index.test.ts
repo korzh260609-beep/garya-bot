@@ -4,6 +4,7 @@ import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { resolveSgCanonicalIdentity, resolveWorkspaceContext } from "./context.js";
 import { registerWorkspaceManager } from "./register.js";
+import { SgWorkspaceRegistry } from "./workspace-registry.js";
 import { SgWorkspaceRequestRegistry } from "./workspace-requests.js";
 
 const timestamp = "2026-01-01T00:00:00.000Z";
@@ -58,6 +59,29 @@ const diagnosticInput = (overrides: Record<string, unknown> = {}) => ({
   senderId: "100",
   ...overrides,
 });
+
+const groupDispatchContext = {
+  sessionKey: "agent:main:telegram:group:-100500",
+  channelId: "telegram",
+  accountId: "default",
+  conversationId: "telegram:-100500",
+  senderId: "200",
+};
+
+function registerDispatchHook(root: string) {
+  const hooks = new Map<string, (...args: unknown[]) => unknown>();
+  registerWorkspaceManager({
+    registerCommand: vi.fn(),
+    registerTool: vi.fn(),
+    on: vi.fn((name, handler) => hooks.set(name, handler)),
+    runtime: { state: { resolveStateDir: () => root } },
+  });
+  const hook = hooks.get("before_dispatch");
+  if (!hook) {
+    throw new Error("before_dispatch hook was not registered");
+  }
+  return hook;
+}
 
 describe("SG Workspace Manager WSP1", () => {
   it("uses OpenClaw identityLinks and fails closed when they are ambiguous", () => {
@@ -746,6 +770,80 @@ describe("SG Workspace Manager WSP1", () => {
       text: expect.stringContaining("уже ожидает подтверждения"),
     });
     await expect(new SgWorkspaceRequestRegistry(root).listPending()).resolves.toHaveLength(1);
+  });
+
+  it.each(["/new", "/new@ASSISTANT_SG_bot"])(
+    "lets the system command %s continue without automatic onboarding",
+    async (content) => {
+      const { root } = await stateDirWithProfiles();
+      await expect(
+        registerDispatchHook(root)(
+          { content, isGroup: true, channel: "telegram", senderId: "200" },
+          groupDispatchContext,
+        ),
+      ).resolves.toEqual({ handled: false });
+      await expect(new SgWorkspaceRequestRegistry(root).listPending()).resolves.toEqual([]);
+    },
+  );
+
+  it("lets /new continue after the workspace request is approved and active", async () => {
+    const { root } = await stateDirWithProfiles();
+    const requests = new SgWorkspaceRequestRegistry(root);
+    const workspaces = new SgWorkspaceRegistry(root);
+    const request = await requests.create({
+      platform: "telegram",
+      accountId: "default",
+      resourceId: "telegram:-100500",
+      resourceKind: "group",
+      title: "Sandbox",
+      initiatorCanonicalIdentity: "channel:telegram:200",
+      initiatorGlobalId: "usr_citizen",
+    });
+    await requests.approve({
+      requestId: request.requestId,
+      decidedByGlobalId: "usr_monarch",
+      ownerGlobalId: "usr_citizen",
+      workspaces,
+    });
+    await expect(
+      registerDispatchHook(root)(
+        { content: "/new", isGroup: true, channel: "telegram", senderId: "200" },
+        groupDispatchContext,
+      ),
+    ).resolves.toEqual({ handled: false });
+    await expect(
+      registerDispatchHook(root)(
+        { content: "СГ, продолжай", isGroup: true, channel: "telegram", senderId: "200" },
+        groupDispatchContext,
+      ),
+    ).resolves.toEqual({ handled: false });
+    await expect(
+      workspaces.resolve({
+        platform: "telegram",
+        accountId: "default",
+        resourceId: "telegram:-100500",
+      }),
+    ).resolves.toMatchObject({ status: "active" });
+  });
+
+  it("does not report a rejected workspace request as pending", async () => {
+    const { root } = await stateDirWithProfiles();
+    const requests = new SgWorkspaceRequestRegistry(root);
+    const request = await requests.create({
+      platform: "telegram",
+      accountId: "default",
+      resourceId: "telegram:-100500",
+      resourceKind: "group",
+      title: "Sandbox",
+      initiatorCanonicalIdentity: "channel:telegram:200",
+    });
+    await requests.reject({ requestId: request.requestId, decidedByGlobalId: "usr_monarch" });
+    await expect(
+      registerDispatchHook(root)(
+        { content: "СГ, привет", isGroup: true, channel: "telegram", senderId: "200" },
+        groupDispatchContext,
+      ),
+    ).resolves.toEqual({ handled: false });
   });
 
   it("records which required hook context fields are unavailable without logging their values", async () => {

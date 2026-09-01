@@ -580,8 +580,8 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
   api.on("before_dispatch", async (event, ctx) => {
     const traceId = traceIdFor(ctx.messageId);
     trace(api, traceId, "hook-enter");
-    if (event.isGroup !== true) {
-      trace(api, traceId, "context-check", "direct-chat");
+    if (event.isGroup !== true || (event.body ?? event.content)?.trimStart().startsWith("/")) {
+      trace(api, traceId, "context-check", "not-applicable");
       trace(api, traceId, "dispatch-handle", "false");
       return { handled: false };
     }
@@ -611,7 +611,7 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
       trace(api, traceId, "workspace-lookup", workspace ? "found" : "missing");
       const request = workspace ? undefined : await requests.resolve(resource);
       trace(api, traceId, "request-lookup", request ? "found" : "missing");
-      if (!workspace && request) {
+      if (!workspace && request?.status === "pending") {
         trace(api, traceId, "pending-create", "existing");
         trace(api, traceId, "dispatch-handle", "true");
         return { handled: true, text: PENDING_NOTICE };

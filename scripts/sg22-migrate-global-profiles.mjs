@@ -42,16 +42,18 @@ function normalizeIdentity(value) {
 function collect(raw) {
   const profiles = [];
   const identities = [];
+  const citizenRequests = [];
+  const audit = [];
 
   if (Array.isArray(raw)) {
     for (const item of raw) {
       const profile = normalizeProfile(item);
       if (profile) profiles.push(profile);
     }
-    return { profiles, identities };
+    return { profiles, identities, citizenRequests, audit };
   }
 
-  if (!isObject(raw)) return { profiles, identities };
+  if (!isObject(raw)) return { profiles, identities, citizenRequests, audit };
 
   if (Array.isArray(raw.profiles)) {
     for (const item of raw.profiles) {
@@ -77,7 +79,14 @@ function collect(raw) {
     }
   }
 
-  return { profiles, identities };
+  if (raw.version === 3 && Array.isArray(raw.citizenRequests)) {
+    citizenRequests.push(...raw.citizenRequests);
+  }
+  if (raw.version === 3 && Array.isArray(raw.audit)) {
+    audit.push(...raw.audit);
+  }
+
+  return { profiles, identities, citizenRequests, audit };
 }
 
 function repair(raw) {
@@ -123,7 +132,13 @@ function repair(raw) {
     }
   }
 
-  return { version: 2, profiles, identities: [...byCanonical.values()] };
+  return {
+    version: 3,
+    profiles,
+    identities: [...byCanonical.values()],
+    citizenRequests: collected.citizenRequests,
+    audit: collected.audit,
+  };
 }
 
 function seedMonarch(store) {
@@ -172,7 +187,7 @@ async function main() {
     const backup = `${storePath}.invalid-json-${Date.now()}.bak`;
     await copyFile(storePath, backup);
     console.error(`[sg] global profile JSON is invalid; backup saved to ${backup}; rebuilding an empty valid store`);
-    raw = { version: 2, profiles: [], identities: [] };
+    raw = { version: 3, profiles: [], identities: [], citizenRequests: [], audit: [] };
   }
 
   let repaired = repair(raw);
@@ -181,12 +196,17 @@ async function main() {
     text.trim() &&
     text.trim() !== "{}" &&
     text.trim() !== "[]" &&
-    !(isObject(raw) && raw.version === 2 && Array.isArray(raw.profiles) && Array.isArray(raw.identities))
+    !(
+      isObject(raw) &&
+      [2, 3].includes(raw.version) &&
+      Array.isArray(raw.profiles) &&
+      Array.isArray(raw.identities)
+    )
   ) {
     const backup = `${storePath}.unrecognized-${Date.now()}.bak`;
     await copyFile(storePath, backup);
     console.error(`[sg] global profile store format is unrecognized; backup saved to ${backup}; rebuilding an empty valid store`);
-    repaired = { version: 2, profiles: [], identities: [] };
+    repaired = { version: 3, profiles: [], identities: [], citizenRequests: [], audit: [] };
   }
   repaired = seedMonarch(repaired);
 

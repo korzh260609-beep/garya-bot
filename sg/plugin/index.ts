@@ -2,10 +2,24 @@ import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import { registerWorkspaceManager } from "./register.js";
 
 export * from "./context.js";
+export { SgGlobalProfileRegistry, validateGlobalProfileStore } from "./citizenship-registry.js";
+export type {
+  SgCitizenAuditAction,
+  SgCitizenAuditEvent,
+  SgCitizenRequest,
+  SgCitizenRequestStatus,
+  SgGlobalProfile,
+  SgGlobalProfileStore,
+  SgIdentityLink,
+  SgProfileStatus,
+} from "./citizenship-registry.js";
 export * from "./register.js";
 export * from "./workspace-registry.js";
 export * from "./workspace-requests.js";
 export * from "./workspace-tools.js";
+export * from "./workspace-memberships.js";
+export * from "./wsp4-diagnostics.js";
+export * from "./wsp4-tools.js";
 
 export default definePluginEntry({
   id: "sg-workspace-manager",

@@ -129,7 +129,7 @@ describe("SG Workspace Manager WSP1", () => {
     expect(second).toEqual(first);
   });
 
-  it("registers normal reply commands plus only internal WSP3 tools and guidance", async () => {
+  it("registers normal reply commands plus internal WSP3/WSP4 tools and guidance", async () => {
     const registerCommand = vi.fn();
     const registerTool = vi.fn();
     const on = vi.fn();
@@ -139,7 +139,7 @@ describe("SG Workspace Manager WSP1", () => {
       on,
       runtime: { state: { resolveStateDir: () => "/tmp/sg-wsp-test" } },
     });
-    expect(registerCommand).toHaveBeenCalledTimes(3);
+    expect(registerCommand).toHaveBeenCalledTimes(4);
     const command = registerCommand.mock.calls[0]?.[0];
     expect(command).toMatchObject({ name: "sg_context", requireAuth: false });
     expect(registerCommand.mock.calls[1]?.[0]).toMatchObject({
@@ -150,8 +150,21 @@ describe("SG Workspace Manager WSP1", () => {
       name: "sg_wsp3_diag",
       requireAuth: false,
     });
+    expect(registerCommand.mock.calls[3]?.[0]).toMatchObject({
+      name: "sg_wsp4_diag",
+      requireAuth: false,
+    });
     expect(registerTool).toHaveBeenCalledWith(expect.any(Function), {
       names: ["sg_workspace_onboard", "sg_workspace_pending", "sg_workspace_decide"],
+    });
+    expect(registerTool).toHaveBeenCalledWith(expect.any(Function), {
+      names: [
+        "sg_citizen_apply",
+        "sg_citizen_pending",
+        "sg_citizen_decide",
+        "sg_membership_list",
+        "sg_membership_manage",
+      ],
     });
     expect(on).toHaveBeenCalledWith("before_dispatch", expect.any(Function));
   });
@@ -168,6 +181,9 @@ describe("SG Workspace Manager WSP1", () => {
     const result = await hooks.get("before_prompt_build")?.({}, {});
     expect(result).toMatchObject({
       prependSystemContext: expect.stringContaining("обязательно используй sg_workspace_pending"),
+    });
+    expect(result).toMatchObject({
+      prependSystemContext: expect.stringContaining("используй sg_citizen_apply"),
     });
   });
 

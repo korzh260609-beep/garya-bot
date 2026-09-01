@@ -151,6 +151,16 @@ export class SgWorkspaceRegistry {
     );
   }
 
+  async findById(workspaceId: string): Promise<SgWorkspace | undefined> {
+    return (await this.read()).workspaces.find(
+      (workspace) => workspace.workspaceId === workspaceId.trim(),
+    );
+  }
+
+  async list(): Promise<SgWorkspace[]> {
+    return structuredClone((await this.read()).workspaces);
+  }
+
   async register(
     input: Omit<SgWorkspace, "workspaceId" | "createdAt" | "updatedAt">,
   ): Promise<SgWorkspace> {

@@ -6,6 +6,8 @@ import { formatWorkspaceContext, resolveWorkspaceContext } from "./context.js";
 import { formatWorkspaceResolution, SgWorkspaceRegistry } from "./workspace-registry.js";
 import { SgWorkspaceRequestRegistry } from "./workspace-requests.js";
 import { createWorkspaceTools, WSP3_AGENT_GUIDANCE } from "./workspace-tools.js";
+import { buildWsp4Diagnostic } from "./wsp4-diagnostics.js";
+import { createWsp4Tools, WSP4_AGENT_GUIDANCE } from "./wsp4-tools.js";
 
 type CommandContext = {
   channel: string;
@@ -34,7 +36,7 @@ type WorkspacePluginApi = {
   registerTool(
     factory: (
       ctx: Parameters<typeof createWorkspaceTools>[0],
-    ) => ReturnType<typeof createWorkspaceTools>,
+    ) => ReturnType<typeof createWorkspaceTools> | ReturnType<typeof createWsp4Tools>,
     options: { names: string[] },
   ): void;
   on: OpenClawPluginApi["on"];
@@ -46,6 +48,13 @@ const ONBOARDING_NOTICE =
 const PENDING_NOTICE =
   "Запрос на подключение этого сообщества уже ожидает подтверждения владельца.";
 const PENDING_TOOL = "sg_workspace_pending";
+const WSP4_TOOL_NAMES = [
+  "sg_citizen_apply",
+  "sg_citizen_pending",
+  "sg_citizen_decide",
+  "sg_membership_list",
+  "sg_membership_manage",
+] as const;
 const MAX_DIAGNOSTIC_SESSIONS = 100;
 const MAX_DURABLE_EVENTS = 100;
 const MAX_DURABLE_INSTANCES = 20;
@@ -332,6 +341,9 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
   api.registerTool((ctx) => createWorkspaceTools(ctx, stateDir), {
     names: ["sg_workspace_onboard", "sg_workspace_pending", "sg_workspace_decide"],
   });
+  api.registerTool((ctx) => createWsp4Tools(ctx, stateDir), {
+    names: [...WSP4_TOOL_NAMES],
+  });
   api.logger?.info("[sg-workspace] stage=register-tools-complete");
   api.on("before_prompt_build", async (_event, ctx) => {
     hookCounts.prompt += 1;
@@ -359,7 +371,7 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
       result: "guidance-injected",
     });
     diagnosticLog(ctx.sessionKey, ctx.runId, "prompt-hook", "guidance-injected");
-    return { prependSystemContext: WSP3_AGENT_GUIDANCE };
+    return { prependSystemContext: `${WSP3_AGENT_GUIDANCE}\n${WSP4_AGENT_GUIDANCE}` };
   });
   api.on("llm_input", async (event, ctx) => {
     hookCounts.llmInput += 1;
@@ -855,6 +867,35 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
           `reply_path: ${traceStatus(effectiveTrace?.finalReply)}`,
           `failure: ${failure}`,
         ].join("\n"),
+      };
+    },
+  });
+  api.registerCommand({
+    name: "sg_wsp4_diag",
+    description: "Проверить авторитетную цепочку WSP4",
+    requireAuth: false,
+    handler: async (ctx) => {
+      const actor = await resolveWorkspaceContext(
+        {
+          channel: ctx.channel,
+          accountId: ctx.accountId,
+          to: ctx.to,
+          threadParentId: ctx.threadParentId,
+          messageThreadId: ctx.messageThreadId,
+          senderId: ctx.senderId,
+          identityLinks: ctx.config.session?.identityLinks,
+        },
+        stateDir,
+      );
+      if (actor.projectRole !== "monarch" || !actor.globalId) {
+        return { text: "WSP4 DIAG — доступ разрешён только монарху" };
+      }
+      return {
+        text: await buildWsp4Diagnostic({
+          stateDir,
+          actor,
+          registeredToolNames: WSP4_TOOL_NAMES,
+        }),
       };
     },
   });

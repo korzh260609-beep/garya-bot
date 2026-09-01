@@ -1,22 +1,10 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
+import {
+  SgGlobalProfileRegistry,
+  type SgGlobalProfile,
+  type SgProjectRole,
+} from "./citizenship-registry.js";
 
-export type SgProjectRole = "guest" | "citizen" | "monarch";
-type Profile = {
-  globalId: string;
-  canonicalIdentity: string;
-  role: SgProjectRole;
-  status: "active" | "suspended" | "archived";
-  createdAt: string;
-  updatedAt: string;
-};
-type Identity = {
-  canonicalIdentity: string;
-  globalId: string;
-  createdAt: string;
-  updatedAt: string;
-};
-type Store = { version: 2; profiles: Profile[]; identities: Identity[] };
+export type { SgProjectRole } from "./citizenship-registry.js";
 export type SgWorkspaceContextInput = {
   channel: string;
   accountId?: string;
@@ -39,7 +27,6 @@ export type SgWorkspaceContext = {
 
 const normalize = (value: string | undefined) => (value ?? "").trim().toLowerCase();
 const defaultStateDir = () => process.env.OPENCLAW_STATE_DIR?.trim() || "/data/.openclaw";
-const storePath = (root: string) => path.join(root, "sg", "global-profiles.json");
 
 export function resolveSgCanonicalIdentity(params: {
   channel: string;
@@ -57,69 +44,18 @@ export function resolveSgCanonicalIdentity(params: {
   return links[0] ? `linked:${links[0]}` : `channel:${channel}:${senderId}`;
 }
 
-function validStore(value: unknown): value is Store {
-  if (!value || typeof value !== "object") return false;
-  const store = value as Partial<Store>;
-  if (store.version !== 2 || !Array.isArray(store.profiles) || !Array.isArray(store.identities))
-    return false;
-  const profileIds = new Set<string>();
-  for (const profile of store.profiles) {
-    if (
-      !profile ||
-      typeof profile.globalId !== "string" ||
-      typeof profile.canonicalIdentity !== "string" ||
-      !["guest", "citizen", "monarch"].includes(profile.role) ||
-      !["active", "suspended", "archived"].includes(profile.status) ||
-      profileIds.has(profile.globalId)
-    )
-      return false;
-    profileIds.add(profile.globalId);
-  }
-  const identities = new Set<string>();
-  return store.identities.every((identity) => {
-    if (
-      !identity ||
-      typeof identity.canonicalIdentity !== "string" ||
-      typeof identity.globalId !== "string" ||
-      identities.has(identity.canonicalIdentity) ||
-      !profileIds.has(identity.globalId)
-    )
-      return false;
-    identities.add(identity.canonicalIdentity);
-    return true;
-  });
-}
-
-async function readStore(root: string): Promise<Store | undefined> {
-  try {
-    const parsed: unknown = JSON.parse(await readFile(storePath(root), "utf8"));
-    if (!validStore(parsed)) throw new Error("sg-global-profile-store-invalid");
-    return parsed;
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
-    throw error;
-  }
-}
-
 export async function findExistingSgProfile(
   canonicalIdentity: string,
   root = defaultStateDir(),
-): Promise<Profile | undefined> {
-  const store = await readStore(root);
-  const link = store?.identities.find((item) => item.canonicalIdentity === canonicalIdentity);
-  const profile = link
-    ? store?.profiles.find((item) => item.globalId === link.globalId)
-    : undefined;
-  return profile?.status === "active" ? profile : undefined;
+): Promise<SgGlobalProfile | undefined> {
+  return new SgGlobalProfileRegistry(root).findByCanonicalIdentity(canonicalIdentity);
 }
 
 export async function findExistingSgProfileByGlobalId(
   globalId: string,
   root = defaultStateDir(),
-): Promise<Profile | undefined> {
-  const store = await readStore(root);
-  const profile = store?.profiles.find((item) => item.globalId === globalId.trim());
-  return profile?.status === "active" ? profile : undefined;
+): Promise<SgGlobalProfile | undefined> {
+  return new SgGlobalProfileRegistry(root).findByGlobalId(globalId);
 }
 
 export async function resolveWorkspaceContext(

@@ -39,6 +39,11 @@ const workspaceToolGrant = [
   "sg_workspace_onboard",
   "sg_workspace_pending",
   "sg_workspace_decide",
+  "sg_citizen_apply",
+  "sg_citizen_pending",
+  "sg_citizen_decide",
+  "sg_membership_list",
+  "sg_membership_manage",
 ];
 const withoutWorkspaceGrant = resolveEmbeddedAttemptToolConstructionPlan({
   toolsEnabled: true,
@@ -59,6 +64,19 @@ const pluginTools = resolvePluginTools({
     requesterSenderId: "100",
   },
   toolAllowlist: withWorkspaceGrant.runtimeToolAllowlist,
+  runtimeRegistry: registry,
+});
+const pluginToolsWithoutGrant = resolvePluginTools({
+  context: {
+    config: pluginConfig,
+    runtimeConfig: pluginConfig,
+    workspaceDir: stateDir,
+    messageChannel: "telegram",
+    agentAccountId: "default",
+    nativeChannelId: "telegram:100",
+    requesterSenderId: "100",
+  },
+  toolAllowlist: withoutWorkspaceGrant.runtimeToolAllowlist,
   runtimeRegistry: registry,
 });
 
@@ -141,11 +159,32 @@ console.log(
         tool.names.includes("sg_workspace_pending") &&
         tool.names.includes("sg_workspace_decide"),
     ),
+    wsp4ToolsRegistered: registry.tools.some(
+      (tool) =>
+        tool.pluginId === "sg-workspace-manager" &&
+        [
+          "sg_citizen_apply",
+          "sg_citizen_pending",
+          "sg_citizen_decide",
+          "sg_membership_list",
+          "sg_membership_manage",
+        ].every((name) => tool.names.includes(name)),
+    ),
     promptGuidanceInjected:
       promptBuildResult?.prependSystemContext?.includes(
         "обязательно используй sg_workspace_pending",
       ) === true,
     pendingToolInModelSurface: pluginTools.some((tool) => tool.name === "sg_workspace_pending"),
+    wsp4ToolsInModelSurface: [
+      "sg_citizen_apply",
+      "sg_citizen_pending",
+      "sg_citizen_decide",
+      "sg_membership_list",
+      "sg_membership_manage",
+    ].every((name) => pluginTools.some((tool) => tool.name === name)),
+    wsp4ToolsAbsentWithoutGrant: !pluginToolsWithoutGrant.some((tool) =>
+      tool.name.startsWith("sg_citizen_") || tool.name.startsWith("sg_membership_"),
+    ),
     pluginToolsExcludedWithoutGrant:
       withoutWorkspaceGrant.codingToolConstructionPlan.includePluginTools === false,
     pluginToolsIncludedWithGrant:

@@ -719,7 +719,7 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
         if (event.routeHash !== commandRouteHash) {
           continue;
         }
-        const key = `${event.instanceId}:${event.runHash}`;
+        const key = event.runHash;
         const runEvents = durableRuns.get(key) ?? [];
         runEvents.push(event);
         durableRuns.set(key, runEvents);
@@ -776,13 +776,24 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
         ? diagnosticTraces.toReversed().find((candidate) => candidate.routeKey === commandRouteKey)
         : undefined;
       const lastTrace = sessionTrace ?? routeTrace;
-      const effectiveTrace = lastTrace ?? durableTrace;
-      const traceMatch = sessionTrace
-        ? "session"
-        : routeTrace
-          ? "route"
-          : durableTrace
-            ? "durable-route"
+      const durableRunMatches =
+        !lastTrace?.runId ||
+        latestDurableRunEvents?.[0]?.runHash === traceIdFor(lastTrace.runId);
+      const useDurableTrace =
+        durableTrace !== undefined &&
+        durableRunMatches &&
+        (!lastTrace ||
+          durableTrace.modelCalls > lastTrace.modelCalls ||
+          (durableTrace.pendingToolSelected && !lastTrace.pendingToolSelected) ||
+          (durableTrace.pendingToolCompleted && !lastTrace.pendingToolCompleted) ||
+          (durableTrace.finalReply && !lastTrace.finalReply));
+      const effectiveTrace = useDurableTrace ? durableTrace : (lastTrace ?? durableTrace);
+      const traceMatch = useDurableTrace
+        ? "durable-route"
+        : sessionTrace
+          ? "session"
+          : routeTrace
+            ? "route"
             : "none";
       const latestObservedTrace = diagnosticTraces.at(-1);
       const pendingTitles = pending
@@ -817,10 +828,10 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
           `command_session: ${traceIdFor(ctx.sessionKey)}`,
           `command_route: ${traceIdFor(commandRouteKey)}`,
           `last_trace: ${
-            lastTrace
-              ? `PRESENT (session=${traceIdFor(lastTrace.sessionKey)}, route=${traceIdFor(lastTrace.routeKey)}, run=${traceIdFor(lastTrace.runId)})`
-              : latestDurableRunEvents
-                ? `PRESENT (durable session=${latestDurableRunEvents[0]?.sessionHash}, route=${latestDurableRunEvents[0]?.routeHash}, run=${latestDurableRunEvents[0]?.runHash})`
+            useDurableTrace && latestDurableRunEvents
+              ? `PRESENT (durable session=${latestDurableRunEvents[0]?.sessionHash}, route=${latestDurableRunEvents[0]?.routeHash}, run=${latestDurableRunEvents[0]?.runHash})`
+              : lastTrace
+                ? `PRESENT (session=${traceIdFor(lastTrace.sessionKey)}, route=${traceIdFor(lastTrace.routeKey)}, run=${traceIdFor(lastTrace.runId)})`
                 : "NONE"
           }`,
           `hook_counts: prompt=${hookCounts.prompt}, llm_input=${hookCounts.llmInput}, model=${hookCounts.model}, tool_selected=${hookCounts.toolSelected}, tool_result=${hookCounts.toolResult}, reply=${hookCounts.reply}`,

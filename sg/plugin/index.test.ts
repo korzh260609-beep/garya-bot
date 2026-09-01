@@ -444,6 +444,103 @@ describe("SG Workspace Manager WSP1", () => {
     });
   });
 
+  it("correlates one WSP3 run split across plugin instances", async () => {
+    const { root } = await stateDirWithProfiles();
+    await new SgWorkspaceRequestRegistry(root).create({
+      platform: "telegram",
+      accountId: "default",
+      resourceId: "telegram:-100503",
+      resourceKind: "group",
+      title: "Split-instance community",
+      initiatorCanonicalIdentity: "channel:telegram:200",
+      initiatorGlobalId: "usr_citizen",
+    });
+    const commands: Array<{
+      name: string;
+      handler: (ctx: Record<string, unknown>) => Promise<{ text: string }>;
+    }> = [];
+    const promptHooks = new Map<string, (...args: unknown[]) => unknown>();
+    registerWorkspaceManager({
+      registerCommand: vi.fn((command) => commands.push(command)),
+      registerTool: vi.fn(),
+      on: vi.fn((name, handler) => promptHooks.set(name, handler)),
+      runtime: { state: { resolveStateDir: () => root } },
+    });
+    const executionHooks = new Map<string, (...args: unknown[]) => unknown>();
+    registerWorkspaceManager({
+      registerCommand: vi.fn(),
+      registerTool: vi.fn(),
+      on: vi.fn((name, handler) => executionHooks.set(name, handler)),
+      runtime: { state: { resolveStateDir: () => root } },
+    });
+    const runContext = {
+      runId: "split-instance-run",
+      sessionKey: "split-instance-session",
+      channel: "telegram",
+      accountId: "default",
+      senderId: "100",
+    };
+    await promptHooks.get("before_prompt_build")?.(
+      { prompt: "Покажи ожидающие заявки" },
+      runContext,
+    );
+    await promptHooks.get("llm_input")?.(
+      {
+        runId: runContext.runId,
+        sessionId: runContext.sessionKey,
+        provider: "openai",
+        model: "gpt-test",
+        prompt: "Покажи ожидающие заявки",
+        historyMessages: [],
+        imagesCount: 0,
+        tools: [{ name: "sg_workspace_pending" }],
+      },
+      runContext,
+    );
+    await executionHooks.get("model_call_started")?.(
+      { runId: runContext.runId, callId: "call-1" },
+      runContext,
+    );
+    const toolContext = {
+      ...runContext,
+      toolName: "sg_workspace_pending",
+      requester: { channel: "telegram", accountId: "default", senderId: "100" },
+    };
+    await executionHooks.get("before_tool_call")?.(
+      { toolName: "sg_workspace_pending", params: {}, runId: runContext.runId },
+      toolContext,
+    );
+    await executionHooks.get("after_tool_call")?.(
+      {
+        toolName: "sg_workspace_pending",
+        params: {},
+        runId: runContext.runId,
+        result: {
+          details: { status: "ok", requests: [{ title: "Split-instance community" }] },
+        },
+      },
+      toolContext,
+    );
+    await executionHooks
+      .get("before_agent_reply")?.({ cleanedBody: "Одна заявка" }, runContext);
+
+    const diagnostic = commands.find((command) => command.name === "sg_wsp3_diag")!;
+    await expect(
+      diagnostic.handler({
+        channel: "telegram",
+        accountId: "default",
+        to: "telegram:100",
+        senderId: "100",
+        sessionKey: "diagnostic-session",
+        config: {},
+      }),
+    ).resolves.toEqual({
+      text: expect.stringMatching(
+        /model_call: OK \(1\)[\s\S]*pending_tool_selected: OK[\s\S]*pending_tool_result: OK[\s\S]*pending_tool_payload: OK \(ok: 1\)[\s\S]*reply_path: OK[\s\S]*failure: none/,
+      ),
+    });
+  });
+
   it("returns an explicit unregistered workspace through the normal reply payload", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "sg-wsp2-command-"));
     const registerCommand = vi.fn();

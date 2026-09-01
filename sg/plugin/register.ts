@@ -78,6 +78,7 @@ const MAX_DURABLE_INSTANCES = 20;
 
 type DurableDiagnosticStage =
   | "plugin-loaded"
+  | "before-dispatch"
   | "prompt-hook"
   | "llm-input"
   | "model-call"
@@ -579,10 +580,29 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
   api.logger?.info("[sg-workspace] stage=register-before-dispatch");
   api.on("before_dispatch", async (event, ctx) => {
     const traceId = traceIdFor(ctx.messageId);
+    const routeKey = normalizedRouteKey({
+      channel: ctx.channelId ?? event.channel,
+      accountId: ctx.accountId,
+      senderId: ctx.senderId ?? event.senderId,
+    });
+    const recordDispatchOutcome = async (result: string) => {
+      await recordDurableDiagnostic({
+        stage: "before-dispatch",
+        sessionKey: ctx.sessionKey,
+        routeKey,
+        result,
+      });
+      diagnosticLog(ctx.sessionKey, undefined, "before-dispatch", result);
+    };
     trace(api, traceId, "hook-enter");
-    if (event.isGroup !== true || (event.body ?? event.content)?.trimStart().startsWith("/")) {
+    const slashLane = ctx.sessionKey?.includes(":slash:") === true;
+    const slashText = (event.body ?? event.content)?.trimStart().startsWith("/") === true;
+    if (event.isGroup !== true || slashLane || slashText) {
       trace(api, traceId, "context-check", "not-applicable");
       trace(api, traceId, "dispatch-handle", "false");
+      await recordDispatchOutcome(
+        event.isGroup !== true ? "direct-chat-bypassed" : "system-command-bypassed",
+      );
       return { handled: false };
     }
     const channel = ctx.channelId ?? event.channel;
@@ -597,9 +617,11 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
       api.logger?.warn(
         `SG workspace automatic onboarding skipped: missing ${missingContext.join(",")}`,
       );
+      await recordDispatchOutcome(`missing-${missingContext.join("-")}`);
       return { handled: false };
     }
     trace(api, traceId, "context-check", "valid");
+    let dispatchOutcome = "unregistered-no-actor";
     try {
       const resourceId = canonicalResourceId(channel, ctx.conversationId);
       const resource = {
@@ -608,12 +630,14 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
         resourceId,
       };
       const workspace = await registry.resolve(resource);
+      dispatchOutcome = workspace ? `workspace-${workspace.status}` : dispatchOutcome;
       trace(api, traceId, "workspace-lookup", workspace ? "found" : "missing");
       const request = workspace ? undefined : await requests.resolve(resource);
       trace(api, traceId, "request-lookup", request ? "found" : "missing");
       if (!workspace && request?.status === "pending") {
         trace(api, traceId, "pending-create", "existing");
         trace(api, traceId, "dispatch-handle", "true");
+        await recordDispatchOutcome("pending-existing");
         return { handled: true, text: PENDING_NOTICE };
       }
       if (!workspace && !request) {
@@ -638,15 +662,18 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
           });
           trace(api, traceId, "pending-create", "created");
           trace(api, traceId, "dispatch-handle", "true");
+          await recordDispatchOutcome("pending-created");
           return { handled: true, text: ONBOARDING_NOTICE };
         }
       }
     } catch (error) {
+      dispatchOutcome = "error";
       api.logger?.warn(
         `SG workspace automatic onboarding failed safely: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
     trace(api, traceId, "dispatch-handle", "false");
+    await recordDispatchOutcome(dispatchOutcome);
     return { handled: false };
   });
   api.registerCommand({
@@ -726,6 +753,8 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
         (event) => event.stage !== "plugin-loaded" && event.stage !== "diagnostic-command",
       );
       const durableHookCounts = {
+        beforeDispatch: durableHookEvents.filter((event) => event.stage === "before-dispatch")
+          .length,
         prompt: durableHookEvents.filter((event) => event.stage === "prompt-hook").length,
         llmInput: durableHookEvents.filter((event) => event.stage === "llm-input").length,
         model: durableHookEvents.filter((event) => event.stage === "model-call").length,
@@ -750,6 +779,9 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
               ? "current-instance"
               : "none";
       const commandRouteHash = traceIdFor(commandRouteKey);
+      const latestDispatchEvent = recentDurableEvents
+        .toReversed()
+        .find((event) => event.stage === "before-dispatch" && event.routeHash === commandRouteHash);
       const durableRuns = new Map<string, DurableDiagnosticEvent[]>();
       for (const event of durableHookEvents) {
         if (event.routeHash !== commandRouteHash) {
@@ -851,6 +883,14 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
       } else if (!effectiveTrace && latestObservedTrace) {
         failure = "trace_identity_mismatch";
       }
+      if (
+        latestDispatchEvent?.result === "system-command-bypassed" ||
+        latestDispatchEvent?.result === "workspace-active"
+      ) {
+        failure = "none";
+      } else if (latestDispatchEvent?.result.startsWith("pending-")) {
+        failure = `before_dispatch_${latestDispatchEvent.result.replaceAll("-", "_")}`;
+      }
       diagnosticLog(ctx.sessionKey, lastTrace?.runId, "summary", failure);
       const traceStatus = (value: boolean | undefined) =>
         value === undefined ? "UNKNOWN" : value ? "OK" : "FAIL";
@@ -873,7 +913,8 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
           `durable_trace: ${recentDurableEvents.length > 0 ? "OK" : "FAIL"}`,
           `durable_instances: ${durableInstances.size}, pids=${durablePids.size}`,
           `durable_hook_location: ${durableHookLocation}`,
-          `durable_hook_counts: prompt=${durableHookCounts.prompt}, llm_input=${durableHookCounts.llmInput}, model=${durableHookCounts.model}, tool_selected=${durableHookCounts.toolSelected}, tool_result=${durableHookCounts.toolResult}, reply=${durableHookCounts.reply}`,
+          `durable_hook_counts: before_dispatch=${durableHookCounts.beforeDispatch}, prompt=${durableHookCounts.prompt}, llm_input=${durableHookCounts.llmInput}, model=${durableHookCounts.model}, tool_selected=${durableHookCounts.toolSelected}, tool_result=${durableHookCounts.toolResult}, reply=${durableHookCounts.reply}`,
+          `before_dispatch: ${latestDispatchEvent ? `OK (${latestDispatchEvent.result})` : "UNKNOWN"}`,
           `prompt_hook: ${traceStatus(effectiveTrace?.promptHook)}`,
           `pending_tool_surface: ${traceStatus(effectiveTrace?.pendingToolAllowed)}`,
           `model_call: ${effectiveTrace ? `OK (${effectiveTrace.modelCalls})` : "UNKNOWN"}`,

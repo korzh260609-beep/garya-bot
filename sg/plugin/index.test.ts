@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
@@ -553,7 +553,7 @@ describe("SG Workspace Manager WSP1", () => {
       }),
     ).resolves.toEqual({
       text: expect.stringMatching(
-        /trace_match: durable-route[\s\S]*last_trace: PRESENT \(durable[\s\S]*hook_counts: prompt=0, llm_input=0, model=0, tool_selected=0, tool_result=0, reply=0[\s\S]*durable_trace: OK[\s\S]*durable_instances: 2, pids=1[\s\S]*durable_hook_location: other-instance[\s\S]*durable_hook_counts: prompt=1, llm_input=1, model=1, tool_selected=0, tool_result=0, reply=1[\s\S]*pending_tool_surface: OK[\s\S]*failure: model_did_not_select_pending_tool/,
+        /trace_match: durable-route[\s\S]*last_trace: PRESENT \(durable[\s\S]*hook_counts: prompt=0, llm_input=0, model=0, tool_selected=0, tool_result=0, reply=0[\s\S]*durable_trace: OK[\s\S]*durable_instances: 2, pids=1[\s\S]*durable_hook_location: other-instance[\s\S]*durable_hook_counts: before_dispatch=0, prompt=1, llm_input=1, model=1, tool_selected=0, tool_result=0, reply=1[\s\S]*before_dispatch: UNKNOWN[\s\S]*pending_tool_surface: OK[\s\S]*failure: model_did_not_select_pending_tool/,
       ),
     });
   });
@@ -785,6 +785,62 @@ describe("SG Workspace Manager WSP1", () => {
       await expect(new SgWorkspaceRequestRegistry(root).listPending()).resolves.toEqual([]);
     },
   );
+
+  it("lets an enveloped command on the native slash lane continue", async () => {
+    const { root } = await stateDirWithProfiles();
+    const commands: Array<{ name: string; handler: (ctx: unknown) => unknown }> = [];
+    const hooks = new Map<string, (...args: unknown[]) => unknown>();
+    registerWorkspaceManager({
+      registerCommand: vi.fn((command) => commands.push(command)),
+      registerTool: vi.fn(),
+      on: vi.fn((name, handler) => hooks.set(name, handler)),
+      runtime: { state: { resolveStateDir: () => root } },
+    });
+    const dispatch = hooks.get("before_dispatch");
+    if (!dispatch) {
+      throw new Error("before_dispatch hook was not registered");
+    }
+    await expect(
+      dispatch(
+        {
+          content: "Команда Telegram\n/new",
+          body: "Команда Telegram\n/new",
+          isGroup: true,
+          channel: "telegram",
+          senderId: "100",
+        },
+        {
+          ...groupDispatchContext,
+          sessionKey: "agent:main:telegram:slash:677128443",
+          conversationId: "@slash:topic:677128443",
+          senderId: "100",
+        },
+      ),
+    ).resolves.toEqual({ handled: false });
+    await expect(new SgWorkspaceRequestRegistry(root).listPending()).resolves.toEqual([]);
+    const diagnosticFiles = await readdir(path.join(root, "sg-workspace-diagnostics"));
+    const diagnostic = await readFile(
+      path.join(root, "sg-workspace-diagnostics", diagnosticFiles[0]!),
+      "utf8",
+    );
+    expect(diagnostic).toContain('"stage":"before-dispatch"');
+    expect(diagnostic).toContain('"result":"system-command-bypassed"');
+    const wsp3Diagnostic = commands.find((command) => command.name === "sg_wsp3_diag");
+    await expect(
+      wsp3Diagnostic?.handler({
+        channel: "telegram",
+        accountId: "default",
+        to: "telegram:100",
+        senderId: "100",
+        sessionKey: "agent:main:telegram:slash:677128443",
+        config: {},
+      }),
+    ).resolves.toEqual({
+      text: expect.stringMatching(
+        /before_dispatch: OK \(system-command-bypassed\)[\s\S]*failure: none/,
+      ),
+    });
+  });
 
   it("lets /new continue after the workspace request is approved and active", async () => {
     const { root } = await stateDirWithProfiles();

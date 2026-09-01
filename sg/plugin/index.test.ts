@@ -8,6 +8,8 @@ import { SgWorkspaceRegistry } from "./workspace-registry.js";
 import { SgWorkspaceRequestRegistry } from "./workspace-requests.js";
 
 const timestamp = "2026-01-01T00:00:00.000Z";
+const PENDING_NOTICE_FOR_TEST =
+  "Запрос на подключение этого сообщества уже ожидает подтверждения владельца.";
 
 async function stateDirWithProfiles() {
   const root = await mkdtemp(path.join(os.tmpdir(), "sg-wsp1-"));
@@ -838,6 +840,106 @@ describe("SG Workspace Manager WSP1", () => {
     ).resolves.toEqual({
       text: expect.stringMatching(
         /before_dispatch: OK \(system-command-bypassed\)[\s\S]*failure: none/,
+      ),
+    });
+  });
+
+  it("diagnoses the exact stage where a native /new loses its command signal", async () => {
+    const { root } = await stateDirWithProfiles();
+    await new SgWorkspaceRequestRegistry(root).create({
+      platform: "telegram",
+      accountId: "default",
+      resourceId: "telegram:group:-100500",
+      resourceKind: "group",
+      title: "Sandbox",
+      initiatorCanonicalIdentity: "channel:telegram:200",
+      initiatorGlobalId: "usr_citizen",
+    });
+    const commands: Array<{
+      name: string;
+      handler: (ctx: Record<string, unknown>) => Promise<{ text: string }>;
+    }> = [];
+    const hooks = new Map<string, (...args: unknown[]) => unknown>();
+    registerWorkspaceManager({
+      registerCommand: vi.fn((command) => commands.push(command)),
+      registerTool: vi.fn(),
+      on: vi.fn((name, handler) => hooks.set(name, handler)),
+      runtime: { state: { resolveStateDir: () => root } },
+    });
+    const messageId = "native-new-1";
+    const conversationId = "telegram:group:-100500";
+    await hooks.get("inbound_claim")?.(
+      {
+        content: "/new",
+        body: "/new",
+        bodyForAgent: "/new",
+        channel: "telegram",
+        accountId: "default",
+        conversationId,
+        senderId: "100",
+        messageId,
+        sessionKey: "agent:main:telegram:slash:100",
+        isGroup: true,
+        commandAuthorized: true,
+      },
+      {
+        channelId: "telegram",
+        accountId: "default",
+        conversationId,
+        senderId: "100",
+        messageId,
+        sessionKey: "agent:main:telegram:slash:100",
+      },
+    );
+    await expect(
+      hooks.get("before_dispatch")?.(
+        {
+          content: "A new session was started via /new or /reset.",
+          body: "A new session was started via /new or /reset.",
+          channel: "telegram",
+          senderId: "100",
+          messageId,
+          isGroup: true,
+        },
+        {
+          channelId: "telegram",
+          accountId: "default",
+          conversationId,
+          senderId: "100",
+          messageId,
+          sessionKey: "agent:main:telegram:group:-100500",
+        },
+      ),
+    ).resolves.toMatchObject({ handled: true, text: PENDING_NOTICE_FOR_TEST });
+    await hooks.get("message_sent")?.(
+      {
+        to: conversationId,
+        content: PENDING_NOTICE_FOR_TEST,
+        success: true,
+        sessionKey: "agent:main:telegram:group:-100500",
+      },
+      {
+        channelId: "telegram",
+        accountId: "default",
+        conversationId,
+        sessionKey: "agent:main:telegram:group:-100500",
+      },
+    );
+
+    const diagnostic = commands.find((command) => command.name === "sg_wsp3_diag")!;
+    await expect(
+      diagnostic.handler({
+        channel: "telegram",
+        accountId: "default",
+        from: conversationId,
+        to: "slash:100",
+        senderId: "100",
+        sessionKey: "agent:main:telegram:slash:100",
+        config: {},
+      }),
+    ).resolves.toEqual({
+      text: expect.stringMatching(
+        /diagnostic_version: wsp3-e2e-v2[\s\S]*ingress: OK \(group=true,lane=slash,content=slash-new,body=slash-new,bodyForAgent=slash-new,authorized=true\)[\s\S]*dispatch_input: OK \(group=true,lane=group,content=other,body=other,slashLane=false,slashText=false,conversation=present\)[\s\S]*before_dispatch: OK \(pending-existing\)[\s\S]*target_request: pending[\s\S]*outbound: pending-notice[\s\S]*breakpoint: system_command_signal_lost_before_dispatch/,
       ),
     });
   });

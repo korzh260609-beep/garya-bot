@@ -16,7 +16,9 @@ import { createWsp5Tools, WSP5_AGENT_GUIDANCE } from "./wsp5-tools.js";
 
 type CommandContext = {
   channel: string;
+  channelId?: string;
   accountId?: string;
+  from?: string;
   to?: string;
   sessionKey?: string;
   threadParentId?: string;
@@ -75,9 +77,14 @@ const WSP5_TOOL_NAMES = [
 const MAX_DIAGNOSTIC_SESSIONS = 100;
 const MAX_DURABLE_EVENTS = 100;
 const MAX_DURABLE_INSTANCES = 20;
+const WSP3_DIAGNOSTIC_VERSION = "wsp3-e2e-v2";
+
+type DiagnosticFact = string | number | boolean;
 
 type DurableDiagnosticStage =
   | "plugin-loaded"
+  | "inbound-claim"
+  | "before-dispatch-input"
   | "before-dispatch"
   | "prompt-hook"
   | "llm-input"
@@ -85,6 +92,7 @@ type DurableDiagnosticStage =
   | "pending-tool-selected"
   | "pending-tool-result"
   | "final-reply"
+  | "message-sent"
   | "diagnostic-command";
 
 type DurableDiagnosticEvent = {
@@ -97,7 +105,12 @@ type DurableDiagnosticEvent = {
   sessionHash: string;
   routeHash: string;
   runHash: string;
+  messageHash?: string;
+  conversationHash?: string;
+  diagnosticVersion?: string;
+  imageCommit?: string;
   result: string;
+  facts?: Record<string, DiagnosticFact>;
 };
 
 type DiagnosticHookCounts = {
@@ -217,6 +230,56 @@ function traceIdFor(messageId: string | undefined): string {
     .slice(0, 12);
 }
 
+function diagnosticTextClass(value: string | undefined): string {
+  const normalized = value?.trim();
+  if (!normalized) {
+    return "missing";
+  }
+  if (/^\/new(?:@[\w_]+)?(?:\s|$)/iu.test(normalized)) {
+    return "slash-new";
+  }
+  if (/^\/[\w_]+(?:@[\w_]+)?(?:\s|$)/u.test(normalized)) {
+    return "slash-command";
+  }
+  if (/(?:^|\n)\/new(?:@[\w_]+)?(?:\s|$)/iu.test(normalized)) {
+    return "embedded-new";
+  }
+  if (normalized === PENDING_NOTICE) {
+    return "pending-notice";
+  }
+  if (normalized === ONBOARDING_NOTICE) {
+    return "onboarding-notice";
+  }
+  if (normalized === "✅ New session started.") {
+    return "new-session-ack";
+  }
+  if (normalized === "✅ Session reset.") {
+    return "reset-ack";
+  }
+  return "other";
+}
+
+function diagnosticSessionLane(sessionKey: string | undefined): string {
+  if (!sessionKey) {
+    return "missing";
+  }
+  for (const lane of ["slash", "group", "direct", "dm", "channel"] as const) {
+    if (sessionKey.includes(`:${lane}:`)) {
+      return lane;
+    }
+  }
+  return "other";
+}
+
+function formatDiagnosticFacts(event: DurableDiagnosticEvent | undefined): string {
+  if (!event?.facts) {
+    return "none";
+  }
+  return Object.entries(event.facts)
+    .map(([key, value]) => `${key}=${String(value)}`)
+    .join(",");
+}
+
 function trace(api: WorkspacePluginApi, traceId: string, stage: string, result?: string): void {
   api.logger?.info(
     `[sg-workspace] trace=${traceId} stage=${stage}${result ? ` result=${result}` : ""}`,
@@ -243,7 +306,10 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
     sessionKey?: string;
     routeKey?: string;
     runId?: string;
+    messageId?: string;
+    conversationId?: string;
     result: string;
+    facts?: Record<string, DiagnosticFact>;
   }): Promise<void> => {
     durableWriteQueue = durableWriteQueue
       .then(async () => {
@@ -257,7 +323,12 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
           sessionHash: traceIdFor(params.sessionKey),
           routeHash: traceIdFor(params.routeKey),
           runHash: traceIdFor(params.runId),
+          ...(params.messageId ? { messageHash: traceIdFor(params.messageId) } : {}),
+          ...(params.conversationId ? { conversationHash: traceIdFor(params.conversationId) } : {}),
+          diagnosticVersion: WSP3_DIAGNOSTIC_VERSION,
+          imageCommit: process.env.SG22_IMAGE_COMMIT?.trim() || "unknown",
           result: params.result,
+          facts: params.facts,
         });
         if (durableEvents.length > MAX_DURABLE_EVENTS) {
           durableEvents.shift();
@@ -356,6 +427,50 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
       `[sg-wsp3-diag] session=${traceIdFor(sessionKey)} run=${traceIdFor(runId)} stage=${stage} result=${result}`,
     );
   };
+  api.on("inbound_claim", async (event, ctx) => {
+    const routeKey = normalizedRouteKey({
+      channel: event.channel,
+      accountId: event.accountId ?? ctx.accountId,
+      senderId: event.senderId ?? ctx.senderId,
+    });
+    await recordDurableDiagnostic({
+      stage: "inbound-claim",
+      sessionKey: event.sessionKey ?? ctx.sessionKey,
+      routeKey,
+      runId: event.runId ?? ctx.runId,
+      messageId: event.messageId ?? ctx.messageId,
+      conversationId: event.conversationId ?? ctx.conversationId,
+      result: "observed",
+      facts: {
+        group: event.isGroup,
+        lane: diagnosticSessionLane(event.sessionKey ?? ctx.sessionKey),
+        content: diagnosticTextClass(event.content),
+        body: diagnosticTextClass(event.body),
+        bodyForAgent: diagnosticTextClass(event.bodyForAgent),
+        authorized: event.commandAuthorized ?? "unknown",
+      },
+    });
+  });
+  api.on("message_sent", async (event, ctx) => {
+    const replyClass = diagnosticTextClass(event.content);
+    if (replyClass === "other" && event.success && event.error === undefined) {
+      return;
+    }
+    await recordDurableDiagnostic({
+      stage: "message-sent",
+      sessionKey: event.sessionKey ?? ctx.sessionKey,
+      runId: event.runId ?? ctx.runId,
+      messageId: event.messageId ?? ctx.messageId,
+      conversationId: ctx.conversationId,
+      result: event.success ? replyClass : "delivery-failed",
+      facts: {
+        success: event.success,
+        reply: replyClass,
+        lane: diagnosticSessionLane(event.sessionKey ?? ctx.sessionKey),
+        error: event.error ? "present" : "none",
+      },
+    });
+  });
   api.logger?.info("[sg-workspace] stage=register-tools");
   api.registerTool((ctx) => createWorkspaceTools(ctx, stateDir), {
     names: ["sg_workspace_onboard", "sg_workspace_pending", "sg_workspace_decide"],
@@ -580,23 +695,48 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
   api.logger?.info("[sg-workspace] stage=register-before-dispatch");
   api.on("before_dispatch", async (event, ctx) => {
     const traceId = traceIdFor(ctx.messageId);
+    const messageId = ctx.messageId ?? event.messageId;
+    const conversationId = ctx.conversationId;
     const routeKey = normalizedRouteKey({
       channel: ctx.channelId ?? event.channel,
       accountId: ctx.accountId,
       senderId: ctx.senderId ?? event.senderId,
     });
+    const slashLane = ctx.sessionKey?.includes(":slash:") === true;
+    const contentClass = diagnosticTextClass(event.content);
+    const bodyClass = diagnosticTextClass(event.body);
+    const slashText = (event.body ?? event.content)?.trimStart().startsWith("/") === true;
+    const decisionFacts: Record<string, DiagnosticFact> = {
+      group: event.isGroup ?? "unknown",
+      lane: diagnosticSessionLane(ctx.sessionKey ?? event.sessionKey),
+      content: contentClass,
+      body: bodyClass,
+      slashLane,
+      slashText,
+      conversation: conversationId ? "present" : "missing",
+    };
+    await recordDurableDiagnostic({
+      stage: "before-dispatch-input",
+      sessionKey: ctx.sessionKey ?? event.sessionKey,
+      routeKey,
+      messageId,
+      conversationId,
+      result: "observed",
+      facts: { ...decisionFacts },
+    });
     const recordDispatchOutcome = async (result: string) => {
       await recordDurableDiagnostic({
         stage: "before-dispatch",
-        sessionKey: ctx.sessionKey,
+        sessionKey: ctx.sessionKey ?? event.sessionKey,
         routeKey,
+        messageId,
+        conversationId,
         result,
+        facts: { ...decisionFacts },
       });
       diagnosticLog(ctx.sessionKey, undefined, "before-dispatch", result);
     };
     trace(api, traceId, "hook-enter");
-    const slashLane = ctx.sessionKey?.includes(":slash:") === true;
-    const slashText = (event.body ?? event.content)?.trimStart().startsWith("/") === true;
     if (event.isGroup !== true || slashLane || slashText) {
       trace(api, traceId, "context-check", "not-applicable");
       trace(api, traceId, "dispatch-handle", "false");
@@ -630,9 +770,11 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
         resourceId,
       };
       const workspace = await registry.resolve(resource);
+      decisionFacts.workspace = workspace?.status ?? "missing";
       dispatchOutcome = workspace ? `workspace-${workspace.status}` : dispatchOutcome;
       trace(api, traceId, "workspace-lookup", workspace ? "found" : "missing");
       const request = workspace ? undefined : await requests.resolve(resource);
+      decisionFacts.request = request?.status ?? "missing";
       trace(api, traceId, "request-lookup", request ? "found" : "missing");
       if (!workspace && request?.status === "pending") {
         trace(api, traceId, "pending-create", "existing");
@@ -779,9 +921,62 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
               ? "current-instance"
               : "none";
       const commandRouteHash = traceIdFor(commandRouteKey);
+      const commandConversationId = ctx.threadParentId ?? ctx.from ?? ctx.to;
+      const commandConversationHash = traceIdFor(commandConversationId);
+      const matchesCommandContext = (event: DurableDiagnosticEvent) =>
+        event.conversationHash === commandConversationHash || event.routeHash === commandRouteHash;
+      const latestDispatchInput = recentDurableEvents
+        .toReversed()
+        .find((event) => event.stage === "before-dispatch-input" && matchesCommandContext(event));
       const latestDispatchEvent = recentDurableEvents
         .toReversed()
-        .find((event) => event.stage === "before-dispatch" && event.routeHash === commandRouteHash);
+        .find(
+          (event) =>
+            event.stage === "before-dispatch" &&
+            (latestDispatchInput?.messageHash
+              ? event.messageHash === latestDispatchInput.messageHash
+              : matchesCommandContext(event)),
+        );
+      const latestInboundEvent = recentDurableEvents
+        .toReversed()
+        .find(
+          (event) =>
+            event.stage === "inbound-claim" &&
+            (latestDispatchInput?.messageHash
+              ? event.messageHash === latestDispatchInput.messageHash
+              : matchesCommandContext(event)),
+        );
+      const dispatchRecordedAt = latestDispatchEvent
+        ? Date.parse(latestDispatchEvent.recordedAt)
+        : durableWindowStart;
+      const latestOutboundEvent = recentDurableEvents
+        .toReversed()
+        .find(
+          (event) =>
+            event.stage === "message-sent" &&
+            Date.parse(event.recordedAt) >= dispatchRecordedAt &&
+            (event.conversationHash === commandConversationHash ||
+              event.result === "pending-notice" ||
+              event.result === "onboarding-notice" ||
+              event.result === "new-session-ack" ||
+              event.result === "delivery-failed"),
+        );
+      let targetWorkspaceStatus = "unknown";
+      let targetRequestStatus = "unknown";
+      let targetStoreError: string | undefined;
+      if (commandConversationId) {
+        try {
+          const targetResource = {
+            platform: ctx.channel,
+            accountId: ctx.accountId,
+            resourceId: canonicalResourceId(ctx.channel, commandConversationId),
+          };
+          targetWorkspaceStatus = (await registry.resolve(targetResource))?.status ?? "missing";
+          targetRequestStatus = (await requests.resolve(targetResource))?.status ?? "missing";
+        } catch (error) {
+          targetStoreError = error instanceof Error ? error.message : String(error);
+        }
+      }
       const durableRuns = new Map<string, DurableDiagnosticEvent[]>();
       for (const event of durableHookEvents) {
         if (event.routeHash !== commandRouteHash) {
@@ -891,12 +1086,35 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
       } else if (latestDispatchEvent?.result.startsWith("pending-")) {
         failure = `before_dispatch_${latestDispatchEvent.result.replaceAll("-", "_")}`;
       }
+      let breakpoint = "none";
+      if (!latestDispatchInput) {
+        breakpoint = "before_dispatch_input_not_observed";
+      } else if (!latestDispatchEvent) {
+        breakpoint = "before_dispatch_outcome_not_observed";
+      } else if (latestDispatchEvent.result.startsWith("pending-")) {
+        const inputFacts = latestDispatchInput.facts;
+        const recognizedSystemCommand =
+          inputFacts?.slashLane === true || inputFacts?.slashText === true;
+        breakpoint = recognizedSystemCommand
+          ? "system_command_bypass_not_applied"
+          : "system_command_signal_lost_before_dispatch";
+      } else if (
+        latestDispatchEvent.result === "system-command-bypassed" &&
+        latestOutboundEvent?.result === "pending-notice"
+      ) {
+        breakpoint = "stale_or_cross_instance_delivery";
+      } else if (latestOutboundEvent?.result === "delivery-failed") {
+        breakpoint = "outbound_delivery_failed";
+      }
       diagnosticLog(ctx.sessionKey, lastTrace?.runId, "summary", failure);
       const traceStatus = (value: boolean | undefined) =>
         value === undefined ? "UNKNOWN" : value ? "OK" : "FAIL";
       return {
         text: [
           "WSP3 DIAG",
+          `diagnostic_version: ${WSP3_DIAGNOSTIC_VERSION}`,
+          `image_commit: ${process.env.SG22_IMAGE_COMMIT?.trim() || "unknown"}`,
+          `core_commit: ${process.env.GIT_COMMIT?.trim() || "unknown"}`,
           "plugin_loader: OK",
           `identity: OK (${actor.projectRole})`,
           `trace_match: ${traceMatch}`,
@@ -914,7 +1132,14 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
           `durable_instances: ${durableInstances.size}, pids=${durablePids.size}`,
           `durable_hook_location: ${durableHookLocation}`,
           `durable_hook_counts: before_dispatch=${durableHookCounts.beforeDispatch}, prompt=${durableHookCounts.prompt}, llm_input=${durableHookCounts.llmInput}, model=${durableHookCounts.model}, tool_selected=${durableHookCounts.toolSelected}, tool_result=${durableHookCounts.toolResult}, reply=${durableHookCounts.reply}`,
+          `e2e_target: conversation=${commandConversationHash}, route=${commandRouteHash}`,
+          `ingress: ${latestInboundEvent ? `OK (${formatDiagnosticFacts(latestInboundEvent)})` : "UNKNOWN"}`,
+          `dispatch_input: ${latestDispatchInput ? `OK (${formatDiagnosticFacts(latestDispatchInput)})` : "UNKNOWN"}`,
           `before_dispatch: ${latestDispatchEvent ? `OK (${latestDispatchEvent.result})` : "UNKNOWN"}`,
+          `decision_instance: ${latestDispatchEvent ? `${latestDispatchEvent.instanceId === diagnosticInstanceId ? "current" : "other"},pid=${latestDispatchEvent.pid},diag=${latestDispatchEvent.diagnosticVersion ?? "legacy"},image=${latestDispatchEvent.imageCommit ?? "unknown"}` : "UNKNOWN"}`,
+          `target_workspace: ${targetStoreError ? `FAIL (${targetStoreError})` : targetWorkspaceStatus}`,
+          `target_request: ${targetStoreError ? `FAIL (${targetStoreError})` : targetRequestStatus}`,
+          `outbound: ${latestOutboundEvent ? `${latestOutboundEvent.result} (${formatDiagnosticFacts(latestOutboundEvent)})` : "UNKNOWN"}`,
           `prompt_hook: ${traceStatus(effectiveTrace?.promptHook)}`,
           `pending_tool_surface: ${traceStatus(effectiveTrace?.pendingToolAllowed)}`,
           `model_call: ${effectiveTrace ? `OK (${effectiveTrace.modelCalls})` : "UNKNOWN"}`,
@@ -929,6 +1154,7 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
                 : `${effectiveTrace.pendingToolResultStatus === "ok" ? "OK" : "FAIL"} (${effectiveTrace.pendingToolResultStatus}: ${effectiveTrace.pendingToolResultCount ?? "n/a"})`
           }`,
           `reply_path: ${traceStatus(effectiveTrace?.finalReply)}`,
+          `breakpoint: ${breakpoint}`,
           `failure: ${failure}`,
         ].join("\n"),
       };

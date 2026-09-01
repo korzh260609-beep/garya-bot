@@ -165,7 +165,7 @@ describe("SG Workspace Manager WSP1", () => {
       on,
       runtime: { state: { resolveStateDir: () => "/tmp/sg-wsp-test" } },
     });
-    expect(registerCommand).toHaveBeenCalledTimes(6);
+    expect(registerCommand).toHaveBeenCalledTimes(7);
     const command = registerCommand.mock.calls[0]?.[0];
     expect(command).toMatchObject({ name: "sg_context", requireAuth: false });
     expect(registerCommand.mock.calls[1]?.[0]).toMatchObject({
@@ -185,6 +185,10 @@ describe("SG Workspace Manager WSP1", () => {
       requireAuth: false,
     });
     expect(registerCommand.mock.calls[5]?.[0]).toMatchObject({
+      name: "sg_context_diag",
+      requireAuth: false,
+    });
+    expect(registerCommand.mock.calls[6]?.[0]).toMatchObject({
       name: "sg_cost_diag",
       requireAuth: false,
     });
@@ -285,6 +289,38 @@ describe("SG Workspace Manager WSP1", () => {
         config,
       }),
     ).resolves.toEqual({ text: "SG COST DIAG — доступ разрешён только монарху" });
+  });
+
+  it("exposes the read-only context diagnostic only to the monarch", async () => {
+    const { root } = await stateDirWithProfiles();
+    const commands: Array<{
+      name: string;
+      handler: (ctx: Record<string, unknown>) => Promise<{ text: string }>;
+    }> = [];
+    registerWorkspaceManager({
+      registerCommand: vi.fn((command) => commands.push(command)),
+      registerTool: vi.fn(),
+      on: vi.fn(),
+      runtime: { state: { resolveStateDir: () => root } },
+    });
+    const command = commands.find((candidate) => candidate.name === "sg_context_diag");
+    await expect(
+      command?.handler({
+        channel: "telegram",
+        senderId: "100",
+        sessionKey: "agent:main:telegram:direct:100",
+        sessionId: "session-1",
+        config: {},
+      }),
+    ).resolves.toEqual({ text: expect.stringContaining("SG CONTEXT DIAG") });
+    await expect(
+      command?.handler({
+        channel: "telegram",
+        senderId: "200",
+        sessionKey: "agent:main:telegram:direct:200",
+        config: {},
+      }),
+    ).resolves.toEqual({ text: "SG CONTEXT DIAG — доступ разрешён только монарху" });
   });
 
   it("reports the complete pending-list chain and identifies model tool-selection failure", async () => {

@@ -3,6 +3,7 @@ import { mkdir, readFile, readdir, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
 import { SgContentRegistry } from "./content-registry.js";
+import { SgContextDiagnostics, type SgContextDiagnosticCommand } from "./context-diagnostics.js";
 import { formatWorkspaceContext, resolveWorkspaceContext } from "./context.js";
 import { buildSgCostDiagnostic, type SgCostDiagnosticConfig } from "./cost-diagnostics.js";
 import { formatWorkspaceResolution, SgWorkspaceRegistry } from "./workspace-registry.js";
@@ -20,7 +21,12 @@ type CommandContext = {
   accountId?: string;
   from?: string;
   to?: string;
+  agentId?: string;
   sessionKey?: string;
+  sessionId?: string;
+  sessionTarget?: SgContextDiagnosticCommand["sessionTarget"];
+  args?: string;
+  runtimeContext?: SgContextDiagnosticCommand["runtimeContext"];
   threadParentId?: string;
   messageThreadId?: string | number;
   senderId?: string;
@@ -291,6 +297,8 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
   const stateDir =
     process.env.OPENCLAW_STATE_DIR?.trim() || api.runtime.state.resolveStateDir(process.env);
   const wsp5Lifecycle = new Wsp5NativeLifecycle(new SgContentRegistry(stateDir), api.logger);
+  const contextDiagnostics = new SgContextDiagnostics(stateDir, api);
+  contextDiagnostics.register();
   api.logger?.info("[sg-workspace] stage=resolve-state-dir");
   const diagnosticInstanceId = randomUUID();
   const diagnosticStartedAt = new Date().toISOString();
@@ -1217,6 +1225,27 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
           lifecycle: wsp5Lifecycle.snapshot(),
         }),
       };
+    },
+  });
+  api.registerCommand({
+    name: "sg_context_diag",
+    description: "Проверить полную цепочку контекста и compaction SG",
+    requireAuth: false,
+    handler: async (ctx) => {
+      const actor = await resolveWorkspaceContext(
+        {
+          channel: ctx.channel,
+          accountId: ctx.accountId,
+          to: ctx.to,
+          senderId: ctx.senderId,
+          identityLinks: ctx.config.session?.identityLinks,
+        },
+        stateDir,
+      );
+      if (actor.projectRole !== "monarch" || !actor.globalId) {
+        return { text: "SG CONTEXT DIAG — доступ разрешён только монарху" };
+      }
+      return { text: await contextDiagnostics.report(ctx) };
     },
   });
   api.registerCommand({

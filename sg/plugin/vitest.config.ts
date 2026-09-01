@@ -9,6 +9,10 @@ export default defineConfig({
     alias: {
       "openclaw/plugin-sdk/file-lock": path.join(repoRoot, "src/plugin-sdk/file-lock.ts"),
       "openclaw/plugin-sdk/json-store": path.join(repoRoot, "src/plugin-sdk/json-store.ts"),
+      "openclaw/plugin-sdk/session-transcript-runtime": path.join(
+        repoRoot,
+        "src/plugin-sdk/session-transcript-runtime.ts",
+      ),
       "openclaw/plugin-sdk/tool-results": path.join(repoRoot, "src/plugin-sdk/tool-results.ts"),
       "@openclaw/normalization-core/record-coerce": path.join(
         repoRoot,

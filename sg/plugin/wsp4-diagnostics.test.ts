@@ -62,9 +62,13 @@ describe("SG WSP4 authoritative diagnostics", () => {
     });
     expect(text).toContain("WSP4 DIAG — PASS");
     expect(text).toContain("tool_registration: PASS");
+    expect(text).toContain(
+      "guest_transition_contract: PASS (approve=preserved,reject=guest,repeat=blocked)",
+    );
     expect(text).toContain("citizen_chain: NOT_EXERCISED");
     expect(text).toContain("membership_chain: NOT_EXERCISED");
     expect(text).toContain("channel_membership_events: NOT_EXERCISED");
+    expect((await new SgGlobalProfileRegistry(root).snapshot()).profiles).toHaveLength(1);
   });
 
   it("verifies an exercised citizen operation by its durable operationId", async () => {

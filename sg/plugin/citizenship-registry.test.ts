@@ -40,7 +40,94 @@ async function seedMonarch(root: string, version: 2 | 3 = 3) {
   );
 }
 
+async function seedGuest(root: string) {
+  const target = path.join(root, "sg", "global-profiles.json");
+  const store = JSON.parse(await readFile(target, "utf8"));
+  store.profiles.push({
+    globalId: "usr_guest",
+    canonicalIdentity: "channel:telegram:200",
+    role: "guest",
+    status: "active",
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  });
+  store.identities.push({
+    canonicalIdentity: "channel:telegram:200",
+    globalId: "usr_guest",
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  });
+  await writeFile(target, JSON.stringify(store));
+}
+
 describe("SG WSP4 citizenship registry", () => {
+  it("upgrades an active guest to citizen without changing the Global ID", async () => {
+    const root = await stateDir();
+    await seedMonarch(root);
+    await seedGuest(root);
+    const registry = new SgGlobalProfileRegistry(root);
+
+    const applied = await registry.apply("channel:telegram:200");
+    expect(applied.status).toBe("pending");
+    const decided = await registry.decide({
+      actorGlobalId: "usr_monarch",
+      requestId: applied.request?.requestId ?? "",
+      decision: "approve",
+    });
+
+    expect(decided.profile).toMatchObject({ globalId: "usr_guest", role: "citizen" });
+    const snapshot = await registry.snapshot();
+    expect(snapshot.profiles).toHaveLength(2);
+    expect(snapshot.identities).toHaveLength(2);
+    expect(snapshot.citizenRequests[0]).toMatchObject({
+      status: "approved",
+      resultingGlobalId: "usr_guest",
+    });
+  });
+
+  it("keeps a rejected active guest unchanged", async () => {
+    const root = await stateDir();
+    await seedMonarch(root);
+    await seedGuest(root);
+    const registry = new SgGlobalProfileRegistry(root);
+
+    const applied = await registry.apply("channel:telegram:200");
+    await registry.decide({
+      actorGlobalId: "usr_monarch",
+      requestId: applied.request?.requestId ?? "",
+      decision: "reject",
+    });
+
+    await expect(registry.findByCanonicalIdentity("channel:telegram:200")).resolves.toMatchObject({
+      globalId: "usr_guest",
+      role: "guest",
+      status: "active",
+    });
+  });
+
+  it("does not create repeat applications for citizens or the monarch", async () => {
+    const root = await stateDir();
+    await seedMonarch(root);
+    await seedGuest(root);
+    const registry = new SgGlobalProfileRegistry(root);
+    const applied = await registry.apply("channel:telegram:200");
+    await registry.decide({
+      actorGlobalId: "usr_monarch",
+      requestId: applied.request?.requestId ?? "",
+      decision: "approve",
+    });
+
+    await expect(registry.apply("channel:telegram:200")).resolves.toMatchObject({
+      status: "already_registered",
+      profile: { globalId: "usr_guest", role: "citizen" },
+    });
+    await expect(registry.apply("channel:telegram:100")).resolves.toMatchObject({
+      status: "already_registered",
+      profile: { globalId: "usr_monarch", role: "monarch" },
+    });
+    expect((await registry.snapshot()).citizenRequests).toHaveLength(1);
+  });
+
   it("creates an idempotent pending application without creating a profile", async () => {
     const root = await stateDir();
     await seedMonarch(root);
@@ -123,7 +210,9 @@ describe("SG WSP4 citizenship registry", () => {
     const root = await stateDir();
     await seedMonarch(root, 2);
     const registry = new SgGlobalProfileRegistry(root);
-    await expect(registry.findByGlobalId("usr_monarch")).resolves.toMatchObject({ role: "monarch" });
+    await expect(registry.findByGlobalId("usr_monarch")).resolves.toMatchObject({
+      role: "monarch",
+    });
     await registry.apply("channel:telegram:204");
     const persisted = JSON.parse(
       await readFile(path.join(root, "sg", "global-profiles.json"), "utf8"),

@@ -142,7 +142,13 @@ function normalizeStore(value: unknown): SgGlobalProfileStore | undefined {
   }
   const store: SgGlobalProfileStore =
     candidate.version === 2
-      ? { version: 3, profiles: candidate.profiles, identities: candidate.identities, citizenRequests: [], audit: [] }
+      ? {
+          version: 3,
+          profiles: candidate.profiles,
+          identities: candidate.identities,
+          citizenRequests: [],
+          audit: [],
+        }
       : candidate.version === 3 &&
           Array.isArray(candidate.citizenRequests) &&
           candidate.citizenRequests.every(validRequest) &&
@@ -254,7 +260,10 @@ export class SgGlobalProfileRegistry {
       const profile = link
         ? store.profiles.find((candidate) => candidate.globalId === link.globalId)
         : undefined;
-      if (profile?.status === "active") return { status: "already_registered", profile };
+      const eligibleGuest = profile?.status === "active" && profile.role === "guest";
+      if (profile && !eligibleGuest) {
+        return { status: "already_registered", profile };
+      }
       const existing = store.citizenRequests.find(
         (request) => request.canonicalIdentity === canonical && request.status === "pending",
       );
@@ -305,29 +314,40 @@ export class SgGlobalProfileRegistry {
       const operationId = `op_${randomUUID()}`;
       let profile: SgGlobalProfile | undefined;
       if (input.decision === "approve") {
+        const identity = store.identities.find(
+          (candidate) => candidate.canonicalIdentity === current.canonicalIdentity,
+        );
+        const existingProfile = identity
+          ? store.profiles.find((candidate) => candidate.globalId === identity.globalId)
+          : undefined;
         if (
-          store.identities.some(
-            (identity) => identity.canonicalIdentity === current.canonicalIdentity,
-          )
+          identity &&
+          (existingProfile?.status !== "active" || existingProfile.role !== "guest")
         ) {
           throw new Error("sg-citizen-identity-already-linked");
         }
-        const globalId = `usr_${randomUUID()}`;
-        profile = {
-          globalId,
-          canonicalIdentity: current.canonicalIdentity,
-          role: "citizen",
-          status: "active",
-          createdAt: now,
-          updatedAt: now,
-        };
-        store.profiles.push(profile);
-        store.identities.push({
-          canonicalIdentity: current.canonicalIdentity,
-          globalId,
-          createdAt: now,
-          updatedAt: now,
-        });
+        if (existingProfile) {
+          existingProfile.role = "citizen";
+          existingProfile.updatedAt = now;
+          profile = existingProfile;
+        } else {
+          const globalId = `usr_${randomUUID()}`;
+          profile = {
+            globalId,
+            canonicalIdentity: current.canonicalIdentity,
+            role: "citizen",
+            status: "active",
+            createdAt: now,
+            updatedAt: now,
+          };
+          store.profiles.push(profile);
+          store.identities.push({
+            canonicalIdentity: current.canonicalIdentity,
+            globalId,
+            createdAt: now,
+            updatedAt: now,
+          });
+        }
       }
       const request: SgCitizenRequest = {
         ...current,

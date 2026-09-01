@@ -47,6 +47,12 @@ jobs:
       - name: Recreate missing lockfile for exact SG 2.2 source
         run: pnpm install --lockfile-only --no-frozen-lockfile
 
+      - name: Install dependencies for WSP3 diagnostic test
+        run: pnpm install --frozen-lockfile
+
+      - name: Test WSP3 diagnostic correlation
+        run: pnpm test sg/plugin/index.test.ts
+
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:

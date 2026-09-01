@@ -2,6 +2,7 @@ import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import { registerWorkspaceManager } from "./register.js";
 
 export * from "./context.js";
+export * from "./cost-diagnostics.js";
 export { SgGlobalProfileRegistry, validateGlobalProfileStore } from "./citizenship-registry.js";
 export type {
   SgCitizenAuditAction,

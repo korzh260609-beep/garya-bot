@@ -4,6 +4,7 @@ import path from "node:path";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
 import { SgContentRegistry } from "./content-registry.js";
 import { formatWorkspaceContext, resolveWorkspaceContext } from "./context.js";
+import { buildSgCostDiagnostic, type SgCostDiagnosticConfig } from "./cost-diagnostics.js";
 import { formatWorkspaceResolution, SgWorkspaceRegistry } from "./workspace-registry.js";
 import { SgWorkspaceRequestRegistry } from "./workspace-requests.js";
 import { createWorkspaceTools, WSP3_AGENT_GUIDANCE } from "./workspace-tools.js";
@@ -21,7 +22,9 @@ type CommandContext = {
   threadParentId?: string;
   messageThreadId?: string | number;
   senderId?: string;
-  config: { session?: { identityLinks?: Record<string, string[]> } };
+  config: SgCostDiagnosticConfig & {
+    session?: { dmScope?: string; identityLinks?: Record<string, string[]> };
+  };
 };
 
 type WorkspacePluginApi = {
@@ -945,6 +948,33 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
           actor,
           registeredToolNames: WSP5_TOOL_NAMES,
           lifecycle: wsp5Lifecycle.snapshot(),
+        }),
+      };
+    },
+  });
+  api.registerCommand({
+    name: "sg_cost_diag",
+    description: "Проверить изоляцию сессии и защиту стоимости SG",
+    requireAuth: false,
+    handler: async (ctx) => {
+      const actor = await resolveWorkspaceContext(
+        {
+          channel: ctx.channel,
+          accountId: ctx.accountId,
+          to: ctx.to,
+          senderId: ctx.senderId,
+          identityLinks: ctx.config.session?.identityLinks,
+        },
+        stateDir,
+      );
+      if (actor.projectRole !== "monarch" || !actor.globalId) {
+        return { text: "SG COST DIAG — доступ разрешён только монарху" };
+      }
+      return {
+        text: buildSgCostDiagnostic({
+          config: ctx.config,
+          channel: ctx.channel,
+          sessionKey: ctx.sessionKey,
         }),
       };
     },

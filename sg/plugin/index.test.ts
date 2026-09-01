@@ -139,7 +139,7 @@ describe("SG Workspace Manager WSP1", () => {
       on,
       runtime: { state: { resolveStateDir: () => "/tmp/sg-wsp-test" } },
     });
-    expect(registerCommand).toHaveBeenCalledTimes(5);
+    expect(registerCommand).toHaveBeenCalledTimes(6);
     const command = registerCommand.mock.calls[0]?.[0];
     expect(command).toMatchObject({ name: "sg_context", requireAuth: false });
     expect(registerCommand.mock.calls[1]?.[0]).toMatchObject({
@@ -156,6 +156,10 @@ describe("SG Workspace Manager WSP1", () => {
     });
     expect(registerCommand.mock.calls[4]?.[0]).toMatchObject({
       name: "sg_wsp5_diag",
+      requireAuth: false,
+    });
+    expect(registerCommand.mock.calls[5]?.[0]).toMatchObject({
+      name: "sg_cost_diag",
       requireAuth: false,
     });
     expect(registerTool).toHaveBeenCalledWith(expect.any(Function), {
@@ -201,6 +205,60 @@ describe("SG Workspace Manager WSP1", () => {
     expect(result).toMatchObject({
       prependSystemContext: expect.stringContaining("штатным automations"),
     });
+  });
+
+  it("reports the live isolated session and cost guards only to the monarch", async () => {
+    const { root } = await stateDirWithProfiles();
+    const commands: Array<{
+      name: string;
+      handler: (ctx: Record<string, unknown>) => Promise<{ text: string }>;
+    }> = [];
+    registerWorkspaceManager({
+      registerCommand: vi.fn((command) => commands.push(command)),
+      registerTool: vi.fn(),
+      on: vi.fn(),
+      runtime: { state: { resolveStateDir: () => root } },
+    });
+    const command = commands.find((candidate) => candidate.name === "sg_cost_diag");
+    const config = {
+      session: { dmScope: "per-channel-peer" },
+      agents: {
+        defaults: {
+          compaction: {
+            enabled: true,
+            mode: "safeguard",
+            keepRecentTokens: 12000,
+            recentTurnsPreserve: 4,
+            identifierPolicy: "strict",
+            qualityGuard: { enabled: true, maxRetries: 1 },
+            midTurnPrecheck: { enabled: true },
+            memoryFlush: { enabled: false },
+            maxActiveTranscriptBytes: "128kb",
+          },
+          contextPruning: {
+            mode: "cache-ttl",
+            ttl: "5m",
+            hardClear: { enabled: true },
+          },
+        },
+      },
+    };
+    await expect(
+      command?.handler({
+        channel: "telegram",
+        senderId: "100",
+        sessionKey: "agent:main:telegram:direct:100",
+        config,
+      }),
+    ).resolves.toEqual({ text: expect.stringContaining("SG COST DIAG — PASS") });
+    await expect(
+      command?.handler({
+        channel: "telegram",
+        senderId: "200",
+        sessionKey: "agent:main:telegram:direct:200",
+        config,
+      }),
+    ).resolves.toEqual({ text: "SG COST DIAG — доступ разрешён только монарху" });
   });
 
   it("reports the complete pending-list chain and identifies model tool-selection failure", async () => {
@@ -630,7 +688,7 @@ describe("SG Workspace Manager WSP1", () => {
 
   it("creates and announces a pending request before replying to an ordinary group greeting", async () => {
     const { root } = await stateDirWithProfiles();
-    const hooks = new Map<string, (...args: any[]) => Promise<unknown> | unknown>();
+    const hooks = new Map<string, (...args: unknown[]) => unknown>();
     registerWorkspaceManager({
       registerCommand: vi.fn(),
       registerTool: vi.fn(),
@@ -663,7 +721,7 @@ describe("SG Workspace Manager WSP1", () => {
 
   it("announces an existing pending request instead of falling through to the model", async () => {
     const { root } = await stateDirWithProfiles();
-    const hooks = new Map<string, (...args: any[]) => Promise<unknown> | unknown>();
+    const hooks = new Map<string, (...args: unknown[]) => unknown>();
     registerWorkspaceManager({
       registerCommand: vi.fn(),
       registerTool: vi.fn(),
@@ -692,7 +750,7 @@ describe("SG Workspace Manager WSP1", () => {
 
   it("records which required hook context fields are unavailable without logging their values", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "sg-wsp3-missing-context-"));
-    const hooks = new Map<string, (...args: any[]) => Promise<unknown> | unknown>();
+    const hooks = new Map<string, (...args: unknown[]) => unknown>();
     const warn = vi.fn();
     const info = vi.fn();
     registerWorkspaceManager({
@@ -722,7 +780,7 @@ describe("SG Workspace Manager WSP1", () => {
 
   it("does not create a workspace request in a direct chat", async () => {
     const { root } = await stateDirWithProfiles();
-    const hooks = new Map<string, (...args: any[]) => Promise<unknown> | unknown>();
+    const hooks = new Map<string, (...args: unknown[]) => unknown>();
     registerWorkspaceManager({
       registerCommand: vi.fn(),
       registerTool: vi.fn(),

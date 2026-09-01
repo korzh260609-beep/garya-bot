@@ -45,6 +45,7 @@ type WorkspacePluginApi = {
   registerCommand(command: {
     name: string;
     description: string;
+    acceptsArgs?: boolean;
     requireAuth: boolean;
     handler(ctx: CommandContext): Promise<{ text: string }>;
   }): void;
@@ -1230,6 +1231,7 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
   api.registerCommand({
     name: "sg_context_diag",
     description: "Проверить полную цепочку контекста и compaction SG",
+    acceptsArgs: true,
     requireAuth: false,
     handler: async (ctx) => {
       const actor = await resolveWorkspaceContext(

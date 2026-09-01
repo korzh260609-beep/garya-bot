@@ -186,6 +186,7 @@ describe("SG Workspace Manager WSP1", () => {
     });
     expect(registerCommand.mock.calls[5]?.[0]).toMatchObject({
       name: "sg_context_diag",
+      acceptsArgs: true,
       requireAuth: false,
     });
     expect(registerCommand.mock.calls[6]?.[0]).toMatchObject({

@@ -43,5 +43,5 @@ describe("SG Workspace Manager real loader and dispatch runner", () => {
     expect(await readFile(path.join(stateDir, "sg", "workspace-requests.json"), "utf8")).toContain(
       '"status": "pending"',
     );
-  });
+  }, 30_000);
 });

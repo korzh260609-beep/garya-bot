@@ -129,7 +129,7 @@ describe("SG Workspace Manager WSP1", () => {
     expect(second).toEqual(first);
   });
 
-  it("registers normal reply commands plus internal WSP3/WSP4 tools and guidance", async () => {
+  it("registers normal reply commands plus internal WSP3/WSP4/WSP5 tools and guidance", async () => {
     const registerCommand = vi.fn();
     const registerTool = vi.fn();
     const on = vi.fn();
@@ -139,7 +139,7 @@ describe("SG Workspace Manager WSP1", () => {
       on,
       runtime: { state: { resolveStateDir: () => "/tmp/sg-wsp-test" } },
     });
-    expect(registerCommand).toHaveBeenCalledTimes(4);
+    expect(registerCommand).toHaveBeenCalledTimes(5);
     const command = registerCommand.mock.calls[0]?.[0];
     expect(command).toMatchObject({ name: "sg_context", requireAuth: false });
     expect(registerCommand.mock.calls[1]?.[0]).toMatchObject({
@@ -154,6 +154,10 @@ describe("SG Workspace Manager WSP1", () => {
       name: "sg_wsp4_diag",
       requireAuth: false,
     });
+    expect(registerCommand.mock.calls[4]?.[0]).toMatchObject({
+      name: "sg_wsp5_diag",
+      requireAuth: false,
+    });
     expect(registerTool).toHaveBeenCalledWith(expect.any(Function), {
       names: ["sg_workspace_onboard", "sg_workspace_pending", "sg_workspace_decide"],
     });
@@ -164,6 +168,15 @@ describe("SG Workspace Manager WSP1", () => {
         "sg_citizen_decide",
         "sg_membership_list",
         "sg_membership_manage",
+      ],
+    });
+    expect(registerTool).toHaveBeenCalledWith(expect.any(Function), {
+      names: [
+        "sg_content_draft",
+        "sg_content_review",
+        "sg_content_publish",
+        "sg_content_schedule",
+        "sg_content_dispatch",
       ],
     });
     expect(on).toHaveBeenCalledWith("before_dispatch", expect.any(Function));
@@ -184,6 +197,9 @@ describe("SG Workspace Manager WSP1", () => {
     });
     expect(result).toMatchObject({
       prependSystemContext: expect.stringContaining("используй sg_citizen_apply"),
+    });
+    expect(result).toMatchObject({
+      prependSystemContext: expect.stringContaining("штатным automations"),
     });
   });
 
@@ -537,8 +553,7 @@ describe("SG Workspace Manager WSP1", () => {
       },
       toolContext,
     );
-    await executionHooks
-      .get("before_agent_reply")?.({ cleanedBody: "Одна заявка" }, runContext);
+    await executionHooks.get("before_agent_reply")?.({ cleanedBody: "Одна заявка" }, runContext);
 
     const diagnostic = commands.find((command) => command.name === "sg_wsp3_diag")!;
     await expect(

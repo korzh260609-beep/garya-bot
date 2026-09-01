@@ -20,6 +20,10 @@ export * from "./workspace-tools.js";
 export * from "./workspace-memberships.js";
 export * from "./wsp4-diagnostics.js";
 export * from "./wsp4-tools.js";
+export * from "./content-registry.js";
+export * from "./wsp5-diagnostics.js";
+export * from "./wsp5-lifecycle.js";
+export * from "./wsp5-tools.js";
 
 export default definePluginEntry({
   id: "sg-workspace-manager",

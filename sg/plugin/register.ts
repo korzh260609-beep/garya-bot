@@ -2,12 +2,16 @@ import { createHash, randomUUID } from "node:crypto";
 import { mkdir, readFile, readdir, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
+import { SgContentRegistry } from "./content-registry.js";
 import { formatWorkspaceContext, resolveWorkspaceContext } from "./context.js";
 import { formatWorkspaceResolution, SgWorkspaceRegistry } from "./workspace-registry.js";
 import { SgWorkspaceRequestRegistry } from "./workspace-requests.js";
 import { createWorkspaceTools, WSP3_AGENT_GUIDANCE } from "./workspace-tools.js";
 import { buildWsp4Diagnostic } from "./wsp4-diagnostics.js";
 import { createWsp4Tools, WSP4_AGENT_GUIDANCE } from "./wsp4-tools.js";
+import { buildWsp5Diagnostic } from "./wsp5-diagnostics.js";
+import { Wsp5NativeLifecycle } from "./wsp5-lifecycle.js";
+import { createWsp5Tools, WSP5_AGENT_GUIDANCE } from "./wsp5-tools.js";
 
 type CommandContext = {
   channel: string;
@@ -36,7 +40,10 @@ type WorkspacePluginApi = {
   registerTool(
     factory: (
       ctx: Parameters<typeof createWorkspaceTools>[0],
-    ) => ReturnType<typeof createWorkspaceTools> | ReturnType<typeof createWsp4Tools>,
+    ) =>
+      | ReturnType<typeof createWorkspaceTools>
+      | ReturnType<typeof createWsp4Tools>
+      | ReturnType<typeof createWsp5Tools>,
     options: { names: string[] },
   ): void;
   on: OpenClawPluginApi["on"];
@@ -54,6 +61,13 @@ const WSP4_TOOL_NAMES = [
   "sg_citizen_decide",
   "sg_membership_list",
   "sg_membership_manage",
+] as const;
+const WSP5_TOOL_NAMES = [
+  "sg_content_draft",
+  "sg_content_review",
+  "sg_content_publish",
+  "sg_content_schedule",
+  "sg_content_dispatch",
 ] as const;
 const MAX_DIAGNOSTIC_SESSIONS = 100;
 const MAX_DURABLE_EVENTS = 100;
@@ -209,6 +223,7 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
   api.logger?.info("[sg-workspace] stage=register-workspace-manager");
   const stateDir =
     process.env.OPENCLAW_STATE_DIR?.trim() || api.runtime.state.resolveStateDir(process.env);
+  const wsp5Lifecycle = new Wsp5NativeLifecycle(new SgContentRegistry(stateDir), api.logger);
   api.logger?.info("[sg-workspace] stage=resolve-state-dir");
   const diagnosticInstanceId = randomUUID();
   const diagnosticStartedAt = new Date().toISOString();
@@ -344,6 +359,10 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
   api.registerTool((ctx) => createWsp4Tools(ctx, stateDir), {
     names: [...WSP4_TOOL_NAMES],
   });
+  api.registerTool((ctx) => createWsp5Tools(ctx, stateDir, wsp5Lifecycle), {
+    names: [...WSP5_TOOL_NAMES],
+  });
+  wsp5Lifecycle.register(api);
   api.logger?.info("[sg-workspace] stage=register-tools-complete");
   api.on("before_prompt_build", async (_event, ctx) => {
     hookCounts.prompt += 1;
@@ -371,7 +390,9 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
       result: "guidance-injected",
     });
     diagnosticLog(ctx.sessionKey, ctx.runId, "prompt-hook", "guidance-injected");
-    return { prependSystemContext: `${WSP3_AGENT_GUIDANCE}\n${WSP4_AGENT_GUIDANCE}` };
+    return {
+      prependSystemContext: `${WSP3_AGENT_GUIDANCE}\n${WSP4_AGENT_GUIDANCE}\n${WSP5_AGENT_GUIDANCE}`,
+    };
   });
   api.on("llm_input", async (event, ctx) => {
     hookCounts.llmInput += 1;
@@ -740,17 +761,17 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
         .filter((events) =>
           events.some((event) => event.stage === "model-call" || event.stage === "final-reply"),
         )
-        .sort((left, right) => {
+        .toSorted((left, right) => {
           const leftTime = Math.max(...left.map((event) => Date.parse(event.recordedAt)));
           const rightTime = Math.max(...right.map((event) => Date.parse(event.recordedAt)));
           return rightTime - leftTime;
         })[0];
       const durableLlmInput = latestDurableRunEvents
-        ?.filter((event) => event.stage === "llm-input")
-        .at(-1);
+        ? latestDurableRunEvents.toReversed().find((event) => event.stage === "llm-input")
+        : undefined;
       const durableToolResult = latestDurableRunEvents
-        ?.filter((event) => event.stage === "pending-tool-result")
-        .at(-1);
+        ? latestDurableRunEvents.toReversed().find((event) => event.stage === "pending-tool-result")
+        : undefined;
       const durableToolPayload = durableToolResult?.result.match(/^([^:]+):(\d+)$/);
       const durableTrace: Wsp3DiagnosticTrace | undefined = latestDurableRunEvents
         ? {
@@ -789,8 +810,7 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
         : undefined;
       const lastTrace = sessionTrace ?? routeTrace;
       const durableRunMatches =
-        !lastTrace?.runId ||
-        latestDurableRunEvents?.[0]?.runHash === traceIdFor(lastTrace.runId);
+        !lastTrace?.runId || latestDurableRunEvents?.[0]?.runHash === traceIdFor(lastTrace.runId);
       const useDurableTrace =
         durableTrace !== undefined &&
         durableRunMatches &&
@@ -895,6 +915,36 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
           stateDir,
           actor,
           registeredToolNames: WSP4_TOOL_NAMES,
+        }),
+      };
+    },
+  });
+  api.registerCommand({
+    name: "sg_wsp5_diag",
+    description: "Проверить полную цепочку WSP5",
+    requireAuth: false,
+    handler: async (ctx) => {
+      const actor = await resolveWorkspaceContext(
+        {
+          channel: ctx.channel,
+          accountId: ctx.accountId,
+          to: ctx.to,
+          threadParentId: ctx.threadParentId,
+          messageThreadId: ctx.messageThreadId,
+          senderId: ctx.senderId,
+          identityLinks: ctx.config.session?.identityLinks,
+        },
+        stateDir,
+      );
+      if (actor.projectRole !== "monarch" || !actor.globalId) {
+        return { text: "WSP5 DIAG — доступ разрешён только монарху" };
+      }
+      return {
+        text: await buildWsp5Diagnostic({
+          stateDir,
+          actor,
+          registeredToolNames: WSP5_TOOL_NAMES,
+          lifecycle: wsp5Lifecycle.snapshot(),
         }),
       };
     },

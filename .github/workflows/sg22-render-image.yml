@@ -50,8 +50,11 @@ jobs:
       - name: Install dependencies for SG plugin tests
         run: pnpm install --frozen-lockfile
 
-      - name: Test WSP1-WSP4 plugin contracts
+      - name: Test WSP1-WSP5 plugin contracts
         run: node scripts/run-vitest.mjs run --config sg/plugin/vitest.config.ts
+
+      - name: Test SG Render entrypoint allowlist
+        run: pnpm test test/scripts/sg22-render-entrypoint.test.ts
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3

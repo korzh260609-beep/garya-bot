@@ -361,7 +361,7 @@ describe("SG Workspace Manager WSP1", () => {
     );
     await expect(diagnostic.handler(commandContext)).resolves.toEqual({
       text: expect.stringMatching(
-        /trace_match: none[\s\S]*last_trace: PRESENT[\s\S]*hook_counts: prompt=0, llm_input=0, model=1[\s\S]*failure: trace_identity_mismatch/,
+        /trace_match: none[\s\S]*last_trace: NONE[\s\S]*hook_counts: prompt=0, llm_input=0, model=1[\s\S]*failure: trace_identity_mismatch/,
       ),
     });
   });

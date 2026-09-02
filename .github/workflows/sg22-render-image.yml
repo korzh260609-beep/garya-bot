@@ -53,6 +53,9 @@ jobs:
       - name: Test WSP1-WSP5 plugin contracts
         run: node scripts/run-vitest.mjs run --config sg/plugin/vitest.config.ts
 
+      - name: Test OpenClaw compaction decimal identifier fix
+        run: pnpm test src/agents/agent-hooks/compaction-safeguard.test.ts
+
       - name: Test SG Render entrypoint allowlist
         run: pnpm test test/scripts/sg22-render-entrypoint.test.ts
 

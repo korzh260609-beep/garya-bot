@@ -260,7 +260,7 @@ describe("SG Workspace Manager WSP1", () => {
             mode: "safeguard",
             keepRecentTokens: 12000,
             recentTurnsPreserve: 4,
-            identifierPolicy: "strict",
+            identifierPolicy: "off",
             qualityGuard: { enabled: true, maxRetries: 1 },
             midTurnPrecheck: { enabled: true },
             memoryFlush: { enabled: false },

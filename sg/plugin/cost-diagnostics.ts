@@ -65,7 +65,7 @@ export function buildSgCostDiagnostic(input: {
     ),
     check(
       "summary_safety",
-      compaction?.identifierPolicy === "strict" &&
+      compaction?.identifierPolicy === "off" &&
         compaction.qualityGuard?.enabled === true &&
         compaction.qualityGuard.maxRetries === 1,
       `identifiers=${compaction?.identifierPolicy ?? "unset"},quality=${String(compaction?.qualityGuard?.enabled)}`,

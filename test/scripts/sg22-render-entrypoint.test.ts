@@ -40,8 +40,10 @@ describe("SG 2.2 Render entrypoint", () => {
     );
     expect(script).toContain('{"path":"agents.defaults.compaction.recentTurnsPreserve","value":4}');
     expect(script).toContain(
-      '{"path":"agents.defaults.compaction.identifierPolicy","value":"strict"}',
+      '{"path":"agents.defaults.compaction.identifierPolicy","value":"off"}',
     );
+    expect(script).toContain('"identifierPolicy": "off"');
+    expect(script).not.toContain('"identifierPolicy": "strict"');
     expect(script).toContain(
       '{"path":"agents.defaults.compaction.qualityGuard","value":{"enabled":true,"maxRetries":1}}',
     );

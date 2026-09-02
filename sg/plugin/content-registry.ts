@@ -512,20 +512,41 @@ export class SgContentRegistry {
     });
   }
 
-  async beginPublish(draftId: string, actorGlobalId: string): Promise<SgContentNativeOperation> {
+  async beginPublish(
+    draftId: string,
+    actorGlobalId: string,
+    approveForPublication = false,
+  ): Promise<SgContentNativeOperation> {
     return this.mutate((store) => {
       const current = requireDraft(store, draftId);
-      assertApproved(current);
       assertEditableDelivery(current);
       const id = operationId();
+      if (!approveForPublication) {
+        assertApproved(current);
+      }
+      const now = new Date().toISOString();
+      const approved: SgContentDraft =
+        current.editorialStatus === "approved"
+          ? current
+          : {
+              ...clearReviewFields(current),
+              editorialStatus: "approved",
+              approvedByGlobalId: actorGlobalId.trim(),
+              approvedAt: now,
+              updatedAt: now,
+            };
+      if (approved !== current) {
+        store.drafts[store.drafts.indexOf(current)] = approved;
+        pushAudit(store, current, approved, "approve", actorGlobalId, id);
+      }
       const updated = {
-        ...current,
+        ...approved,
         deliveryStatus: "publishing" as const,
         lastError: undefined,
-        updatedAt: new Date().toISOString(),
+        updatedAt: now,
       };
-      store.drafts[store.drafts.indexOf(current)] = updated;
-      pushAudit(store, current, updated, "publish_request", actorGlobalId, id);
+      store.drafts[store.drafts.indexOf(approved)] = updated;
+      pushAudit(store, approved, updated, "publish_request", actorGlobalId, id);
       return { kind: "publish", draftId: current.draftId, operationId: id, mode: "now" };
     });
   }

@@ -106,6 +106,59 @@ describe("SG Workspace Manager WSP5 content state", () => {
     expect(updated).not.toHaveProperty("approvedByGlobalId");
   });
 
+  it("atomically records editor approval before a direct publication", async () => {
+    const { contents, workspace } = await fixture();
+    const draft = await contents.create({
+      workspaceId: workspace.workspaceId,
+      creatorGlobalId: "usr_owner",
+      text: "Прямая публикация владельца",
+      media: [],
+      highImpact: false,
+    });
+
+    await expect(contents.beginPublish(draft.draftId, "usr_owner")).rejects.toThrow(
+      "sg-content-approval-required",
+    );
+
+    const operation = await contents.beginPublish(draft.draftId, "usr_owner", true);
+    const publishing = await contents.findDraft(draft.draftId);
+    const params = buildWsp5MessageAction(publishing!, workspace);
+    const { lifecycle, hooks } = registeredLifecycle(contents);
+    lifecycle.queue({
+      sessionKey: "session-owner-direct",
+      actorGlobalId: "usr_owner",
+      operation,
+      toolName: "message",
+      params,
+      requireApproval: false,
+      workspace,
+    });
+    await runHook(
+      hooks,
+      "after_tool_call",
+      { toolName: "message", params, result: { details: { messageId: "telegram-owner-1" } } },
+      { sessionKey: "session-owner-direct" },
+    );
+
+    const snapshot = await contents.snapshot();
+    expect(snapshot.drafts[0]).toMatchObject({
+      editorialStatus: "approved",
+      deliveryStatus: "published",
+      approvedByGlobalId: "usr_owner",
+    });
+    expect(snapshot.publications[0]).toMatchObject({
+      status: "published",
+      nativeResultId: "telegram-owner-1",
+    });
+    expect(snapshot.audit.map((event) => event.action)).toEqual([
+      "create",
+      "approve",
+      "publish_request",
+      "publish_success",
+    ]);
+    expect(snapshot.audit[1]?.operationId).toBe(snapshot.audit[2]?.operationId);
+  });
+
   it("publishes text and representative media only after an exact native message action", async () => {
     const { contents, workspace } = await fixture();
     const draft = await approvedDraft(contents, workspace, { media: true });

@@ -164,6 +164,76 @@ describe("SG Workspace Manager WSP5 role tools", () => {
     });
   });
 
+  it("treats an owner publish command as approval without a second confirmation", async () => {
+    const { root, workspace, contents, lifecycle } = await fixture();
+    const ownerTools = createWsp5Tools(toolContext("10", "session-owner-publish"), root, lifecycle);
+    const created = details(
+      await findTool(ownerTools, "sg_content_draft").execute("create-owner", {
+        action: "create",
+        workspaceId: workspace.workspaceId,
+        text: "Материал владельца",
+      }),
+    );
+    const draftId = (created.draft as { draftId: string }).draftId;
+
+    const published = details(
+      await findTool(ownerTools, "sg_content_publish").execute("publish-owner", { draftId }),
+    );
+
+    expect(published).toMatchObject({
+      status: "native_action_required",
+      nextTool: "message",
+      nextAction: {
+        action: "send",
+        channel: "telegram",
+        target: "telegram:-100500",
+        message: "Материал владельца",
+      },
+    });
+    await expect(contents.findDraft(draftId)).resolves.toMatchObject({
+      editorialStatus: "approved",
+      deliveryStatus: "publishing",
+      approvedByGlobalId: "usr_owner",
+    });
+    expect((await contents.snapshot()).audit.slice(-2).map((event) => event.action)).toEqual([
+      "approve",
+      "publish_request",
+    ]);
+  });
+
+  it("lets an admin publish a pending member draft as the approval decision", async () => {
+    const { root, workspace, contents, lifecycle } = await fixture();
+    const memberTools = createWsp5Tools(
+      toolContext("30", "session-member-submit"),
+      root,
+      lifecycle,
+    );
+    const created = details(
+      await findTool(memberTools, "sg_content_draft").execute("create-member", {
+        action: "create",
+        workspaceId: workspace.workspaceId,
+        text: "Материал участника",
+      }),
+    );
+    const draftId = (created.draft as { draftId: string }).draftId;
+    await findTool(memberTools, "sg_content_draft").execute("submit-member", {
+      action: "submit",
+      draftId,
+    });
+
+    const adminTools = createWsp5Tools(toolContext("20", "session-admin-publish"), root, lifecycle);
+    const published = details(
+      await findTool(adminTools, "sg_content_publish").execute("publish-admin", { draftId }),
+    );
+
+    expect(published).toMatchObject({ status: "native_action_required", nextTool: "message" });
+    await expect(contents.findDraft(draftId)).resolves.toMatchObject({
+      editorialStatus: "approved",
+      deliveryStatus: "publishing",
+      approvedByGlobalId: "usr_admin",
+    });
+  });
+
   it("does not treat an unregistered group participant as a member", async () => {
     const { root, workspace, lifecycle } = await fixture();
     const guestTools = createWsp5Tools(toolContext("40", "session-guest"), root, lifecycle);

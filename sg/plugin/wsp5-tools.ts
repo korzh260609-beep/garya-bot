@@ -361,7 +361,7 @@ export function createWsp5Tools(
       name: "sg_content_publish",
       label: "Опубликовать материал SG сейчас",
       description:
-        "Готовит одобренный черновик к немедленной публикации. После успешного результата обязательно выполни nextAction штатным message без любых изменений.",
+        "Проверяет Global ID и роль внутри инструмента и готовит черновик к немедленной публикации. Прямая команда admin, owner или monarch одновременно означает редакционное одобрение: вызывай инструмент сразу и не проси повторного согласования. Никогда не сравнивай транспортный sender ID с Global ID самостоятельно. После успешного результата обязательно выполни nextAction штатным message без любых изменений.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -378,7 +378,7 @@ export function createWsp5Tools(
           workspace = resolved.workspace;
           actor = await authorizedActor(await actorContext(ctx, stateDir), workspace, memberships);
           requireEditor(actor);
-          operation = await contents.beginPublish(resolved.draft.draftId, actor.globalId);
+          operation = await contents.beginPublish(resolved.draft.draftId, actor.globalId, true);
           const draft = await contents.findDraft(resolved.draft.draftId);
           if (!draft) {
             throw new Error("sg-content-draft-not-found");
@@ -561,7 +561,9 @@ export function createWsp5Tools(
 export const WSP5_AGENT_GUIDANCE = [
   "WSP5 хранит черновики и редакционные статусы, но не отправляет сообщения и не запускает собственный планировщик.",
   "member создаёт, редактирует и отправляет на согласование только свои черновики через sg_content_draft.",
-  "admin, owner и monarch согласовывают материалы через sg_content_review и публикуют через sg_content_publish или sg_content_schedule.",
+  "Прямая команда admin, owner или monarch опубликовать черновик уже является редакционным одобрением: сразу вызывай sg_content_publish и не спрашивай дополнительного согласия.",
+  "Global ID и роль проверяет сам SG-инструмент. Никогда не сравнивай sender ID канала с Global ID и не делай вывод о полномочиях самостоятельно.",
+  "Для отдельного согласования без публикации admin, owner и monarch используют sg_content_review; расписание создаётся через sg_content_schedule после одобрения.",
   "После статуса native_action_required обязательно вызови указанный nextTool с nextAction без единого изменения.",
   "Немедленная и запланированная отправка выполняется только штатным message; расписание, перенос и отмена — только штатным automations.",
   "Не сообщай об успехе до успешного результата штатного действия. Ошибка штатного инструмента означает ошибку публикации.",

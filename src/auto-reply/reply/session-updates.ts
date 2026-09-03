@@ -7,7 +7,11 @@ import {
   type ExecPolicyOverrides,
   resolveNodeExecEligibility,
 } from "../../agents/exec-defaults.js";
-import { SESSION_TOTAL_TOKENS_VERSION, type SessionEntry } from "../../config/sessions.js";
+import {
+  SESSION_TOTAL_TOKENS_VERSION,
+  type InternalSessionEntry,
+  type SessionEntry,
+} from "../../config/sessions.js";
 import { formatSqliteSessionFileMarker } from "../../config/sessions/legacy-sqlite-marker.js";
 import {
   patchSessionEntryCore,
@@ -318,8 +322,8 @@ export async function ensureSkillSnapshot(params: {
 /** Increments compaction count and persists the updated session entry. */
 export async function incrementCompactionCount(params: {
   agentId?: string;
-  sessionEntry?: SessionEntry;
-  sessionStore?: Record<string, SessionEntry>;
+  sessionEntry?: InternalSessionEntry;
+  sessionStore?: Record<string, InternalSessionEntry>;
   sessionKey?: string;
   storePath?: string;
   cfg?: OpenClawConfig;
@@ -330,7 +334,10 @@ export async function incrementCompactionCount(params: {
   /** Session id after compaction when a context engine changed identity. */
   newSessionId?: string;
   compactionKind?: EmbeddedAgentCompactResult["compactionKind"];
-  expectedSession?: Pick<SessionEntry, "sessionId" | "lifecycleRevision">;
+  expectedSession?: Pick<InternalSessionEntry, "sessionId" | "lifecycleRevision">;
+  transcriptByteCompactionLatch?: NonNullable<
+    InternalSessionEntry["transcriptByteCompactionLatch"]
+  >;
   authorize?: () => boolean;
 }): Promise<number | undefined> {
   const {
@@ -346,6 +353,7 @@ export async function incrementCompactionCount(params: {
     newSessionId,
     compactionKind,
     expectedSession,
+    transcriptByteCompactionLatch,
     authorize,
   } = params;
   if (!sessionStore || !sessionKey) {
@@ -355,7 +363,9 @@ export async function incrementCompactionCount(params: {
   if (!entry) {
     return undefined;
   }
-  const canApply = (current: SessionEntry) =>
+  const canApply = (
+    current: Pick<InternalSessionEntry, "sessionId" | "lifecycleRevision">,
+  ) =>
     (authorize?.() ?? true) &&
     (!expectedSession ||
       (current.sessionId === expectedSession.sessionId &&
@@ -365,8 +375,9 @@ export async function incrementCompactionCount(params: {
   }
   const incrementBy = Math.max(0, amount);
   const nextCount = (entry.compactionCount ?? 0) + incrementBy;
-  const updates: Partial<SessionEntry> = {
+  const updates: Partial<InternalSessionEntry> = {
     compactionCount: nextCount,
+    transcriptByteCompactionLatch,
     updatedAt: now,
   };
   if (compactionKind === "context-engine") {
@@ -400,7 +411,7 @@ export async function incrementCompactionCount(params: {
   if (effectiveStorePath) {
     let committed = false;
     const authorityRevoked = new Error("compaction accounting authority revoked");
-    let persistedEntry: SessionEntry | null;
+    let persistedEntry: InternalSessionEntry | null;
     try {
       persistedEntry = await patchSessionEntryCore(
         { ...(agentId ? { agentId } : {}), storePath: effectiveStorePath, sessionKey },

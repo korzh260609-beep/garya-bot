@@ -528,6 +528,7 @@ function cloneMessageCutSessionEntry(params: {
     contextTokensSource: undefined,
     contextBudgetStatus: undefined,
     compactionCount: undefined,
+    transcriptByteCompactionLatch: undefined,
     compactionCheckpoints: undefined,
     memoryFlush: undefined,
     cliSessionBindings: undefined,

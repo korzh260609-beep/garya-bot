@@ -56,6 +56,21 @@ jobs:
       - name: Test OpenClaw compaction decimal identifier fix
         run: pnpm test src/agents/agent-hooks/compaction-safeguard.test.ts
 
+      - name: Test OpenClaw transcript byte compaction backport
+        run: |
+          pnpm test \
+            src/auto-reply/reply/agent-runner-memory.test.ts \
+            src/auto-reply/reply/agent-runner-session-reset.test.ts \
+            src/auto-reply/reply/session-updates.lifecycle.test.ts \
+            src/config/sessions/session-accessor.conformance.test.ts \
+            src/config/sessions/session-accessor.sqlite-message-cut.test.ts \
+            src/plugin-sdk/session-store-runtime.writer-claim.test.ts
+
+      - name: Type-check OpenClaw core and source tests
+        run: |
+          pnpm tsgo:core
+          pnpm tsgo:test:src
+
       - name: Test SG Render entrypoint allowlist
         run: pnpm test test/scripts/sg22-render-entrypoint.test.ts
 

@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { OpenClawConfig } from "../../config/config.js";
-import type { SessionEntry } from "../../config/sessions.js";
+import type { InternalSessionEntry as SessionEntry } from "../../config/sessions.js";
 import {
   applySessionEntryLifecycleMutation,
   loadSessionEntry,
@@ -120,6 +120,37 @@ describe("session-updates lifecycle hooks", () => {
     expect(startContext?.sessionId).toBe("s2");
     expect(startContext?.sessionKey).toBe(sessionKey);
     expect(startContext?.agentId).toBe("main");
+  });
+
+  it("records and clears byte-compaction progress with authoritative accounting", async () => {
+    const { storePath, sessionKey, sessionStore, entry } = await createFixture();
+    const latch = {
+      activeBytes: 60_000,
+      sessionId: entry.sessionId,
+      maxBytes: 50_000,
+    };
+
+    expect(
+      await incrementCompactionCount({
+        sessionEntry: entry,
+        sessionStore,
+        sessionKey,
+        storePath,
+        transcriptByteCompactionLatch: latch,
+      }),
+    ).toBe(1);
+    expect(
+      (loadSessionEntry({ storePath, sessionKey }) as SessionEntry | undefined)
+        ?.transcriptByteCompactionLatch,
+    ).toEqual(latch);
+
+    expect(
+      await incrementCompactionCount({ sessionEntry: entry, sessionStore, sessionKey, storePath }),
+    ).toBe(2);
+    expect(
+      (loadSessionEntry({ storePath, sessionKey }) as SessionEntry | undefined)
+        ?.transcriptByteCompactionLatch,
+    ).toBeUndefined();
   });
 
   it("keeps compaction lifecycle hooks root-admitted until both settle", async () => {

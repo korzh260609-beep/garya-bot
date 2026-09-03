@@ -39,7 +39,7 @@ import {
   resolveFreshSessionTotalTokens,
   resolveSessionStorePathCore,
   SESSION_TOTAL_TOKENS_VERSION,
-  type SessionEntry,
+  type InternalSessionEntry as SessionEntry,
 } from "../../config/sessions.js";
 import {
   readRecentSessionTranscriptActiveEvents,
@@ -54,6 +54,7 @@ import { logVerbose } from "../../globals.js";
 import { isAbortError } from "../../infra/abort-signal.js";
 import { clearAgentRunContext, registerAgentRunContext } from "../../infra/agent-run-registry.js";
 import { formatErrorMessage } from "../../infra/errors.js";
+import { createSubsystemLogger } from "../../logging/subsystem.js";
 import { resolveMemoryFlushPlan, type MemoryFlushPlan } from "../../plugins/memory-state.js";
 import { CommandLane } from "../../process/lanes.js";
 import { isIncognitoSessionKey, isUnscopedSessionKeySentinel } from "../../routing/session-key.js";
@@ -97,6 +98,7 @@ type UpdateSessionEntryParams = {
 const MAX_VISIBLE_MEMORY_FLUSH_ERROR_CHARS = 600;
 const MAX_FLUSH_FAILURES = 3;
 const MAX_FLUSH_ERROR_LENGTH = 200;
+const preflightCompactionLog = createSubsystemLogger("auto-reply/preflight-compaction");
 
 const embeddedAgentRuntimeLoader = createLazyImportLoader<EmbeddedAgentRuntime>(
   () => import("../../agents/embedded-agent.js"),
@@ -178,6 +180,20 @@ const memoryDeps = {
   randomUUID: () => crypto.randomUUID(),
   now: () => Date.now(),
 };
+
+function hasMatchingTranscriptByteCompactionLatch(
+  entry: SessionEntry,
+  activeBytes: number,
+  maxBytes: number,
+): boolean {
+  const latch = entry.transcriptByteCompactionLatch;
+  return (
+    latch?.sessionId === entry.sessionId &&
+    latch.maxBytes === maxBytes &&
+    activeBytes >= latch.activeBytes &&
+    activeBytes - latch.activeBytes < maxBytes
+  );
+}
 
 /** Overrides memory helper dependencies for tests. */
 function setAgentRunnerMemoryTestDeps(overrides?: Partial<typeof memoryDeps>): void {
@@ -770,6 +786,7 @@ export async function runPreflightCompactionIfNeeded(params: {
       params.storePath ??
       resolveSessionStorePathCore(params.cfg.session?.store, { agentId: compactionAgentId }),
   });
+  const compactionStore = params.sessionStore ?? { [compactionSessionKey]: entry };
 
   const contextWindowTokens = resolveMemoryFlushContextWindowTokens({
     cfg: params.cfg,
@@ -828,10 +845,52 @@ export async function runPreflightCompactionIfNeeded(params: {
       : undefined;
   const activeTranscriptBytes =
     transcriptUsageTokens?.transcriptByteSize ?? transcriptSizeSnapshot?.byteSize;
-  const shouldCompactByTranscriptBytes =
+  const exceedsTranscriptByteThreshold =
     typeof activeTranscriptBytes === "number" &&
     typeof maxActiveTranscriptBytes === "number" &&
     activeTranscriptBytes >= maxActiveTranscriptBytes;
+  // Codex re-evaluates its native rollout fuse every turn; this latch only suppresses local retries.
+  let transcriptByteCompactionLatched =
+    !isCodexRuntime &&
+    exceedsTranscriptByteThreshold &&
+    hasMatchingTranscriptByteCompactionLatch(
+      entry,
+      activeTranscriptBytes,
+      maxActiveTranscriptBytes,
+    );
+  const latch = entry.transcriptByteCompactionLatch;
+  // Unknown projection size cannot invalidate a latch whose identity and threshold still apply.
+  const shouldClearTranscriptByteCompactionLatch =
+    latch !== undefined &&
+    (typeof maxActiveTranscriptBytes !== "number" ||
+      latch.sessionId !== entry.sessionId ||
+      latch.maxBytes !== maxActiveTranscriptBytes ||
+      (typeof activeTranscriptBytes === "number" && !transcriptByteCompactionLatched));
+  if (shouldClearTranscriptByteCompactionLatch) {
+    const compactionCount = await deps.incrementCompactionCount({
+      agentId: compactionAgentId,
+      amount: 0,
+      expectedSession: entry,
+      sessionEntry: entry,
+      sessionKey: compactionSessionKey,
+      sessionStore: compactionStore,
+      storePath: compactionStorePath,
+    });
+    if (compactionCount === undefined) {
+      throw new Error("Session changed before byte-compaction progress could be cleared");
+    }
+    entry = compactionStore[compactionSessionKey] ?? entry;
+    transcriptByteCompactionLatched =
+      !isCodexRuntime &&
+      exceedsTranscriptByteThreshold &&
+      hasMatchingTranscriptByteCompactionLatch(
+        entry,
+        activeTranscriptBytes,
+        maxActiveTranscriptBytes,
+      );
+  }
+  const shouldCompactByTranscriptBytes =
+    exceedsTranscriptByteThreshold && !transcriptByteCompactionLatched;
   if (isCodexRuntime && !shouldCompactByTranscriptBytes) {
     // Codex owns native-thread token pressure; OpenClaw owns the host transcript byte fuse
     // that bounds fresh-thread bootstrap seeds.
@@ -885,7 +944,8 @@ export async function runPreflightCompactionIfNeeded(params: {
       `promptTokensEst=${promptTokenEstimate ?? "undefined"} ` +
       `activeTranscriptBytes=${activeTranscriptBytes ?? "undefined"} ` +
       `maxActiveTranscriptBytes=${maxActiveTranscriptBytes ?? "undefined"} ` +
-      `sizeTrigger=${shouldCompactByTranscriptBytes}`,
+      `sizeTrigger=${shouldCompactByTranscriptBytes} ` +
+      `sizeTriggerLatched=${transcriptByteCompactionLatched}`,
   );
 
   const shouldCompactByTokens = shouldRunPreflightCompaction({
@@ -935,6 +995,8 @@ export async function runPreflightCompactionIfNeeded(params: {
     terminalCompactionNoticeSent = true;
     await notifyCompaction(phase, text);
   };
+  // Provider work can outlive the caller; never account against a replacement session row.
+  const expectedSession = entry;
   try {
     await notifyStartCompaction();
     const result = await deps.compactEmbeddedAgentSession({
@@ -1015,17 +1077,57 @@ export async function runPreflightCompactionIfNeeded(params: {
       throw new Error(`Preflight compaction required but failed: ${reason}`);
     }
 
-    await deps.incrementCompactionCount({
+    const successorSessionId = result.result?.sessionId ?? entry.sessionId;
+    const postCompactionBytes =
+      !isCodexRuntime &&
+      compactionTrigger === "transcript_bytes" &&
+      typeof maxActiveTranscriptBytes === "number"
+        ? readSessionLogSnapshot({
+            agentId: compactionAgentId,
+            sessionId: successorSessionId,
+            sessionKey: compactionSessionKey,
+            storePath: compactionStorePath,
+            includeByteSize: true,
+            includeUsage: false,
+          }).byteSize
+        : undefined;
+    const transcriptByteCompactionLatch =
+      typeof postCompactionBytes === "number" &&
+      typeof maxActiveTranscriptBytes === "number" &&
+      postCompactionBytes >= maxActiveTranscriptBytes
+        ? {
+            activeBytes: postCompactionBytes,
+            sessionId: successorSessionId,
+            maxBytes: maxActiveTranscriptBytes,
+          }
+        : undefined;
+    const compactionCount = await deps.incrementCompactionCount({
       agentId: compactionAgentId,
       cfg: params.cfg,
       sessionEntry: entry,
-      sessionStore: params.sessionStore,
+      sessionStore: compactionStore,
       sessionKey: compactionSessionKey,
       storePath: compactionStorePath,
       tokensAfter: result.result?.tokensAfter,
       newSessionId: result.result?.sessionId,
       compactionKind: result.compactionKind,
+      expectedSession,
+      transcriptByteCompactionLatch,
     });
+    if (compactionCount === undefined) {
+      throw new Error("Session changed before compaction maintenance could be recorded");
+    }
+    entry = compactionStore[compactionSessionKey] ?? entry;
+    if (transcriptByteCompactionLatch) {
+      preflightCompactionLog.warn(
+        "byte-triggered compaction left the active transcript above its limit; suppressing repeats until it grows by another threshold",
+        {
+          sessionKey: compactionSessionKey,
+          activeTranscriptBytes: transcriptByteCompactionLatch.activeBytes,
+          maxActiveTranscriptBytes: transcriptByteCompactionLatch.maxBytes,
+        },
+      );
+    }
     await appendPostCompactionRefreshPrompt({
       cfg: params.cfg,
       followupRun: params.followupRun,
@@ -1037,7 +1139,7 @@ export async function runPreflightCompactionIfNeeded(params: {
         ? `🧹 Server-side compaction complete (${formatTokenCount(result.result.tokensBefore)} → ${formatTokenCount(result.result.tokensAfter)})`
         : undefined;
     await notifyTerminalCompaction("end", serverNotice);
-    entry = params.sessionStore?.[params.sessionKey] ?? entry;
+    entry = compactionStore[compactionSessionKey] ?? entry;
     if (entry) {
       const previousSessionId = params.followupRun.run.sessionId;
       params.followupRun.run.sessionId = entry.sessionId;

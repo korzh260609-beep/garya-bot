@@ -2038,7 +2038,7 @@ describe("compaction-safeguard recent-turn preservation", () => {
     expect(warning).not.toContain(sensitiveSentinel);
   });
 
-  it("rejects a summary whose finalized bytes fail the quality audit", async () => {
+  it("retains required quality facts when finalization trims an oversized summary", async () => {
     mockSummarizeInStages.mockReset();
     const latestAsk = "preserve the pending deployment status";
     const identifier = "/tmp/compaction-final-audit.log";
@@ -2067,6 +2067,7 @@ describe("compaction-safeguard recent-turn preservation", () => {
     setCompactionSafeguardRuntime(sessionManager, {
       model: createAnthropicModelFixture(),
       recentTurnsPreserve: 0,
+      identifierPolicy: "off",
       qualityGuardEnabled: true,
       qualityGuardMaxRetries: 1,
     });
@@ -2084,12 +2085,12 @@ describe("compaction-safeguard recent-turn preservation", () => {
 
     const { result } = await runCompactionScenario({ sessionManager, event, apiKey: "test-key" });
 
-    expect(result).toEqual({ cancel: true });
-    expect(mockSummarizeInStages).toHaveBeenCalledTimes(2);
-    const reason = consumeCompactionSafeguardCancelReason(sessionManager);
-    expect(reason).toContain("finalized summary failed quality checks");
-    expect(reason).not.toContain(identifier);
-    expect(reason).not.toContain(latestAsk);
+    const summary = expectCompactionResult(result).summary;
+    expect(summary.length).toBeLessThanOrEqual(MAX_COMPACTION_SUMMARY_CHARS);
+    expect(summary).toContain(latestAsk);
+    expect(summary).toContain(identifier);
+    expect(mockSummarizeInStages).toHaveBeenCalledTimes(1);
+    expect(consumeCompactionSafeguardCancelReason(sessionManager)).toBeNull();
   });
 
   it("returns the first finalized retry that passes the source audit", async () => {

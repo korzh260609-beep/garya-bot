@@ -62,6 +62,7 @@ import {
   auditSummaryQuality,
   buildCompactionStructureInstructions,
   buildStructuredFallbackSummary,
+  createSummaryQualityRetentionPlan,
   extractOpaqueIdentifiers,
   wrapUntrustedInstructionBlock,
 } from "./compaction-safeguard-quality.js";
@@ -90,6 +91,8 @@ const DEFAULT_QUALITY_GUARD_MAX_RETRIES = 1;
 const MAX_RECENT_TURNS_PRESERVE = 12;
 const MAX_QUALITY_GUARD_MAX_RETRIES = 3;
 const MAX_RECENT_TURN_TEXT_CHARS = 600;
+const MAX_REQUIRED_ASK_CONTEXT_CHARS = 2_000;
+const REQUIRED_ASK_CONTEXT_TRUNCATED_MARKER = "\n[... latest ask context truncated ...]\n";
 const TOOL_CALL_BLOCK_TYPES = new Set(["toolCall", "toolUse", "functionCall"]);
 const PREVIOUS_SUMMARY_REDISTILL_PREFIX =
   "Previous compaction summary to re-distill with the current conversation. " +
@@ -332,6 +335,14 @@ type CompactionSuffix = {
   // Keep producer segment boundaries after later suffix sections are appended;
   // otherwise the final tail cap can split an assistant tool-call/result group.
   contextRanges: Array<{ start: number; end: number; segmentStarts: number[] }>;
+};
+
+type SummaryQualityRetention = {
+  auditSummary: string;
+  identifiers: string[];
+  latestAsk: string | null;
+  requiredAskContext: string;
+  identifierPolicy: "strict" | "off" | "custom";
 };
 
 function assembleSuffix(parts: {
@@ -605,31 +616,43 @@ function budgetCompactionSummary(
   summaryBody: string,
   suffixInput: string | CompactionSuffix,
   maxChars: number,
+  qualityRetention?: SummaryQualityRetention,
 ) {
   const suffix = normalizeCompactionSuffix(suffixInput);
   const joined = `${summaryBody}${suffix.text}`;
-  if (maxChars <= 0 || joined.length <= maxChars) {
+  const retentionPlan = qualityRetention
+    ? createSummaryQualityRetentionPlan(summaryBody, SUMMARY_TRUNCATED_MARKER, qualityRetention)
+    : null;
+  if (maxChars <= 0 || (joined.length <= maxChars && !retentionPlan?.needsRebuild(maxChars))) {
     return {
       summary: joined,
       structuralSummary: summaryBody,
       bodyBudget: maxChars,
       bodyTrimmed: false,
       suffixTrimmed: false,
+      qualityRetentionInfeasible: false,
     };
   }
 
-  const bodyFloor = Math.min(summaryBody.length, Math.max(1, Math.ceil(maxChars / 2)));
+  const bodyCapacity = retentionPlan ? maxChars : summaryBody.length;
+  const bodyFloor = Math.min(
+    bodyCapacity,
+    maxChars,
+    Math.max(1, Math.ceil(maxChars / 2), retentionPlan?.minimumChars ?? 0),
+  );
   const suffixReservation = Math.min(suffix.text.length, maxChars);
-  const bodySlot = Math.min(summaryBody.length, Math.max(bodyFloor, maxChars - suffixReservation));
-  const cappedBody = capCompactionSummary(summaryBody, bodySlot);
+  const bodySlot = Math.min(bodyCapacity, Math.max(bodyFloor, maxChars - suffixReservation));
+  const rendered = retentionPlan?.render(bodySlot);
+  const cappedBody = rendered?.text ?? capCompactionSummary(summaryBody, bodySlot);
   const suffixBudget = Math.max(0, maxChars - cappedBody.length);
   const cappedSuffix = capCompactionSuffix(suffix, suffixBudget);
   return {
     summary: `${cappedBody}${cappedSuffix}`,
     structuralSummary: cappedBody,
     bodyBudget: bodySlot,
-    bodyTrimmed: cappedBody.length < summaryBody.length,
+    bodyTrimmed: rendered ? rendered.trimmed : cappedBody.length < summaryBody.length,
     suffixTrimmed: cappedSuffix.length < suffix.text.length,
+    qualityRetentionInfeasible: retentionPlan !== null && retentionPlan.minimumChars > maxChars,
   };
 }
 
@@ -904,6 +927,18 @@ function formatGeneratedSplitTurnSection(summary: string, onTruncated?: () => vo
   return `${heading}${cappedSummary}`;
 }
 
+function formatRequiredAskContext(summary: string): string {
+  const source = summary.trim();
+  if (source.length <= MAX_REQUIRED_ASK_CONTEXT_CHARS) {
+    return source;
+  }
+  const contentBudget =
+    MAX_REQUIRED_ASK_CONTEXT_CHARS - REQUIRED_ASK_CONTEXT_TRUNCATED_MARKER.length;
+  const headBudget = Math.floor(contentBudget / 2);
+  const tailBudget = contentBudget - headBudget;
+  return `${truncateUtf16Safe(source, headBudget)}${REQUIRED_ASK_CONTEXT_TRUNCATED_MARKER}${sliceUtf16Safe(source, -tailBudget)}`;
+}
+
 function extractLatestUserAsk(messages: AgentMessage[]): string | null {
   for (const message of messages.toReversed()) {
     if (message.role !== "user") {
@@ -1073,6 +1108,7 @@ export default function compactionSafeguardExtension(api: ExtensionAPI): void {
       body: string,
       sections: { splitTurnSection?: ContextSection; preservedTurnsSection?: ContextSection },
       producerLosses: ReadonlySet<CompactionLoss> = new Set(),
+      qualityRetention?: SummaryQualityRetention,
     ) => {
       workspaceContextPromise ??= readWorkspaceContextForSummary(
         runtime?.postCompactionSections,
@@ -1084,7 +1120,12 @@ export default function compactionSafeguardExtension(api: ExtensionAPI): void {
         fileOpsSummary,
         workspaceContext: await workspaceContextPromise,
       });
-      const finalized = budgetCompactionSummary(body, suffix, MAX_COMPACTION_SUMMARY_CHARS);
+      const finalized = budgetCompactionSummary(
+        body,
+        suffix,
+        MAX_COMPACTION_SUMMARY_CHARS,
+        qualityRetention,
+      );
       const losses = new Set(producerLosses);
       for (const section of Object.values(sections)) {
         if (section?.truncatedLoss) {
@@ -1362,6 +1403,15 @@ export default function compactionSafeguardExtension(api: ExtensionAPI): void {
             preservedTurnsSection: preservedTurnsSectionLocal,
           },
           producerLosses,
+          qualityGuardEnabled
+            ? {
+                auditSummary: structuralSummary,
+                identifiers,
+                latestAsk: latestUserAsk,
+                requiredAskContext: formatRequiredAskContext(latestUserAsk ?? ""),
+                identifierPolicy,
+              }
+            : undefined,
         );
 
         const canRegenerate =
@@ -1369,6 +1419,17 @@ export default function compactionSafeguardExtension(api: ExtensionAPI): void {
           (preparation.isSplitTurn && turnPrefixMessages.length > 0);
         if (!qualityGuardEnabled) {
           return compactionResult(finalized.summary);
+        }
+        if (finalized.qualityRetentionInfeasible) {
+          log.warn(
+            "Compaction safeguard: required quality facts exceed finalized artifact budget; " +
+              `requiredChars>${MAX_COMPACTION_SUMMARY_CHARS} identifierCount=${identifiers.length}`,
+          );
+          setCompactionSafeguardCancelReason(
+            ctx.sessionManager,
+            "Compaction safeguard required facts exceed the finalized summary budget.",
+          );
+          return { cancel: true };
         }
         const quality = auditSummaryQuality({
           summary: finalized.summary,

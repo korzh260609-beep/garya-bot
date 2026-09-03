@@ -1,6 +1,7 @@
 /** Quality contract, fallback, and audit helpers for compaction safeguard summaries. */
 import { localeLowercasePreservingWhitespace } from "@openclaw/normalization-core/string-coerce";
 import { uniqueStrings } from "@openclaw/normalization-core/string-normalization";
+import { truncateUtf16Safe } from "@openclaw/normalization-core/utf16-slice";
 import { extractKeywords, isQueryStopWordToken } from "../../memory-host-sdk/query.js";
 import type { CompactionSummarizationInstructions } from "../compaction.js";
 import { wrapUntrustedPromptDataBlock } from "../sanitize-for-prompt.js";
@@ -18,6 +19,10 @@ const REQUIRED_SUMMARY_SECTIONS = [
   "## Pending user asks",
   "## Exact identifiers",
 ] as const;
+const QUALITY_PROTECTED_SECTION_START = 3;
+const PENDING_ASK_SECTION_INDEX = 3;
+const EXACT_IDENTIFIERS_SECTION_INDEX = 4;
+const MAX_PROTECTED_SECTION_CONTENT_SHARE = 0.25;
 const STRICT_EXACT_IDENTIFIERS_INSTRUCTION =
   "For ## Exact identifiers, preserve literal values exactly as seen (IDs, URLs, file paths, ports, hashes, dates, times).";
 const POLICY_OFF_EXACT_IDENTIFIERS_INSTRUCTION =
@@ -91,6 +96,163 @@ function hasRequiredSummarySections(summary: string): boolean {
     cursor = index + 1;
   }
   return true;
+}
+
+type SummaryQualityRetentionPlan = {
+  minimumChars: number;
+  /** Whether a fitting body still needs rebuilding to restore or cap audited facts. */
+  needsRebuild: (maxChars: number) => boolean;
+  /** Null when even the protected facts cannot fit within maxChars. */
+  render: (maxChars: number) => { text: string; trimmed: boolean } | null;
+};
+
+function parseRequiredSummarySectionContents(summary: string): string[] | null {
+  const contents = REQUIRED_SUMMARY_SECTIONS.map(() => new Array<string>());
+  const preamble: string[] = [];
+  let sectionIndex = -1;
+
+  for (const line of summary.split(/\r?\n/u)) {
+    const nextHeading = REQUIRED_SUMMARY_SECTIONS[sectionIndex + 1];
+    if (nextHeading && line.trim() === nextHeading) {
+      sectionIndex += 1;
+      continue;
+    }
+    (sectionIndex < 0 ? preamble : contents[sectionIndex])?.push(line);
+  }
+  if (sectionIndex !== REQUIRED_SUMMARY_SECTIONS.length - 1) {
+    return null;
+  }
+  contents[0]?.unshift(...preamble);
+  return contents.map((lines) => lines.join("\n").trim());
+}
+
+/** Plan finalization that keeps audit facts while allowing model-written text to shrink. */
+export function createSummaryQualityRetentionPlan(
+  summary: string,
+  truncatedMarker: string,
+  params: {
+    auditSummary?: string;
+    identifiers: string[];
+    latestAsk: string | null;
+    requiredAskContext?: string;
+    identifierPolicy?: CompactionSummarizationInstructions["identifierPolicy"];
+  },
+): SummaryQualityRetentionPlan | null {
+  const contents = parseRequiredSummarySectionContents(summary);
+  if (!contents) {
+    return null;
+  }
+  const enforceIdentifiers = (params.identifierPolicy ?? "strict") === "strict";
+  const auditSummary = params.auditSummary ?? summary;
+  if (!hasAskOverlap(auditSummary, params.latestAsk)) {
+    return null;
+  }
+  const requiredAskContext = params.requiredAskContext?.trim() ?? "";
+  const auditedIdentifiers = enforceIdentifiers ? params.identifiers : [];
+  const marker = truncatedMarker.trim();
+  const protectedTails = REQUIRED_SUMMARY_SECTIONS.map((_, index) =>
+    index === PENDING_ASK_SECTION_INDEX
+      ? requiredAskContext
+      : index === EXACT_IDENTIFIERS_SECTION_INDEX
+        ? auditedIdentifiers.join("\n")
+        : "",
+  );
+  const bodyHasIdentifiers = auditedIdentifiers.every((identifier) =>
+    summaryIncludesIdentifier(summary, identifier),
+  );
+  const renderSections = (sectionContents: string[]) =>
+    REQUIRED_SUMMARY_SECTIONS.map((heading, index) => {
+      const content = sectionContents[index];
+      return content ? `${heading}\n${content}` : heading;
+    });
+  const joinSectionContent = (index: number, optional: string) => {
+    const tail = protectedTails[index] ?? "";
+    if (!tail) {
+      return optional;
+    }
+    if (index === PENDING_ASK_SECTION_INDEX && optional.includes(tail)) {
+      return optional;
+    }
+    if (index === EXACT_IDENTIFIERS_SECTION_INDEX) {
+      const missing = auditedIdentifiers.filter(
+        (identifier) => !summaryIncludesIdentifier(optional, identifier),
+      );
+      return [optional, ...missing].filter(Boolean).join("\n");
+    }
+    return [optional, tail].filter(Boolean).join("\n");
+  };
+  const minimumBlocks = REQUIRED_SUMMARY_SECTIONS.map(
+    (heading, index) => `${heading}\n\n${protectedTails[index] ?? ""}`,
+  );
+  const minimumSummary = [
+    ...minimumBlocks.slice(0, QUALITY_PROTECTED_SECTION_START),
+    marker,
+    ...minimumBlocks.slice(QUALITY_PROTECTED_SECTION_START),
+  ].join("\n\n");
+  const protectedCapFor = (maxChars: number) =>
+    Math.floor(Math.max(0, maxChars - minimumSummary.length) * MAX_PROTECTED_SECTION_CONTENT_SHARE);
+  const protectedWithinCap = (maxChars: number) =>
+    contents
+      .slice(QUALITY_PROTECTED_SECTION_START)
+      .every((content) => content.length <= protectedCapFor(maxChars));
+
+  return {
+    minimumChars: minimumSummary.length,
+    needsRebuild: (maxChars) => !bodyHasIdentifiers || !protectedWithinCap(maxChars),
+    render(maxChars) {
+      const bodyHasRequiredAskContext = !requiredAskContext || summary.includes(requiredAskContext);
+      if (
+        summary.length <= maxChars &&
+        bodyHasRequiredAskContext &&
+        bodyHasIdentifiers &&
+        protectedWithinCap(maxChars)
+      ) {
+        return { text: summary, trimmed: false };
+      }
+      if (maxChars < minimumSummary.length) {
+        return null;
+      }
+      const contentBudget = maxChars - minimumSummary.length;
+      const protectedCap = protectedCapFor(maxChars);
+      const allocations = contents.map((content, index) =>
+        index >= QUALITY_PROTECTED_SECTION_START ? Math.min(content.length, protectedCap) : 0,
+      );
+      const optionalBudget = Math.max(
+        0,
+        contentBudget - allocations.reduce((total, chars) => total + chars, 0),
+      );
+      const optionalContents = contents.slice(0, QUALITY_PROTECTED_SECTION_START);
+      const optionalTotal = optionalContents.reduce((total, content) => total + content.length, 0);
+      for (const [index, content] of optionalContents.entries()) {
+        allocations[index] =
+          optionalTotal > 0 ? Math.floor((optionalBudget * content.length) / optionalTotal) : 0;
+      }
+      let remainder =
+        optionalBudget -
+        allocations
+          .slice(0, QUALITY_PROTECTED_SECTION_START)
+          .reduce((total, chars) => total + chars, 0);
+      for (const [index, content] of optionalContents.entries()) {
+        const allocation = allocations[index] ?? 0;
+        const extra = Math.min(remainder, Math.max(0, content.length - allocation));
+        allocations[index] = allocation + extra;
+        remainder -= extra;
+      }
+      const trimmed = contents.some((content, index) => content.length > (allocations[index] ?? 0));
+      const sectionContents = contents.map((content, index) =>
+        joinSectionContent(index, truncateUtf16Safe(content, allocations[index] ?? 0)),
+      );
+      const blocks = renderSections(sectionContents);
+      return {
+        text: [
+          ...blocks.slice(0, QUALITY_PROTECTED_SECTION_START),
+          ...(trimmed ? [marker] : []),
+          ...blocks.slice(QUALITY_PROTECTED_SECTION_START),
+        ].join("\n\n"),
+        trimmed,
+      };
+    },
+  };
 }
 
 /** Return a structured fallback summary when model output is missing/invalid. */

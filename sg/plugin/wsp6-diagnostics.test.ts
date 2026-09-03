@@ -15,24 +15,35 @@ function assessments(snapshot: { corruptEntries: number }) {
 }
 
 const lifecycle = { pending: 0, queued: 3, blocked: 1, succeeded: 2, failed: 0 };
+const interactive = {
+  registered: true,
+  callbacks: 7,
+  started: 2,
+  answered: 4,
+  completed: 2,
+  failed: 0,
+};
 
 describe("WSP6 diagnostics", () => {
   it("passes with all tools and valid durable state", async () => {
     const result = await buildWsp6Diagnostic({
       assessments: assessments({ corruptEntries: 0 }),
       lifecycle,
+      interactive,
       registeredToolNames: ["sg_test_manage", "sg_test_attempt", "sg_test_stats"],
     });
     expect(result).toContain("WSP6 DIAG — PASS");
     expect(result).toContain("PASS native_boundary: simple-polls=message.poll");
     expect(result).toContain("PASS state: definitions=2,attempts=4");
-    expect(result).toContain("PASS privacy: questions=private-route");
+    expect(result).toContain("PASS interactive_handler: registered=true");
+    expect(result).toContain("PASS privacy: questions=participant-buttons");
   });
 
   it("fails on a missing tool or corrupt state", async () => {
     const result = await buildWsp6Diagnostic({
       assessments: assessments({ corruptEntries: 1 }),
       lifecycle,
+      interactive,
       registeredToolNames: ["sg_test_manage", "sg_test_attempt"],
     });
     expect(result).toContain("WSP6 DIAG — FAIL");
@@ -45,6 +56,7 @@ describe("WSP6 diagnostics", () => {
     const result = await buildWsp6Diagnostic({
       assessments: assessments({ corruptEntries: 0 }),
       lifecycle: { pending: 0, queued: 1, blocked: 0, succeeded: 0, failed: 1 },
+      interactive,
       registeredToolNames: ["sg_test_manage", "sg_test_attempt", "sg_test_stats"],
     });
     expect(result).toContain("WSP6 DIAG — FAIL");

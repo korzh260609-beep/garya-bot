@@ -11,6 +11,12 @@ import {
   type SgAssessmentQuestionView,
   type SgAssessmentResult,
 } from "./wsp6-assessments.js";
+import {
+  formatWsp6PrivateResult,
+  wsp6QuestionPresentation,
+  wsp6QuestionText,
+  wsp6StartCallbackValue,
+} from "./wsp6-interactive.js";
 import { Wsp6NativeLifecycle } from "./wsp6-lifecycle.js";
 
 type ToolContext = {
@@ -227,11 +233,6 @@ function definitionSummary(definition: SgAssessmentDefinition) {
   };
 }
 
-function pollQuestion(view: SgAssessmentQuestionView): string {
-  const prefix = `[SG:${view.attemptId}:${view.questionId}] ${view.questionNumber}/${view.questionCount}. `;
-  return `${prefix}${view.prompt}`.slice(0, 290);
-}
-
 function buildQuestionAction(
   actor: Awaited<ReturnType<typeof actorContext>>,
   view: SgAssessmentQuestionView,
@@ -240,34 +241,44 @@ function buildQuestionAction(
     throw new Error("sg-test-private-route-required");
   }
   return {
-    action: "poll",
+    action: "send",
     channel: actor.channel,
     target: actor.senderId,
     ...(actor.accountId ? { accountId: actor.accountId } : {}),
-    pollQuestion: pollQuestion(view),
-    pollOption: view.options.map((option) => option.label),
-    pollMulti: false,
-    ...(actor.channel.toLowerCase() === "telegram" ? { pollPublic: true } : {}),
+    message: wsp6QuestionText(view),
+    presentation: wsp6QuestionPresentation(view),
   };
 }
 
-function formatPrivateResult(title: string, result: SgAssessmentResult): string {
-  if (result.kind === "knowledge") {
-    return [
-      `Результат теста «${title}»`,
-      `Баллы: ${result.score} из ${result.maxScore}`,
-      `Результат: ${result.percent}%`,
-      "Подсчёт выполнен автоматически по сохранённым ответам.",
-    ].join("\n");
-  }
-  return [
-    `Результат теста «${title}»`,
-    ...result.dimensions.map(
-      (dimension) =>
-        `${dimension.label}: ${dimension.score} из ${dimension.maxScore} (${dimension.percent}%)`,
-    ),
-    "Это точные шкалы теста. Любое пояснение ИИ является только интерпретацией.",
-  ].join("\n");
+function buildInviteAction(
+  workspace: SgWorkspace,
+  definition: SgAssessmentDefinition,
+): Record<string, unknown> {
+  return {
+    action: "send",
+    channel: workspace.platform,
+    target: workspace.resourceId,
+    ...(workspace.accountId ? { accountId: workspace.accountId } : {}),
+    ...(workspace.topicId ? { threadId: workspace.topicId } : {}),
+    message: [
+      `🧩 Интерактивный тест: ${definition.title}`,
+      `Вопросов: ${definition.questions.length}`,
+      "Нажмите кнопку, чтобы начать.",
+    ].join("\n\n"),
+    presentation: {
+      blocks: [
+        {
+          type: "buttons",
+          buttons: [
+            {
+              label: "▶️ Начать тест",
+              action: { type: "callback", value: wsp6StartCallbackValue(definition) },
+            },
+          ],
+        },
+      ],
+    },
+  };
 }
 
 function isPrivateContext(
@@ -309,6 +320,29 @@ async function nativeQuestionResult(params: {
   };
 }
 
+async function nativeInviteResult(params: {
+  workspace: SgWorkspace;
+  definition: SgAssessmentDefinition;
+  ctx: ToolContext;
+  lifecycle: Wsp6NativeLifecycle;
+}) {
+  params.lifecycle.assertSessionAvailable(params.ctx.sessionKey);
+  const nextAction = buildInviteAction(params.workspace, params.definition);
+  params.lifecycle.queue({
+    sessionKey: params.ctx.sessionKey,
+    toolName: "message",
+    params: nextAction,
+    purpose: "test-invite",
+    successReply: "Интерактивный тест опубликован с кнопкой запуска.",
+  });
+  return {
+    status: "native_action_required",
+    test: definitionSummary(params.definition),
+    nextTool: "message",
+    nextAction,
+  };
+}
+
 async function completedResult(params: {
   definition: SgAssessmentDefinition;
   result: SgAssessmentResult;
@@ -335,7 +369,7 @@ async function completedResult(params: {
     ...(params.actorContextValue.accountId
       ? { accountId: params.actorContextValue.accountId }
       : {}),
-    message: formatPrivateResult(params.definition.title, params.result),
+    message: formatWsp6PrivateResult(params.definition.title, params.result),
   };
   params.lifecycle.queue({
     sessionKey: params.ctx.sessionKey,
@@ -364,12 +398,15 @@ export function createWsp6Tools(
       name: "sg_test_manage",
       label: "Управление тестами SG",
       description:
-        "Создаёт и открывает неизменяемые тесты знаний или профильные тесты. Доступно admin, owner и monarch. Для обычного опроса без индивидуального результата используй штатный message poll.",
+        "Создаёт и публикует неизменяемые тесты знаний или профильные тесты. Для запроса создать интерактивный тест используй create_and_publish: он сразу публикует настоящую кнопку запуска. create сохраняет только черновик. Доступно admin, owner и monarch. Для обычного опроса без индивидуального результата используй штатный message poll.",
       parameters: {
         type: "object",
         additionalProperties: false,
         properties: {
-          action: { type: "string", enum: ["create", "activate", "close", "get", "list"] },
+          action: {
+            type: "string",
+            enum: ["create", "create_and_publish", "activate", "close", "get", "list"],
+          },
           workspaceId: { type: "string", minLength: 1 },
           testId: { type: "string", minLength: 1 },
           title: { type: "string", minLength: 1 },
@@ -383,7 +420,7 @@ export function createWsp6Tools(
         try {
           const action = textParam(params, "action");
           const actorContextValue = await actorContext(ctx, stateDir);
-          if (action === "create" || action === "list") {
+          if (action === "create" || action === "create_and_publish" || action === "list") {
             const workspace = await resolveWorkspace(params, actorContextValue, workspaces);
             if (!workspace) {
               return jsonResult({ status: "unavailable", reason: "workspace-not-found" });
@@ -393,6 +430,9 @@ export function createWsp6Tools(
             if (action === "list") {
               const definitions = await assessments.listDefinitions(workspace.workspaceId);
               return jsonResult({ status: "ok", tests: definitions.map(definitionSummary) });
+            }
+            if (action === "create_and_publish") {
+              lifecycle.assertSessionAvailable(ctx.sessionKey);
             }
             const kind = textParam(params, "kind") as SgAssessmentKind;
             const definition = await assessments.create({
@@ -406,6 +446,12 @@ export function createWsp6Tools(
               questions: questionsParam(params.questions),
               actorGlobalId: actor.globalId,
             });
+            if (action === "create_and_publish") {
+              const active = await assessments.setStatus(definition.testId, "active");
+              return jsonResult(
+                await nativeInviteResult({ workspace, definition: active, ctx, lifecycle }),
+              );
+            }
             return jsonResult({ status: "created", test: definitionSummary(definition) });
           }
           const definition = await assessments.findDefinition(textParam(params, "testId"));
@@ -424,10 +470,18 @@ export function createWsp6Tools(
           if (action !== "activate" && action !== "close") {
             throw new Error("sg-test-manage-action-invalid");
           }
+          if (action === "activate") {
+            lifecycle.assertSessionAvailable(ctx.sessionKey);
+          }
           const updated = await assessments.setStatus(
             definition.testId,
             action === "activate" ? "active" : "closed",
           );
+          if (action === "activate") {
+            return jsonResult(
+              await nativeInviteResult({ workspace, definition: updated, ctx, lifecycle }),
+            );
+          }
           return jsonResult({ status: updated.status, test: definitionSummary(updated) });
         } catch (error) {
           return jsonResult({
@@ -604,10 +658,10 @@ export function createWsp6Tools(
 
 export const WSP6_AGENT_GUIDANCE = [
   "WSP6 не создаёт отдельный транспорт: обычные опросы отправляй штатным message с action=poll.",
-  "Тесты знаний и профильные тесты создавай через sg_test_manage; участник проходит их только через sg_test_attempt.",
-  "Каждая попытка принадлежит Global ID и workspace. Никогда не подставляй чужой Global ID и не вычисляй баллы самостоятельно.",
-  "В ответ на штатное сообщение Poll response с маркером [SG:attemptId:questionId] вызови sg_test_attempt action=answer с этим attemptId, questionId и выбранной подписью ответа.",
+  "Когда пользователь просит создать интерактивный тест, вызывай sg_test_manage action=create_and_publish: этот вызов сразу создаёт активный тест и возвращает настоящую кнопку запуска. action=create используй только если пользователь явно просит черновик.",
   "После native_action_required или private_delivery_required обязательно вызови nextTool с nextAction без единого изменения.",
-  "Вопросы и результаты направляются участнику лично. В общей группе сообщай только факт отправки, не раскрывая ответов, баллов или профильных шкал.",
+  "Нажатия кнопок запуска и ответов обрабатывает WSP6 программно через callback; не печатай имитации кнопок и не проси отвечать числами или текстом.",
+  "Каждая попытка принадлежит Global ID и workspace. Никогда не подставляй чужой Global ID и не вычисляй баллы самостоятельно.",
+  "Вопросы показываются участнику кнопками в текущем чате. В общей группе не раскрывай ответы, баллы или профильные шкалы; точный итог WSP6 отправляет участнику лично.",
   "Точные баллы и шкалы выдаёт реестр WSP6. Любая интерпретация ИИ не является результатом теста.",
 ].join("\n");

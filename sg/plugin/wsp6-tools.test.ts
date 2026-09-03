@@ -219,10 +219,33 @@ describe("WSP6 assessment tools", () => {
           testId: "managed",
         }),
       ),
-    ).toMatchObject({ status: "active" });
+    ).toMatchObject({
+      status: "native_action_required",
+      test: { testId: "managed", status: "active" },
+      nextTool: "message",
+      nextAction: {
+        action: "send",
+        channel: "telegram",
+        target: "telegram:-100500",
+        message: expect.stringContaining("Интерактивный тест: Управляемый тест"),
+        presentation: {
+          blocks: [
+            {
+              type: "buttons",
+              buttons: [
+                {
+                  label: "▶️ Начать тест",
+                  action: { type: "callback", value: expect.stringMatching(/^sg6:s:/u) },
+                },
+              ],
+            },
+          ],
+        },
+      },
+    });
   });
 
-  it("starts a separate attempt and returns an exact native private poll action", async () => {
+  it("starts a separate attempt and returns native private answer buttons", async () => {
     const { root, workspace, assessments, lifecycle } = await fixture();
     await createActiveTest(assessments, workspace.workspaceId);
     const tools = createWsp6Tools(
@@ -242,19 +265,33 @@ describe("WSP6 assessment tools", () => {
       status: "native_action_required",
       nextTool: "message",
       nextAction: {
-        action: "poll",
+        action: "send",
         channel: "telegram",
         target: "30",
-        pollQuestion: expect.stringMatching(/^\[SG:att_.+:q1\] 1\/2\./u),
-        pollOption: ["Да", "Нет"],
-        pollMulti: false,
-        pollPublic: true,
+        message: expect.stringContaining("Вопрос 1/2"),
+        presentation: {
+          blocks: [
+            {
+              type: "buttons",
+              buttons: [
+                {
+                  label: "A. Да",
+                  action: { type: "callback", value: expect.stringMatching(/^sg6:a:att_/u) },
+                },
+                {
+                  label: "B. Нет",
+                  action: { type: "callback", value: expect.stringMatching(/^sg6:a:att_/u) },
+                },
+              ],
+            },
+          ],
+        },
       },
     });
     expect(lifecycle.snapshot()).toMatchObject({ pending: 1, queued: 1 });
   });
 
-  it("advances from a poll label and returns deterministic results only in private chat", async () => {
+  it("advances from an answer and returns deterministic results only in private chat", async () => {
     const { root, workspace, assessments, lifecycle } = await fixture();
     await createActiveTest(assessments, workspace.workspaceId);
     const started = await assessments.start({
@@ -278,7 +315,21 @@ describe("WSP6 assessment tools", () => {
     );
     expect(next).toMatchObject({
       status: "native_action_required",
-      nextAction: { target: "30", pollOption: ["Один", "Два"] },
+      nextAction: {
+        target: "30",
+        message: expect.stringContaining("Вопрос 2/2"),
+        presentation: {
+          blocks: [
+            {
+              type: "buttons",
+              buttons: [
+                { label: "A. Один", action: { type: "callback" } },
+                { label: "B. Два", action: { type: "callback" } },
+              ],
+            },
+          ],
+        },
+      },
     });
 
     const freshLifecycle = new Wsp6NativeLifecycle();

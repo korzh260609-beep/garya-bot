@@ -156,14 +156,21 @@ describe("SG Workspace Manager WSP1", () => {
   });
 
   it("registers normal reply commands plus internal WSP3-WSP6 tools and guidance", async () => {
+    const { root } = await stateDirWithProfiles();
     const registerCommand = vi.fn();
+    const registerInteractiveHandler = vi.fn();
     const registerTool = vi.fn();
     const on = vi.fn();
     registerWorkspaceManager({
+      config: {},
       registerCommand,
+      registerInteractiveHandler,
       registerTool,
       on,
-      runtime: { state: { resolveStateDir: () => "/tmp/sg-wsp-test" } },
+      runtime: {
+        state: { resolveStateDir: () => root },
+        channel: { outbound: { loadAdapter: vi.fn(async () => undefined) } },
+      },
     });
     expect(registerCommand).toHaveBeenCalledTimes(8);
     const command = registerCommand.mock.calls[0]?.[0];
@@ -211,6 +218,11 @@ describe("SG Workspace Manager WSP1", () => {
     });
     expect(registerTool).toHaveBeenCalledWith(expect.any(Function), {
       names: ["sg_test_manage", "sg_test_attempt", "sg_test_stats"],
+    });
+    expect(registerInteractiveHandler).toHaveBeenCalledWith({
+      channel: "telegram",
+      namespace: "sg6",
+      handler: expect.any(Function),
     });
     expect(registerTool).toHaveBeenCalledWith(expect.any(Function), {
       names: [

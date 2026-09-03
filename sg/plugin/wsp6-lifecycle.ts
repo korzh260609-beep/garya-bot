@@ -10,7 +10,7 @@ type PendingWsp6Action = {
   sessionKey: string;
   toolName: Wsp6NativeTool;
   params: Record<string, unknown>;
-  purpose: "first-question" | "next-question" | "private-result";
+  purpose: "test-invite" | "first-question" | "next-question" | "private-result";
   successReply?: string;
 };
 

@@ -91,6 +91,7 @@ const ID_PATTERN = /^[a-z0-9][a-z0-9_-]{0,63}$/u;
 const MAX_QUESTIONS = 50;
 const MAX_DIMENSIONS = 8;
 const MIN_PRIVATE_AGGREGATE_SIZE = 3;
+const INTERACTIVE_TOKEN_PATTERN = /^[A-Za-z0-9_-]{16}$/u;
 
 function required(value: string, code: string): string {
   const normalized = value.trim();
@@ -314,6 +315,15 @@ function definitionKey(testId: string): string {
   return `test:${testId}`;
 }
 
+export function assessmentInteractiveToken(
+  definition: Pick<SgAssessmentDefinition, "workspaceId" | "testId">,
+): string {
+  return createHash("sha256")
+    .update(`${definition.workspaceId}\0${definition.testId}`)
+    .digest("base64url")
+    .slice(0, 16);
+}
+
 function requireAtomicUpdate<T>(store: PluginStateKeyedStore<T>) {
   if (!store.update) {
     throw new Error("sg-test-atomic-store-required");
@@ -449,6 +459,26 @@ export class SgAssessmentRegistry {
     return definitions
       .filter((definition) => definition.workspaceId === normalizedWorkspace)
       .toSorted((left, right) => left.createdAt.localeCompare(right.createdAt));
+  }
+
+  async findDefinitionByInteractiveToken(
+    token: string,
+  ): Promise<SgAssessmentDefinition | undefined> {
+    const normalized = token.trim();
+    if (!INTERACTIVE_TOKEN_PATTERN.test(normalized)) {
+      throw new Error("sg-test-interactive-token-invalid");
+    }
+    const definitions = (await this.stores.definitions.entries()).map((entry) => entry.value);
+    if (definitions.some((definition) => !validDefinition(definition))) {
+      throw new Error("sg-test-definition-corrupt");
+    }
+    const matches = definitions.filter(
+      (definition) => assessmentInteractiveToken(definition) === normalized,
+    );
+    if (matches.length > 1) {
+      throw new Error("sg-test-interactive-token-ambiguous");
+    }
+    return matches[0];
   }
 
   async setStatus(

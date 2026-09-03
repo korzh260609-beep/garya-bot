@@ -16,6 +16,7 @@ import { Wsp5NativeLifecycle } from "./wsp5-lifecycle.js";
 import { createWsp5Tools, WSP5_AGENT_GUIDANCE } from "./wsp5-tools.js";
 import { openSgAssessmentStores, SgAssessmentRegistry } from "./wsp6-assessments.js";
 import { buildWsp6Diagnostic } from "./wsp6-diagnostics.js";
+import { Wsp6InteractiveController } from "./wsp6-interactive.js";
 import { Wsp6NativeLifecycle } from "./wsp6-lifecycle.js";
 import { createWsp6Tools, WSP6_AGENT_GUIDANCE } from "./wsp6-tools.js";
 
@@ -40,12 +41,14 @@ type CommandContext = {
 };
 
 type WorkspacePluginApi = {
-  config?: { session?: { identityLinks?: Record<string, string[]> } };
+  config?: OpenClawPluginApi["config"];
   runtime: {
     state: {
       resolveStateDir(env?: NodeJS.ProcessEnv): string;
     };
+    channel?: Pick<OpenClawPluginApi["runtime"]["channel"], "outbound">;
   };
+  registerInteractiveHandler?: OpenClawPluginApi["registerInteractiveHandler"];
   registerCommand(command: {
     name: string;
     description: string;
@@ -313,6 +316,21 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
     return assessments;
   };
   const wsp6Lifecycle = new Wsp6NativeLifecycle(api.logger);
+  const wsp6Interactive = api.registerInteractiveHandler
+    ? new Wsp6InteractiveController(stateDir, resolveAssessments, {
+        config: api.config,
+        registerInteractiveHandler: api.registerInteractiveHandler,
+        loadOutboundAdapter: (channelId) => {
+          const channelRuntime = api.runtime.channel;
+          if (!channelRuntime) {
+            throw new Error("sg-test-channel-runtime-unavailable");
+          }
+          return channelRuntime.outbound.loadAdapter(channelId);
+        },
+        logger: api.logger,
+      })
+    : undefined;
+  wsp6Interactive?.register();
   const contextDiagnostics = new SgContextDiagnostics(stateDir, api);
   contextDiagnostics.register();
   api.logger?.info("[sg-workspace] stage=resolve-state-dir");
@@ -1271,6 +1289,7 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
         text: await buildWsp6Diagnostic({
           assessments: resolveAssessments(),
           lifecycle: wsp6Lifecycle.snapshot(),
+          interactive: wsp6Interactive?.snapshot(),
           registeredToolNames: WSP6_TOOL_NAMES,
         }),
       };

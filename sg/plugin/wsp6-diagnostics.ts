@@ -1,4 +1,5 @@
 import { SgAssessmentRegistry } from "./wsp6-assessments.js";
+import type { Wsp6InteractiveSnapshot } from "./wsp6-interactive.js";
 import type { Wsp6LifecycleSnapshot } from "./wsp6-lifecycle.js";
 
 export type Wsp6DiagnosticCheck = {
@@ -18,6 +19,7 @@ function check(
 export async function buildWsp6Diagnostic(input: {
   assessments: SgAssessmentRegistry;
   lifecycle: Wsp6LifecycleSnapshot;
+  interactive?: Wsp6InteractiveSnapshot;
   registeredToolNames: readonly string[];
 }): Promise<string> {
   const checks: Wsp6DiagnosticCheck[] = [];
@@ -34,7 +36,16 @@ export async function buildWsp6Diagnostic(input: {
     check(
       "native_boundary",
       "PASS",
-      "simple-polls=message.poll;tests=message.poll+SG-registry;parallel-transport=absent",
+      "simple-polls=message.poll;tests=message.presentation+plugin-callbacks+SG-registry;parallel-transport=absent",
+    ),
+  );
+  checks.push(
+    check(
+      "interactive_handler",
+      input.interactive?.registered ? "PASS" : "FAIL",
+      input.interactive
+        ? `registered=${input.interactive.registered},callbacks=${input.interactive.callbacks},started=${input.interactive.started},answered=${input.interactive.answered},completed=${input.interactive.completed},failed=${input.interactive.failed}`
+        : "registered=false",
     ),
   );
   try {
@@ -66,7 +77,7 @@ export async function buildWsp6Diagnostic(input: {
     check(
       "privacy",
       "PASS",
-      "questions=private-route;results=private-route;aggregate-minimum=3-participants",
+      "questions=participant-buttons;results=private-route;aggregate-minimum=3-participants",
     ),
   );
   const overall = checks.some((item) => item.status === "FAIL") ? "FAIL" : "PASS";

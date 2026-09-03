@@ -184,6 +184,102 @@ async function createActiveTest(assessments: SgAssessmentRegistry, workspaceId: 
 }
 
 describe("WSP6 assessment tools", () => {
+  it("normalizes duplicate model-generated profile keys by result position", async () => {
+    const { root, workspace, assessments, lifecycle } = await fixture();
+    const admin = createWsp6Tools(
+      toolContext("20", "agent:main:group:profile-normalization"),
+      root,
+      assessments,
+      lifecycle,
+    );
+
+    const result = details(
+      await findTool(admin, "sg_test_manage").execute("profile-normalization", {
+        action: "create_and_publish",
+        workspaceId: workspace.workspaceId,
+        title: "Какой ты гусь?",
+        kind: "profile",
+        results: [
+          { key: "result", title: "Гусь-исследователь", description: "Любит новое." },
+          { key: "result", title: "Гусь-организатор", description: "Наводит порядок." },
+          { key: "result", title: "Гусь-философ", description: "Думает глубоко." },
+        ],
+        questions: [
+          { text: "Куда пойдёшь?", options: ["В лес", "На совет", "К пруду"] },
+          { text: "Что выберешь?", options: ["Карту", "План", "Тишину"] },
+          { text: "Как гоготать?", options: ["С любопытством", "Командно", "Задумчиво"] },
+        ],
+      }),
+    );
+
+    expect(result).toMatchObject({
+      status: "native_action_required",
+      test: { kind: "profile", status: "active", questionCount: 3, resultCount: 3 },
+    });
+    const [definition] = await assessments.listDefinitions(workspace.workspaceId);
+    expect(definition?.results.map((profile) => profile.key)).toEqual(["A", "B", "C"]);
+    expect(
+      definition?.questions.map((question) => question.options.map((option) => option.scoreKey)),
+    ).toEqual([
+      ["A", "B", "C"],
+      ["A", "B", "C"],
+      ["A", "B", "C"],
+    ]);
+    if (!definition) {
+      throw new Error("normalized profile definition missing");
+    }
+    const started = await assessments.start({
+      testId: definition.testId,
+      workspaceId: workspace.workspaceId,
+      globalId: "usr_member",
+    });
+    await assessments.answer({
+      attemptId: started.attempt.attemptId,
+      globalId: "usr_member",
+      questionId: "q_1",
+      answer: "o_1",
+    });
+    await assessments.answer({
+      attemptId: started.attempt.attemptId,
+      globalId: "usr_member",
+      questionId: "q_2",
+      answer: "o_2",
+    });
+    await expect(
+      assessments.answer({
+        attemptId: started.attempt.attemptId,
+        globalId: "usr_member",
+        questionId: "q_3",
+        answer: "o_2",
+      }),
+    ).resolves.toMatchObject({
+      status: "completed",
+      result: {
+        kind: "profile",
+        mode: "categories",
+        keys: ["B"],
+        profiles: [{ title: "Гусь-организатор", description: "Наводит порядок." }],
+        counts: { A: 1, B: 2 },
+      },
+    });
+
+    const automaticDraft = details(
+      await findTool(admin, "sg_test_manage").execute("profile-automatic-keys", {
+        action: "create",
+        workspaceId: workspace.workspaceId,
+        title: "Автоматические ключи",
+        kind: "profile",
+        results: [{ title: "Первый" }, { title: "Второй" }, { title: "Третий" }],
+        questions: [{ text: "Выберите", options: ["Раз", "Два", "Три"] }],
+      }),
+    );
+    expect(automaticDraft).toMatchObject({ status: "created", test: { resultCount: 3 } });
+    const definitions = await assessments.listDefinitions(workspace.workspaceId);
+    expect(
+      definitions.find((item) => item.title === "Автоматические ключи")?.results,
+    ).toMatchObject([{ key: "A" }, { key: "B" }, { key: "C" }]);
+  });
+
   it("creates and publishes an SG 2.1-style categorical profile test", async () => {
     const { root, workspace, assessments, lifecycle } = await fixture();
     const admin = createWsp6Tools(

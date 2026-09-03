@@ -46,6 +46,13 @@ type Wsp6Actor = {
   role: "monarch" | "owner" | "admin" | "member";
 };
 
+type ParsedResults = {
+  profiles?: SgAssessmentProfile[];
+  generatedKeys: boolean;
+};
+
+const PROFILE_KEYS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
 const dimensionSchema = {
   type: "array",
   maxItems: 8,
@@ -65,7 +72,7 @@ const resultSchema = {
   minItems: 1,
   maxItems: 30,
   description:
-    "Категории результата для обычного профильного теста, как в SG 2.1. Варианты ответов по позиции относятся к категории результата с той же позицией, если scoreKey не задан.",
+    "Категории результата для обычного профильного теста, как в SG 2.1. key — необязательный технический идентификатор: при отсутствии или повторах плагин назначает A/B/C по позиции.",
   items: {
     type: "object",
     additionalProperties: false,
@@ -74,7 +81,7 @@ const resultSchema = {
       title: { type: "string", minLength: 1, maxLength: 200 },
       description: { type: "string", maxLength: 1200 },
     },
-    required: ["key", "title"],
+    required: ["title"],
   },
 } as const;
 
@@ -148,14 +155,18 @@ function dimensionsParam(value: unknown): SgAssessmentDimension[] | undefined {
   });
 }
 
-function resultsParam(value: unknown): SgAssessmentProfile[] | undefined {
+function automaticProfileKey(index: number): string {
+  return PROFILE_KEYS[index] ?? String(index + 1);
+}
+
+function resultsParam(value: unknown): ParsedResults {
   if (value === undefined) {
-    return undefined;
+    return { generatedKeys: false };
   }
   if (!Array.isArray(value)) {
     throw new Error("sg-test-results-invalid");
   }
-  return value.map((raw) => {
+  const profiles = value.map((raw) => {
     if (!raw || typeof raw !== "object") {
       throw new Error("sg-test-results-invalid");
     }
@@ -166,11 +177,26 @@ function resultsParam(value: unknown): SgAssessmentProfile[] | undefined {
       description: typeof item.description === "string" ? item.description : "",
     };
   });
+  const suppliedKeys = profiles.map((profile) => profile.key.trim());
+  const suppliedKeysValid =
+    suppliedKeys.every(Boolean) && new Set(suppliedKeys).size === suppliedKeys.length;
+  if (suppliedKeysValid) {
+    return { profiles, generatedKeys: false };
+  }
+  return {
+    profiles: profiles.map((profile, index) => ({
+      key: automaticProfileKey(index),
+      title: profile.title,
+      description: profile.description,
+    })),
+    generatedKeys: true,
+  };
 }
 
 function questionsParam(
   value: unknown,
   resultKeys: readonly string[] = [],
+  positionalResultKeys = false,
 ): SgAssessmentQuestion[] {
   if (!Array.isArray(value)) {
     throw new Error("sg-test-questions-invalid");
@@ -232,7 +258,10 @@ function questionsParam(
                 : "",
           points: Number.isInteger(option.points) ? (option.points as number) : undefined,
           scores,
-          scoreKey: typeof option.scoreKey === "string" ? option.scoreKey : resultKeys[optionIndex],
+          scoreKey:
+            positionalResultKeys || typeof option.scoreKey !== "string"
+              ? resultKeys[optionIndex]
+              : option.scoreKey,
         };
       }),
     };
@@ -525,10 +554,11 @@ export function createWsp6Tools(
               title: textParam(params, "title"),
               kind,
               dimensions: dimensionsParam(params.dimensions),
-              results,
+              results: results.profiles,
               questions: questionsParam(
                 params.questions,
-                kind === "profile" ? (results ?? []).map((result) => result.key) : [],
+                kind === "profile" ? (results.profiles ?? []).map((result) => result.key) : [],
+                results.generatedKeys,
               ),
               actorGlobalId: actor.globalId,
             });
@@ -747,7 +777,7 @@ export const WSP6_AGENT_GUIDANCE = [
   "Когда пользователь просит создать интерактивный тест, вызывай sg_test_manage action=create_and_publish: этот вызов сразу создаёт активный тест и возвращает настоящую кнопку запуска. action=create используй только если пользователь явно просит черновик.",
   "После native_action_required или private_delivery_required обязательно вызови nextTool с nextAction без единого изменения.",
   "Нажатия кнопок запуска и ответов обрабатывает WSP6 программно через callback; не печатай имитации кнопок и не проси отвечать числами или текстом.",
-  "Обычный профильный тест создавай в формате SG 2.1: kind=profile, results=[{key,title,description}], questions=[{text,options:[строки]}]. questionId и optionId не задавай без необходимости — WSP6 создаст их сам. dimensions используй только если пользователь явно просит числовые шкалы.",
+  "Обычный профильный тест создавай в формате SG 2.1: kind=profile, results=[{title,description}], questions=[{text,options:[строки]}]. Не задавай технические key, scoreKey, questionId и optionId без необходимости — WSP6 назначит A/B/C и остальные ID сам. dimensions используй только если пользователь явно просит числовые шкалы.",
   "Каждая попытка принадлежит Global ID и workspace. Никогда не подставляй чужой Global ID и не вычисляй баллы самостоятельно.",
   "Вопросы показываются участнику кнопками в текущем чате. В общей группе не раскрывай ответы, баллы или профильные шкалы; точный итог WSP6 отправляет участнику лично.",
   "Точные баллы и шкалы выдаёт реестр WSP6. Любая интерпретация ИИ не является результатом теста.",

@@ -125,6 +125,19 @@ export function formatWsp6PrivateResult(title: string, result: SgAssessmentResul
       "Подсчёт выполнен автоматически по сохранённым ответам.",
     ].join("\n");
   }
+  if (result.mode === "categories") {
+    const profiles = result.profiles.length
+      ? result.profiles
+      : result.keys.map((key) => ({ key, title: key, description: "" }));
+    return [
+      `Результат теста «${title}»`,
+      "Результат:",
+      ...profiles.map(
+        (profile) => `• ${profile.title}${profile.description ? ` — ${profile.description}` : ""}`,
+      ),
+      "Подсчёт выполнен автоматически по сохранённым ответам.",
+    ].join("\n");
+  }
   return [
     `Результат теста «${title}»`,
     ...result.dimensions.map(

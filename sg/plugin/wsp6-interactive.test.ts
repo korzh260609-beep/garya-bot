@@ -7,6 +7,7 @@ import { SgWorkspaceMembershipRegistry } from "./workspace-memberships.js";
 import { SgWorkspaceRegistry } from "./workspace-registry.js";
 import { openSgAssessmentStores, SgAssessmentRegistry } from "./wsp6-assessments.js";
 import {
+  formatWsp6PrivateResult,
   WSP6_CALLBACK_NAMESPACE,
   Wsp6InteractiveController,
   wsp6StartCallbackValue,
@@ -150,6 +151,18 @@ function firstButton(call: unknown): TelegramButton {
 }
 
 describe("WSP6 interactive callbacks", () => {
+  it("formats an SG 2.1-style categorical profile for private delivery", () => {
+    expect(
+      formatWsp6PrivateResult("Какой ты гусь?", {
+        kind: "profile",
+        mode: "categories",
+        keys: ["A"],
+        profiles: [{ key: "A", title: "Гусь-исследователь", description: "Любит новое." }],
+        counts: { A: 2, B: 1 },
+      }),
+    ).toContain("• Гусь-исследователь — Любит новое.");
+  });
+
   it("keeps the shared start button and creates independent attempts for two Global IDs", async () => {
     const { controller, definition, handler } = await fixture();
     const startValue = wsp6StartCallbackValue(definition);

@@ -7,6 +7,7 @@ import {
   type SgAssessmentDefinition,
   type SgAssessmentDimension,
   type SgAssessmentKind,
+  type SgAssessmentProfile,
   type SgAssessmentQuestion,
   type SgAssessmentQuestionView,
   type SgAssessmentResult,
@@ -59,6 +60,24 @@ const dimensionSchema = {
   },
 } as const;
 
+const resultSchema = {
+  type: "array",
+  minItems: 1,
+  maxItems: 30,
+  description:
+    "Категории результата для обычного профильного теста, как в SG 2.1. Варианты ответов по позиции относятся к категории результата с той же позицией, если scoreKey не задан.",
+  items: {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      key: { type: "string", minLength: 1, maxLength: 40 },
+      title: { type: "string", minLength: 1, maxLength: 200 },
+      description: { type: "string", maxLength: 1200 },
+    },
+    required: ["key", "title"],
+  },
+} as const;
+
 const questionSchema = {
   type: "array",
   minItems: 1,
@@ -68,28 +87,37 @@ const questionSchema = {
     additionalProperties: false,
     properties: {
       questionId: { type: "string", minLength: 1 },
+      id: { type: "string", minLength: 1 },
       prompt: { type: "string", minLength: 1 },
+      text: { type: "string", minLength: 1 },
       options: {
         type: "array",
         minItems: 2,
         maxItems: 4,
         items: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            optionId: { type: "string", minLength: 1 },
-            label: { type: "string", minLength: 1 },
-            points: { type: "integer", minimum: 0, maximum: 100 },
-            scores: {
+          anyOf: [
+            { type: "string", minLength: 1 },
+            {
               type: "object",
-              additionalProperties: { type: "integer", minimum: 0, maximum: 100 },
+              additionalProperties: false,
+              properties: {
+                optionId: { type: "string", minLength: 1 },
+                id: { type: "string", minLength: 1 },
+                label: { type: "string", minLength: 1 },
+                text: { type: "string", minLength: 1 },
+                points: { type: "integer", minimum: 0, maximum: 100 },
+                scoreKey: { type: "string", minLength: 1, maxLength: 40 },
+                scores: {
+                  type: "object",
+                  additionalProperties: { type: "integer", minimum: 0, maximum: 100 },
+                },
+              },
             },
-          },
-          required: ["optionId", "label"],
+          ],
         },
       },
     },
-    required: ["questionId", "prompt", "options"],
+    required: ["options"],
   },
 } as const;
 
@@ -120,11 +148,34 @@ function dimensionsParam(value: unknown): SgAssessmentDimension[] | undefined {
   });
 }
 
-function questionsParam(value: unknown): SgAssessmentQuestion[] {
+function resultsParam(value: unknown): SgAssessmentProfile[] | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (!Array.isArray(value)) {
+    throw new Error("sg-test-results-invalid");
+  }
+  return value.map((raw) => {
+    if (!raw || typeof raw !== "object") {
+      throw new Error("sg-test-results-invalid");
+    }
+    const item = raw as Record<string, unknown>;
+    return {
+      key: typeof item.key === "string" ? item.key : "",
+      title: typeof item.title === "string" ? item.title : "",
+      description: typeof item.description === "string" ? item.description : "",
+    };
+  });
+}
+
+function questionsParam(
+  value: unknown,
+  resultKeys: readonly string[] = [],
+): SgAssessmentQuestion[] {
   if (!Array.isArray(value)) {
     throw new Error("sg-test-questions-invalid");
   }
-  return value.map((rawQuestion) => {
+  return value.map((rawQuestion, questionIndex) => {
     if (!rawQuestion || typeof rawQuestion !== "object") {
       throw new Error("sg-test-questions-invalid");
     }
@@ -133,9 +184,26 @@ function questionsParam(value: unknown): SgAssessmentQuestion[] {
       throw new Error("sg-test-question-options-invalid");
     }
     return {
-      questionId: typeof question.questionId === "string" ? question.questionId : "",
-      prompt: typeof question.prompt === "string" ? question.prompt : "",
-      options: question.options.map((rawOption) => {
+      questionId:
+        typeof question.questionId === "string"
+          ? question.questionId
+          : typeof question.id === "string"
+            ? question.id
+            : `q_${questionIndex + 1}`,
+      prompt:
+        typeof question.prompt === "string"
+          ? question.prompt
+          : typeof question.text === "string"
+            ? question.text
+            : "",
+      options: question.options.map((rawOption, optionIndex) => {
+        if (typeof rawOption === "string") {
+          return {
+            optionId: `o_${optionIndex + 1}`,
+            label: rawOption,
+            scoreKey: resultKeys[optionIndex],
+          };
+        }
         if (!rawOption || typeof rawOption !== "object") {
           throw new Error("sg-test-question-options-invalid");
         }
@@ -150,10 +218,21 @@ function questionsParam(value: unknown): SgAssessmentQuestion[] {
               )
             : undefined;
         return {
-          optionId: typeof option.optionId === "string" ? option.optionId : "",
-          label: typeof option.label === "string" ? option.label : "",
+          optionId:
+            typeof option.optionId === "string"
+              ? option.optionId
+              : typeof option.id === "string"
+                ? option.id
+                : `o_${optionIndex + 1}`,
+          label:
+            typeof option.label === "string"
+              ? option.label
+              : typeof option.text === "string"
+                ? option.text
+                : "",
           points: Number.isInteger(option.points) ? (option.points as number) : undefined,
           scores,
+          scoreKey: typeof option.scoreKey === "string" ? option.scoreKey : resultKeys[optionIndex],
         };
       }),
     };
@@ -229,6 +308,7 @@ function definitionSummary(definition: SgAssessmentDefinition) {
     status: definition.status,
     questionCount: definition.questions.length,
     dimensions: definition.dimensions,
+    resultCount: definition.results.length,
     createdAt: definition.createdAt,
   };
 }
@@ -398,7 +478,7 @@ export function createWsp6Tools(
       name: "sg_test_manage",
       label: "Управление тестами SG",
       description:
-        "Создаёт и публикует неизменяемые тесты знаний или профильные тесты. Для запроса создать интерактивный тест используй create_and_publish: он сразу публикует настоящую кнопку запуска. create сохраняет только черновик. Доступно admin, owner и monarch. Для обычного опроса без индивидуального результата используй штатный message poll.",
+        "Создаёт и публикует неизменяемые тесты знаний или профильные тесты. Для обычного профильного теста используй results (категории результата), как в SG 2.1; questionId/optionId можно не задавать, а варианты могут быть строками. dimensions нужны только для числового теста по шкалам. Для запроса создать интерактивный тест используй create_and_publish: он сразу публикует настоящую кнопку запуска. create сохраняет только черновик. Доступно admin, owner и monarch. Для обычного опроса без индивидуального результата используй штатный message poll.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -412,6 +492,7 @@ export function createWsp6Tools(
           title: { type: "string", minLength: 1 },
           kind: { type: "string", enum: ["knowledge", "profile"] },
           dimensions: dimensionSchema,
+          results: resultSchema,
           questions: questionSchema,
         },
         required: ["action"],
@@ -435,6 +516,7 @@ export function createWsp6Tools(
               lifecycle.assertSessionAvailable(ctx.sessionKey);
             }
             const kind = textParam(params, "kind") as SgAssessmentKind;
+            const results = resultsParam(params.results);
             const definition = await assessments.create({
               ...(typeof params.testId === "string" && params.testId.trim()
                 ? { testId: params.testId.trim() }
@@ -443,7 +525,11 @@ export function createWsp6Tools(
               title: textParam(params, "title"),
               kind,
               dimensions: dimensionsParam(params.dimensions),
-              questions: questionsParam(params.questions),
+              results,
+              questions: questionsParam(
+                params.questions,
+                kind === "profile" ? (results ?? []).map((result) => result.key) : [],
+              ),
               actorGlobalId: actor.globalId,
             });
             if (action === "create_and_publish") {
@@ -661,6 +747,7 @@ export const WSP6_AGENT_GUIDANCE = [
   "Когда пользователь просит создать интерактивный тест, вызывай sg_test_manage action=create_and_publish: этот вызов сразу создаёт активный тест и возвращает настоящую кнопку запуска. action=create используй только если пользователь явно просит черновик.",
   "После native_action_required или private_delivery_required обязательно вызови nextTool с nextAction без единого изменения.",
   "Нажатия кнопок запуска и ответов обрабатывает WSP6 программно через callback; не печатай имитации кнопок и не проси отвечать числами или текстом.",
+  "Обычный профильный тест создавай в формате SG 2.1: kind=profile, results=[{key,title,description}], questions=[{text,options:[строки]}]. questionId и optionId не задавай без необходимости — WSP6 создаст их сам. dimensions используй только если пользователь явно просит числовые шкалы.",
   "Каждая попытка принадлежит Global ID и workspace. Никогда не подставляй чужой Global ID и не вычисляй баллы самостоятельно.",
   "Вопросы показываются участнику кнопками в текущем чате. В общей группе не раскрывай ответы, баллы или профильные шкалы; точный итог WSP6 отправляет участнику лично.",
   "Точные баллы и шкалы выдаёт реестр WSP6. Любая интерпретация ИИ не является результатом теста.",

@@ -184,6 +184,87 @@ async function createActiveTest(assessments: SgAssessmentRegistry, workspaceId: 
 }
 
 describe("WSP6 assessment tools", () => {
+  it("creates and publishes an SG 2.1-style categorical profile test", async () => {
+    const { root, workspace, assessments, lifecycle } = await fixture();
+    const admin = createWsp6Tools(
+      toolContext("20", "agent:main:group:profile"),
+      root,
+      assessments,
+      lifecycle,
+    );
+
+    const result = details(
+      await findTool(admin, "sg_test_manage").execute("profile", {
+        action: "create_and_publish",
+        workspaceId: workspace.workspaceId,
+        title: "Какой ты гусь?",
+        kind: "profile",
+        results: [
+          { key: "A", title: "Гусь-исследователь", description: "Любит новое." },
+          { key: "B", title: "Гусь-организатор", description: "Наводит порядок." },
+        ],
+        questions: [
+          {
+            text: "Что выберешь?",
+            options: ["Исследовать", "Организовать"],
+          },
+        ],
+      }),
+    );
+
+    expect(result).toMatchObject({
+      status: "native_action_required",
+      test: { kind: "profile", status: "active", resultCount: 2 },
+      nextTool: "message",
+      nextAction: {
+        message: expect.stringContaining("Какой ты гусь?"),
+        presentation: {
+          blocks: [
+            {
+              type: "buttons",
+              buttons: [{ label: "▶️ Начать тест", action: { type: "callback" } }],
+            },
+          ],
+        },
+      },
+    });
+
+    const [definition] = await assessments.listDefinitions(workspace.workspaceId);
+    if (!definition) {
+      throw new Error("profile definition missing");
+    }
+    expect(definition.questions[0]).toMatchObject({
+      questionId: "q_1",
+      prompt: "Что выберешь?",
+      options: [
+        { optionId: "o_1", label: "Исследовать", scoreKey: "A" },
+        { optionId: "o_2", label: "Организовать", scoreKey: "B" },
+      ],
+    });
+    const started = await assessments.start({
+      testId: definition.testId,
+      workspaceId: workspace.workspaceId,
+      globalId: "usr_member",
+    });
+    await expect(
+      assessments.answer({
+        attemptId: started.attempt.attemptId,
+        globalId: "usr_member",
+        questionId: "q_1",
+        answer: "o_1",
+      }),
+    ).resolves.toMatchObject({
+      status: "completed",
+      result: {
+        kind: "profile",
+        mode: "categories",
+        keys: ["A"],
+        profiles: [{ title: "Гусь-исследователь", description: "Любит новое." }],
+        counts: { A: 1 },
+      },
+    });
+  });
+
   it("allows managers to define tests and denies management to members", async () => {
     const { root, workspace, assessments, lifecycle } = await fixture();
     const definition = {

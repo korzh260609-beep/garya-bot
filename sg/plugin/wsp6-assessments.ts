@@ -5,11 +5,13 @@ import { openWsp6SqliteStores } from "./wsp6-store.js";
 export type SgAssessmentKind = "knowledge" | "profile";
 export type SgAssessmentStatus = "draft" | "active" | "closed";
 export type SgAssessmentDimension = { key: string; label: string };
+export type SgAssessmentProfile = { key: string; title: string; description: string };
 export type SgAssessmentOption = {
   optionId: string;
   label: string;
   points?: number;
   scores?: Record<string, number>;
+  scoreKey?: string;
 };
 export type SgAssessmentQuestion = {
   questionId: string;
@@ -24,6 +26,7 @@ export type SgAssessmentDefinition = {
   kind: SgAssessmentKind;
   status: SgAssessmentStatus;
   dimensions: SgAssessmentDimension[];
+  results: SgAssessmentProfile[];
   questions: SgAssessmentQuestion[];
   createdByGlobalId: string;
   createdAt: string;
@@ -64,6 +67,7 @@ export type SgKnowledgeResult = {
 };
 export type SgProfileResult = {
   kind: "profile";
+  mode: "dimensions";
   dimensions: Array<{
     key: string;
     label: string;
@@ -72,7 +76,14 @@ export type SgProfileResult = {
     percent: number;
   }>;
 };
-export type SgAssessmentResult = SgKnowledgeResult | SgProfileResult;
+export type SgCategoricalProfileResult = {
+  kind: "profile";
+  mode: "categories";
+  keys: string[];
+  profiles: SgAssessmentProfile[];
+  counts: Record<string, number>;
+};
+export type SgAssessmentResult = SgKnowledgeResult | SgProfileResult | SgCategoricalProfileResult;
 export type SgAssessmentStats = {
   testId: string;
   completedAttempts: number;
@@ -80,6 +91,7 @@ export type SgAssessmentStats = {
   aggregateAvailable: boolean;
   knowledgeAveragePercent?: number;
   profileAveragePercent?: Array<{ key: string; label: string; percent: number }>;
+  profileCounts?: Array<{ key: string; title: string; count: number }>;
 };
 
 type SgAssessmentStores = {
@@ -90,6 +102,7 @@ type SgAssessmentStores = {
 const ID_PATTERN = /^[a-z0-9][a-z0-9_-]{0,63}$/u;
 const MAX_QUESTIONS = 50;
 const MAX_DIMENSIONS = 8;
+const MAX_RESULTS = 30;
 const MIN_PRIVATE_AGGREGATE_SIZE = 3;
 const INTERACTIVE_TOKEN_PATTERN = /^[A-Za-z0-9_-]{16}$/u;
 
@@ -103,6 +116,14 @@ function required(value: string, code: string): string {
 
 function boundedText(value: string, max: number, code: string): string {
   const normalized = required(value, code);
+  if (normalized.length > max) {
+    throw new Error(code);
+  }
+  return normalized;
+}
+
+function optionalBoundedText(value: string | undefined, max: number, code: string): string {
+  const normalized = value?.trim() ?? "";
   if (normalized.length > max) {
     throw new Error(code);
   }
@@ -137,8 +158,12 @@ function validateDefinitionInput(input: {
   title: string;
   kind: SgAssessmentKind;
   dimensions?: SgAssessmentDimension[];
+  results?: SgAssessmentProfile[];
   questions: SgAssessmentQuestion[];
-}): Pick<SgAssessmentDefinition, "workspaceId" | "title" | "kind" | "dimensions" | "questions"> {
+}): Pick<
+  SgAssessmentDefinition,
+  "workspaceId" | "title" | "kind" | "dimensions" | "results" | "questions"
+> {
   const workspaceId = required(input.workspaceId, "sg-test-workspace-required");
   const title = boundedText(input.title, 160, "sg-test-title-invalid");
   if (input.kind !== "knowledge" && input.kind !== "profile") {
@@ -158,10 +183,28 @@ function validateDefinitionInput(input: {
   if (!unique(dimensions.map((dimension) => dimension.key))) {
     throw new Error("sg-test-dimension-duplicate");
   }
-  if (input.kind === "knowledge" && dimensions.length > 0) {
+  const results = (input.results ?? []).map((result) => ({
+    key: boundedText(result.key, 40, "sg-test-result-invalid"),
+    title: boundedText(result.title || result.key, 200, "sg-test-result-invalid"),
+    description: optionalBoundedText(result.description, 1_200, "sg-test-result-invalid"),
+  }));
+  if (results.length > MAX_RESULTS) {
+    throw new Error("sg-test-results-invalid");
+  }
+  if (!unique(results.map((result) => result.key))) {
+    throw new Error("sg-test-result-duplicate");
+  }
+  if (input.kind === "knowledge" && (dimensions.length > 0 || results.length > 0)) {
     throw new Error("sg-test-knowledge-dimensions-forbidden");
   }
-  if (input.kind === "profile" && (dimensions.length < 1 || dimensions.length > MAX_DIMENSIONS)) {
+  if (input.kind === "profile" && dimensions.length > 0 && results.length > 0) {
+    throw new Error("sg-test-profile-mode-ambiguous");
+  }
+  if (
+    input.kind === "profile" &&
+    results.length === 0 &&
+    (dimensions.length < 1 || dimensions.length > MAX_DIMENSIONS)
+  ) {
     throw new Error("sg-test-profile-dimensions-required");
   }
   const dimensionKeys = new Set(dimensions.map((dimension) => dimension.key));
@@ -175,7 +218,7 @@ function validateDefinitionInput(input: {
     ) {
       throw new Error("sg-test-question-options-invalid");
     }
-    const options = question.options.map((option) => {
+    const options = question.options.map((option, optionIndex) => {
       const optionId = identifier(option.optionId, "sg-test-option-id-invalid");
       const label = boundedText(option.label, 80, "sg-test-option-label-invalid");
       if (input.kind === "knowledge") {
@@ -190,6 +233,20 @@ function validateDefinitionInput(input: {
       }
       if (option.points !== undefined) {
         throw new Error("sg-test-profile-points-forbidden");
+      }
+      if (results.length > 0) {
+        if (option.scores !== undefined) {
+          throw new Error("sg-test-profile-scores-forbidden");
+        }
+        return {
+          optionId,
+          label,
+          scoreKey: boundedText(
+            option.scoreKey ?? results[optionIndex]?.key ?? String(optionIndex + 1),
+            40,
+            "sg-test-option-score-key-invalid",
+          ),
+        };
       }
       const rawScores = option.scores ?? {};
       if (Object.keys(rawScores).some((key) => !dimensionKeys.has(key))) {
@@ -236,7 +293,7 @@ function validateDefinitionInput(input: {
       }
     }
   }
-  return { workspaceId, title, kind: input.kind, dimensions, questions };
+  return { workspaceId, title, kind: input.kind, dimensions, results, questions };
 }
 
 function validTimestamp(value: unknown): value is string {
@@ -265,12 +322,24 @@ function validDefinition(value: unknown): value is SgAssessmentDefinition {
       title: item.title ?? "",
       kind: item.kind as SgAssessmentKind,
       dimensions: item.dimensions,
+      results: item.results,
       questions: item.questions ?? [],
     });
     return true;
   } catch {
     return false;
   }
+}
+
+function normalizedStoredDefinition(value: unknown): SgAssessmentDefinition | undefined {
+  if (!validDefinition(value)) {
+    return undefined;
+  }
+  return {
+    ...value,
+    dimensions: value.dimensions ?? [],
+    results: value.results ?? [],
+  };
 }
 
 function validAttempt(value: unknown): value is SgAssessmentAttempt {
@@ -373,8 +442,29 @@ function assessmentResult(
       percent: maxScore === 0 ? 0 : roundPercent((score / maxScore) * 100),
     };
   }
+  if (definition.results.length > 0) {
+    const counts = new Map<string, number>();
+    for (const question of definition.questions) {
+      const option = question.options.find(
+        (candidate) => candidate.optionId === selected.get(question.questionId),
+      );
+      if (option?.scoreKey) {
+        counts.set(option.scoreKey, (counts.get(option.scoreKey) ?? 0) + 1);
+      }
+    }
+    const maximum = Math.max(0, ...counts.values());
+    const keys = [...counts.entries()].filter(([, count]) => count === maximum).map(([key]) => key);
+    return {
+      kind: "profile",
+      mode: "categories",
+      keys,
+      profiles: definition.results.filter((profile) => keys.includes(profile.key)),
+      counts: Object.fromEntries(counts),
+    };
+  }
   return {
     kind: "profile",
+    mode: "dimensions",
     dimensions: definition.dimensions.map((dimension) => {
       let score = 0;
       let maxScore = 0;
@@ -414,6 +504,7 @@ export class SgAssessmentRegistry {
     title: string;
     kind: SgAssessmentKind;
     dimensions?: SgAssessmentDimension[];
+    results?: SgAssessmentProfile[];
     questions: SgAssessmentQuestion[];
     actorGlobalId: string;
   }): Promise<SgAssessmentDefinition> {
@@ -444,20 +535,25 @@ export class SgAssessmentRegistry {
     if (value === undefined) {
       return undefined;
     }
-    if (!validDefinition(value)) {
+    const definition = normalizedStoredDefinition(value);
+    if (!definition) {
       throw new Error("sg-test-definition-corrupt");
     }
-    return value;
+    return definition;
   }
 
   async listDefinitions(workspaceId: string): Promise<SgAssessmentDefinition[]> {
     const normalizedWorkspace = required(workspaceId, "sg-test-workspace-required");
-    const definitions = (await this.stores.definitions.entries()).map((entry) => entry.value);
-    if (definitions.some((definition) => !validDefinition(definition))) {
+    const definitions = (await this.stores.definitions.entries()).map((entry) =>
+      normalizedStoredDefinition(entry.value),
+    );
+    if (definitions.some((definition) => !definition)) {
       throw new Error("sg-test-definition-corrupt");
     }
     return definitions
-      .filter((definition) => definition.workspaceId === normalizedWorkspace)
+      .filter((definition): definition is SgAssessmentDefinition =>
+        Boolean(definition && definition.workspaceId === normalizedWorkspace),
+      )
       .toSorted((left, right) => left.createdAt.localeCompare(right.createdAt));
   }
 
@@ -468,12 +564,14 @@ export class SgAssessmentRegistry {
     if (!INTERACTIVE_TOKEN_PATTERN.test(normalized)) {
       throw new Error("sg-test-interactive-token-invalid");
     }
-    const definitions = (await this.stores.definitions.entries()).map((entry) => entry.value);
-    if (definitions.some((definition) => !validDefinition(definition))) {
+    const definitions = (await this.stores.definitions.entries()).map((entry) =>
+      normalizedStoredDefinition(entry.value),
+    );
+    if (definitions.some((definition) => !definition)) {
       throw new Error("sg-test-definition-corrupt");
     }
-    const matches = definitions.filter(
-      (definition) => assessmentInteractiveToken(definition) === normalized,
+    const matches = definitions.filter((definition): definition is SgAssessmentDefinition =>
+      Boolean(definition && assessmentInteractiveToken(definition) === normalized),
     );
     if (matches.length > 1) {
       throw new Error("sg-test-interactive-token-ambiguous");
@@ -491,13 +589,14 @@ export class SgAssessmentRegistry {
       if (!current) {
         throw new Error("sg-test-not-found");
       }
-      if (!validDefinition(current)) {
+      const definition = normalizedStoredDefinition(current);
+      if (!definition) {
         throw new Error("sg-test-definition-corrupt");
       }
-      if (status === "active" && current.status === "closed") {
+      if (status === "active" && definition.status === "closed") {
         throw new Error("sg-test-closed");
       }
-      updated = { ...current, status, updatedAt: new Date().toISOString() };
+      updated = { ...definition, status, updatedAt: new Date().toISOString() };
       return updated;
     });
     if (!updated) {
@@ -722,20 +821,40 @@ export class SgAssessmentRegistry {
     }
     return {
       ...base,
-      profileAveragePercent: definition.dimensions.map((dimension) => ({
-        key: dimension.key,
-        label: dimension.label,
-        percent: roundPercent(
-          results.reduce((sum, result) => {
-            if (result.kind !== "profile") {
-              return sum;
-            }
-            return (
-              sum + (result.dimensions.find((item) => item.key === dimension.key)?.percent ?? 0)
-            );
-          }, 0) / results.length,
-        ),
-      })),
+      ...(definition.results.length > 0
+        ? {
+            profileCounts: definition.results.map((profile) => ({
+              key: profile.key,
+              title: profile.title,
+              count: results.reduce(
+                (sum, result) =>
+                  sum +
+                  (result.kind === "profile" &&
+                  result.mode === "categories" &&
+                  result.keys.includes(profile.key)
+                    ? 1
+                    : 0),
+                0,
+              ),
+            })),
+          }
+        : {
+            profileAveragePercent: definition.dimensions.map((dimension) => ({
+              key: dimension.key,
+              label: dimension.label,
+              percent: roundPercent(
+                results.reduce((sum, result) => {
+                  if (result.kind !== "profile" || result.mode !== "dimensions") {
+                    return sum;
+                  }
+                  return (
+                    sum +
+                    (result.dimensions.find((item) => item.key === dimension.key)?.percent ?? 0)
+                  );
+                }, 0) / results.length,
+              ),
+            })),
+          }),
     };
   }
 

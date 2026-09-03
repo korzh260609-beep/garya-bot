@@ -49,6 +49,9 @@ const workspaceToolGrant = [
   "sg_content_publish",
   "sg_content_schedule",
   "sg_content_dispatch",
+  "sg_test_manage",
+  "sg_test_attempt",
+  "sg_test_stats",
 ];
 const withoutWorkspaceGrant = resolveEmbeddedAttemptToolConstructionPlan({
   toolsEnabled: true,
@@ -188,6 +191,13 @@ console.log(
           "sg_content_dispatch",
         ].every((name) => tool.names.includes(name)),
     ),
+    wsp6ToolsRegistered: registry.tools.some(
+      (tool) =>
+        tool.pluginId === "sg-workspace-manager" &&
+        ["sg_test_manage", "sg_test_attempt", "sg_test_stats"].every((name) =>
+          tool.names.includes(name),
+        ),
+    ),
     promptGuidanceInjected:
       promptBuildResult?.prependSystemContext?.includes(
         "обязательно используй sg_workspace_pending",
@@ -207,11 +217,17 @@ console.log(
       "sg_content_schedule",
       "sg_content_dispatch",
     ].every((name) => pluginTools.some((tool) => tool.name === name)),
+    wsp6ToolsInModelSurface: ["sg_test_manage", "sg_test_attempt", "sg_test_stats"].every((name) =>
+      pluginTools.some((tool) => tool.name === name),
+    ),
     wsp4ToolsAbsentWithoutGrant: !pluginToolsWithoutGrant.some(
       (tool) => tool.name.startsWith("sg_citizen_") || tool.name.startsWith("sg_membership_"),
     ),
     wsp5ToolsAbsentWithoutGrant: !pluginToolsWithoutGrant.some((tool) =>
       tool.name.startsWith("sg_content_"),
+    ),
+    wsp6ToolsAbsentWithoutGrant: !pluginToolsWithoutGrant.some((tool) =>
+      tool.name.startsWith("sg_test_"),
     ),
     pluginToolsExcludedWithoutGrant:
       withoutWorkspaceGrant.codingToolConstructionPlan.includePluginTools === false,

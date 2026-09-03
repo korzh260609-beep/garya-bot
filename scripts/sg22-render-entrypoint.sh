@@ -25,7 +25,7 @@ esac
 
 if [ "$workspace_plugin_enabled" = "true" ]; then
   workspace_plugin_paths='["/app/sg/plugin"]'
-  workspace_plugin_tools='["sg_workspace_onboard","sg_workspace_pending","sg_workspace_decide","sg_citizen_apply","sg_citizen_pending","sg_citizen_decide","sg_membership_list","sg_membership_manage","sg_content_draft","sg_content_review","sg_content_publish","sg_content_schedule","sg_content_dispatch"]'
+  workspace_plugin_tools='["sg_workspace_onboard","sg_workspace_pending","sg_workspace_decide","sg_citizen_apply","sg_citizen_pending","sg_citizen_decide","sg_membership_list","sg_membership_manage","sg_content_draft","sg_content_review","sg_content_publish","sg_content_schedule","sg_content_dispatch","sg_test_manage","sg_test_attempt","sg_test_stats"]'
 else
   workspace_plugin_paths='[]'
   workspace_plugin_tools='[]'

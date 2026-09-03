@@ -155,7 +155,7 @@ describe("SG Workspace Manager WSP1", () => {
     expect(second).toEqual(first);
   });
 
-  it("registers normal reply commands plus internal WSP3/WSP4/WSP5 tools and guidance", async () => {
+  it("registers normal reply commands plus internal WSP3-WSP6 tools and guidance", async () => {
     const registerCommand = vi.fn();
     const registerTool = vi.fn();
     const on = vi.fn();
@@ -165,7 +165,7 @@ describe("SG Workspace Manager WSP1", () => {
       on,
       runtime: { state: { resolveStateDir: () => "/tmp/sg-wsp-test" } },
     });
-    expect(registerCommand).toHaveBeenCalledTimes(7);
+    expect(registerCommand).toHaveBeenCalledTimes(8);
     const command = registerCommand.mock.calls[0]?.[0];
     expect(command).toMatchObject({ name: "sg_context", requireAuth: false });
     expect(registerCommand.mock.calls[1]?.[0]).toMatchObject({
@@ -185,11 +185,15 @@ describe("SG Workspace Manager WSP1", () => {
       requireAuth: false,
     });
     expect(registerCommand.mock.calls[5]?.[0]).toMatchObject({
+      name: "sg_wsp6_diag",
+      requireAuth: false,
+    });
+    expect(registerCommand.mock.calls[6]?.[0]).toMatchObject({
       name: "sg_context_diag",
       acceptsArgs: true,
       requireAuth: false,
     });
-    expect(registerCommand.mock.calls[6]?.[0]).toMatchObject({
+    expect(registerCommand.mock.calls[7]?.[0]).toMatchObject({
       name: "sg_cost_diag",
       requireAuth: false,
     });
@@ -204,6 +208,9 @@ describe("SG Workspace Manager WSP1", () => {
         "sg_membership_list",
         "sg_membership_manage",
       ],
+    });
+    expect(registerTool).toHaveBeenCalledWith(expect.any(Function), {
+      names: ["sg_test_manage", "sg_test_attempt", "sg_test_stats"],
     });
     expect(registerTool).toHaveBeenCalledWith(expect.any(Function), {
       names: [
@@ -235,6 +242,9 @@ describe("SG Workspace Manager WSP1", () => {
     });
     expect(result).toMatchObject({
       prependSystemContext: expect.stringContaining("штатным automations"),
+    });
+    expect(result).toMatchObject({
+      prependSystemContext: expect.stringContaining("обычные опросы отправляй штатным message"),
     });
   });
 

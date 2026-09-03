@@ -26,6 +26,11 @@ export * from "./content-registry.js";
 export * from "./wsp5-diagnostics.js";
 export * from "./wsp5-lifecycle.js";
 export * from "./wsp5-tools.js";
+export * from "./wsp6-assessments.js";
+export * from "./wsp6-diagnostics.js";
+export * from "./wsp6-lifecycle.js";
+export * from "./wsp6-store.js";
+export * from "./wsp6-tools.js";
 
 export default definePluginEntry({
   id: "sg-workspace-manager",

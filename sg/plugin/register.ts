@@ -14,6 +14,10 @@ import { createWsp4Tools, WSP4_AGENT_GUIDANCE } from "./wsp4-tools.js";
 import { buildWsp5Diagnostic } from "./wsp5-diagnostics.js";
 import { Wsp5NativeLifecycle } from "./wsp5-lifecycle.js";
 import { createWsp5Tools, WSP5_AGENT_GUIDANCE } from "./wsp5-tools.js";
+import { openSgAssessmentStores, SgAssessmentRegistry } from "./wsp6-assessments.js";
+import { buildWsp6Diagnostic } from "./wsp6-diagnostics.js";
+import { Wsp6NativeLifecycle } from "./wsp6-lifecycle.js";
+import { createWsp6Tools, WSP6_AGENT_GUIDANCE } from "./wsp6-tools.js";
 
 type CommandContext = {
   channel: string;
@@ -55,7 +59,8 @@ type WorkspacePluginApi = {
     ) =>
       | ReturnType<typeof createWorkspaceTools>
       | ReturnType<typeof createWsp4Tools>
-      | ReturnType<typeof createWsp5Tools>,
+      | ReturnType<typeof createWsp5Tools>
+      | ReturnType<typeof createWsp6Tools>,
     options: { names: string[] },
   ): void;
   on: OpenClawPluginApi["on"];
@@ -81,6 +86,7 @@ const WSP5_TOOL_NAMES = [
   "sg_content_schedule",
   "sg_content_dispatch",
 ] as const;
+const WSP6_TOOL_NAMES = ["sg_test_manage", "sg_test_attempt", "sg_test_stats"] as const;
 const MAX_DIAGNOSTIC_SESSIONS = 100;
 const MAX_DURABLE_EVENTS = 100;
 const MAX_DURABLE_INSTANCES = 20;
@@ -298,6 +304,15 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
   const stateDir =
     process.env.OPENCLAW_STATE_DIR?.trim() || api.runtime.state.resolveStateDir(process.env);
   const wsp5Lifecycle = new Wsp5NativeLifecycle(new SgContentRegistry(stateDir), api.logger);
+  let assessments: SgAssessmentRegistry | undefined;
+  const resolveAssessments = () => {
+    if (assessments) {
+      return assessments;
+    }
+    assessments = new SgAssessmentRegistry(openSgAssessmentStores(stateDir));
+    return assessments;
+  };
+  const wsp6Lifecycle = new Wsp6NativeLifecycle(api.logger);
   const contextDiagnostics = new SgContextDiagnostics(stateDir, api);
   contextDiagnostics.register();
   api.logger?.info("[sg-workspace] stage=resolve-state-dir");
@@ -490,7 +505,11 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
   api.registerTool((ctx) => createWsp5Tools(ctx, stateDir, wsp5Lifecycle), {
     names: [...WSP5_TOOL_NAMES],
   });
+  api.registerTool((ctx) => createWsp6Tools(ctx, stateDir, resolveAssessments(), wsp6Lifecycle), {
+    names: [...WSP6_TOOL_NAMES],
+  });
   wsp5Lifecycle.register(api);
+  wsp6Lifecycle.register(api);
   api.logger?.info("[sg-workspace] stage=register-tools-complete");
   api.on("before_prompt_build", async (_event, ctx) => {
     hookCounts.prompt += 1;
@@ -519,7 +538,7 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
     });
     diagnosticLog(ctx.sessionKey, ctx.runId, "prompt-hook", "guidance-injected");
     return {
-      prependSystemContext: `${WSP3_AGENT_GUIDANCE}\n${WSP4_AGENT_GUIDANCE}\n${WSP5_AGENT_GUIDANCE}`,
+      prependSystemContext: `${WSP3_AGENT_GUIDANCE}\n${WSP4_AGENT_GUIDANCE}\n${WSP5_AGENT_GUIDANCE}\n${WSP6_AGENT_GUIDANCE}`,
     };
   });
   api.on("llm_input", async (event, ctx) => {
@@ -1224,6 +1243,35 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
           actor,
           registeredToolNames: WSP5_TOOL_NAMES,
           lifecycle: wsp5Lifecycle.snapshot(),
+        }),
+      };
+    },
+  });
+  api.registerCommand({
+    name: "sg_wsp6_diag",
+    description: "Проверить цепочку опросов и тестов WSP6",
+    requireAuth: false,
+    handler: async (ctx) => {
+      const actor = await resolveWorkspaceContext(
+        {
+          channel: ctx.channel,
+          accountId: ctx.accountId,
+          to: ctx.to,
+          threadParentId: ctx.threadParentId,
+          messageThreadId: ctx.messageThreadId,
+          senderId: ctx.senderId,
+          identityLinks: ctx.config.session?.identityLinks,
+        },
+        stateDir,
+      );
+      if (actor.projectRole !== "monarch" || !actor.globalId) {
+        return { text: "WSP6 DIAG — доступ разрешён только монарху" };
+      }
+      return {
+        text: await buildWsp6Diagnostic({
+          assessments: resolveAssessments(),
+          lifecycle: wsp6Lifecycle.snapshot(),
+          registeredToolNames: WSP6_TOOL_NAMES,
         }),
       };
     },

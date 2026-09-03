@@ -1,0 +1,740 @@
+import { createHash, randomUUID } from "node:crypto";
+import type { PluginStateKeyedStore } from "openclaw/plugin-sdk/plugin-state-runtime";
+import { openWsp6SqliteStores } from "./wsp6-store.js";
+
+export type SgAssessmentKind = "knowledge" | "profile";
+export type SgAssessmentStatus = "draft" | "active" | "closed";
+export type SgAssessmentDimension = { key: string; label: string };
+export type SgAssessmentOption = {
+  optionId: string;
+  label: string;
+  points?: number;
+  scores?: Record<string, number>;
+};
+export type SgAssessmentQuestion = {
+  questionId: string;
+  prompt: string;
+  options: SgAssessmentOption[];
+};
+export type SgAssessmentDefinition = {
+  version: 1;
+  testId: string;
+  workspaceId: string;
+  title: string;
+  kind: SgAssessmentKind;
+  status: SgAssessmentStatus;
+  dimensions: SgAssessmentDimension[];
+  questions: SgAssessmentQuestion[];
+  createdByGlobalId: string;
+  createdAt: string;
+  updatedAt: string;
+};
+export type SgAssessmentAnswer = {
+  questionId: string;
+  optionId: string;
+  answeredAt: string;
+};
+export type SgAssessmentAttempt = {
+  version: 1;
+  attemptId: string;
+  testId: string;
+  workspaceId: string;
+  globalId: string;
+  status: "active" | "completed";
+  answers: SgAssessmentAnswer[];
+  createdAt: string;
+  updatedAt: string;
+  completedAt?: string;
+};
+export type SgAssessmentQuestionView = {
+  attemptId: string;
+  testId: string;
+  title: string;
+  questionId: string;
+  questionNumber: number;
+  questionCount: number;
+  prompt: string;
+  options: Array<{ optionId: string; label: string }>;
+};
+export type SgKnowledgeResult = {
+  kind: "knowledge";
+  score: number;
+  maxScore: number;
+  percent: number;
+};
+export type SgProfileResult = {
+  kind: "profile";
+  dimensions: Array<{
+    key: string;
+    label: string;
+    score: number;
+    maxScore: number;
+    percent: number;
+  }>;
+};
+export type SgAssessmentResult = SgKnowledgeResult | SgProfileResult;
+export type SgAssessmentStats = {
+  testId: string;
+  completedAttempts: number;
+  distinctParticipants: number;
+  aggregateAvailable: boolean;
+  knowledgeAveragePercent?: number;
+  profileAveragePercent?: Array<{ key: string; label: string; percent: number }>;
+};
+
+type SgAssessmentStores = {
+  definitions: PluginStateKeyedStore<SgAssessmentDefinition>;
+  attempts: PluginStateKeyedStore<SgAssessmentAttempt>;
+};
+
+const ID_PATTERN = /^[a-z0-9][a-z0-9_-]{0,63}$/u;
+const MAX_QUESTIONS = 50;
+const MAX_DIMENSIONS = 8;
+const MIN_PRIVATE_AGGREGATE_SIZE = 3;
+
+function required(value: string, code: string): string {
+  const normalized = value.trim();
+  if (!normalized) {
+    throw new Error(code);
+  }
+  return normalized;
+}
+
+function boundedText(value: string, max: number, code: string): string {
+  const normalized = required(value, code);
+  if (normalized.length > max) {
+    throw new Error(code);
+  }
+  return normalized;
+}
+
+function identifier(value: string, code: string): string {
+  const normalized = required(value, code).toLowerCase();
+  if (!ID_PATTERN.test(normalized)) {
+    throw new Error(code);
+  }
+  return normalized;
+}
+
+function integerScore(value: unknown, code: string): number {
+  if (!Number.isInteger(value) || (value as number) < 0 || (value as number) > 100) {
+    throw new Error(code);
+  }
+  return value as number;
+}
+
+function unique(values: readonly string[]): boolean {
+  return new Set(values).size === values.length;
+}
+
+function roundPercent(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+function validateDefinitionInput(input: {
+  workspaceId: string;
+  title: string;
+  kind: SgAssessmentKind;
+  dimensions?: SgAssessmentDimension[];
+  questions: SgAssessmentQuestion[];
+}): Pick<SgAssessmentDefinition, "workspaceId" | "title" | "kind" | "dimensions" | "questions"> {
+  const workspaceId = required(input.workspaceId, "sg-test-workspace-required");
+  const title = boundedText(input.title, 160, "sg-test-title-invalid");
+  if (input.kind !== "knowledge" && input.kind !== "profile") {
+    throw new Error("sg-test-kind-invalid");
+  }
+  if (
+    !Array.isArray(input.questions) ||
+    input.questions.length < 1 ||
+    input.questions.length > MAX_QUESTIONS
+  ) {
+    throw new Error("sg-test-questions-invalid");
+  }
+  const dimensions = (input.dimensions ?? []).map((dimension) => ({
+    key: identifier(dimension.key, "sg-test-dimension-invalid"),
+    label: boundedText(dimension.label, 80, "sg-test-dimension-invalid"),
+  }));
+  if (!unique(dimensions.map((dimension) => dimension.key))) {
+    throw new Error("sg-test-dimension-duplicate");
+  }
+  if (input.kind === "knowledge" && dimensions.length > 0) {
+    throw new Error("sg-test-knowledge-dimensions-forbidden");
+  }
+  if (input.kind === "profile" && (dimensions.length < 1 || dimensions.length > MAX_DIMENSIONS)) {
+    throw new Error("sg-test-profile-dimensions-required");
+  }
+  const dimensionKeys = new Set(dimensions.map((dimension) => dimension.key));
+  const questions = input.questions.map((question) => {
+    const questionId = identifier(question.questionId, "sg-test-question-id-invalid");
+    const prompt = boundedText(question.prompt, 240, "sg-test-question-prompt-invalid");
+    if (
+      !Array.isArray(question.options) ||
+      question.options.length < 2 ||
+      question.options.length > 4
+    ) {
+      throw new Error("sg-test-question-options-invalid");
+    }
+    const options = question.options.map((option) => {
+      const optionId = identifier(option.optionId, "sg-test-option-id-invalid");
+      const label = boundedText(option.label, 80, "sg-test-option-label-invalid");
+      if (input.kind === "knowledge") {
+        if (option.scores !== undefined) {
+          throw new Error("sg-test-knowledge-scores-forbidden");
+        }
+        return {
+          optionId,
+          label,
+          points: integerScore(option.points, "sg-test-option-points-invalid"),
+        };
+      }
+      if (option.points !== undefined) {
+        throw new Error("sg-test-profile-points-forbidden");
+      }
+      const rawScores = option.scores ?? {};
+      if (Object.keys(rawScores).some((key) => !dimensionKeys.has(key))) {
+        throw new Error("sg-test-option-dimension-unknown");
+      }
+      return {
+        optionId,
+        label,
+        scores: Object.fromEntries(
+          dimensions.map((dimension) => [
+            dimension.key,
+            integerScore(rawScores[dimension.key] ?? 0, "sg-test-option-score-invalid"),
+          ]),
+        ),
+      };
+    });
+    if (
+      !unique(options.map((option) => option.optionId)) ||
+      !unique(options.map((option) => option.label.toLowerCase()))
+    ) {
+      throw new Error("sg-test-question-options-duplicate");
+    }
+    if (
+      input.kind === "knowledge" &&
+      Math.max(...options.map((option) => option.points ?? 0)) === 0
+    ) {
+      throw new Error("sg-test-question-max-score-zero");
+    }
+    return { questionId, prompt, options };
+  });
+  if (!unique(questions.map((question) => question.questionId))) {
+    throw new Error("sg-test-question-id-duplicate");
+  }
+  if (input.kind === "profile") {
+    for (const dimension of dimensions) {
+      const maximum = questions.reduce(
+        (total, question) =>
+          total +
+          Math.max(...question.options.map((option) => option.scores?.[dimension.key] ?? 0)),
+        0,
+      );
+      if (maximum === 0) {
+        throw new Error("sg-test-dimension-max-score-zero");
+      }
+    }
+  }
+  return { workspaceId, title, kind: input.kind, dimensions, questions };
+}
+
+function validTimestamp(value: unknown): value is string {
+  return typeof value === "string" && !Number.isNaN(Date.parse(value));
+}
+
+function validDefinition(value: unknown): value is SgAssessmentDefinition {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const item = value as Partial<SgAssessmentDefinition>;
+  try {
+    if (
+      item.version !== 1 ||
+      typeof item.testId !== "string" ||
+      !ID_PATTERN.test(item.testId) ||
+      !["draft", "active", "closed"].includes(item.status ?? "") ||
+      typeof item.createdByGlobalId !== "string" ||
+      !validTimestamp(item.createdAt) ||
+      !validTimestamp(item.updatedAt)
+    ) {
+      return false;
+    }
+    validateDefinitionInput({
+      workspaceId: item.workspaceId ?? "",
+      title: item.title ?? "",
+      kind: item.kind as SgAssessmentKind,
+      dimensions: item.dimensions,
+      questions: item.questions ?? [],
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function validAttempt(value: unknown): value is SgAssessmentAttempt {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const item = value as Partial<SgAssessmentAttempt>;
+  return (
+    item.version === 1 &&
+    typeof item.attemptId === "string" &&
+    item.attemptId.startsWith("att_") &&
+    typeof item.testId === "string" &&
+    typeof item.workspaceId === "string" &&
+    typeof item.globalId === "string" &&
+    (item.status === "active" || item.status === "completed") &&
+    Array.isArray(item.answers) &&
+    item.answers.every(
+      (answer) =>
+        answer &&
+        typeof answer.questionId === "string" &&
+        typeof answer.optionId === "string" &&
+        validTimestamp(answer.answeredAt),
+    ) &&
+    validTimestamp(item.createdAt) &&
+    validTimestamp(item.updatedAt) &&
+    (item.completedAt === undefined || validTimestamp(item.completedAt))
+  );
+}
+
+function attemptSlotKey(workspaceId: string, testId: string, globalId: string): string {
+  const digest = createHash("sha256")
+    .update(`${workspaceId}\0${testId}\0${globalId}`)
+    .digest("hex");
+  return `active:${digest}`;
+}
+
+function attemptHistoryKey(attemptId: string): string {
+  return `history:${attemptId}`;
+}
+
+function definitionKey(testId: string): string {
+  return `test:${testId}`;
+}
+
+function requireAtomicUpdate<T>(store: PluginStateKeyedStore<T>) {
+  if (!store.update) {
+    throw new Error("sg-test-atomic-store-required");
+  }
+  return store.update.bind(store);
+}
+
+function questionView(
+  definition: SgAssessmentDefinition,
+  attempt: SgAssessmentAttempt,
+): SgAssessmentQuestionView | undefined {
+  const question = definition.questions[attempt.answers.length];
+  if (!question) {
+    return undefined;
+  }
+  return {
+    attemptId: attempt.attemptId,
+    testId: definition.testId,
+    title: definition.title,
+    questionId: question.questionId,
+    questionNumber: attempt.answers.length + 1,
+    questionCount: definition.questions.length,
+    prompt: question.prompt,
+    options: question.options.map(({ optionId, label }) => ({ optionId, label })),
+  };
+}
+
+function assessmentResult(
+  definition: SgAssessmentDefinition,
+  attempt: SgAssessmentAttempt,
+): SgAssessmentResult {
+  const selected = new Map(attempt.answers.map((answer) => [answer.questionId, answer.optionId]));
+  if (definition.kind === "knowledge") {
+    let score = 0;
+    let maxScore = 0;
+    for (const question of definition.questions) {
+      const option = question.options.find(
+        (candidate) => candidate.optionId === selected.get(question.questionId),
+      );
+      score += option?.points ?? 0;
+      maxScore += Math.max(...question.options.map((candidate) => candidate.points ?? 0));
+    }
+    return {
+      kind: "knowledge",
+      score,
+      maxScore,
+      percent: maxScore === 0 ? 0 : roundPercent((score / maxScore) * 100),
+    };
+  }
+  return {
+    kind: "profile",
+    dimensions: definition.dimensions.map((dimension) => {
+      let score = 0;
+      let maxScore = 0;
+      for (const question of definition.questions) {
+        const option = question.options.find(
+          (candidate) => candidate.optionId === selected.get(question.questionId),
+        );
+        score += option?.scores?.[dimension.key] ?? 0;
+        maxScore += Math.max(
+          ...question.options.map((candidate) => candidate.scores?.[dimension.key] ?? 0),
+        );
+      }
+      return {
+        ...dimension,
+        score,
+        maxScore,
+        percent: maxScore === 0 ? 0 : roundPercent((score / maxScore) * 100),
+      };
+    }),
+  };
+}
+
+export function openSgAssessmentStores(stateDir: string): SgAssessmentStores {
+  const stores = openWsp6SqliteStores(stateDir);
+  return {
+    definitions: stores.definitions as PluginStateKeyedStore<SgAssessmentDefinition>,
+    attempts: stores.attempts as PluginStateKeyedStore<SgAssessmentAttempt>,
+  };
+}
+
+export class SgAssessmentRegistry {
+  constructor(private readonly stores: SgAssessmentStores) {}
+
+  async create(input: {
+    testId?: string;
+    workspaceId: string;
+    title: string;
+    kind: SgAssessmentKind;
+    dimensions?: SgAssessmentDimension[];
+    questions: SgAssessmentQuestion[];
+    actorGlobalId: string;
+  }): Promise<SgAssessmentDefinition> {
+    const normalized = validateDefinitionInput(input);
+    const testId = input.testId
+      ? identifier(input.testId, "sg-test-id-invalid")
+      : `tst_${randomUUID().replaceAll("-", "")}`;
+    const now = new Date().toISOString();
+    const definition: SgAssessmentDefinition = {
+      version: 1,
+      testId,
+      ...normalized,
+      status: "draft",
+      createdByGlobalId: required(input.actorGlobalId, "sg-test-actor-required"),
+      createdAt: now,
+      updatedAt: now,
+    };
+    if (!(await this.stores.definitions.registerIfAbsent(definitionKey(testId), definition))) {
+      throw new Error("sg-test-id-exists");
+    }
+    return definition;
+  }
+
+  async findDefinition(testId: string): Promise<SgAssessmentDefinition | undefined> {
+    const value = await this.stores.definitions.lookup(
+      definitionKey(identifier(testId, "sg-test-id-invalid")),
+    );
+    if (value === undefined) {
+      return undefined;
+    }
+    if (!validDefinition(value)) {
+      throw new Error("sg-test-definition-corrupt");
+    }
+    return value;
+  }
+
+  async listDefinitions(workspaceId: string): Promise<SgAssessmentDefinition[]> {
+    const normalizedWorkspace = required(workspaceId, "sg-test-workspace-required");
+    const definitions = (await this.stores.definitions.entries()).map((entry) => entry.value);
+    if (definitions.some((definition) => !validDefinition(definition))) {
+      throw new Error("sg-test-definition-corrupt");
+    }
+    return definitions
+      .filter((definition) => definition.workspaceId === normalizedWorkspace)
+      .toSorted((left, right) => left.createdAt.localeCompare(right.createdAt));
+  }
+
+  async setStatus(
+    testId: string,
+    status: Exclude<SgAssessmentStatus, "draft">,
+  ): Promise<SgAssessmentDefinition> {
+    const key = definitionKey(identifier(testId, "sg-test-id-invalid"));
+    let updated: SgAssessmentDefinition | undefined;
+    await requireAtomicUpdate(this.stores.definitions)(key, (current) => {
+      if (!current) {
+        throw new Error("sg-test-not-found");
+      }
+      if (!validDefinition(current)) {
+        throw new Error("sg-test-definition-corrupt");
+      }
+      if (status === "active" && current.status === "closed") {
+        throw new Error("sg-test-closed");
+      }
+      updated = { ...current, status, updatedAt: new Date().toISOString() };
+      return updated;
+    });
+    if (!updated) {
+      throw new Error("sg-test-state-update-failed");
+    }
+    return updated;
+  }
+
+  async start(input: { testId: string; workspaceId: string; globalId: string }): Promise<{
+    status: "started" | "resumed";
+    attempt: SgAssessmentAttempt;
+    question: SgAssessmentQuestionView;
+  }> {
+    const definition = await this.findDefinition(input.testId);
+    if (!definition || definition.workspaceId !== input.workspaceId.trim()) {
+      throw new Error("sg-test-not-found");
+    }
+    if (definition.status !== "active") {
+      throw new Error("sg-test-not-active");
+    }
+    const globalId = required(input.globalId, "sg-test-participant-required");
+    const key = attemptSlotKey(definition.workspaceId, definition.testId, globalId);
+    const candidate: SgAssessmentAttempt = {
+      version: 1,
+      attemptId: `att_${randomUUID().replaceAll("-", "")}`,
+      testId: definition.testId,
+      workspaceId: definition.workspaceId,
+      globalId,
+      status: "active",
+      answers: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    let previousCompleted: SgAssessmentAttempt | undefined;
+    let selected: SgAssessmentAttempt | undefined;
+    let status: "started" | "resumed" = "started";
+    await requireAtomicUpdate(this.stores.attempts)(key, (current) => {
+      if (current !== undefined && !validAttempt(current)) {
+        throw new Error("sg-test-attempt-corrupt");
+      }
+      if (current?.status === "active") {
+        selected = current;
+        status = "resumed";
+        return current;
+      }
+      previousCompleted = current;
+      selected = candidate;
+      return candidate;
+    });
+    if (previousCompleted) {
+      await this.stores.attempts.register(
+        attemptHistoryKey(previousCompleted.attemptId),
+        previousCompleted,
+      );
+    }
+    if (!selected) {
+      throw new Error("sg-test-attempt-start-failed");
+    }
+    const question = questionView(definition, selected);
+    if (!question) {
+      throw new Error("sg-test-question-missing");
+    }
+    return { status, attempt: selected, question };
+  }
+
+  async answer(input: {
+    attemptId: string;
+    globalId: string;
+    questionId: string;
+    answer: string;
+  }): Promise<
+    | { status: "next"; attempt: SgAssessmentAttempt; question: SgAssessmentQuestionView }
+    | { status: "completed"; attempt: SgAssessmentAttempt; result: SgAssessmentResult }
+  > {
+    const attempt = await this.findOwnedAttempt(input.attemptId, input.globalId);
+    const definition = await this.findDefinition(attempt.testId);
+    if (!definition || definition.workspaceId !== attempt.workspaceId) {
+      throw new Error("sg-test-not-found");
+    }
+    const key = attemptSlotKey(attempt.workspaceId, attempt.testId, attempt.globalId);
+    let updated: SgAssessmentAttempt | undefined;
+    await requireAtomicUpdate(this.stores.attempts)(key, (current) => {
+      if (!current || !validAttempt(current) || current.attemptId !== attempt.attemptId) {
+        throw new Error("sg-test-attempt-not-active");
+      }
+      const questionId = identifier(input.questionId, "sg-test-question-id-invalid");
+      const existing = current.answers.find((item) => item.questionId === questionId);
+      const question = definition.questions.find((item) => item.questionId === questionId);
+      if (!question) {
+        throw new Error("sg-test-question-not-found");
+      }
+      const normalizedAnswer = required(input.answer, "sg-test-answer-required").toLowerCase();
+      const option = question.options.find(
+        (candidate) =>
+          candidate.optionId.toLowerCase() === normalizedAnswer ||
+          candidate.label.toLowerCase() === normalizedAnswer,
+      );
+      if (!option) {
+        throw new Error("sg-test-answer-invalid");
+      }
+      if (existing) {
+        if (existing.optionId !== option.optionId) {
+          throw new Error("sg-test-answer-conflict");
+        }
+        updated = current;
+        return current;
+      }
+      if (current.status !== "active") {
+        throw new Error("sg-test-attempt-completed");
+      }
+      const expected = definition.questions[current.answers.length];
+      if (expected?.questionId !== question.questionId) {
+        throw new Error("sg-test-answer-out-of-order");
+      }
+      const now = new Date().toISOString();
+      const answers = [
+        ...current.answers,
+        { questionId: question.questionId, optionId: option.optionId, answeredAt: now },
+      ];
+      const completed = answers.length === definition.questions.length;
+      updated = {
+        ...current,
+        answers,
+        status: completed ? "completed" : "active",
+        updatedAt: now,
+        ...(completed ? { completedAt: now } : {}),
+      };
+      return updated;
+    });
+    if (!updated) {
+      throw new Error("sg-test-answer-update-failed");
+    }
+    if (updated.status === "completed") {
+      await this.stores.attempts.register(attemptHistoryKey(updated.attemptId), updated);
+      return {
+        status: "completed",
+        attempt: updated,
+        result: assessmentResult(definition, updated),
+      };
+    }
+    const next = questionView(definition, updated);
+    if (!next) {
+      throw new Error("sg-test-question-missing");
+    }
+    return { status: "next", attempt: updated, question: next };
+  }
+
+  async findOwnedAttempt(attemptId: string, globalId: string): Promise<SgAssessmentAttempt> {
+    const normalizedAttempt = required(attemptId, "sg-test-attempt-id-required");
+    const normalizedGlobalId = required(globalId, "sg-test-participant-required");
+    const entries = await this.stores.attempts.entries();
+    const value = entries.find((entry) => {
+      const candidate = entry.value as Partial<SgAssessmentAttempt> | undefined;
+      return candidate?.attemptId === normalizedAttempt;
+    })?.value;
+    if (!value) {
+      throw new Error("sg-test-attempt-not-found");
+    }
+    if (!validAttempt(value)) {
+      throw new Error("sg-test-attempt-corrupt");
+    }
+    if (value.globalId !== normalizedGlobalId) {
+      throw new Error("sg-test-attempt-owner-required");
+    }
+    return value;
+  }
+
+  async resume(
+    attemptId: string,
+    globalId: string,
+  ): Promise<
+    | { status: "active"; attempt: SgAssessmentAttempt; question: SgAssessmentQuestionView }
+    | { status: "completed"; attempt: SgAssessmentAttempt; result: SgAssessmentResult }
+  > {
+    const attempt = await this.findOwnedAttempt(attemptId, globalId);
+    const definition = await this.findDefinition(attempt.testId);
+    if (!definition) {
+      throw new Error("sg-test-not-found");
+    }
+    if (attempt.status === "completed") {
+      return { status: "completed", attempt, result: assessmentResult(definition, attempt) };
+    }
+    const question = questionView(definition, attempt);
+    if (!question) {
+      throw new Error("sg-test-question-missing");
+    }
+    return { status: "active", attempt, question };
+  }
+
+  async stats(testId: string): Promise<SgAssessmentStats> {
+    const definition = await this.findDefinition(testId);
+    if (!definition) {
+      throw new Error("sg-test-not-found");
+    }
+    const byAttempt = new Map<string, SgAssessmentAttempt>();
+    for (const entry of await this.stores.attempts.entries()) {
+      if (!validAttempt(entry.value)) {
+        throw new Error("sg-test-attempt-corrupt");
+      }
+      if (entry.value.testId === definition.testId && entry.value.status === "completed") {
+        byAttempt.set(entry.value.attemptId, entry.value);
+      }
+    }
+    const attempts = [...byAttempt.values()];
+    const distinctParticipants = new Set(attempts.map((attempt) => attempt.globalId)).size;
+    const base: SgAssessmentStats = {
+      testId: definition.testId,
+      completedAttempts: attempts.length,
+      distinctParticipants,
+      aggregateAvailable: distinctParticipants >= MIN_PRIVATE_AGGREGATE_SIZE,
+    };
+    if (!base.aggregateAvailable) {
+      return base;
+    }
+    const results = attempts.map((attempt) => assessmentResult(definition, attempt));
+    if (definition.kind === "knowledge") {
+      const total = results.reduce(
+        (sum, result) => sum + (result.kind === "knowledge" ? result.percent : 0),
+        0,
+      );
+      return { ...base, knowledgeAveragePercent: roundPercent(total / results.length) };
+    }
+    return {
+      ...base,
+      profileAveragePercent: definition.dimensions.map((dimension) => ({
+        key: dimension.key,
+        label: dimension.label,
+        percent: roundPercent(
+          results.reduce((sum, result) => {
+            if (result.kind !== "profile") {
+              return sum;
+            }
+            return (
+              sum + (result.dimensions.find((item) => item.key === dimension.key)?.percent ?? 0)
+            );
+          }, 0) / results.length,
+        ),
+      })),
+    };
+  }
+
+  async diagnosticSnapshot(): Promise<{
+    definitions: number;
+    attempts: number;
+    activeAttempts: number;
+    completedAttempts: number;
+    corruptEntries: number;
+  }> {
+    const definitions = await this.stores.definitions.entries();
+    const attempts = await this.stores.attempts.entries();
+    const validAttempts = attempts.filter((entry) => validAttempt(entry.value));
+    return {
+      definitions: definitions.length,
+      attempts: new Set(validAttempts.map((entry) => entry.value.attemptId)).size,
+      activeAttempts: new Set(
+        validAttempts
+          .filter((entry) => entry.value.status === "active")
+          .map((entry) => entry.value.attemptId),
+      ).size,
+      completedAttempts: new Set(
+        validAttempts
+          .filter((entry) => entry.value.status === "completed")
+          .map((entry) => entry.value.attemptId),
+      ).size,
+      corruptEntries:
+        definitions.filter((entry) => !validDefinition(entry.value)).length +
+        attempts.filter((entry) => !validAttempt(entry.value)).length,
+    };
+  }
+}

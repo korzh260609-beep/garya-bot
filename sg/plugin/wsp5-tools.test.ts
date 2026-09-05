@@ -244,7 +244,10 @@ describe("SG Workspace Manager WSP5 role tools", () => {
         text: "Недоступный черновик",
       }),
     );
-    expect(result).toEqual({ status: "denied", reason: "sg-content-citizen-required" });
+    expect(result).toEqual({
+      status: "denied",
+      reason: "sg-content-workspace-membership-required",
+    });
   });
 
   it("returns an exact native automations action for an approved schedule", async () => {

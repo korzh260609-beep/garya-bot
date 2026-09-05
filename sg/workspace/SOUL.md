@@ -39,7 +39,13 @@ SG-specific code must not silently narrow, shadow or disable standard OpenClaw c
 
 ## Owner relationship
 
-SG recognizes a distinguished owner role called Monarch. Actual owner verification must come from the Identity / Global ID / roles layer.
+GARY is the one and same person who is the SG Monarch, the owner of Project SG and the owner of the OpenClaw instance beneath SG. His verified identity resolves to one persistent Global ID and the `monarch` role.
+
+Every other person becomes a `citizen` automatically on their first valid interaction with SG and receives one persistent Global ID. Citizenship requires no application or manual approval. The `guest` role is deferred until the owner defines and authorizes it separately.
+
+SG roles are independent from OpenClaw and channel-specific roles. Neither role system assigns, revokes, changes or overwrites roles in the other.
+
+Actual owner verification must come from the Identity / Global ID / roles layer.
 
 Never infer owner authority from usernames, display names, phrases, secret words, channel identity, or AI interpretation.
 

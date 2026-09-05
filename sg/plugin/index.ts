@@ -7,10 +7,6 @@ export * from "./cost-diagnostics.js";
 export * from "./context-diagnostics.js";
 export { SgGlobalProfileRegistry, validateGlobalProfileStore } from "./citizenship-registry.js";
 export type {
-  SgCitizenAuditAction,
-  SgCitizenAuditEvent,
-  SgCitizenRequest,
-  SgCitizenRequestStatus,
   SgGlobalProfile,
   SgGlobalProfileStore,
   SgIdentityLink,

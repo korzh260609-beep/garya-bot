@@ -183,8 +183,9 @@ describe("SG 2.2 canonical role model contract", () => {
       store.profiles.some((profile) => profile.role === "guest"),
       false,
     );
-    const requests = (store as unknown as { citizenRequests?: unknown[] }).citizenRequests;
-    assert.ok(requests === undefined || requests.length === 0);
+    assert.equal(store.version, 5);
+    assert.equal("citizenRequests" in store, false);
+    assert.equal("audit" in store, false);
   });
 
   it("rejects persisted or runtime attempts to create a second monarch", () => {

@@ -1,5 +1,4 @@
 import { jsonResult } from "openclaw/plugin-sdk/tool-results";
-import { SgGlobalProfileRegistry } from "./citizenship-registry.js";
 import { resolveWorkspaceContext } from "./context.js";
 import { SgWorkspaceMembershipRegistry } from "./workspace-memberships.js";
 import { SgWorkspaceRegistry } from "./workspace-registry.js";
@@ -18,7 +17,10 @@ type AgentTool = {
   label: string;
   description: string;
   parameters: Record<string, unknown>;
-  execute(toolCallId: string, params: Record<string, unknown>): Promise<ReturnType<typeof jsonResult>>;
+  execute(
+    toolCallId: string,
+    params: Record<string, unknown>,
+  ): Promise<ReturnType<typeof jsonResult>>;
 };
 
 function textParam(params: Record<string, unknown>, key: string): string {
@@ -60,110 +62,9 @@ async function workspaceIdFor(
 }
 
 export function createWsp4Tools(ctx: ToolContext, stateDir: string): AgentTool[] {
-  const citizens = new SgGlobalProfileRegistry(stateDir);
   const workspaces = new SgWorkspaceRegistry(stateDir);
   const memberships = new SgWorkspaceMembershipRegistry(stateDir);
   return [
-    {
-      name: "sg_citizen_apply",
-      label: "Заявка на гражданство SG",
-      description:
-        "Подаёт заявку текущего пользователя на гражданство SG. Используй, когда гость просит зарегистрировать его или дать ему гражданство. Идентичность всегда берётся из доверенного контекста сообщения.",
-      parameters: { type: "object", additionalProperties: false, properties: {} },
-      async execute() {
-        const actor = await actorContext(ctx, stateDir);
-        if (!actor.canonicalIdentity) {
-          return jsonResult({ status: "unavailable", reason: "identity-context-missing" });
-        }
-        const result = await citizens.apply(actor.canonicalIdentity);
-        if (result.status === "already_registered") {
-          return jsonResult({
-            status: result.status,
-            globalId: result.profile?.globalId,
-            role: result.profile?.role,
-          });
-        }
-        const readback = (await citizens.snapshot()).citizenRequests.find(
-          (request) => request.requestId === result.request?.requestId,
-        );
-        return jsonResult({
-          status: "pending",
-          requestId: result.request?.requestId,
-          operationId: result.request?.operationId,
-          readbackVerified: readback?.status === "pending",
-          userMessage: "Заявка на гражданство принята и ожидает решения монарха.",
-        });
-      },
-    },
-    {
-      name: "sg_citizen_pending",
-      label: "Ожидающие заявки на гражданство",
-      description: "Показывает монарху ожидающие заявки на гражданство SG.",
-      parameters: { type: "object", additionalProperties: false, properties: {} },
-      async execute() {
-        const actor = await actorContext(ctx, stateDir);
-        if (actor.projectRole !== "monarch" || !actor.globalId) {
-          return jsonResult({ status: "denied", reason: "monarch-required" });
-        }
-        const requests = await citizens.listPending(actor.globalId);
-        return jsonResult({
-          status: "ok",
-          requests: requests.map((request) => ({
-            requestId: request.requestId,
-            canonicalIdentity: request.canonicalIdentity,
-            createdAt: request.createdAt,
-          })),
-        });
-      },
-    },
-    {
-      name: "sg_citizen_decide",
-      label: "Решение по гражданству",
-      description: "Одобряет или отклоняет заявку на гражданство. Доступно только монарху.",
-      parameters: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          requestId: { type: "string", minLength: 1 },
-          decision: { type: "string", enum: ["approve", "reject"] },
-        },
-        required: ["requestId", "decision"],
-      },
-      async execute(_toolCallId, params) {
-        const actor = await actorContext(ctx, stateDir);
-        if (actor.projectRole !== "monarch" || !actor.globalId) {
-          return jsonResult({ status: "denied", reason: "monarch-required" });
-        }
-        const decision = textParam(params, "decision");
-        if (decision !== "approve" && decision !== "reject") {
-          throw new Error("sg-wsp4-tool-decision-invalid");
-        }
-        const result = await citizens.decide({
-          actorGlobalId: actor.globalId,
-          requestId: textParam(params, "requestId"),
-          decision,
-        });
-        const snapshot = await citizens.snapshot();
-        const readback = snapshot.citizenRequests.find(
-          (request) => request.requestId === result.request.requestId,
-        );
-        const profileVerified =
-          decision === "reject" ||
-          snapshot.profiles.some(
-            (profile) =>
-              profile.globalId === result.profile?.globalId &&
-              profile.role === "citizen" &&
-              profile.status === "active",
-          );
-        return jsonResult({
-          status: result.request.status,
-          requestId: result.request.requestId,
-          operationId: result.request.operationId,
-          globalId: result.profile?.globalId,
-          readbackVerified: readback?.status === result.request.status && profileVerified,
-        });
-      },
-    },
     {
       name: "sg_membership_list",
       label: "Участники workspace SG",
@@ -178,7 +79,8 @@ export function createWsp4Tools(ctx: ToolContext, stateDir: string): AgentTool[]
         const actor = await actorContext(ctx, stateDir);
         if (!actor.globalId) return jsonResult({ status: "denied", reason: "citizen-required" });
         const workspaceId = await workspaceIdFor(params, actor, workspaces);
-        if (!workspaceId) return jsonResult({ status: "unavailable", reason: "workspace-not-found" });
+        if (!workspaceId)
+          return jsonResult({ status: "unavailable", reason: "workspace-not-found" });
         try {
           const items = await memberships.list(actor.globalId, workspaceId);
           return jsonResult({
@@ -214,7 +116,8 @@ export function createWsp4Tools(ctx: ToolContext, stateDir: string): AgentTool[]
         const actor = await actorContext(ctx, stateDir);
         if (!actor.globalId) return jsonResult({ status: "denied", reason: "citizen-required" });
         const workspaceId = await workspaceIdFor(params, actor, workspaces);
-        if (!workspaceId) return jsonResult({ status: "unavailable", reason: "workspace-not-found" });
+        if (!workspaceId)
+          return jsonResult({ status: "unavailable", reason: "workspace-not-found" });
         const action = textParam(params, "action");
         try {
           const result =
@@ -263,10 +166,6 @@ export function createWsp4Tools(ctx: ToolContext, stateDir: string): AgentTool[]
 }
 
 export const WSP4_AGENT_GUIDANCE = [
-  "Гость не получает гражданство SG автоматически из-за присутствия в группе.",
-  "Когда гость просит зарегистрироваться как гражданин, используй sg_citizen_apply.",
-  "Когда monarch просит ожидающие заявки на гражданство, используй sg_citizen_pending.",
-  "Только monarch принимает решение через sg_citizen_decide.",
   "Членство в каждом workspace независимо и не следует из гражданства или участия в Telegram-группе.",
   "Для списка участников используй sg_membership_list, для выдачи или отзыва — sg_membership_manage.",
   "Не утверждай, что join/leave Telegram автоматически изменил членство SG: публичного lifecycle hook для этого нет.",

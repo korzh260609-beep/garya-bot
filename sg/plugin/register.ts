@@ -75,13 +75,7 @@ const ONBOARDING_NOTICE =
 const PENDING_NOTICE =
   "Запрос на подключение этого сообщества уже ожидает подтверждения владельца.";
 const PENDING_TOOL = "sg_workspace_pending";
-const WSP4_TOOL_NAMES = [
-  "sg_citizen_apply",
-  "sg_citizen_pending",
-  "sg_citizen_decide",
-  "sg_membership_list",
-  "sg_membership_manage",
-] as const;
+const WSP4_TOOL_NAMES = ["sg_membership_list", "sg_membership_manage"] as const;
 const WSP5_TOOL_NAMES = [
   "sg_content_draft",
   "sg_content_review",

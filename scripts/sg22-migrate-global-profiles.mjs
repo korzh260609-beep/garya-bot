@@ -95,17 +95,24 @@ function collect(raw) {
   result.sourceVersion = Number.isInteger(raw.version) ? raw.version : null;
   result.monarchGlobalId = clean(raw.monarchGlobalId);
 
-  if (raw.version !== undefined && ![2, 3, 4].includes(raw.version)) {
+  if (raw.version !== undefined && ![2, 3, 4, 5].includes(raw.version)) {
     throw new Error("sg-global-profile-migration-unsupported-version");
   }
 
-  if ([2, 3, 4].includes(raw.version)) {
+  if ([2, 3, 4, 5].includes(raw.version)) {
     if (!Array.isArray(raw.profiles) || !Array.isArray(raw.identities)) {
       throw new Error("sg-global-profile-migration-unrecognized-store");
     }
     if (
       [3, 4].includes(raw.version) &&
       (!Array.isArray(raw.citizenRequests) || !Array.isArray(raw.audit))
+    ) {
+      throw new Error("sg-global-profile-migration-unrecognized-store");
+    }
+    if (
+      raw.version === 5 &&
+      ((raw.citizenRequests !== undefined && !Array.isArray(raw.citizenRequests)) ||
+        (raw.audit !== undefined && !Array.isArray(raw.audit)))
     ) {
       throw new Error("sg-global-profile-migration-unrecognized-store");
     }
@@ -322,12 +329,10 @@ function buildMigratedStore(collected) {
   }
 
   return {
-    version: 4,
+    version: 5,
     ...(configuredGlobalId ? { monarchGlobalId: configuredGlobalId } : {}),
     profiles,
     identities,
-    citizenRequests: [],
-    audit: [],
   };
 }
 

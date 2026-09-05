@@ -143,7 +143,7 @@ describe("SG Workspace Manager WSP1", () => {
     expect(result).toMatchObject({ projectRole: "citizen" });
     expect(result.globalId).toMatch(/^usr_/u);
     const persisted = JSON.parse(await readFile(target, "utf8"));
-    expect(persisted).toMatchObject({ version: 4, monarchGlobalId: "usr_monarch" });
+    expect(persisted).toMatchObject({ version: 5, monarchGlobalId: "usr_monarch" });
     expect(persisted.profiles).toContainEqual(
       expect.objectContaining({
         globalId: result.globalId,
@@ -216,13 +216,7 @@ describe("SG Workspace Manager WSP1", () => {
       names: ["sg_workspace_onboard", "sg_workspace_pending", "sg_workspace_decide"],
     });
     expect(registerTool).toHaveBeenCalledWith(expect.any(Function), {
-      names: [
-        "sg_citizen_apply",
-        "sg_citizen_pending",
-        "sg_citizen_decide",
-        "sg_membership_list",
-        "sg_membership_manage",
-      ],
+      names: ["sg_membership_list", "sg_membership_manage"],
     });
     expect(registerTool).toHaveBeenCalledWith(expect.any(Function), {
       names: ["sg_test_manage", "sg_test_attempt", "sg_test_stats"],
@@ -257,8 +251,8 @@ describe("SG Workspace Manager WSP1", () => {
     expect(result).toMatchObject({
       prependSystemContext: expect.stringContaining("обязательно используй sg_workspace_pending"),
     });
-    expect(result).toMatchObject({
-      prependSystemContext: expect.stringContaining("используй sg_citizen_apply"),
+    expect(result).not.toMatchObject({
+      prependSystemContext: expect.stringContaining("sg_citizen_"),
     });
     expect(result).toMatchObject({
       prependSystemContext: expect.stringContaining("штатным automations"),

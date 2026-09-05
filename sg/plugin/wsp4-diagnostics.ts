@@ -1,6 +1,3 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import os from "node:os";
-import path from "node:path";
 import { SgGlobalProfileRegistry } from "./citizenship-registry.js";
 import type { SgWorkspaceContext } from "./context.js";
 import { SgWorkspaceMembershipRegistry } from "./workspace-memberships.js";
@@ -13,98 +10,6 @@ function check(name: string, status: Wsp4DiagnosticStatus, detail: string): Diag
   return { name, status, detail };
 }
 
-async function checkGuestTransitionContract(): Promise<DiagnosticCheck> {
-  const root = await mkdtemp(path.join(os.tmpdir(), "sg-wsp4-guest-transition-"));
-  try {
-    const now = new Date().toISOString();
-    await mkdir(path.join(root, "sg"), { recursive: true });
-    await writeFile(
-      path.join(root, "sg", "global-profiles.json"),
-      JSON.stringify({
-        version: 3,
-        profiles: [
-          {
-            globalId: "usr_diag_monarch",
-            canonicalIdentity: "channel:diagnostic:monarch",
-            role: "monarch",
-            status: "active",
-            createdAt: now,
-            updatedAt: now,
-          },
-          ...["approve", "reject"].map((decision) => ({
-            globalId: `usr_diag_guest_${decision}`,
-            canonicalIdentity: `channel:diagnostic:guest-${decision}`,
-            role: "guest",
-            status: "active",
-            createdAt: now,
-            updatedAt: now,
-          })),
-        ],
-        identities: [
-          {
-            canonicalIdentity: "channel:diagnostic:monarch",
-            globalId: "usr_diag_monarch",
-            createdAt: now,
-            updatedAt: now,
-          },
-          ...["approve", "reject"].map((decision) => ({
-            canonicalIdentity: `channel:diagnostic:guest-${decision}`,
-            globalId: `usr_diag_guest_${decision}`,
-            createdAt: now,
-            updatedAt: now,
-          })),
-        ],
-        citizenRequests: [],
-        audit: [],
-      }),
-    );
-    const registry = new SgGlobalProfileRegistry(root);
-    const approveApplication = await registry.apply("channel:diagnostic:guest-approve");
-    const rejectApplication = await registry.apply("channel:diagnostic:guest-reject");
-    if (!approveApplication.request || !rejectApplication.request) {
-      return check("guest_transition_contract", "FAIL", "guest-application-not-pending");
-    }
-    const approved = await registry.decide({
-      actorGlobalId: "usr_diag_monarch",
-      requestId: approveApplication.request.requestId,
-      decision: "approve",
-    });
-    await registry.decide({
-      actorGlobalId: "usr_diag_monarch",
-      requestId: rejectApplication.request.requestId,
-      decision: "reject",
-    });
-    const citizenRepeat = await registry.apply("channel:diagnostic:guest-approve");
-    const monarchRepeat = await registry.apply("channel:diagnostic:monarch");
-    const snapshot = await registry.snapshot();
-    const rejectedGuest = snapshot.profiles.find(
-      (profile) => profile.globalId === "usr_diag_guest_reject",
-    );
-    const passed =
-      approved.profile?.globalId === "usr_diag_guest_approve" &&
-      approved.profile.role === "citizen" &&
-      rejectedGuest?.role === "guest" &&
-      citizenRepeat.status === "already_registered" &&
-      monarchRepeat.status === "already_registered" &&
-      snapshot.profiles.length === 3 &&
-      snapshot.identities.length === 3 &&
-      snapshot.citizenRequests.length === 2;
-    return check(
-      "guest_transition_contract",
-      passed ? "PASS" : "FAIL",
-      passed ? "approve=preserved,reject=guest,repeat=blocked" : "transition-invariant-broken",
-    );
-  } catch (error) {
-    return check(
-      "guest_transition_contract",
-      "FAIL",
-      error instanceof Error ? error.message : String(error),
-    );
-  } finally {
-    await rm(root, { recursive: true, force: true });
-  }
-}
-
 export async function buildWsp4Diagnostic(input: {
   stateDir: string;
   actor: SgWorkspaceContext;
@@ -114,19 +19,13 @@ export async function buildWsp4Diagnostic(input: {
   const profiles = new SgGlobalProfileRegistry(input.stateDir);
   const workspaces = new SgWorkspaceRegistry(input.stateDir);
   const memberships = new SgWorkspaceMembershipRegistry(input.stateDir);
-  const expectedTools = [
-    "sg_citizen_apply",
-    "sg_citizen_pending",
-    "sg_citizen_decide",
-    "sg_membership_list",
-    "sg_membership_manage",
-  ];
+  const expectedTools = ["sg_membership_list", "sg_membership_manage"];
   const missingTools = expectedTools.filter((name) => !input.registeredToolNames.includes(name));
   checks.push(
     check(
       "tool_registration",
       missingTools.length === 0 ? "PASS" : "FAIL",
-      missingTools.length === 0 ? `${expectedTools.length}/5` : `missing=${missingTools.join(",")}`,
+      missingTools.length === 0 ? `${expectedTools.length}/2` : `missing=${missingTools.join(",")}`,
     ),
   );
   checks.push(
@@ -136,8 +35,6 @@ export async function buildWsp4Diagnostic(input: {
       `role=${input.actor.projectRole},globalId=${input.actor.globalId ?? "none"}`,
     ),
   );
-  checks.push(await checkGuestTransitionContract());
-
   let profileSnapshot: Awaited<ReturnType<SgGlobalProfileRegistry["snapshot"]>> | undefined;
   try {
     profileSnapshot = await profiles.snapshot();
@@ -145,41 +42,13 @@ export async function buildWsp4Diagnostic(input: {
       check(
         "profile_store",
         "PASS",
-        `v=${profileSnapshot.version},profiles=${profileSnapshot.profiles.length},requests=${profileSnapshot.citizenRequests.length},audit=${profileSnapshot.audit.length}`,
-      ),
-    );
-    const auditByOperation = new Map(
-      profileSnapshot.audit.map((event) => [event.operationId, event]),
-    );
-    const broken = profileSnapshot.citizenRequests.filter((request) => {
-      const event = auditByOperation.get(request.operationId);
-      if (!event || event.requestId !== request.requestId) return true;
-      if (request.status !== "approved") return false;
-      return !profileSnapshot?.profiles.some(
-        (profile) =>
-          profile.globalId === request.resultingGlobalId &&
-          profile.status === "active" &&
-          profile.role === "citizen",
-      );
-    });
-    checks.push(
-      check(
-        "citizen_chain",
-        broken.length > 0
-          ? "FAIL"
-          : profileSnapshot.citizenRequests.length > 0
-            ? "PASS"
-            : "NOT_EXERCISED",
-        broken.length > 0
-          ? `broken=${broken.map((request) => request.requestId).join(",")}`
-          : `verified=${profileSnapshot.citizenRequests.length}`,
+        `v=${profileSnapshot.version},profiles=${profileSnapshot.profiles.length}`,
       ),
     );
   } catch (error) {
     checks.push(
       check("profile_store", "FAIL", error instanceof Error ? error.message : String(error)),
     );
-    checks.push(check("citizen_chain", "FAIL", "profile-store-unreadable"));
   }
 
   let membershipSnapshot:

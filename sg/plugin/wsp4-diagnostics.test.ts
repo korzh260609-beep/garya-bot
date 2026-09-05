@@ -6,13 +6,7 @@ import { SgGlobalProfileRegistry } from "./citizenship-registry.js";
 import { buildWsp4Diagnostic } from "./wsp4-diagnostics.js";
 
 const timestamp = "2026-01-01T00:00:00.000Z";
-const tools = [
-  "sg_citizen_apply",
-  "sg_citizen_pending",
-  "sg_citizen_decide",
-  "sg_membership_list",
-  "sg_membership_manage",
-];
+const tools = ["sg_membership_list", "sg_membership_manage"];
 
 async function fixture() {
   const root = await mkdtemp(path.join(os.tmpdir(), "sg-wsp4-diag-"));
@@ -62,30 +56,10 @@ describe("SG WSP4 authoritative diagnostics", () => {
     });
     expect(text).toContain("WSP4 DIAG — PASS");
     expect(text).toContain("tool_registration: PASS");
-    expect(text).toContain(
-      "guest_transition_contract: PASS (approve=preserved,reject=guest,repeat=blocked)",
-    );
-    expect(text).toContain("citizen_chain: NOT_EXERCISED");
+    expect(text).toContain("profile_store: PASS (v=5,profiles=1)");
     expect(text).toContain("membership_chain: NOT_EXERCISED");
     expect(text).toContain("channel_membership_events: NOT_EXERCISED");
     expect((await new SgGlobalProfileRegistry(root).snapshot()).profiles).toHaveLength(1);
-  });
-
-  it("verifies an exercised citizen operation by its durable operationId", async () => {
-    const root = await fixture();
-    await new SgGlobalProfileRegistry(root).apply("channel:telegram:200");
-    const text = await buildWsp4Diagnostic({
-      stateDir: root,
-      actor: {
-        channel: "telegram",
-        senderId: "100",
-        canonicalIdentity: "channel:telegram:100",
-        globalId: "usr_monarch",
-        projectRole: "monarch",
-      },
-      registeredToolNames: tools,
-    });
-    expect(text).toContain("citizen_chain: PASS (verified=1)");
   });
 
   it("reports exact authoritative store failure", async () => {

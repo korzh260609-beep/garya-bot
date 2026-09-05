@@ -23,45 +23,17 @@ export type SgIdentityLink = {
   updatedAt: string;
 };
 
-export type SgCitizenRequestStatus = "pending" | "approved" | "rejected";
-export type SgCitizenRequest = {
-  requestId: string;
-  canonicalIdentity: string;
-  status: SgCitizenRequestStatus;
-  operationId: string;
-  resultingGlobalId?: string;
-  decidedByGlobalId?: string;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type SgCitizenAuditAction = "apply" | "approve" | "reject";
-export type SgCitizenAuditEvent = {
-  eventId: string;
-  operationId: string;
-  action: SgCitizenAuditAction;
-  requestId: string;
-  canonicalIdentity: string;
-  actorGlobalId?: string;
-  resultingGlobalId?: string;
-  createdAt: string;
-};
-
 export type SgGlobalProfileStore = {
-  version: 4;
+  version: 5;
   monarchGlobalId?: string;
   profiles: SgGlobalProfile[];
   identities: SgIdentityLink[];
-  citizenRequests: SgCitizenRequest[];
-  audit: SgCitizenAuditEvent[];
 };
 
 const emptyStore = (): SgGlobalProfileStore => ({
-  version: 4,
+  version: 5,
   profiles: [],
   identities: [],
-  citizenRequests: [],
-  audit: [],
 });
 
 const LOCK_OPTIONS = {
@@ -99,36 +71,6 @@ function validIdentity(value: unknown): value is SgIdentityLink {
   );
 }
 
-function validRequest(value: unknown): value is SgCitizenRequest {
-  if (!value || typeof value !== "object") return false;
-  const request = value as Partial<SgCitizenRequest>;
-  return (
-    nonEmpty(request.requestId) &&
-    nonEmpty(request.canonicalIdentity) &&
-    ["pending", "approved", "rejected"].includes(request.status ?? "") &&
-    nonEmpty(request.operationId) &&
-    (request.resultingGlobalId === undefined || nonEmpty(request.resultingGlobalId)) &&
-    (request.decidedByGlobalId === undefined || nonEmpty(request.decidedByGlobalId)) &&
-    validTimestamp(request.createdAt) &&
-    validTimestamp(request.updatedAt)
-  );
-}
-
-function validAudit(value: unknown): value is SgCitizenAuditEvent {
-  if (!value || typeof value !== "object") return false;
-  const event = value as Partial<SgCitizenAuditEvent>;
-  return (
-    nonEmpty(event.eventId) &&
-    nonEmpty(event.operationId) &&
-    ["apply", "approve", "reject"].includes(event.action ?? "") &&
-    nonEmpty(event.requestId) &&
-    nonEmpty(event.canonicalIdentity) &&
-    (event.actorGlobalId === undefined || nonEmpty(event.actorGlobalId)) &&
-    (event.resultingGlobalId === undefined || nonEmpty(event.resultingGlobalId)) &&
-    validTimestamp(event.createdAt)
-  );
-}
-
 function normalizeStore(value: unknown): SgGlobalProfileStore | undefined {
   if (!value || typeof value !== "object") return undefined;
   const candidate = value as {
@@ -143,79 +85,61 @@ function normalizeStore(value: unknown): SgGlobalProfileStore | undefined {
   if (!candidate.profiles.every(validProfile) || !candidate.identities.every(validIdentity)) {
     return undefined;
   }
-  const legacyFieldsValid =
+  const legacyFieldsEmpty =
     Array.isArray(candidate.citizenRequests) &&
-    candidate.citizenRequests.every(validRequest) &&
+    candidate.citizenRequests.length === 0 &&
     Array.isArray(candidate.audit) &&
-    candidate.audit.every(validAudit);
+    candidate.audit.length === 0;
   const activeMonarchs = candidate.profiles.filter(
     (profile) => profile.role === "monarch" && profile.status === "active",
   );
   const declaredMonarchGlobalId =
-    candidate.version === 4 && nonEmpty(candidate.monarchGlobalId)
+    (candidate.version === 4 || candidate.version === 5) && nonEmpty(candidate.monarchGlobalId)
       ? candidate.monarchGlobalId.trim()
       : activeMonarchs[0]?.globalId;
   const store: SgGlobalProfileStore | undefined =
     candidate.version === 2
       ? {
-          version: 4,
+          version: 5,
           ...(declaredMonarchGlobalId ? { monarchGlobalId: declaredMonarchGlobalId } : {}),
           profiles: candidate.profiles,
           identities: candidate.identities,
-          citizenRequests: [],
-          audit: [],
         }
-      : (candidate.version === 3 || candidate.version === 4) && legacyFieldsValid
+      : (candidate.version === 3 || candidate.version === 4) && legacyFieldsEmpty
         ? {
-            version: 4,
+            version: 5,
             ...(declaredMonarchGlobalId ? { monarchGlobalId: declaredMonarchGlobalId } : {}),
             profiles: candidate.profiles,
             identities: candidate.identities,
-            citizenRequests: candidate.citizenRequests,
-            audit: candidate.audit,
           }
-        : undefined;
+        : candidate.version === 5 &&
+            candidate.citizenRequests === undefined &&
+            candidate.audit === undefined
+          ? {
+              version: 5,
+              ...(declaredMonarchGlobalId ? { monarchGlobalId: declaredMonarchGlobalId } : {}),
+              profiles: candidate.profiles,
+              identities: candidate.identities,
+            }
+          : undefined;
   if (!store) return undefined;
 
   const profileIds = store.profiles.map((profile) => profile.globalId);
   const canonicalProfiles = store.profiles.map((profile) => profile.canonicalIdentity);
   const canonicalLinks = store.identities.map((identity) => identity.canonicalIdentity);
-  const requestIds = store.citizenRequests.map((request) => request.requestId);
-  const pendingIdentities = store.citizenRequests
-    .filter((request) => request.status === "pending")
-    .map((request) => request.canonicalIdentity);
-  const eventIds = store.audit.map((event) => event.eventId);
-  const operationIds = store.audit.map((event) => event.operationId);
   const profileIdSet = new Set(profileIds);
-  const requestIdSet = new Set(requestIds);
   if (
     new Set(profileIds).size !== profileIds.length ||
     new Set(canonicalProfiles).size !== canonicalProfiles.length ||
     new Set(canonicalLinks).size !== canonicalLinks.length ||
-    new Set(requestIds).size !== requestIds.length ||
-    new Set(pendingIdentities).size !== pendingIdentities.length ||
-    new Set(eventIds).size !== eventIds.length ||
-    new Set(operationIds).size !== operationIds.length ||
     activeMonarchs.length > 1 ||
     (store.monarchGlobalId !== undefined &&
       !activeMonarchs.some((profile) => profile.globalId === store.monarchGlobalId)) ||
-    store.identities.some((identity) => !profileIdSet.has(identity.globalId)) ||
-    store.citizenRequests.some(
-      (request) => request.status === "approved" && !request.resultingGlobalId,
-    ) ||
-    store.audit.some((event) => !requestIdSet.has(event.requestId))
+    store.identities.some((identity) => !profileIdSet.has(identity.globalId))
   ) {
     return undefined;
   }
   return store;
-}
-
-function requireMonarch(store: SgGlobalProfileStore, actorGlobalId: string): SgGlobalProfile {
-  const actor = store.profiles.find((profile) => profile.globalId === actorGlobalId.trim());
-  if (!actor || actor.status !== "active" || actor.role !== "monarch") {
-    throw new Error("sg-citizen-monarch-required");
-  }
-  return actor;
 }
 
 export class SgGlobalProfileRegistry {
@@ -356,17 +280,12 @@ export class SgGlobalProfileRegistry {
         return structuredClone(existing);
       }
 
-      const globalId = configuredMonarch
-        ? this.monarchGlobalId
-        : `usr_${randomUUID()}`;
+      const globalId = configuredMonarch ? this.monarchGlobalId : `usr_${randomUUID()}`;
       if (!globalId) throw new Error("sg-monarch-global-id-required");
       if (store.profiles.some((profile) => profile.globalId === globalId)) {
         throw new Error("sg-profile-global-id-conflict");
       }
-      if (
-        configuredMonarch &&
-        store.profiles.some((profile) => profile.role === "monarch")
-      ) {
+      if (configuredMonarch && store.profiles.some((profile) => profile.role === "monarch")) {
         throw new Error("sg-monarch-uniqueness-conflict");
       }
       const profile: SgGlobalProfile = {
@@ -406,130 +325,6 @@ export class SgGlobalProfileRegistry {
       throw new Error("sg-monarch-configuration-invalid");
     }
     return monarch;
-  }
-
-  async apply(canonicalIdentity: string): Promise<{
-    status: "pending" | "already_registered";
-    request?: SgCitizenRequest;
-    profile?: SgGlobalProfile;
-  }> {
-    const canonical = canonicalIdentity.trim();
-    if (!canonical) throw new Error("sg-citizen-canonical-identity-required");
-    return this.mutate((store) => {
-      const link = store.identities.find((identity) => identity.canonicalIdentity === canonical);
-      const profile = link
-        ? store.profiles.find((candidate) => candidate.globalId === link.globalId)
-        : undefined;
-      const eligibleGuest = profile?.status === "active" && profile.role === "guest";
-      if (profile && !eligibleGuest) {
-        return { status: "already_registered", profile };
-      }
-      const existing = store.citizenRequests.find(
-        (request) => request.canonicalIdentity === canonical && request.status === "pending",
-      );
-      if (existing) return { status: "pending", request: existing };
-      const now = new Date().toISOString();
-      const operationId = `op_${randomUUID()}`;
-      const request: SgCitizenRequest = {
-        requestId: `citreq_${randomUUID()}`,
-        canonicalIdentity: canonical,
-        status: "pending",
-        operationId,
-        createdAt: now,
-        updatedAt: now,
-      };
-      store.citizenRequests.push(request);
-      store.audit.push({
-        eventId: `citevt_${randomUUID()}`,
-        operationId,
-        action: "apply",
-        requestId: request.requestId,
-        canonicalIdentity: canonical,
-        createdAt: now,
-      });
-      return { status: "pending", request };
-    });
-  }
-
-  async listPending(actorGlobalId: string): Promise<SgCitizenRequest[]> {
-    const store = await this.read();
-    requireMonarch(store, actorGlobalId);
-    return store.citizenRequests.filter((request) => request.status === "pending");
-  }
-
-  async decide(input: {
-    actorGlobalId: string;
-    requestId: string;
-    decision: "approve" | "reject";
-  }): Promise<{ request: SgCitizenRequest; profile?: SgGlobalProfile }> {
-    return this.mutate((store) => {
-      requireMonarch(store, input.actorGlobalId);
-      const index = store.citizenRequests.findIndex(
-        (request) => request.requestId === input.requestId.trim(),
-      );
-      if (index < 0) throw new Error("sg-citizen-request-not-found");
-      const current = store.citizenRequests[index];
-      if (current.status !== "pending") throw new Error("sg-citizen-request-already-decided");
-      const now = new Date().toISOString();
-      const operationId = `op_${randomUUID()}`;
-      let profile: SgGlobalProfile | undefined;
-      if (input.decision === "approve") {
-        const identity = store.identities.find(
-          (candidate) => candidate.canonicalIdentity === current.canonicalIdentity,
-        );
-        const existingProfile = identity
-          ? store.profiles.find((candidate) => candidate.globalId === identity.globalId)
-          : undefined;
-        if (
-          identity &&
-          (existingProfile?.status !== "active" || existingProfile.role !== "guest")
-        ) {
-          throw new Error("sg-citizen-identity-already-linked");
-        }
-        if (existingProfile) {
-          existingProfile.role = "citizen";
-          existingProfile.updatedAt = now;
-          profile = existingProfile;
-        } else {
-          const globalId = `usr_${randomUUID()}`;
-          profile = {
-            globalId,
-            canonicalIdentity: current.canonicalIdentity,
-            role: "citizen",
-            status: "active",
-            createdAt: now,
-            updatedAt: now,
-          };
-          store.profiles.push(profile);
-          store.identities.push({
-            canonicalIdentity: current.canonicalIdentity,
-            globalId,
-            createdAt: now,
-            updatedAt: now,
-          });
-        }
-      }
-      const request: SgCitizenRequest = {
-        ...current,
-        status: input.decision === "approve" ? "approved" : "rejected",
-        operationId,
-        ...(profile ? { resultingGlobalId: profile.globalId } : {}),
-        decidedByGlobalId: input.actorGlobalId.trim(),
-        updatedAt: now,
-      };
-      store.citizenRequests[index] = request;
-      store.audit.push({
-        eventId: `citevt_${randomUUID()}`,
-        operationId,
-        action: input.decision,
-        requestId: request.requestId,
-        canonicalIdentity: request.canonicalIdentity,
-        actorGlobalId: input.actorGlobalId.trim(),
-        ...(profile ? { resultingGlobalId: profile.globalId } : {}),
-        createdAt: now,
-      });
-      return { request, ...(profile ? { profile } : {}) };
-    });
   }
 }
 

@@ -132,7 +132,7 @@ describe("SG 2.2 global-profile state migration", () => {
     const migrated = JSON.parse(
       await readFile(path.join(root, "sg", "global-profiles.json"), "utf8"),
     );
-    expect(migrated).toMatchObject({ version: 4, monarchGlobalId: "usr_monarch" });
+    expect(migrated).toMatchObject({ version: 5, monarchGlobalId: "usr_monarch" });
     expect(migrated.profiles).toHaveLength(5);
     expect(migrated.profiles.filter((item: { role: string }) => item.role === "monarch")).toEqual([
       expect.objectContaining({ globalId: "usr_monarch", status: "active" }),
@@ -157,8 +157,8 @@ describe("SG 2.2 global-profile state migration", () => {
       ).globalId,
     ).toMatch(/^usr_migrated_[a-f0-9]{64}$/u);
     expect(migrated.identities).toContainEqual(identity("channel:discord:200", "usr_guest"));
-    expect(migrated.citizenRequests).toEqual([]);
-    expect(migrated.audit).toEqual([]);
+    expect(migrated).not.toHaveProperty("citizenRequests");
+    expect(migrated).not.toHaveProperty("audit");
 
     const archive = JSON.parse(
       await readFile(
@@ -203,6 +203,39 @@ describe("SG 2.2 global-profile state migration", () => {
     expect(await readFile(archivePath, "utf8")).toBe(firstArchive);
     expect((await stat(storePath)).mtimeMs).toBe(firstStoreMtime);
     expect((await stat(archivePath)).mtimeMs).toBe(firstArchiveMtime);
+  });
+
+  it("accepts v5 on restart without replacing the citizenship archive", async () => {
+    const root = await stateDir();
+    const storePath = path.join(root, "sg", "global-profiles.json");
+    const archivePath = path.join(root, "sg", "archive", "global-profiles-citizenship-v1.json");
+    const store = {
+      version: 5,
+      monarchGlobalId: "usr_monarch",
+      profiles: [profile("usr_monarch", "channel:telegram:100", "monarch")],
+      identities: [identity("channel:telegram:100", "usr_monarch")],
+    };
+    const legacyPayload = { citizenRequests: [], audit: [] };
+    const archive = {
+      migrationVersion: 1,
+      archivedAt: timestamp,
+      sourceStoreVersion: 4,
+      sourceChecksum: "0".repeat(64),
+      legacyRecordsChecksum: createHash("sha256")
+        .update(JSON.stringify(legacyPayload))
+        .digest("hex"),
+      ...legacyPayload,
+    };
+    await mkdir(path.dirname(archivePath), { recursive: true });
+    await writeFile(storePath, `${JSON.stringify(store, null, 2)}\n`);
+    await writeFile(archivePath, `${JSON.stringify(archive, null, 2)}\n`);
+    const archiveBeforeRestart = await readFile(archivePath, "utf8");
+
+    const result = runMigration(root);
+
+    expect(result.status, result.stderr).toBe(0);
+    expect(JSON.parse(await readFile(storePath, "utf8"))).toEqual(store);
+    expect(await readFile(archivePath, "utf8")).toBe(archiveBeforeRestart);
   });
 
   it("stops on ambiguous identity bindings without modifying the source", async () => {

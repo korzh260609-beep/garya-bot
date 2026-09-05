@@ -1,13 +1,10 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, readFile, readdir, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, realpath, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "vitest";
-import {
-  SgGlobalProfileRegistry,
-  validateGlobalProfileStore,
-} from "./citizenship-registry.js";
+import { SgGlobalProfileRegistry, validateGlobalProfileStore } from "./citizenship-registry.js";
 import { resolveWorkspaceContext } from "./context.js";
 import { SgWorkspaceRegistry } from "./workspace-registry.js";
 
@@ -23,7 +20,7 @@ type TargetWorkspaceContext = Awaited<ReturnType<typeof resolveWorkspaceContext>
 async function createStateDir() {
   const root = await mkdtemp(path.join(os.tmpdir(), "sg-role-contract-"));
   await mkdir(path.join(root, "sg"), { recursive: true });
-  return root;
+  return realpath(root);
 }
 
 async function writeProfileStore(
@@ -142,10 +139,7 @@ describe("SG 2.2 canonical role model contract", () => {
 
     const contexts = await Promise.all(
       Array.from({ length: 8 }, () =>
-        resolveWorkspaceContext(
-          { channel: "telegram", senderId: "201", to: "telegram:201" },
-          root,
-        ),
+        resolveWorkspaceContext({ channel: "telegram", senderId: "201", to: "telegram:201" }, root),
       ),
     );
     const ids = new Set(contexts.map((context) => context.globalId));
@@ -185,7 +179,10 @@ describe("SG 2.2 canonical role model contract", () => {
     const store = await snapshot(root);
 
     assert.equal(context.projectRole, "citizen");
-    assert.equal(store.profiles.some((profile) => profile.role === "guest"), false);
+    assert.equal(
+      store.profiles.some((profile) => profile.role === "guest"),
+      false,
+    );
     const requests = (store as unknown as { citizenRequests?: unknown[] }).citizenRequests;
     assert.ok(requests === undefined || requests.length === 0);
   });
@@ -224,10 +221,12 @@ describe("SG 2.2 canonical role model contract", () => {
       personalWorkspace.resolvePersonalWorkspaceRoot(root, "usr_citizen"),
       path.join(root, "sg", "users", "usr_citizen"),
     );
-    assert.throws(
-      () => personalWorkspace.resolvePersonalWorkspaceRoot(root, "../usr_monarch"),
-      /global-id|invalid|path/iu,
-    );
+    for (const invalidGlobalId of ["../usr_monarch", "/usr_monarch", "usr\\monarch", "..", ""]) {
+      assert.throws(
+        () => personalWorkspace.resolvePersonalWorkspaceRoot(root, invalidGlobalId),
+        /global-id|invalid|path/iu,
+      );
+    }
   });
 
   it("uses the same personal workspace for one linked person across transports", async () => {
@@ -247,6 +246,48 @@ describe("SG 2.2 canonical role model contract", () => {
     assert.equal(discord.personalWorkspaceRoot, telegram.personalWorkspaceRoot);
     assert.equal(telegram.personalWorkspaceId, telegram.globalId);
     assert.equal(discord.personalWorkspaceId, telegram.globalId);
+  });
+
+  it("keeps personal state in the same workspace after restart", async () => {
+    const root = await createStateDir();
+    const first = (await resolveWorkspaceContext(
+      { channel: "telegram", senderId: "205" },
+      root,
+    )) as TargetWorkspaceContext;
+    assert.ok(first.personalWorkspaceRoot);
+    await mkdir(first.personalWorkspaceRoot, { recursive: true });
+    await writeFile(path.join(first.personalWorkspaceRoot, "restart-marker"), "preserved", "utf8");
+
+    const afterRestart = (await resolveWorkspaceContext(
+      { channel: "telegram", senderId: "205" },
+      root,
+    )) as TargetWorkspaceContext;
+
+    assert.equal(afterRestart.personalWorkspaceRoot, first.personalWorkspaceRoot);
+    assert.equal(
+      await readFile(path.join(afterRestart.personalWorkspaceRoot, "restart-marker"), "utf8"),
+      "preserved",
+    );
+  });
+
+  it("isolates personal workspaces for two Global IDs", async () => {
+    const root = await createStateDir();
+    const first = (await resolveWorkspaceContext(
+      { channel: "telegram", senderId: "206" },
+      root,
+    )) as TargetWorkspaceContext;
+    const second = (await resolveWorkspaceContext(
+      { channel: "telegram", senderId: "207" },
+      root,
+    )) as TargetWorkspaceContext;
+
+    assert.ok(first.personalWorkspaceRoot);
+    assert.ok(second.personalWorkspaceRoot);
+    assert.notEqual(first.globalId, second.globalId);
+    assert.notEqual(first.personalWorkspaceRoot, second.personalWorkspaceRoot);
+    await mkdir(first.personalWorkspaceRoot, { recursive: true });
+    await writeFile(path.join(first.personalWorkspaceRoot, "private-marker"), "first", "utf8");
+    await assert.rejects(readFile(path.join(second.personalWorkspaceRoot, "private-marker")));
   });
 
   it("creates a neutral group resource scope with no SG role or owner", async () => {
@@ -296,6 +337,9 @@ describe("SG 2.2 canonical role model contract", () => {
     assert.match(source, /toolsBySender/u);
     assert.match(source, /channel:telegram:/u);
     assert.doesNotMatch(source, /approvalPolicy\s*[:=]\s*["']never["']/iu);
-    assert.doesNotMatch(source, /sandbox(?:Mode|_mode)?\s*[:=]\s*["'](?:off|disabled|danger-full-access)["']/iu);
+    assert.doesNotMatch(
+      source,
+      /sandbox(?:Mode|_mode)?\s*[:=]\s*["'](?:off|disabled|danger-full-access)["']/iu,
+    );
   });
 });

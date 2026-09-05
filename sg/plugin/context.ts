@@ -3,6 +3,7 @@ import {
   type SgGlobalProfile,
   type SgProjectRole,
 } from "./citizenship-registry.js";
+import { resolvePersonalWorkspaceRoot } from "./personal-workspace.js";
 
 export type { SgProjectRole } from "./citizenship-registry.js";
 export type SgWorkspaceContextInput = {
@@ -23,6 +24,8 @@ export type SgWorkspaceContext = {
   canonicalIdentity?: string;
   globalId?: string;
   projectRole?: SgProjectRole;
+  personalWorkspaceId?: string;
+  personalWorkspaceRoot?: string;
 };
 
 const normalize = (value: string | undefined) => (value ?? "").trim().toLowerCase();
@@ -87,6 +90,12 @@ export async function resolveWorkspaceContext(
     ...(profile ? { globalId: profile.globalId } : {}),
     ...(profile?.role === "monarch" || profile?.role === "citizen"
       ? { projectRole: profile.role }
+      : {}),
+    ...(profile
+      ? {
+          personalWorkspaceId: profile.globalId,
+          personalWorkspaceRoot: resolvePersonalWorkspaceRoot(root, profile.globalId),
+        }
       : {}),
   };
 }

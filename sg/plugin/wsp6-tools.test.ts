@@ -141,9 +141,10 @@ function findTool(tools: ReturnType<typeof createWsp6Tools>, name: string) {
 }
 
 async function createActiveTest(assessments: SgAssessmentRegistry, workspaceId: string) {
+  const scope = { kind: "resource" as const, resourceScopeId: workspaceId };
   await assessments.create({
     testId: "quick",
-    workspaceId,
+    scope,
     title: "Быстрый тест",
     kind: "knowledge",
     actorGlobalId: "usr_monarch",
@@ -166,7 +167,7 @@ async function createActiveTest(assessments: SgAssessmentRegistry, workspaceId: 
       },
     ],
   });
-  await assessments.setStatus("quick", "active");
+  await assessments.setStatus("quick", "active", scope);
 }
 
 describe("WSP6 assessment tools", () => {
@@ -182,7 +183,6 @@ describe("WSP6 assessment tools", () => {
     const result = details(
       await findTool(admin, "sg_test_manage").execute("profile-normalization", {
         action: "create_and_publish",
-        workspaceId: workspace.workspaceId,
         title: "Какой ты гусь?",
         kind: "profile",
         results: [
@@ -202,7 +202,8 @@ describe("WSP6 assessment tools", () => {
       status: "native_action_required",
       test: { kind: "profile", status: "active", questionCount: 3, resultCount: 3 },
     });
-    const [definition] = await assessments.listDefinitions(workspace.workspaceId);
+    const scope = { kind: "resource" as const, resourceScopeId: workspace.workspaceId };
+    const [definition] = await assessments.listDefinitions(scope);
     expect(definition?.results.map((profile) => profile.key)).toEqual(["A", "B", "C"]);
     expect(
       definition?.questions.map((question) => question.options.map((option) => option.scoreKey)),
@@ -216,7 +217,7 @@ describe("WSP6 assessment tools", () => {
     }
     const started = await assessments.start({
       testId: definition.testId,
-      workspaceId: workspace.workspaceId,
+      scope,
       globalId: "usr_citizen_b",
     });
     await assessments.answer({
@@ -252,7 +253,6 @@ describe("WSP6 assessment tools", () => {
     const automaticDraft = details(
       await findTool(admin, "sg_test_manage").execute("profile-automatic-keys", {
         action: "create",
-        workspaceId: workspace.workspaceId,
         title: "Автоматические ключи",
         kind: "profile",
         results: [{ title: "Первый" }, { title: "Второй" }, { title: "Третий" }],
@@ -260,7 +260,7 @@ describe("WSP6 assessment tools", () => {
       }),
     );
     expect(automaticDraft).toMatchObject({ status: "created", test: { resultCount: 3 } });
-    const definitions = await assessments.listDefinitions(workspace.workspaceId);
+    const definitions = await assessments.listDefinitions(scope);
     expect(
       definitions.find((item) => item.title === "Автоматические ключи")?.results,
     ).toMatchObject([{ key: "A" }, { key: "B" }, { key: "C" }]);
@@ -278,7 +278,6 @@ describe("WSP6 assessment tools", () => {
     const result = details(
       await findTool(admin, "sg_test_manage").execute("profile", {
         action: "create_and_publish",
-        workspaceId: workspace.workspaceId,
         title: "Какой ты гусь?",
         kind: "profile",
         results: [
@@ -311,7 +310,8 @@ describe("WSP6 assessment tools", () => {
       },
     });
 
-    const [definition] = await assessments.listDefinitions(workspace.workspaceId);
+    const scope = { kind: "resource" as const, resourceScopeId: workspace.workspaceId };
+    const [definition] = await assessments.listDefinitions(scope);
     if (!definition) {
       throw new Error("profile definition missing");
     }
@@ -325,7 +325,7 @@ describe("WSP6 assessment tools", () => {
     });
     const started = await assessments.start({
       testId: definition.testId,
-      workspaceId: workspace.workspaceId,
+      scope,
       globalId: "usr_citizen_b",
     });
     await expect(
@@ -347,11 +347,10 @@ describe("WSP6 assessment tools", () => {
     });
   });
 
-  it("allows the monarch to define tests and denies management to citizens", async () => {
+  it("keeps test management behavior behind native sender policy", async () => {
     const { root, workspace, assessments, lifecycle } = await fixture();
     const definition = {
       action: "create",
-      workspaceId: workspace.workspaceId,
       testId: "managed",
       title: "Управляемый тест",
       kind: "knowledge",
@@ -366,11 +365,6 @@ describe("WSP6 assessment tools", () => {
         },
       ],
     };
-    const citizen = createWsp6Tools(toolContext("30", "citizen"), root, assessments, lifecycle);
-    expect(
-      details(await findTool(citizen, "sg_test_manage").execute("citizen", definition)),
-    ).toEqual({ status: "denied", reason: "sg-test-manager-required" });
-
     const monarch = createWsp6Tools(toolContext("10", "monarch"), root, assessments, lifecycle);
     expect(
       details(await findTool(monarch, "sg_test_manage").execute("monarch", definition)),
@@ -420,7 +414,6 @@ describe("WSP6 assessment tools", () => {
     const result = details(
       await findTool(tools, "sg_test_attempt").execute("start", {
         action: "start",
-        workspaceId: workspace.workspaceId,
         testId: "quick",
       }),
     );
@@ -459,7 +452,7 @@ describe("WSP6 assessment tools", () => {
     await createActiveTest(assessments, workspace.workspaceId);
     const started = await assessments.start({
       testId: "quick",
-      workspaceId: workspace.workspaceId,
+      scope: { kind: "resource", resourceScopeId: workspace.workspaceId },
       globalId: "usr_citizen_b",
     });
     const privateTools = createWsp6Tools(
@@ -523,7 +516,7 @@ describe("WSP6 assessment tools", () => {
     await createActiveTest(assessments, workspace.workspaceId);
     const started = await assessments.start({
       testId: "quick",
-      workspaceId: workspace.workspaceId,
+      scope: { kind: "resource", resourceScopeId: workspace.workspaceId },
       globalId: "usr_citizen_b",
     });
     await assessments.answer({
@@ -563,12 +556,12 @@ describe("WSP6 assessment tools", () => {
     expect(result).not.toHaveProperty("result");
   });
 
-  it("keeps attempts available to citizens while statistics remain manager-only", async () => {
+  it("keeps attempts available to citizens", async () => {
     const { root, workspace, assessments, lifecycle } = await fixture();
     await createActiveTest(assessments, workspace.workspaceId);
     const started = await assessments.start({
       testId: "quick",
-      workspaceId: workspace.workspaceId,
+      scope: { kind: "resource", resourceScopeId: workspace.workspaceId },
       globalId: "usr_citizen_b",
     });
     const citizen = createWsp6Tools(
@@ -585,16 +578,6 @@ describe("WSP6 assessment tools", () => {
         }),
       ),
     ).toMatchObject({ status: "native_action_required" });
-
-    const otherCitizen = createWsp6Tools(
-      toolContext("40", "citizen-stats"),
-      root,
-      assessments,
-      lifecycle,
-    );
-    expect(
-      details(await findTool(otherCitizen, "sg_test_stats").execute("stats", { testId: "quick" })),
-    ).toEqual({ status: "denied", reason: "sg-test-manager-required" });
   });
 
   it("keeps ordinary polls on the native message tool", () => {

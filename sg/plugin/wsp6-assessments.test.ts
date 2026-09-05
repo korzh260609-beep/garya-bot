@@ -9,6 +9,8 @@ import {
   type SgAssessmentDefinition,
 } from "./wsp6-assessments.js";
 
+const RESOURCE_SCOPE = { kind: "resource" as const, resourceScopeId: "wsp_one" };
+
 class MemoryStore<T> implements PluginStateKeyedStore<T> {
   readonly values = new Map<string, PluginStateEntry<T>>();
 
@@ -73,7 +75,7 @@ function registryFixture() {
 async function activeKnowledgeTest(registry: SgAssessmentRegistry, testId = "capitals") {
   await registry.create({
     testId,
-    workspaceId: "wsp_one",
+    scope: RESOURCE_SCOPE,
     title: "Столицы",
     kind: "knowledge",
     actorGlobalId: "usr_owner",
@@ -96,7 +98,7 @@ async function activeKnowledgeTest(registry: SgAssessmentRegistry, testId = "cap
       },
     ],
   });
-  await registry.setStatus(testId, "active");
+  await registry.setStatus(testId, "active", RESOURCE_SCOPE);
 }
 
 describe("WSP6 assessment registry", () => {
@@ -106,12 +108,12 @@ describe("WSP6 assessment registry", () => {
 
     const first = await registry.start({
       testId: "capitals",
-      workspaceId: "wsp_one",
+      scope: RESOURCE_SCOPE,
       globalId: "usr_one",
     });
     const second = await registry.start({
       testId: "capitals",
-      workspaceId: "wsp_one",
+      scope: RESOURCE_SCOPE,
       globalId: "usr_two",
     });
     expect(first.attempt.attemptId).not.toBe(second.attempt.attemptId);
@@ -146,7 +148,7 @@ describe("WSP6 assessment registry", () => {
     await activeKnowledgeTest(registry);
     const started = await registry.start({
       testId: "capitals",
-      workspaceId: "wsp_one",
+      scope: RESOURCE_SCOPE,
       globalId: "usr_one",
     });
     const input = {
@@ -169,7 +171,7 @@ describe("WSP6 assessment registry", () => {
 
     const other = await registry.start({
       testId: "capitals",
-      workspaceId: "wsp_one",
+      scope: RESOURCE_SCOPE,
       globalId: "usr_two",
     });
     await expect(
@@ -186,7 +188,7 @@ describe("WSP6 assessment registry", () => {
     const { registry } = registryFixture();
     await registry.create({
       testId: "style",
-      workspaceId: "wsp_one",
+      scope: RESOURCE_SCOPE,
       title: "Стиль работы",
       kind: "profile",
       actorGlobalId: "usr_owner",
@@ -205,10 +207,10 @@ describe("WSP6 assessment registry", () => {
         },
       ],
     });
-    await registry.setStatus("style", "active");
+    await registry.setStatus("style", "active", RESOURCE_SCOPE);
     const started = await registry.start({
       testId: "style",
-      workspaceId: "wsp_one",
+      scope: RESOURCE_SCOPE,
       globalId: "usr_one",
     });
     await expect(
@@ -237,7 +239,7 @@ describe("WSP6 assessment registry", () => {
       const globalId = `usr_${index}`;
       const started = await registry.start({
         testId: "one_question",
-        workspaceId: "wsp_one",
+        scope: RESOURCE_SCOPE,
         globalId,
       });
       await registry.answer({
@@ -252,13 +254,13 @@ describe("WSP6 assessment registry", () => {
         questionId: "q2",
         answer: "rome",
       });
-      const stats = await registry.stats("one_question");
+      const stats = await registry.stats("one_question", RESOURCE_SCOPE);
       expect(stats.aggregateAvailable).toBe(index >= 2);
       if (index < 2) {
         expect(stats).not.toHaveProperty("knowledgeAveragePercent");
       }
     }
-    await expect(registry.stats("one_question")).resolves.toMatchObject({
+    await expect(registry.stats("one_question", RESOURCE_SCOPE)).resolves.toMatchObject({
       completedAttempts: 3,
       distinctParticipants: 3,
       aggregateAvailable: true,
@@ -272,7 +274,7 @@ describe("WSP6 assessment registry", () => {
     for (let index = 0; index < 3; index += 1) {
       const started = await registry.start({
         testId: "capitals",
-        workspaceId: "wsp_one",
+        scope: RESOURCE_SCOPE,
         globalId: "usr_one",
       });
       await registry.answer({
@@ -288,7 +290,7 @@ describe("WSP6 assessment registry", () => {
         answer: "rome",
       });
     }
-    await expect(registry.stats("capitals")).resolves.toEqual({
+    await expect(registry.stats("capitals", RESOURCE_SCOPE)).resolves.toEqual({
       testId: "capitals",
       completedAttempts: 3,
       distinctParticipants: 1,
@@ -301,7 +303,7 @@ describe("WSP6 assessment registry", () => {
     await expect(
       registry.create({
         testId: "broken",
-        workspaceId: "wsp_one",
+        scope: RESOURCE_SCOPE,
         title: "Broken",
         kind: "knowledge",
         actorGlobalId: "usr_owner",
@@ -319,8 +321,10 @@ describe("WSP6 assessment registry", () => {
     ).rejects.toThrow("sg-test-question-options-duplicate");
     await activeKnowledgeTest(registry);
     await expect(activeKnowledgeTest(registry)).rejects.toThrow("sg-test-id-exists");
-    await registry.setStatus("capitals", "closed");
-    await expect(registry.setStatus("capitals", "active")).rejects.toThrow("sg-test-closed");
+    await registry.setStatus("capitals", "closed", RESOURCE_SCOPE);
+    await expect(registry.setStatus("capitals", "active", RESOURCE_SCOPE)).rejects.toThrow(
+      "sg-test-closed",
+    );
   });
 
   it("reports corrupt state without exposing entry contents", async () => {

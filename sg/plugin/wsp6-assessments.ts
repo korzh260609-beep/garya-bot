@@ -4,6 +4,9 @@ import { openWsp6SqliteStores } from "./wsp6-store.js";
 
 export type SgAssessmentKind = "knowledge" | "profile";
 export type SgAssessmentStatus = "draft" | "active" | "closed";
+export type SgAssessmentScope =
+  | { kind: "personal"; globalId: string }
+  | { kind: "resource"; resourceScopeId: string };
 export type SgAssessmentDimension = { key: string; label: string };
 export type SgAssessmentProfile = { key: string; title: string; description: string };
 export type SgAssessmentOption = {
@@ -19,9 +22,9 @@ export type SgAssessmentQuestion = {
   options: SgAssessmentOption[];
 };
 export type SgAssessmentDefinition = {
-  version: 1;
+  version: 2;
   testId: string;
-  workspaceId: string;
+  scope: SgAssessmentScope;
   title: string;
   kind: SgAssessmentKind;
   status: SgAssessmentStatus;
@@ -38,10 +41,10 @@ export type SgAssessmentAnswer = {
   answeredAt: string;
 };
 export type SgAssessmentAttempt = {
-  version: 1;
+  version: 2;
   attemptId: string;
   testId: string;
-  workspaceId: string;
+  scope: SgAssessmentScope;
   globalId: string;
   status: "active" | "completed";
   answers: SgAssessmentAnswer[];
@@ -153,8 +156,37 @@ function roundPercent(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
+function validAssessmentScope(value: unknown): value is SgAssessmentScope {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+  const item = value as Partial<SgAssessmentScope>;
+  return item.kind === "personal"
+    ? Object.keys(value).length === 2 &&
+        typeof item.globalId === "string" &&
+        Boolean(item.globalId.trim())
+    : item.kind === "resource" &&
+        Object.keys(value).length === 2 &&
+        typeof item.resourceScopeId === "string" &&
+        Boolean(item.resourceScopeId.trim());
+}
+
+export function sameAssessmentScope(left: SgAssessmentScope, right: SgAssessmentScope): boolean {
+  return left.kind === "personal" && right.kind === "personal"
+    ? left.globalId === right.globalId
+    : left.kind === "resource" && right.kind === "resource"
+      ? left.resourceScopeId === right.resourceScopeId
+      : false;
+}
+
+function assessmentScopeKey(scope: SgAssessmentScope): string {
+  return scope.kind === "personal"
+    ? `personal:${required(scope.globalId, "sg-test-personal-scope-required")}`
+    : `resource:${required(scope.resourceScopeId, "sg-test-resource-scope-required")}`;
+}
+
 function validateDefinitionInput(input: {
-  workspaceId: string;
+  scope: SgAssessmentScope;
   title: string;
   kind: SgAssessmentKind;
   dimensions?: SgAssessmentDimension[];
@@ -162,9 +194,12 @@ function validateDefinitionInput(input: {
   questions: SgAssessmentQuestion[];
 }): Pick<
   SgAssessmentDefinition,
-  "workspaceId" | "title" | "kind" | "dimensions" | "results" | "questions"
+  "scope" | "title" | "kind" | "dimensions" | "results" | "questions"
 > {
-  const workspaceId = required(input.workspaceId, "sg-test-workspace-required");
+  if (!validAssessmentScope(input.scope)) {
+    throw new Error("sg-test-scope-invalid");
+  }
+  const scope = structuredClone(input.scope);
   const title = boundedText(input.title, 160, "sg-test-title-invalid");
   if (input.kind !== "knowledge" && input.kind !== "profile") {
     throw new Error("sg-test-kind-invalid");
@@ -293,7 +328,7 @@ function validateDefinitionInput(input: {
       }
     }
   }
-  return { workspaceId, title, kind: input.kind, dimensions, results, questions };
+  return { scope, title, kind: input.kind, dimensions, results, questions };
 }
 
 function validTimestamp(value: unknown): value is string {
@@ -307,7 +342,7 @@ function validDefinition(value: unknown): value is SgAssessmentDefinition {
   const item = value as Partial<SgAssessmentDefinition>;
   try {
     if (
-      item.version !== 1 ||
+      item.version !== 2 ||
       typeof item.testId !== "string" ||
       !ID_PATTERN.test(item.testId) ||
       !["draft", "active", "closed"].includes(item.status ?? "") ||
@@ -318,7 +353,7 @@ function validDefinition(value: unknown): value is SgAssessmentDefinition {
       return false;
     }
     validateDefinitionInput({
-      workspaceId: item.workspaceId ?? "",
+      scope: item.scope as SgAssessmentScope,
       title: item.title ?? "",
       kind: item.kind as SgAssessmentKind,
       dimensions: item.dimensions,
@@ -348,11 +383,11 @@ function validAttempt(value: unknown): value is SgAssessmentAttempt {
   }
   const item = value as Partial<SgAssessmentAttempt>;
   return (
-    item.version === 1 &&
+    item.version === 2 &&
     typeof item.attemptId === "string" &&
     item.attemptId.startsWith("att_") &&
     typeof item.testId === "string" &&
-    typeof item.workspaceId === "string" &&
+    validAssessmentScope(item.scope) &&
     typeof item.globalId === "string" &&
     (item.status === "active" || item.status === "completed") &&
     Array.isArray(item.answers) &&
@@ -369,9 +404,13 @@ function validAttempt(value: unknown): value is SgAssessmentAttempt {
   );
 }
 
-function attemptSlotKey(workspaceId: string, testId: string, globalId: string): string {
+function attemptSlotKey(input: {
+  scope: SgAssessmentScope;
+  testId: string;
+  globalId: string;
+}): string {
   const digest = createHash("sha256")
-    .update(`${workspaceId}\0${testId}\0${globalId}`)
+    .update(`${assessmentScopeKey(input.scope)}\0${input.testId}\0${input.globalId}`)
     .digest("hex");
   return `active:${digest}`;
 }
@@ -380,15 +419,16 @@ function attemptHistoryKey(attemptId: string): string {
   return `history:${attemptId}`;
 }
 
-function definitionKey(testId: string): string {
-  return `test:${testId}`;
+function definitionKey(scope: SgAssessmentScope, testId: string): string {
+  const digest = createHash("sha256").update(assessmentScopeKey(scope)).digest("hex");
+  return `test:${digest}:${testId}`;
 }
 
 export function assessmentInteractiveToken(
-  definition: Pick<SgAssessmentDefinition, "workspaceId" | "testId">,
+  definition: Pick<SgAssessmentDefinition, "scope" | "testId">,
 ): string {
   return createHash("sha256")
-    .update(`${definition.workspaceId}\0${definition.testId}`)
+    .update(`${assessmentScopeKey(definition.scope)}\0${definition.testId}`)
     .digest("base64url")
     .slice(0, 16);
 }
@@ -500,7 +540,7 @@ export class SgAssessmentRegistry {
 
   async create(input: {
     testId?: string;
-    workspaceId: string;
+    scope: SgAssessmentScope;
     title: string;
     kind: SgAssessmentKind;
     dimensions?: SgAssessmentDimension[];
@@ -514,7 +554,7 @@ export class SgAssessmentRegistry {
       : `tst_${randomUUID().replaceAll("-", "")}`;
     const now = new Date().toISOString();
     const definition: SgAssessmentDefinition = {
-      version: 1,
+      version: 2,
       testId,
       ...normalized,
       status: "draft",
@@ -522,15 +562,23 @@ export class SgAssessmentRegistry {
       createdAt: now,
       updatedAt: now,
     };
-    if (!(await this.stores.definitions.registerIfAbsent(definitionKey(testId), definition))) {
+    if (
+      !(await this.stores.definitions.registerIfAbsent(
+        definitionKey(definition.scope, testId),
+        definition,
+      ))
+    ) {
       throw new Error("sg-test-id-exists");
     }
     return definition;
   }
 
-  async findDefinition(testId: string): Promise<SgAssessmentDefinition | undefined> {
+  async findDefinition(
+    testId: string,
+    scope: SgAssessmentScope,
+  ): Promise<SgAssessmentDefinition | undefined> {
     const value = await this.stores.definitions.lookup(
-      definitionKey(identifier(testId, "sg-test-id-invalid")),
+      definitionKey(scope, identifier(testId, "sg-test-id-invalid")),
     );
     if (value === undefined) {
       return undefined;
@@ -542,8 +590,10 @@ export class SgAssessmentRegistry {
     return definition;
   }
 
-  async listDefinitions(workspaceId: string): Promise<SgAssessmentDefinition[]> {
-    const normalizedWorkspace = required(workspaceId, "sg-test-workspace-required");
+  async listDefinitions(scope: SgAssessmentScope): Promise<SgAssessmentDefinition[]> {
+    if (!validAssessmentScope(scope)) {
+      throw new Error("sg-test-scope-invalid");
+    }
     const definitions = (await this.stores.definitions.entries()).map((entry) =>
       normalizedStoredDefinition(entry.value),
     );
@@ -552,7 +602,7 @@ export class SgAssessmentRegistry {
     }
     return definitions
       .filter((definition): definition is SgAssessmentDefinition =>
-        Boolean(definition && definition.workspaceId === normalizedWorkspace),
+        Boolean(definition && sameAssessmentScope(definition.scope, scope)),
       )
       .toSorted((left, right) => left.createdAt.localeCompare(right.createdAt));
   }
@@ -582,8 +632,9 @@ export class SgAssessmentRegistry {
   async setStatus(
     testId: string,
     status: Exclude<SgAssessmentStatus, "draft">,
+    scope: SgAssessmentScope,
   ): Promise<SgAssessmentDefinition> {
-    const key = definitionKey(identifier(testId, "sg-test-id-invalid"));
+    const key = definitionKey(scope, identifier(testId, "sg-test-id-invalid"));
     let updated: SgAssessmentDefinition | undefined;
     await requireAtomicUpdate(this.stores.definitions)(key, (current) => {
       if (!current) {
@@ -605,25 +656,25 @@ export class SgAssessmentRegistry {
     return updated;
   }
 
-  async start(input: { testId: string; workspaceId: string; globalId: string }): Promise<{
+  async start(input: { testId: string; scope: SgAssessmentScope; globalId: string }): Promise<{
     status: "started" | "resumed";
     attempt: SgAssessmentAttempt;
     question: SgAssessmentQuestionView;
   }> {
-    const definition = await this.findDefinition(input.testId);
-    if (!definition || definition.workspaceId !== input.workspaceId.trim()) {
+    const definition = await this.findDefinition(input.testId, input.scope);
+    if (!definition) {
       throw new Error("sg-test-not-found");
     }
     if (definition.status !== "active") {
       throw new Error("sg-test-not-active");
     }
     const globalId = required(input.globalId, "sg-test-participant-required");
-    const key = attemptSlotKey(definition.workspaceId, definition.testId, globalId);
+    const key = attemptSlotKey({ scope: definition.scope, testId: definition.testId, globalId });
     const candidate: SgAssessmentAttempt = {
-      version: 1,
+      version: 2,
       attemptId: `att_${randomUUID().replaceAll("-", "")}`,
       testId: definition.testId,
-      workspaceId: definition.workspaceId,
+      scope: structuredClone(definition.scope),
       globalId,
       status: "active",
       answers: [],
@@ -672,11 +723,15 @@ export class SgAssessmentRegistry {
     | { status: "completed"; attempt: SgAssessmentAttempt; result: SgAssessmentResult }
   > {
     const attempt = await this.findOwnedAttempt(input.attemptId, input.globalId);
-    const definition = await this.findDefinition(attempt.testId);
-    if (!definition || definition.workspaceId !== attempt.workspaceId) {
+    const definition = await this.findDefinition(attempt.testId, attempt.scope);
+    if (!definition) {
       throw new Error("sg-test-not-found");
     }
-    const key = attemptSlotKey(attempt.workspaceId, attempt.testId, attempt.globalId);
+    const key = attemptSlotKey({
+      scope: attempt.scope,
+      testId: attempt.testId,
+      globalId: attempt.globalId,
+    });
     let updated: SgAssessmentAttempt | undefined;
     await requireAtomicUpdate(this.stores.attempts)(key, (current) => {
       if (!current || !validAttempt(current) || current.attemptId !== attempt.attemptId) {
@@ -772,7 +827,7 @@ export class SgAssessmentRegistry {
     | { status: "completed"; attempt: SgAssessmentAttempt; result: SgAssessmentResult }
   > {
     const attempt = await this.findOwnedAttempt(attemptId, globalId);
-    const definition = await this.findDefinition(attempt.testId);
+    const definition = await this.findDefinition(attempt.testId, attempt.scope);
     if (!definition) {
       throw new Error("sg-test-not-found");
     }
@@ -786,8 +841,8 @@ export class SgAssessmentRegistry {
     return { status: "active", attempt, question };
   }
 
-  async stats(testId: string): Promise<SgAssessmentStats> {
-    const definition = await this.findDefinition(testId);
+  async stats(testId: string, scope: SgAssessmentScope): Promise<SgAssessmentStats> {
+    const definition = await this.findDefinition(testId, scope);
     if (!definition) {
       throw new Error("sg-test-not-found");
     }
@@ -796,7 +851,11 @@ export class SgAssessmentRegistry {
       if (!validAttempt(entry.value)) {
         throw new Error("sg-test-attempt-corrupt");
       }
-      if (entry.value.testId === definition.testId && entry.value.status === "completed") {
+      if (
+        entry.value.testId === definition.testId &&
+        sameAssessmentScope(entry.value.scope, definition.scope) &&
+        entry.value.status === "completed"
+      ) {
         byAttempt.set(entry.value.attemptId, entry.value);
       }
     }

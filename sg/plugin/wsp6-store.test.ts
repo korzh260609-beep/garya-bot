@@ -7,10 +7,11 @@ import { openSgAssessmentStores, SgAssessmentRegistry } from "./wsp6-assessments
 describe("WSP6 SQLite storage", () => {
   it("persists an in-progress attempt across registry and database reopen", async () => {
     const stateDir = await mkdtemp(path.join(os.tmpdir(), "sg-wsp6-sqlite-"));
+    const scope = { kind: "resource" as const, resourceScopeId: "wsp_one" };
     const first = new SgAssessmentRegistry(openSgAssessmentStores(stateDir));
     await first.create({
       testId: "durable",
-      workspaceId: "wsp_one",
+      scope,
       title: "Durable test",
       kind: "knowledge",
       actorGlobalId: "usr_owner",
@@ -33,10 +34,10 @@ describe("WSP6 SQLite storage", () => {
         },
       ],
     });
-    await first.setStatus("durable", "active");
+    await first.setStatus("durable", "active", scope);
     const started = await first.start({
       testId: "durable",
-      workspaceId: "wsp_one",
+      scope,
       globalId: "usr_one",
     });
     await first.answer({

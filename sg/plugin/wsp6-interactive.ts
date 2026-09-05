@@ -1,12 +1,13 @@
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
 import { resolveWorkspaceContext } from "./context.js";
-import { SgWorkspaceRegistry, type SgWorkspace } from "./workspace-registry.js";
+import { SgWorkspaceRegistry, type SgResourceScope } from "./workspace-registry.js";
 import {
   assessmentInteractiveToken,
   SgAssessmentRegistry,
   type SgAssessmentDefinition,
   type SgAssessmentQuestionView,
   type SgAssessmentResult,
+  type SgAssessmentScope,
 } from "./wsp6-assessments.js";
 
 export const WSP6_CALLBACK_NAMESPACE = "sg6";
@@ -74,7 +75,7 @@ function optionLabel(label: string, optionIndex: number): string {
 }
 
 export function wsp6StartCallbackValue(
-  definition: Pick<SgAssessmentDefinition, "workspaceId" | "testId">,
+  definition: Pick<SgAssessmentDefinition, "scope" | "testId">,
 ): string {
   return callbackValue(`s:${assessmentInteractiveToken(definition)}`);
 }
@@ -171,26 +172,23 @@ function asTelegramContext(value: unknown): TelegramInteractiveContext {
   return context as TelegramInteractiveContext;
 }
 
-function callbackMatchesWorkspace(
+function callbackMatchesResource(
   ctx: TelegramInteractiveContext,
-  workspace: SgWorkspace,
+  resource: SgResourceScope,
 ): boolean {
-  if (!ctx.isGroup) {
-    return true;
-  }
   const resourceIds = new Set([
     ctx.callback.chatId,
     `telegram:${ctx.callback.chatId}`,
     `telegram:group:${ctx.callback.chatId}`,
   ]);
-  const accountMatches = !workspace.accountId || workspace.accountId === ctx.accountId;
+  const accountMatches = !resource.accountId || resource.accountId === ctx.accountId;
   const topicMatches =
-    workspace.topicId === undefined || workspace.topicId === String(ctx.threadId ?? "");
+    resource.topicId === undefined || resource.topicId === String(ctx.threadId ?? "");
   return (
-    workspace.platform.toLowerCase() === "telegram" &&
+    resource.platform.toLowerCase() === "telegram" &&
     accountMatches &&
     topicMatches &&
-    resourceIds.has(workspace.resourceId)
+    resourceIds.has(resource.resourceId)
   );
 }
 
@@ -212,7 +210,7 @@ function safeError(error: unknown): string {
 }
 
 export class Wsp6InteractiveController {
-  private readonly workspaces: SgWorkspaceRegistry;
+  private readonly scopes: SgWorkspaceRegistry;
   private readonly counters = { callbacks: 0, started: 0, answered: 0, completed: 0, failed: 0 };
   private registered = false;
 
@@ -221,7 +219,7 @@ export class Wsp6InteractiveController {
     private readonly resolveAssessments: () => SgAssessmentRegistry,
     private readonly api: InteractiveApi,
   ) {
-    this.workspaces = new SgWorkspaceRegistry(stateDir);
+    this.scopes = new SgWorkspaceRegistry(stateDir);
   }
 
   snapshot(): Wsp6InteractiveSnapshot {
@@ -255,18 +253,9 @@ export class Wsp6InteractiveController {
     this.registered = true;
   }
 
-  private async authorizedGlobalId(
-    ctx: TelegramInteractiveContext,
-    workspace: SgWorkspace,
-  ): Promise<string> {
+  private async authorizedGlobalId(ctx: TelegramInteractiveContext): Promise<string> {
     if (!ctx.auth.isAuthorizedSender || !ctx.senderId?.trim()) {
       throw new Error("sg-test-callback-sender-not-authorized");
-    }
-    if (workspace.status !== "active") {
-      throw new Error("sg-test-workspace-not-active");
-    }
-    if (!callbackMatchesWorkspace(ctx, workspace)) {
-      throw new Error("sg-test-callback-workspace-mismatch");
     }
     const actor = await resolveWorkspaceContext(
       {
@@ -281,6 +270,39 @@ export class Wsp6InteractiveController {
       throw new Error("sg-test-citizen-required");
     }
     return actor.globalId;
+  }
+
+  private async assertStartScope(
+    ctx: TelegramInteractiveContext,
+    scope: SgAssessmentScope,
+    globalId: string,
+  ): Promise<void> {
+    if (scope.kind === "personal") {
+      if (ctx.isGroup || scope.globalId !== globalId) {
+        throw new Error("sg-test-callback-scope-mismatch");
+      }
+      return;
+    }
+    const resource = await this.scopes.findScopeById(scope.resourceScopeId);
+    if (!ctx.isGroup || !resource || !callbackMatchesResource(ctx, resource)) {
+      throw new Error("sg-test-callback-scope-mismatch");
+    }
+  }
+
+  private async assertAttemptRoute(
+    ctx: TelegramInteractiveContext,
+    scope: SgAssessmentScope,
+  ): Promise<void> {
+    if (!ctx.isGroup) {
+      return;
+    }
+    if (scope.kind !== "resource") {
+      throw new Error("sg-test-callback-scope-mismatch");
+    }
+    const resource = await this.scopes.findScopeById(scope.resourceScopeId);
+    if (!resource || !callbackMatchesResource(ctx, resource)) {
+      throw new Error("sg-test-callback-scope-mismatch");
+    }
   }
 
   private async handle(ctx: TelegramInteractiveContext): Promise<void> {
@@ -311,14 +333,11 @@ export class Wsp6InteractiveController {
     if (!definition || definition.status !== "active") {
       throw new Error("sg-test-not-active");
     }
-    const workspace = await this.workspaces.findById(definition.workspaceId);
-    if (!workspace) {
-      throw new Error("sg-test-workspace-not-found");
-    }
-    const globalId = await this.authorizedGlobalId(ctx, workspace);
+    const globalId = await this.authorizedGlobalId(ctx);
+    await this.assertStartScope(ctx, definition.scope, globalId);
     const started = await assessments.start({
       testId: definition.testId,
-      workspaceId: workspace.workspaceId,
+      scope: definition.scope,
       globalId,
     });
     await ctx.respond.reply({
@@ -351,12 +370,14 @@ export class Wsp6InteractiveController {
     }
     const assessments = this.resolveAssessments();
     const current = await assessments.resume(attemptId, identity.globalId);
-    const definition = await assessments.findDefinition(current.attempt.testId);
-    const workspace = definition && (await this.workspaces.findById(definition.workspaceId));
-    if (!definition || !workspace) {
-      throw new Error("sg-test-workspace-not-found");
+    const definition = await assessments.findDefinition(
+      current.attempt.testId,
+      current.attempt.scope,
+    );
+    if (!definition) {
+      throw new Error("sg-test-scope-not-found");
     }
-    await this.authorizedGlobalId(ctx, workspace);
+    await this.assertAttemptRoute(ctx, current.attempt.scope);
     if (current.status === "completed") {
       await this.finish(ctx, definition, current.attempt.attemptId, current.result);
       return;
@@ -411,12 +432,14 @@ export class Wsp6InteractiveController {
     }
     const assessments = this.resolveAssessments();
     const current = await assessments.resume(attemptId, identity.globalId);
-    const definition = await assessments.findDefinition(current.attempt.testId);
-    const workspace = definition && (await this.workspaces.findById(definition.workspaceId));
-    if (!definition || !workspace) {
-      throw new Error("sg-test-workspace-not-found");
+    const definition = await assessments.findDefinition(
+      current.attempt.testId,
+      current.attempt.scope,
+    );
+    if (!definition) {
+      throw new Error("sg-test-scope-not-found");
     }
-    await this.authorizedGlobalId(ctx, workspace);
+    await this.assertAttemptRoute(ctx, current.attempt.scope);
     if (current.status === "active") {
       await ctx.respond.editMessage({
         text: wsp6QuestionText(current.question),

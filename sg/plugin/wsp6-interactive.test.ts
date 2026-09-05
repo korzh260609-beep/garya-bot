@@ -55,14 +55,11 @@ async function fixture() {
     resourceId: "telegram:-100500",
     resourceKind: "group",
   });
-  const workspace = await workspaceRegistry.findById(scope.resourceScopeId);
-  if (!workspace) {
-    throw new Error("missing workspace compatibility view");
-  }
   const assessments = new SgAssessmentRegistry(openSgAssessmentStores(root));
+  const assessmentScope = { kind: "resource" as const, resourceScopeId: scope.resourceScopeId };
   const definition = await assessments.create({
     testId: "interactive",
-    workspaceId: workspace.workspaceId,
+    scope: assessmentScope,
     title: "Точный тест",
     kind: "knowledge",
     actorGlobalId: "usr_owner",
@@ -85,7 +82,7 @@ async function fixture() {
       },
     ],
   });
-  await assessments.setStatus(definition.testId, "active");
+  await assessments.setStatus(definition.testId, "active", assessmentScope);
 
   let registration: InteractiveRegistration;
   const sendText = vi.fn(async (_params: unknown) => ({

@@ -34,6 +34,9 @@ describe("SG 2.2 Render entrypoint", () => {
     );
     expect(script).toContain("node /app/scripts/sg22-migrate-workspace-memberships.mjs");
     expect(script).toContain("node /app/scripts/sg22-migrate-workspace-requests.mjs");
+    expect(script).toContain("node /app/scripts/sg22-migrate-wsp6-assessments.mjs");
+    expect(script).toMatch(/deny[^\n]+sg_test_manage[^\n]+sg_test_stats/u);
+    expect(script).toMatch(/alsoAllow[^\n]+sg_test_manage[^\n]+sg_test_stats/u);
     expect(script).toContain('{"path":"tools.alsoAllow","value":\'"${workspace_plugin_tools}"\'}');
     expect(script).not.toContain('"path":"agents.defaults.tools.alsoAllow"');
   });

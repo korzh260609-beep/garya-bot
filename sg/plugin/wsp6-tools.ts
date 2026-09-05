@@ -1,7 +1,8 @@
 import { jsonResult } from "openclaw/plugin-sdk/tool-results";
 import { resolveWorkspaceContext } from "./context.js";
-import { SgWorkspaceRegistry, type SgWorkspace } from "./workspace-registry.js";
+import { SgWorkspaceRegistry, type SgResourceScope } from "./workspace-registry.js";
 import {
+  sameAssessmentScope,
   SgAssessmentRegistry,
   type SgAssessmentDefinition,
   type SgAssessmentDimension,
@@ -10,6 +11,7 @@ import {
   type SgAssessmentQuestion,
   type SgAssessmentQuestionView,
   type SgAssessmentResult,
+  type SgAssessmentScope,
 } from "./wsp6-assessments.js";
 import {
   formatWsp6PrivateResult,
@@ -42,7 +44,15 @@ type AgentTool = {
 
 type Wsp6Actor = {
   globalId: string;
-  canManage: boolean;
+  scope: SgAssessmentScope;
+  target: Wsp6Target;
+};
+
+type Wsp6Target = {
+  platform: string;
+  accountId?: string;
+  resourceId: string;
+  topicId?: string;
 };
 
 type ParsedResults = {
@@ -281,48 +291,88 @@ async function actorContext(ctx: ToolContext, stateDir: string) {
   );
 }
 
-async function resolveWorkspace(
-  params: Record<string, unknown>,
+function normalizedRouteId(channel: string, value: string): string {
+  const prefix = `${channel.trim().toLowerCase()}:`;
+  const normalized = value.trim();
+  return normalized.toLowerCase().startsWith(prefix) ? normalized.slice(prefix.length) : normalized;
+}
+
+function isPersonalRoute(actor: Awaited<ReturnType<typeof actorContext>>): boolean {
+  return Boolean(
+    actor.senderId &&
+    actor.resourceId &&
+    normalizedRouteId(actor.channel, actor.resourceId) ===
+      normalizedRouteId(actor.channel, actor.senderId),
+  );
+}
+
+function resourceTarget(scope: SgResourceScope): Wsp6Target {
+  return {
+    platform: scope.platform,
+    ...(scope.accountId ? { accountId: scope.accountId } : {}),
+    resourceId: scope.resourceId,
+    ...(scope.topicId ? { topicId: scope.topicId } : {}),
+  };
+}
+
+async function resolveActor(
   actor: Awaited<ReturnType<typeof actorContext>>,
-  workspaces: SgWorkspaceRegistry,
-): Promise<SgWorkspace | undefined> {
-  if (typeof params.workspaceId === "string" && params.workspaceId.trim()) {
-    return workspaces.findById(params.workspaceId.trim());
+  scopes: SgWorkspaceRegistry,
+): Promise<Wsp6Actor | undefined> {
+  if (!actor.globalId) {
+    throw new Error("sg-test-citizen-required");
   }
   if (!actor.channel || !actor.resourceId) {
     return undefined;
   }
-  return workspaces.resolveWorkspace({
+  if (isPersonalRoute(actor)) {
+    return {
+      globalId: actor.globalId,
+      scope: { kind: "personal", globalId: actor.globalId },
+      target: {
+        platform: actor.channel,
+        ...(actor.accountId ? { accountId: actor.accountId } : {}),
+        resourceId: actor.resourceId,
+        ...(actor.topicId ? { topicId: actor.topicId } : {}),
+      },
+    };
+  }
+  const route = {
     platform: actor.channel,
     ...(actor.accountId ? { accountId: actor.accountId } : {}),
     resourceId: actor.resourceId,
     ...(actor.topicId ? { topicId: actor.topicId } : {}),
-  });
+  };
+  let scope = await scopes.resolve(route);
+  if (!scope && actor.topicId) {
+    scope = await scopes.register({
+      ...route,
+      resourceKind: "topic",
+      parentResourceId: actor.resourceId,
+    });
+  }
+  return scope
+    ? {
+        globalId: actor.globalId,
+        scope: { kind: "resource", resourceScopeId: scope.resourceScopeId },
+        target: resourceTarget(scope),
+      }
+    : undefined;
 }
 
-async function authorizedActor(
-  actor: Awaited<ReturnType<typeof actorContext>>,
-  workspace: SgWorkspace,
-): Promise<Wsp6Actor> {
-  if (!actor.globalId) {
-    throw new Error("sg-test-citizen-required");
-  }
-  if (workspace.status !== "active") {
-    throw new Error("sg-test-workspace-not-active");
-  }
-  return { globalId: actor.globalId, canManage: actor.projectRole === "monarch" };
-}
-
-function requireManager(actor: Wsp6Actor): void {
-  if (!actor.canManage) {
-    throw new Error("sg-test-manager-required");
+function assertAttemptScope(actor: Wsp6Actor, scope: SgAssessmentScope): void {
+  if (
+    !sameAssessmentScope(actor.scope, scope) &&
+    !(actor.scope.kind === "personal" && scope.kind === "resource")
+  ) {
+    throw new Error("sg-test-scope-required");
   }
 }
 
 function definitionSummary(definition: SgAssessmentDefinition) {
   return {
     testId: definition.testId,
-    workspaceId: definition.workspaceId,
+    scope: definition.scope,
     title: definition.title,
     kind: definition.kind,
     status: definition.status,
@@ -351,15 +401,15 @@ function buildQuestionAction(
 }
 
 function buildInviteAction(
-  workspace: SgWorkspace,
+  target: Wsp6Target,
   definition: SgAssessmentDefinition,
 ): Record<string, unknown> {
   return {
     action: "send",
-    channel: workspace.platform,
-    target: workspace.resourceId,
-    ...(workspace.accountId ? { accountId: workspace.accountId } : {}),
-    ...(workspace.topicId ? { threadId: workspace.topicId } : {}),
+    channel: target.platform,
+    target: target.resourceId,
+    ...(target.accountId ? { accountId: target.accountId } : {}),
+    ...(target.topicId ? { threadId: target.topicId } : {}),
     message: [
       `🧩 Интерактивный тест: ${definition.title}`,
       `Вопросов: ${definition.questions.length}`,
@@ -421,13 +471,13 @@ async function nativeQuestionResult(params: {
 }
 
 async function nativeInviteResult(params: {
-  workspace: SgWorkspace;
+  target: Wsp6Target;
   definition: SgAssessmentDefinition;
   ctx: ToolContext;
   lifecycle: Wsp6NativeLifecycle;
 }) {
   params.lifecycle.assertSessionAvailable(params.ctx.sessionKey);
-  const nextAction = buildInviteAction(params.workspace, params.definition);
+  const nextAction = buildInviteAction(params.target, params.definition);
   params.lifecycle.queue({
     sessionKey: params.ctx.sessionKey,
     toolName: "message",
@@ -491,13 +541,13 @@ export function createWsp6Tools(
   assessments: SgAssessmentRegistry,
   lifecycle: Wsp6NativeLifecycle,
 ): AgentTool[] {
-  const workspaces = new SgWorkspaceRegistry(stateDir);
+  const scopes = new SgWorkspaceRegistry(stateDir);
   return [
     {
       name: "sg_test_manage",
       label: "Управление тестами SG",
       description:
-        "Создаёт и публикует неизменяемые тесты знаний или профильные тесты. Для обычного профильного теста используй results (категории результата), как в SG 2.1; questionId/optionId можно не задавать, а варианты могут быть строками. dimensions нужны только для числового теста по шкалам. Для запроса создать интерактивный тест используй create_and_publish: он сразу публикует настоящую кнопку запуска. create сохраняет только черновик. Управление доступно монарху до переноса на штатную sender policy. Для обычного опроса без индивидуального результата используй штатный message poll.",
+        "Создаёт и публикует неизменяемые тесты знаний или профильные тесты. Для обычного профильного теста используй results (категории результата), как в SG 2.1; questionId/optionId можно не задавать, а варианты могут быть строками. dimensions нужны только для числового теста по шкалам. Для запроса создать интерактивный тест используй create_and_publish: он сразу публикует настоящую кнопку запуска. create сохраняет только черновик. Управление доступно монарху по штатной sender policy. Для обычного опроса без индивидуального результата используй штатный message poll.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -506,7 +556,6 @@ export function createWsp6Tools(
             type: "string",
             enum: ["create", "create_and_publish", "activate", "close", "get", "list"],
           },
-          workspaceId: { type: "string", minLength: 1 },
           testId: { type: "string", minLength: 1 },
           title: { type: "string", minLength: 1 },
           kind: { type: "string", enum: ["knowledge", "profile"] },
@@ -520,15 +569,13 @@ export function createWsp6Tools(
         try {
           const action = textParam(params, "action");
           const actorContextValue = await actorContext(ctx, stateDir);
+          const actor = await resolveActor(actorContextValue, scopes);
+          if (!actor) {
+            return jsonResult({ status: "unavailable", reason: "test-scope-not-found" });
+          }
           if (action === "create" || action === "create_and_publish" || action === "list") {
-            const workspace = await resolveWorkspace(params, actorContextValue, workspaces);
-            if (!workspace) {
-              return jsonResult({ status: "unavailable", reason: "workspace-not-found" });
-            }
-            const actor = await authorizedActor(actorContextValue, workspace);
-            requireManager(actor);
             if (action === "list") {
-              const definitions = await assessments.listDefinitions(workspace.workspaceId);
+              const definitions = await assessments.listDefinitions(actor.scope);
               return jsonResult({ status: "ok", tests: definitions.map(definitionSummary) });
             }
             if (action === "create_and_publish") {
@@ -540,7 +587,7 @@ export function createWsp6Tools(
               ...(typeof params.testId === "string" && params.testId.trim()
                 ? { testId: params.testId.trim() }
                 : {}),
-              workspaceId: workspace.workspaceId,
+              scope: actor.scope,
               title: textParam(params, "title"),
               kind,
               dimensions: dimensionsParam(params.dimensions),
@@ -553,23 +600,25 @@ export function createWsp6Tools(
               actorGlobalId: actor.globalId,
             });
             if (action === "create_and_publish") {
-              const active = await assessments.setStatus(definition.testId, "active");
+              const active = await assessments.setStatus(definition.testId, "active", actor.scope);
               return jsonResult(
-                await nativeInviteResult({ workspace, definition: active, ctx, lifecycle }),
+                await nativeInviteResult({
+                  target: actor.target,
+                  definition: active,
+                  ctx,
+                  lifecycle,
+                }),
               );
             }
             return jsonResult({ status: "created", test: definitionSummary(definition) });
           }
-          const definition = await assessments.findDefinition(textParam(params, "testId"));
+          const definition = await assessments.findDefinition(
+            textParam(params, "testId"),
+            actor.scope,
+          );
           if (!definition) {
             throw new Error("sg-test-not-found");
           }
-          const workspace = await workspaces.findById(definition.workspaceId);
-          if (!workspace) {
-            throw new Error("sg-test-workspace-not-found");
-          }
-          const actor = await authorizedActor(actorContextValue, workspace);
-          requireManager(actor);
           if (action === "get") {
             return jsonResult({ status: "ok", test: definition });
           }
@@ -582,10 +631,16 @@ export function createWsp6Tools(
           const updated = await assessments.setStatus(
             definition.testId,
             action === "activate" ? "active" : "closed",
+            actor.scope,
           );
           if (action === "activate") {
             return jsonResult(
-              await nativeInviteResult({ workspace, definition: updated, ctx, lifecycle }),
+              await nativeInviteResult({
+                target: actor.target,
+                definition: updated,
+                ctx,
+                lifecycle,
+              }),
             );
           }
           return jsonResult({ status: updated.status, test: definitionSummary(updated) });
@@ -607,7 +662,6 @@ export function createWsp6Tools(
         additionalProperties: false,
         properties: {
           action: { type: "string", enum: ["list", "start", "answer", "resume", "result"] },
-          workspaceId: { type: "string", minLength: 1 },
           testId: { type: "string", minLength: 1 },
           attemptId: { type: "string", minLength: 1 },
           questionId: { type: "string", minLength: 1 },
@@ -619,14 +673,13 @@ export function createWsp6Tools(
         try {
           const action = textParam(params, "action");
           const actorContextValue = await actorContext(ctx, stateDir);
+          const actor = await resolveActor(actorContextValue, scopes);
+          if (!actor) {
+            return jsonResult({ status: "unavailable", reason: "test-scope-not-found" });
+          }
           if (action === "list" || action === "start") {
-            const workspace = await resolveWorkspace(params, actorContextValue, workspaces);
-            if (!workspace) {
-              return jsonResult({ status: "unavailable", reason: "workspace-not-found" });
-            }
-            const actor = await authorizedActor(actorContextValue, workspace);
             if (action === "list") {
-              const definitions = await assessments.listDefinitions(workspace.workspaceId);
+              const definitions = await assessments.listDefinitions(actor.scope);
               return jsonResult({
                 status: "ok",
                 tests: definitions
@@ -636,7 +689,7 @@ export function createWsp6Tools(
             }
             const started = await assessments.start({
               testId: textParam(params, "testId"),
-              workspaceId: workspace.workspaceId,
+              scope: actor.scope,
               globalId: actor.globalId,
             });
             return jsonResult(
@@ -648,24 +701,20 @@ export function createWsp6Tools(
               }),
             );
           }
-          if (!actorContextValue.globalId) {
-            throw new Error("sg-test-citizen-required");
-          }
           const attemptId = textParam(params, "attemptId");
-          const current = await assessments.resume(attemptId, actorContextValue.globalId);
-          const currentDefinition = await assessments.findDefinition(current.attempt.testId);
+          const current = await assessments.resume(attemptId, actor.globalId);
+          assertAttemptScope(actor, current.attempt.scope);
+          const currentDefinition = await assessments.findDefinition(
+            current.attempt.testId,
+            current.attempt.scope,
+          );
           if (!currentDefinition) {
             throw new Error("sg-test-not-found");
           }
-          const currentWorkspace = await workspaces.findById(currentDefinition.workspaceId);
-          if (!currentWorkspace) {
-            throw new Error("sg-test-workspace-not-found");
-          }
-          await authorizedActor(actorContextValue, currentWorkspace);
           if (action === "answer") {
             const answered = await assessments.answer({
               attemptId,
-              globalId: actorContextValue.globalId,
+              globalId: actor.globalId,
               questionId: textParam(params, "questionId"),
               answer: textParam(params, "answer"),
             });
@@ -736,17 +785,21 @@ export function createWsp6Tools(
       },
       async execute(_toolCallId, params) {
         try {
-          const definition = await assessments.findDefinition(textParam(params, "testId"));
+          const actor = await resolveActor(await actorContext(ctx, stateDir), scopes);
+          if (!actor) {
+            return jsonResult({ status: "unavailable", reason: "test-scope-not-found" });
+          }
+          const definition = await assessments.findDefinition(
+            textParam(params, "testId"),
+            actor.scope,
+          );
           if (!definition) {
             throw new Error("sg-test-not-found");
           }
-          const workspace = await workspaces.findById(definition.workspaceId);
-          if (!workspace) {
-            throw new Error("sg-test-workspace-not-found");
-          }
-          const actor = await authorizedActor(await actorContext(ctx, stateDir), workspace);
-          requireManager(actor);
-          return jsonResult({ status: "ok", stats: await assessments.stats(definition.testId) });
+          return jsonResult({
+            status: "ok",
+            stats: await assessments.stats(definition.testId, actor.scope),
+          });
         } catch (error) {
           return jsonResult({
             status: "denied",
@@ -764,7 +817,7 @@ export const WSP6_AGENT_GUIDANCE = [
   "После native_action_required или private_delivery_required обязательно вызови nextTool с nextAction без единого изменения.",
   "Нажатия кнопок запуска и ответов обрабатывает WSP6 программно через callback; не печатай имитации кнопок и не проси отвечать числами или текстом.",
   "Обычный профильный тест создавай в формате SG 2.1: kind=profile, results=[{title,description}], questions=[{text,options:[строки]}]. Не задавай технические key, scoreKey, questionId и optionId без необходимости — WSP6 назначит A/B/C и остальные ID сам. dimensions используй только если пользователь явно просит числовые шкалы.",
-  "Каждая попытка принадлежит Global ID и workspace. Никогда не подставляй чужой Global ID и не вычисляй баллы самостоятельно.",
+  "Каждая попытка принадлежит Global ID и доверенному текущему контексту. Никогда не подставляй чужой Global ID и не вычисляй баллы самостоятельно.",
   "Вопросы показываются участнику кнопками в текущем чате. В общей группе не раскрывай ответы, баллы или профильные шкалы; точный итог WSP6 отправляет участнику лично.",
   "Точные баллы и шкалы выдаёт реестр WSP6. Любая интерпретация ИИ не является результатом теста.",
 ].join("\n");

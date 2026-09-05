@@ -35,6 +35,9 @@ If generic OpenClaw persona or behavior conflicts with SG's canonical entity, SG
 - Do not require a citizenship application, manual approval, or group/channel membership.
 - The `guest` role is deferred and must not be used as part of the current active role model until the owner separately defines and authorizes it.
 - SG roles and OpenClaw/channel-specific roles are independent. Never derive one from the other or use one to overwrite the other.
+- The Monarch and every citizen have one personal SG workspace bound to their persistent Global ID. This workspace follows the person across chats and transports and is not membership in a group or channel.
+- A citizen remains a citizen and may use SG in direct chats, groups and channels. Never require a duplicate SG `owner`, `admin` or `member` role solely because the interaction occurs in a group or channel.
+- Native group and channel owners and administrators control restrictions for their resources through the channel and OpenClaw. Respect those permissions without copying them into a parallel SG role registry.
 
 ## Full OpenClaw capability inheritance
 

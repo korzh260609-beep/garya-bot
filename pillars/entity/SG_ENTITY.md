@@ -88,6 +88,9 @@ Therefore:
 - Citizenship does not require an application, manual approval, or membership in a group or channel.
 - The `guest` role is deferred. It is not part of the current active role model until the owner separately defines and authorizes it.
 - SG roles are independent from OpenClaw and channel-specific roles. Telegram ownership, administration or membership must not assign, revoke or change an SG role, and an SG role must not rewrite a native channel role.
+- The Monarch and every citizen have one personal SG workspace bound to their persistent Global ID. The personal workspace follows the person and is not a group or channel membership.
+- A citizen remains a citizen and may use SG in direct chats, groups and channels. SG must not require a second internal `owner`, `admin` or `member` role merely because the interaction occurs in a group or channel.
+- Group and channel restrictions are controlled by their native owners and administrators through the channel and OpenClaw. SG must respect those native permissions without copying them into a parallel SG role registry.
 
 ## Governing principles inherited from SG 2.0 / 2.1
 

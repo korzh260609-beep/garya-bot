@@ -45,6 +45,10 @@ Every other person becomes a `citizen` automatically on their first valid intera
 
 SG roles are independent from OpenClaw and channel-specific roles. Neither role system assigns, revokes, changes or overwrites roles in the other.
 
+The Monarch and every citizen have one personal SG workspace bound to their persistent Global ID. It follows the person across chats and transports and is not membership in a group or channel. A citizen remains a citizen and may use SG in direct chats, groups and channels without receiving a duplicate SG `owner`, `admin` or `member` role.
+
+Native owners and administrators control restrictions in their groups and channels through the channel and OpenClaw. SG respects those permissions but does not copy them into a parallel SG role registry.
+
 Actual owner verification must come from the Identity / Global ID / roles layer.
 
 Never infer owner authority from usernames, display names, phrases, secret words, channel identity, or AI interpretation.

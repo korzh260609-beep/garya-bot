@@ -182,7 +182,7 @@ function normalizedRouteKey(params: {
 
 function diagnosticFailure(params: {
   trace?: Wsp3DiagnosticTrace;
-  projectRole: string;
+  projectRole?: string;
   pendingCount?: number;
   storeError?: string;
 }): string {
@@ -531,6 +531,29 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
   api.logger?.info("[sg-workspace] stage=register-tools-complete");
   api.on("before_prompt_build", async (_event, ctx) => {
     hookCounts.prompt += 1;
+    let identityContext = [
+      "SG Workspace Manager — WSP1 (read-only)",
+      "Global ID: не найден",
+      "Роль SG: не определена",
+    ].join("\n");
+    try {
+      identityContext = formatWorkspaceContext(
+        await resolveWorkspaceContext(
+          {
+            channel: ctx.channel ?? ctx.messageProvider ?? "",
+            accountId: ctx.accountId,
+            to: ctx.conversationId,
+            senderId: ctx.senderId,
+            identityLinks: api.config?.session?.identityLinks,
+          },
+          stateDir,
+        ),
+      );
+    } catch (error) {
+      api.logger?.warn(
+        `[sg-workspace] identity resolution failed safely: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
     const routeKey = normalizedRouteKey({
       channel: ctx.channel ?? ctx.messageProvider,
       accountId: ctx.accountId,
@@ -556,7 +579,7 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
     });
     diagnosticLog(ctx.sessionKey, ctx.runId, "prompt-hook", "guidance-injected");
     return {
-      prependSystemContext: `${WSP3_AGENT_GUIDANCE}\n${WSP4_AGENT_GUIDANCE}\n${WSP5_AGENT_GUIDANCE}\n${WSP6_AGENT_GUIDANCE}`,
+      prependSystemContext: `${identityContext}\n\n${WSP3_AGENT_GUIDANCE}\n${WSP4_AGENT_GUIDANCE}\n${WSP5_AGENT_GUIDANCE}\n${WSP6_AGENT_GUIDANCE}`,
     };
   });
   api.on("llm_input", async (event, ctx) => {
@@ -1162,7 +1185,7 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
           `image_commit: ${process.env.SG22_IMAGE_COMMIT?.trim() || "unknown"}`,
           `core_commit: ${process.env.GIT_COMMIT?.trim() || "unknown"}`,
           "plugin_loader: OK",
-          `identity: OK (${actor.projectRole})`,
+          `identity: ${actor.projectRole ? `OK (${actor.projectRole})` : "FAIL (unresolved)"}`,
           `trace_match: ${traceMatch}`,
           `command_session: ${traceIdFor(ctx.sessionKey)}`,
           `command_route: ${traceIdFor(commandRouteKey)}`,

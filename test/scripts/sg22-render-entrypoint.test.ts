@@ -2,6 +2,19 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 describe("SG 2.2 Render entrypoint", () => {
+  it("requires the configured Monarch identity and Global ID when the plugin is enabled", async () => {
+    const script = await readFile(
+      new URL("../../scripts/sg22-render-entrypoint.sh", import.meta.url),
+      "utf8",
+    );
+
+    expect(script).toContain('monarch_global_id="${SG_MONARCH_GLOBAL_USER_ID:-}"');
+    expect(script).toContain('if [ -z "$telegram_owner_id" ] || [ -z "$monarch_global_id" ]; then');
+    expect(script).toContain(
+      "SG 2.2 startup error: SG_MONARCH_TELEGRAM_USER_ID and SG_MONARCH_GLOBAL_USER_ID are required",
+    );
+  });
+
   it("explicitly authorizes the external workspace plugin conversation hooks", async () => {
     const script = await readFile(
       new URL("../../scripts/sg22-render-entrypoint.sh", import.meta.url),

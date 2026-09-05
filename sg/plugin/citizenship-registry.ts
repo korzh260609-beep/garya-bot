@@ -3,13 +3,14 @@ import path from "node:path";
 import { withFileLock } from "openclaw/plugin-sdk/file-lock";
 import { readJsonFileWithFallback, writeJsonFileAtomically } from "openclaw/plugin-sdk/json-store";
 
-export type SgProjectRole = "guest" | "citizen" | "monarch";
+export type SgProjectRole = "citizen" | "monarch";
+export type SgPersistedProjectRole = SgProjectRole | "guest";
 export type SgProfileStatus = "active" | "suspended" | "archived";
 
 export type SgGlobalProfile = {
   globalId: string;
   canonicalIdentity: string;
-  role: SgProjectRole;
+  role: SgPersistedProjectRole;
   status: SgProfileStatus;
   createdAt: string;
   updatedAt: string;
@@ -47,7 +48,8 @@ export type SgCitizenAuditEvent = {
 };
 
 export type SgGlobalProfileStore = {
-  version: 3;
+  version: 4;
+  monarchGlobalId?: string;
   profiles: SgGlobalProfile[];
   identities: SgIdentityLink[];
   citizenRequests: SgCitizenRequest[];
@@ -55,7 +57,7 @@ export type SgGlobalProfileStore = {
 };
 
 const emptyStore = (): SgGlobalProfileStore => ({
-  version: 3,
+  version: 4,
   profiles: [],
   identities: [],
   citizenRequests: [],
@@ -131,6 +133,7 @@ function normalizeStore(value: unknown): SgGlobalProfileStore | undefined {
   if (!value || typeof value !== "object") return undefined;
   const candidate = value as {
     version?: unknown;
+    monarchGlobalId?: unknown;
     profiles?: unknown;
     identities?: unknown;
     citizenRequests?: unknown;
@@ -140,22 +143,32 @@ function normalizeStore(value: unknown): SgGlobalProfileStore | undefined {
   if (!candidate.profiles.every(validProfile) || !candidate.identities.every(validIdentity)) {
     return undefined;
   }
-  const store: SgGlobalProfileStore =
+  const legacyFieldsValid =
+    Array.isArray(candidate.citizenRequests) &&
+    candidate.citizenRequests.every(validRequest) &&
+    Array.isArray(candidate.audit) &&
+    candidate.audit.every(validAudit);
+  const activeMonarchs = candidate.profiles.filter(
+    (profile) => profile.role === "monarch" && profile.status === "active",
+  );
+  const declaredMonarchGlobalId =
+    candidate.version === 4 && nonEmpty(candidate.monarchGlobalId)
+      ? candidate.monarchGlobalId.trim()
+      : activeMonarchs[0]?.globalId;
+  const store: SgGlobalProfileStore | undefined =
     candidate.version === 2
       ? {
-          version: 3,
+          version: 4,
+          ...(declaredMonarchGlobalId ? { monarchGlobalId: declaredMonarchGlobalId } : {}),
           profiles: candidate.profiles,
           identities: candidate.identities,
           citizenRequests: [],
           audit: [],
         }
-      : candidate.version === 3 &&
-          Array.isArray(candidate.citizenRequests) &&
-          candidate.citizenRequests.every(validRequest) &&
-          Array.isArray(candidate.audit) &&
-          candidate.audit.every(validAudit)
+      : (candidate.version === 3 || candidate.version === 4) && legacyFieldsValid
         ? {
-            version: 3,
+            version: 4,
+            ...(declaredMonarchGlobalId ? { monarchGlobalId: declaredMonarchGlobalId } : {}),
             profiles: candidate.profiles,
             identities: candidate.identities,
             citizenRequests: candidate.citizenRequests,
@@ -183,6 +196,9 @@ function normalizeStore(value: unknown): SgGlobalProfileStore | undefined {
     new Set(pendingIdentities).size !== pendingIdentities.length ||
     new Set(eventIds).size !== eventIds.length ||
     new Set(operationIds).size !== operationIds.length ||
+    activeMonarchs.length > 1 ||
+    (store.monarchGlobalId !== undefined &&
+      !activeMonarchs.some((profile) => profile.globalId === store.monarchGlobalId)) ||
     store.identities.some((identity) => !profileIdSet.has(identity.globalId)) ||
     store.citizenRequests.some(
       (request) => request.status === "approved" && !request.resultingGlobalId,
@@ -204,9 +220,26 @@ function requireMonarch(store: SgGlobalProfileStore, actorGlobalId: string): SgG
 
 export class SgGlobalProfileRegistry {
   private readonly filePath: string;
+  private readonly monarchGlobalId?: string;
+  private readonly monarchCanonicalIdentity?: string;
 
-  constructor(stateDir: string) {
+  constructor(
+    stateDir: string,
+    options: { monarchGlobalId?: string; monarchCanonicalIdentity?: string } = {},
+  ) {
     this.filePath = path.join(stateDir, "sg", "global-profiles.json");
+    this.monarchGlobalId =
+      options.monarchGlobalId?.trim() || process.env.SG_MONARCH_GLOBAL_USER_ID?.trim() || undefined;
+    const configuredCanonicalIdentity = (
+      options.monarchCanonicalIdentity?.trim() ||
+      process.env.SG_MONARCH_TELEGRAM_USER_ID?.trim() ||
+      process.env.MONARCH_USER_ID?.trim()
+    )?.toLowerCase();
+    this.monarchCanonicalIdentity = configuredCanonicalIdentity
+      ? configuredCanonicalIdentity.startsWith("channel:")
+        ? configuredCanonicalIdentity.toLowerCase()
+        : `channel:telegram:${configuredCanonicalIdentity.replace(/^telegram:/iu, "").toLowerCase()}`
+      : undefined;
   }
 
   private async read(): Promise<SgGlobalProfileStore> {
@@ -221,6 +254,17 @@ export class SgGlobalProfileRegistry {
     return withFileLock(this.filePath, LOCK_OPTIONS, async () => {
       const store = await this.read();
       const result = await fn(store);
+      if (
+        this.monarchGlobalId &&
+        store.profiles.some(
+          (profile) =>
+            profile.globalId === this.monarchGlobalId &&
+            profile.role === "monarch" &&
+            profile.status === "active",
+        )
+      ) {
+        store.monarchGlobalId = this.monarchGlobalId;
+      }
       await writeJsonFileAtomically(this.filePath, store);
       return result;
     });
@@ -246,6 +290,122 @@ export class SgGlobalProfileRegistry {
       (candidate) => candidate.globalId === globalId.trim(),
     );
     return profile?.status === "active" ? profile : undefined;
+  }
+
+  async ensureProfile(canonicalIdentity: string): Promise<SgGlobalProfile> {
+    const canonical = canonicalIdentity.trim().toLowerCase();
+    if (!canonical) throw new Error("sg-profile-canonical-identity-required");
+    const currentStore = await this.read();
+    const currentLink = currentStore.identities.find(
+      (identity) => identity.canonicalIdentity === canonical,
+    );
+    const currentProfile = currentLink
+      ? currentStore.profiles.find((profile) => profile.globalId === currentLink.globalId)
+      : undefined;
+    const configuredMonarch = canonical === this.monarchCanonicalIdentity;
+    if (
+      currentProfile?.status === "active" &&
+      currentProfile.role !== "guest" &&
+      (!configuredMonarch ||
+        (Boolean(this.monarchGlobalId) &&
+          currentProfile.globalId === this.monarchGlobalId &&
+          currentProfile.role === "monarch" &&
+          currentStore.monarchGlobalId === this.monarchGlobalId))
+    ) {
+      if (
+        currentProfile.role === "monarch" &&
+        this.monarchGlobalId &&
+        currentProfile.globalId !== this.monarchGlobalId
+      ) {
+        throw new Error("sg-monarch-uniqueness-conflict");
+      }
+      return structuredClone(currentProfile);
+    }
+    return this.mutate((store) => {
+      const link = store.identities.find((identity) => identity.canonicalIdentity === canonical);
+      const existing = link
+        ? store.profiles.find((profile) => profile.globalId === link.globalId)
+        : undefined;
+      const now = new Date().toISOString();
+
+      if (existing) {
+        if (configuredMonarch) {
+          if (!this.monarchGlobalId || existing.globalId !== this.monarchGlobalId) {
+            throw new Error("sg-monarch-identity-conflict");
+          }
+          const otherMonarch = store.profiles.find(
+            (profile) => profile.role === "monarch" && profile.globalId !== existing.globalId,
+          );
+          if (otherMonarch) throw new Error("sg-monarch-uniqueness-conflict");
+          existing.role = "monarch";
+          existing.status = "active";
+          existing.updatedAt = now;
+          store.monarchGlobalId = existing.globalId;
+          return structuredClone(existing);
+        }
+        if (existing.role === "monarch") {
+          return structuredClone(existing);
+        }
+        if (existing.role === "guest") {
+          existing.role = "citizen";
+          existing.status = "active";
+          existing.updatedAt = now;
+        } else if (existing.status !== "active") {
+          throw new Error("sg-profile-not-active");
+        }
+        return structuredClone(existing);
+      }
+
+      const globalId = configuredMonarch
+        ? this.monarchGlobalId
+        : `usr_${randomUUID()}`;
+      if (!globalId) throw new Error("sg-monarch-global-id-required");
+      if (store.profiles.some((profile) => profile.globalId === globalId)) {
+        throw new Error("sg-profile-global-id-conflict");
+      }
+      if (
+        configuredMonarch &&
+        store.profiles.some((profile) => profile.role === "monarch")
+      ) {
+        throw new Error("sg-monarch-uniqueness-conflict");
+      }
+      const profile: SgGlobalProfile = {
+        globalId,
+        canonicalIdentity: canonical,
+        role: configuredMonarch ? "monarch" : "citizen",
+        status: "active",
+        createdAt: now,
+        updatedAt: now,
+      };
+      store.profiles.push(profile);
+      store.identities.push({
+        canonicalIdentity: canonical,
+        globalId,
+        createdAt: now,
+        updatedAt: now,
+      });
+      if (configuredMonarch) store.monarchGlobalId = globalId;
+      return structuredClone(profile);
+    });
+  }
+
+  async validateMonarchConfiguration(): Promise<SgGlobalProfile> {
+    if (!this.monarchGlobalId || !this.monarchCanonicalIdentity) {
+      throw new Error("sg-monarch-configuration-required");
+    }
+    const monarch = await this.ensureProfile(this.monarchCanonicalIdentity);
+    const store = await this.read();
+    const activeMonarchs = store.profiles.filter(
+      (profile) => profile.role === "monarch" && profile.status === "active",
+    );
+    if (
+      activeMonarchs.length !== 1 ||
+      monarch.globalId !== this.monarchGlobalId ||
+      store.monarchGlobalId !== this.monarchGlobalId
+    ) {
+      throw new Error("sg-monarch-configuration-invalid");
+    }
+    return monarch;
   }
 
   async apply(canonicalIdentity: string): Promise<{

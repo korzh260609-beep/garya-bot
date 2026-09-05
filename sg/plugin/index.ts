@@ -13,6 +13,7 @@ export type {
   SgGlobalProfile,
   SgGlobalProfileStore,
   SgIdentityLink,
+  SgPersistedProjectRole,
   SgProfileStatus,
 } from "./citizenship-registry.js";
 export * from "./register.js";

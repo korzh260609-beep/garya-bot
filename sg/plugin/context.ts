@@ -22,7 +22,7 @@ export type SgWorkspaceContext = {
   senderId?: string;
   canonicalIdentity?: string;
   globalId?: string;
-  projectRole: SgProjectRole;
+  projectRole?: SgProjectRole;
 };
 
 const normalize = (value: string | undefined) => (value ?? "").trim().toLowerCase();
@@ -58,6 +58,13 @@ export async function findExistingSgProfileByGlobalId(
   return new SgGlobalProfileRegistry(root).findByGlobalId(globalId);
 }
 
+export async function ensureSgProfile(
+  canonicalIdentity: string,
+  root = defaultStateDir(),
+): Promise<SgGlobalProfile> {
+  return new SgGlobalProfileRegistry(root).ensureProfile(canonicalIdentity);
+}
+
 export async function resolveWorkspaceContext(
   ctx: SgWorkspaceContextInput,
   root = defaultStateDir(),
@@ -69,9 +76,7 @@ export async function resolveWorkspaceContext(
         identityLinks: ctx.identityLinks,
       })
     : undefined;
-  const profile = canonicalIdentity
-    ? await findExistingSgProfile(canonicalIdentity, root)
-    : undefined;
+  const profile = canonicalIdentity ? await ensureSgProfile(canonicalIdentity, root) : undefined;
   return {
     channel: ctx.channel,
     ...(ctx.accountId ? { accountId: ctx.accountId } : {}),
@@ -80,7 +85,9 @@ export async function resolveWorkspaceContext(
     ...(ctx.senderId ? { senderId: ctx.senderId } : {}),
     ...(canonicalIdentity ? { canonicalIdentity } : {}),
     ...(profile ? { globalId: profile.globalId } : {}),
-    projectRole: profile?.role ?? "guest",
+    ...(profile?.role === "monarch" || profile?.role === "citizen"
+      ? { projectRole: profile.role }
+      : {}),
   };
 }
 
@@ -88,7 +95,7 @@ export function formatWorkspaceContext(context: SgWorkspaceContext): string {
   return [
     "SG Workspace Manager — WSP1 (read-only)",
     `Global ID: ${context.globalId ?? "не найден"}`,
-    `Роль SG: ${context.projectRole}`,
+    `Роль SG: ${context.projectRole ?? "не определена"}`,
     `Канал: ${context.channel}`,
     `Аккаунт: ${context.accountId ?? "default"}`,
     `Ресурс: ${context.resourceId ?? "не определён"}`,

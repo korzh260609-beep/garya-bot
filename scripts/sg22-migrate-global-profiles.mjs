@@ -4,6 +4,7 @@ import path from "node:path";
 
 const stateDir = process.env.OPENCLAW_STATE_DIR || "/data/.openclaw";
 const storePath = path.join(stateDir, "sg", "global-profiles.json");
+const pluginEnabled = process.env.SG_WORKSPACE_PLUGIN_ENABLED !== "false";
 const legacyTs = "1970-01-01T00:00:00.000Z";
 const roleRank = { guest: 0, citizen: 1, monarch: 2 };
 
@@ -44,16 +45,18 @@ function collect(raw) {
   const identities = [];
   const citizenRequests = [];
   const audit = [];
+  let monarchGlobalId = "";
 
   if (Array.isArray(raw)) {
     for (const item of raw) {
       const profile = normalizeProfile(item);
       if (profile) profiles.push(profile);
     }
-    return { profiles, identities, citizenRequests, audit };
+    return { profiles, identities, citizenRequests, audit, monarchGlobalId };
   }
 
-  if (!isObject(raw)) return { profiles, identities, citizenRequests, audit };
+  if (!isObject(raw)) return { profiles, identities, citizenRequests, audit, monarchGlobalId };
+  monarchGlobalId = clean(raw.monarchGlobalId);
 
   if (Array.isArray(raw.profiles)) {
     for (const item of raw.profiles) {
@@ -79,14 +82,14 @@ function collect(raw) {
     }
   }
 
-  if (raw.version === 3 && Array.isArray(raw.citizenRequests)) {
+  if ([3, 4].includes(raw.version) && Array.isArray(raw.citizenRequests)) {
     citizenRequests.push(...raw.citizenRequests);
   }
-  if (raw.version === 3 && Array.isArray(raw.audit)) {
+  if ([3, 4].includes(raw.version) && Array.isArray(raw.audit)) {
     audit.push(...raw.audit);
   }
 
-  return { profiles, identities, citizenRequests, audit };
+  return { profiles, identities, citizenRequests, audit, monarchGlobalId };
 }
 
 function repair(raw) {
@@ -111,6 +114,12 @@ function repair(raw) {
   }
 
   const profiles = [...byGlobalId.values()];
+  const activeMonarchs = profiles.filter(
+    (profile) => profile.role === "monarch" && profile.status === "active",
+  );
+  const monarchGlobalId =
+    collected.monarchGlobalId ||
+    (activeMonarchs.length === 1 ? activeMonarchs[0].globalId : "");
   const profileIds = new Set(profiles.map((profile) => profile.globalId));
   const byCanonical = new Map();
 
@@ -133,7 +142,8 @@ function repair(raw) {
   }
 
   return {
-    version: 3,
+    version: 4,
+    ...(monarchGlobalId ? { monarchGlobalId } : {}),
     profiles,
     identities: [...byCanonical.values()],
     citizenRequests: collected.citizenRequests,
@@ -149,11 +159,22 @@ function seedMonarch(store) {
   if (!globalId || !telegramId) return store;
   const now = new Date().toISOString();
   const canonicalIdentity = `channel:telegram:${telegramId.toLowerCase()}`;
+  const conflictingMonarch = store.profiles.find(
+    (item) => item.role === "monarch" && item.globalId !== globalId,
+  );
+  if (conflictingMonarch) {
+    throw new Error("sg-monarch-uniqueness-conflict");
+  }
   let profile = store.profiles.find((item) => item.globalId === globalId);
   if (!profile) {
     profile = { globalId, canonicalIdentity, role: "monarch", status: "active", createdAt: now, updatedAt: now };
     store.profiles.push(profile);
-  } else if (profile.role !== "monarch" || profile.status !== "active") {
+  } else if (
+    profile.canonicalIdentity !== canonicalIdentity ||
+    profile.role !== "monarch" ||
+    profile.status !== "active"
+  ) {
+    profile.canonicalIdentity = canonicalIdentity;
     profile.role = "monarch";
     profile.status = "active";
     profile.updatedAt = now;
@@ -161,12 +182,12 @@ function seedMonarch(store) {
   const link = store.identities.find((item) => item.canonicalIdentity === canonicalIdentity);
   if (link) {
     if (link.globalId !== globalId) {
-      link.globalId = globalId;
-      link.updatedAt = now;
+      throw new Error("sg-monarch-identity-conflict");
     }
   } else {
     store.identities.push({ canonicalIdentity, globalId, createdAt: now, updatedAt: now });
   }
+  store.monarchGlobalId = globalId;
   return store;
 }
 
@@ -187,7 +208,7 @@ async function main() {
     const backup = `${storePath}.invalid-json-${Date.now()}.bak`;
     await copyFile(storePath, backup);
     console.error(`[sg] global profile JSON is invalid; backup saved to ${backup}; rebuilding an empty valid store`);
-    raw = { version: 3, profiles: [], identities: [], citizenRequests: [], audit: [] };
+    raw = { version: 4, profiles: [], identities: [], citizenRequests: [], audit: [] };
   }
 
   let repaired = repair(raw);
@@ -198,7 +219,7 @@ async function main() {
     text.trim() !== "[]" &&
     !(
       isObject(raw) &&
-      [2, 3].includes(raw.version) &&
+      [2, 3, 4].includes(raw.version) &&
       Array.isArray(raw.profiles) &&
       Array.isArray(raw.identities)
     )
@@ -206,9 +227,20 @@ async function main() {
     const backup = `${storePath}.unrecognized-${Date.now()}.bak`;
     await copyFile(storePath, backup);
     console.error(`[sg] global profile store format is unrecognized; backup saved to ${backup}; rebuilding an empty valid store`);
-    repaired = { version: 3, profiles: [], identities: [], citizenRequests: [], audit: [] };
+    repaired = { version: 4, profiles: [], identities: [], citizenRequests: [], audit: [] };
   }
   repaired = seedMonarch(repaired);
+  const activeMonarchs = repaired.profiles.filter(
+    (profile) => profile.role === "monarch" && profile.status === "active",
+  );
+  if (
+    pluginEnabled &&
+    (activeMonarchs.length !== 1 ||
+      !repaired.monarchGlobalId ||
+      activeMonarchs[0]?.globalId !== repaired.monarchGlobalId)
+  ) {
+    throw new Error("sg-monarch-configuration-invalid");
+  }
 
   const normalized = `${JSON.stringify(repaired, null, 2)}\n`;
   if (normalized === `${JSON.stringify(raw, null, 2)}\n`) return;

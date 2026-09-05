@@ -217,7 +217,7 @@ describe("SG WSP4 citizenship registry", () => {
     const persisted = JSON.parse(
       await readFile(path.join(root, "sg", "global-profiles.json"), "utf8"),
     );
-    expect(persisted).toMatchObject({ version: 3 });
+    expect(persisted).toMatchObject({ version: 4, monarchGlobalId: "usr_monarch" });
     expect(persisted.citizenRequests).toHaveLength(1);
   });
 

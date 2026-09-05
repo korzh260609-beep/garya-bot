@@ -134,16 +134,24 @@ describe("SG Workspace Manager WSP1", () => {
     });
   });
 
-  it("resolves an unknown sender to guest without creating a profile", async () => {
+  it("creates a durable citizen for an unknown valid sender", async () => {
     const { root, target } = await stateDirWithProfiles();
-    const before = await readFile(target, "utf8");
     const result = await resolveWorkspaceContext(
       diagnosticInput({ senderId: "999", to: "telegram:999" }),
       root,
     );
-    expect(result).toMatchObject({ projectRole: "guest" });
-    expect(result).not.toHaveProperty("globalId");
-    expect(await readFile(target, "utf8")).toBe(before);
+    expect(result).toMatchObject({ projectRole: "citizen" });
+    expect(result.globalId).toMatch(/^usr_/u);
+    const persisted = JSON.parse(await readFile(target, "utf8"));
+    expect(persisted).toMatchObject({ version: 4, monarchGlobalId: "usr_monarch" });
+    expect(persisted.profiles).toContainEqual(
+      expect.objectContaining({
+        globalId: result.globalId,
+        canonicalIdentity: "channel:telegram:999",
+        role: "citizen",
+        status: "active",
+      }),
+    );
   });
 
   it("returns the same read-only identity after a simulated plugin restart", async () => {
@@ -258,6 +266,40 @@ describe("SG Workspace Manager WSP1", () => {
     expect(result).toMatchObject({
       prependSystemContext: expect.stringContaining("обычные опросы отправляй штатным message"),
     });
+  });
+
+  it("creates and attaches the citizen identity before an ordinary model call", async () => {
+    const { root, target } = await stateDirWithProfiles();
+    const hooks = new Map<string, (...args: unknown[]) => unknown>();
+    registerWorkspaceManager({
+      registerCommand: vi.fn(),
+      registerTool: vi.fn(),
+      on: vi.fn((name, handler) => hooks.set(name, handler)),
+      runtime: { state: { resolveStateDir: () => root } },
+    });
+
+    const result = await hooks.get("before_prompt_build")?.(
+      {},
+      {
+        channel: "telegram",
+        accountId: "default",
+        conversationId: "telegram:999",
+        senderId: "999",
+      },
+    );
+    expect(result).toMatchObject({
+      prependSystemContext: expect.stringMatching(
+        /Global ID: usr_[a-f0-9-]+[\s\S]*Роль SG: citizen/u,
+      ),
+    });
+    const persisted = JSON.parse(await readFile(target, "utf8"));
+    expect(persisted.profiles).toContainEqual(
+      expect.objectContaining({
+        canonicalIdentity: "channel:telegram:999",
+        role: "citizen",
+        status: "active",
+      }),
+    );
   });
 
   it("reports the live isolated session and cost guards only to the monarch", async () => {

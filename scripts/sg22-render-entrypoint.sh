@@ -13,6 +13,7 @@ port="${PORT:-10000}"
 primary_model="${OPENCLAW_PRIMARY_MODEL:-openai/gpt-5.4-mini}"
 config_path="$state_dir/openclaw.json"
 telegram_owner_id="${SG_MONARCH_TELEGRAM_USER_ID:-${MONARCH_USER_ID:-}}"
+monarch_global_id="${SG_MONARCH_GLOBAL_USER_ID:-}"
 workspace_plugin_enabled="${SG_WORKSPACE_PLUGIN_ENABLED:-true}"
 
 case "$workspace_plugin_enabled" in
@@ -24,6 +25,10 @@ case "$workspace_plugin_enabled" in
 esac
 
 if [ "$workspace_plugin_enabled" = "true" ]; then
+  if [ -z "$telegram_owner_id" ] || [ -z "$monarch_global_id" ]; then
+    echo "SG 2.2 startup error: SG_MONARCH_TELEGRAM_USER_ID and SG_MONARCH_GLOBAL_USER_ID are required" >&2
+    exit 1
+  fi
   workspace_plugin_paths='["/app/sg/plugin"]'
   workspace_plugin_tools='["sg_workspace_onboard","sg_workspace_pending","sg_workspace_decide","sg_citizen_apply","sg_citizen_pending","sg_citizen_decide","sg_membership_list","sg_membership_manage","sg_content_draft","sg_content_review","sg_content_publish","sg_content_schedule","sg_content_dispatch","sg_test_manage","sg_test_attempt","sg_test_stats"]'
 else

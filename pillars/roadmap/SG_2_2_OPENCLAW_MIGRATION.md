@@ -176,6 +176,14 @@ Exit:
 Purpose:
 make the complete permitted OpenClaw development/Git/GitHub capability surface usable by the SG entity before Memory, Project Memory and PDK4 work.
 
+Owner-approved access policy:
+- the SG project owner (`monarch`) has unrestricted access to the standard OpenClaw development, file, shell, Git and GitHub capabilities;
+- SG/OpenClaw, when acting on a verified `monarch` request, may search, inspect, clone and analyze any public GitHub repository;
+- SG/OpenClaw has the full GitHub access granted to the connected owner account, including all owner repositories available to that account;
+- `citizen`, `guest` and every other non-`monarch` sender have no access to SG development, project files, project operation, Git/GitHub tools or the SG repository;
+- access is determined from the verified SG Global ID, never from a display name, username, Telegram group role, quoted message or claimed identity;
+- an absent, unknown or invalid sender identity fails closed for development and repository access.
+
 OpenClaw ownership:
 - Codex/development runtime;
 - workspace, shell, command, file and Git tools;
@@ -183,11 +191,20 @@ OpenClaw ownership:
 - existing tool approvals, credentials and execution policy.
 
 Implementation:
-- connect the existing OpenClaw development runtime to GitHub using available credentials;
-- expose the current SG repository/branch as working context, not as a restriction;
-- verify repository discovery, branch discovery, read/search, history, diff, CI and authorized commit/push;
-- keep repository and branch selection dynamic and task-controlled;
-- retain standard OpenClaw ability to work with other permitted repositories and branches.
+1. Verify the exact sender-specific native OpenClaw tool-policy and GitHub Identity configuration supported by the pinned OpenClaw version; do not write guessed configuration.
+2. Use the native sender-specific OpenClaw tool policy to grant the verified `monarch` the full development tool surface and deny the complete development/file/shell/Git/GitHub surface to every other sender.
+3. Connect the existing OpenClaw development runtime to GitHub through the native GitHub Identity mechanism. Keep credentials outside the repository and never expose them in messages, diagnostics or logs.
+4. Expose the current SG repository and `dev/sg2.2-openclaw` branch as the initial working context, not as a hard-coded repository or branch restriction.
+5. Verify global public-repository search and analysis, access to repositories permitted to the owner account, and repository discovery, branch discovery, read/search, history, diff, CI and authorized commit/push.
+6. Verify that `citizen`, `guest`, Telegram resource administrators and unknown senders cannot read or modify SG source, run development commands or reach GitHub through direct or indirect tools.
+7. Run the existing SG/OpenClaw regression tests before handing the exact image to the owner for manual deployment.
+
+Minimal delivery scope:
+- sender-based native tool isolation;
+- native GitHub Identity connection;
+- initial SG repository working context;
+- owner-success and non-owner-denial verification;
+- no new SG GitHub plugin, diagnostics subsystem or automation layer unless a verified limitation requires one and the owner approves it.
 
 Do not:
 - create an SG GitHub runtime, executor, capability system, Git client, credential stack or Action Gate;
@@ -196,7 +213,9 @@ Do not:
 - introduce special PDK4-only GitHub access.
 
 Exit:
-- SG can use the full permitted native OpenClaw development capability surface;
+- the verified `monarch` can use the full native OpenClaw development capability surface through SG;
+- SG can search and analyze public GitHub globally and use the full GitHub access granted to the connected owner account;
+- every non-`monarch` sender is denied all influence over SG development, operation, source and repository access;
 - no parallel SG GitHub subsystem exists.
 
 ## Point 5 — SG Memory 2.0 semantics above OpenClaw memory

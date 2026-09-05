@@ -1,6 +1,5 @@
 import { jsonResult } from "openclaw/plugin-sdk/tool-results";
 import { resolveWorkspaceContext } from "./context.js";
-import { SgWorkspaceMembershipRegistry } from "./workspace-memberships.js";
 import { SgWorkspaceRegistry, type SgWorkspace } from "./workspace-registry.js";
 import {
   SgAssessmentRegistry,
@@ -43,7 +42,7 @@ type AgentTool = {
 
 type Wsp6Actor = {
   globalId: string;
-  role: "monarch" | "owner" | "admin" | "member";
+  canManage: boolean;
 };
 
 type ParsedResults = {
@@ -304,7 +303,6 @@ async function resolveWorkspace(
 async function authorizedActor(
   actor: Awaited<ReturnType<typeof actorContext>>,
   workspace: SgWorkspace,
-  memberships: SgWorkspaceMembershipRegistry,
 ): Promise<Wsp6Actor> {
   if (!actor.globalId) {
     throw new Error("sg-test-citizen-required");
@@ -312,18 +310,11 @@ async function authorizedActor(
   if (workspace.status !== "active") {
     throw new Error("sg-test-workspace-not-active");
   }
-  if (actor.projectRole === "monarch") {
-    return { globalId: actor.globalId, role: "monarch" };
-  }
-  const role = await memberships.effectiveRole(workspace.workspaceId, actor.globalId);
-  if (!role) {
-    throw new Error("sg-test-workspace-membership-required");
-  }
-  return { globalId: actor.globalId, role };
+  return { globalId: actor.globalId, canManage: actor.projectRole === "monarch" };
 }
 
 function requireManager(actor: Wsp6Actor): void {
-  if (actor.role === "member") {
+  if (!actor.canManage) {
     throw new Error("sg-test-manager-required");
   }
 }
@@ -501,13 +492,12 @@ export function createWsp6Tools(
   lifecycle: Wsp6NativeLifecycle,
 ): AgentTool[] {
   const workspaces = new SgWorkspaceRegistry(stateDir);
-  const memberships = new SgWorkspaceMembershipRegistry(stateDir);
   return [
     {
       name: "sg_test_manage",
       label: "Управление тестами SG",
       description:
-        "Создаёт и публикует неизменяемые тесты знаний или профильные тесты. Для обычного профильного теста используй results (категории результата), как в SG 2.1; questionId/optionId можно не задавать, а варианты могут быть строками. dimensions нужны только для числового теста по шкалам. Для запроса создать интерактивный тест используй create_and_publish: он сразу публикует настоящую кнопку запуска. create сохраняет только черновик. Доступно admin, owner и monarch. Для обычного опроса без индивидуального результата используй штатный message poll.",
+        "Создаёт и публикует неизменяемые тесты знаний или профильные тесты. Для обычного профильного теста используй results (категории результата), как в SG 2.1; questionId/optionId можно не задавать, а варианты могут быть строками. dimensions нужны только для числового теста по шкалам. Для запроса создать интерактивный тест используй create_and_publish: он сразу публикует настоящую кнопку запуска. create сохраняет только черновик. Управление доступно монарху до переноса на штатную sender policy. Для обычного опроса без индивидуального результата используй штатный message poll.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -535,7 +525,7 @@ export function createWsp6Tools(
             if (!workspace) {
               return jsonResult({ status: "unavailable", reason: "workspace-not-found" });
             }
-            const actor = await authorizedActor(actorContextValue, workspace, memberships);
+            const actor = await authorizedActor(actorContextValue, workspace);
             requireManager(actor);
             if (action === "list") {
               const definitions = await assessments.listDefinitions(workspace.workspaceId);
@@ -578,7 +568,7 @@ export function createWsp6Tools(
           if (!workspace) {
             throw new Error("sg-test-workspace-not-found");
           }
-          const actor = await authorizedActor(actorContextValue, workspace, memberships);
+          const actor = await authorizedActor(actorContextValue, workspace);
           requireManager(actor);
           if (action === "get") {
             return jsonResult({ status: "ok", test: definition });
@@ -634,7 +624,7 @@ export function createWsp6Tools(
             if (!workspace) {
               return jsonResult({ status: "unavailable", reason: "workspace-not-found" });
             }
-            const actor = await authorizedActor(actorContextValue, workspace, memberships);
+            const actor = await authorizedActor(actorContextValue, workspace);
             if (action === "list") {
               const definitions = await assessments.listDefinitions(workspace.workspaceId);
               return jsonResult({
@@ -671,7 +661,7 @@ export function createWsp6Tools(
           if (!currentWorkspace) {
             throw new Error("sg-test-workspace-not-found");
           }
-          await authorizedActor(actorContextValue, currentWorkspace, memberships);
+          await authorizedActor(actorContextValue, currentWorkspace);
           if (action === "answer") {
             const answered = await assessments.answer({
               attemptId,
@@ -737,7 +727,7 @@ export function createWsp6Tools(
       name: "sg_test_stats",
       label: "Статистика тестов SG",
       description:
-        "Возвращает только агрегированную детерминированную статистику. До трёх разных участников подробная агрегация скрыта для защиты личных результатов. Доступно admin, owner и monarch.",
+        "Возвращает только агрегированную детерминированную статистику. До трёх разных участников подробная агрегация скрыта для защиты личных результатов. Доступно монарху.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -754,11 +744,7 @@ export function createWsp6Tools(
           if (!workspace) {
             throw new Error("sg-test-workspace-not-found");
           }
-          const actor = await authorizedActor(
-            await actorContext(ctx, stateDir),
-            workspace,
-            memberships,
-          );
+          const actor = await authorizedActor(await actorContext(ctx, stateDir), workspace);
           requireManager(actor);
           return jsonResult({ status: "ok", stats: await assessments.stats(definition.testId) });
         } catch (error) {

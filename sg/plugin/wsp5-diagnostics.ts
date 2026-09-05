@@ -1,7 +1,6 @@
 import { SgGlobalProfileRegistry } from "./citizenship-registry.js";
 import { SgContentRegistry } from "./content-registry.js";
 import type { SgWorkspaceContext } from "./context.js";
-import { SgWorkspaceMembershipRegistry } from "./workspace-memberships.js";
 import { SgWorkspaceRegistry } from "./workspace-registry.js";
 import type { Wsp5LifecycleSnapshot } from "./wsp5-lifecycle.js";
 
@@ -45,18 +44,15 @@ export async function buildWsp5Diagnostic(input: {
       `role=${input.actor.projectRole},globalId=${input.actor.globalId ?? "none"}`,
     ),
   );
-  checks.push(
-    check("role_policy", "PASS", "member=create/edit-own; admin|owner|monarch=review+publish"),
-  );
+  checks.push(check("authorization_boundary", "PASS", "no SG workspace-role dependency"));
 
   let draftsSeen = 0;
   let publicationsSeen = 0;
   try {
-    const [content, workspaces, profiles, memberships] = await Promise.all([
+    const [content, workspaces, profiles] = await Promise.all([
       new SgContentRegistry(input.stateDir).snapshot(),
       new SgWorkspaceRegistry(input.stateDir).list(),
       new SgGlobalProfileRegistry(input.stateDir).snapshot(),
-      new SgWorkspaceMembershipRegistry(input.stateDir).snapshot(),
     ]);
     draftsSeen = content.drafts.length;
     publicationsSeen = content.publications.length;
@@ -95,13 +91,6 @@ export async function buildWsp5Diagnostic(input: {
         `broken_drafts=${brokenDrafts.length},broken_publications=${brokenPublications.length},broken_schedules=${brokenSchedules.length}`,
       ),
     );
-    checks.push(
-      check(
-        "membership_store",
-        "PASS",
-        `memberships=${memberships.memberships.length},audit=${memberships.audit.length}`,
-      ),
-    );
     const mediaDrafts = content.drafts.filter((draft) => draft.media.length > 0).length;
     checks.push(
       check(
@@ -131,7 +120,6 @@ export async function buildWsp5Diagnostic(input: {
     const detail = error instanceof Error ? error.message : String(error);
     checks.push(check("content_store", "FAIL", detail));
     checks.push(check("content_chain", "FAIL", "store-unreadable"));
-    checks.push(check("membership_store", "FAIL", detail));
     checks.push(check("media_path", "FAIL", "store-unreadable"));
     checks.push(check("schedule_lifecycle", "FAIL", "store-unreadable"));
     checks.push(check("publication_history", "FAIL", "store-unreadable"));

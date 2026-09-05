@@ -30,8 +30,9 @@ describe("SG 2.2 Render entrypoint", () => {
       '{"path":"plugins.entries.sg-workspace-manager.hooks.allowConversationAccess","value":true}',
     );
     expect(script).toContain(
-      'workspace_plugin_tools=\'["sg_workspace_onboard","sg_workspace_pending","sg_workspace_decide","sg_citizen_apply","sg_citizen_pending","sg_citizen_decide","sg_membership_list","sg_membership_manage","sg_content_draft","sg_content_review","sg_content_publish","sg_content_schedule","sg_content_dispatch","sg_test_manage","sg_test_attempt","sg_test_stats"]\'',
+      'workspace_plugin_tools=\'["sg_workspace_onboard","sg_workspace_pending","sg_workspace_decide","sg_citizen_apply","sg_citizen_pending","sg_citizen_decide","sg_content_draft","sg_content_review","sg_content_publish","sg_content_schedule","sg_content_dispatch","sg_test_manage","sg_test_attempt","sg_test_stats"]\'',
     );
+    expect(script).toContain("node /app/scripts/sg22-migrate-workspace-memberships.mjs");
     expect(script).toContain('{"path":"tools.alsoAllow","value":\'"${workspace_plugin_tools}"\'}');
     expect(script).not.toContain('"path":"agents.defaults.tools.alsoAllow"');
   });

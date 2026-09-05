@@ -6,7 +6,6 @@ import type {
   PluginStateKeyedStore,
 } from "openclaw/plugin-sdk/plugin-state-runtime";
 import { describe, expect, it } from "vitest";
-import { SgWorkspaceMembershipRegistry } from "./workspace-memberships.js";
 import { SgWorkspaceRegistry } from "./workspace-registry.js";
 import {
   SgAssessmentRegistry,
@@ -73,19 +72,20 @@ async function fixture() {
   const root = await mkdtemp(path.join(os.tmpdir(), "sg-wsp6-tools-"));
   await mkdir(path.join(root, "sg"), { recursive: true });
   const users = [
-    ["usr_owner", "10"],
-    ["usr_admin", "20"],
-    ["usr_member", "30"],
-    ["usr_outsider", "40"],
+    ["usr_monarch", "10", "monarch"],
+    ["usr_citizen_a", "20", "citizen"],
+    ["usr_citizen_b", "30", "citizen"],
+    ["usr_citizen_c", "40", "citizen"],
   ] as const;
   await writeFile(
     path.join(root, "sg", "global-profiles.json"),
     JSON.stringify({
-      version: 3,
-      profiles: users.map(([globalId, senderId]) => ({
+      version: 5,
+      monarchGlobalId: "usr_monarch",
+      profiles: users.map(([globalId, senderId, role]) => ({
         globalId,
         canonicalIdentity: `channel:telegram:${senderId}`,
-        role: "citizen",
+        role,
         status: "active",
         createdAt: timestamp,
         updatedAt: timestamp,
@@ -96,8 +96,6 @@ async function fixture() {
         createdAt: timestamp,
         updatedAt: timestamp,
       })),
-      citizenRequests: [],
-      audit: [],
     }),
   );
   const workspace = await new SgWorkspaceRegistry(root).register({
@@ -106,29 +104,16 @@ async function fixture() {
     resourceId: "telegram:-100500",
     resourceKind: "group",
     title: "WSP6 Test",
-    ownerGlobalId: "usr_owner",
+    ownerGlobalId: "usr_monarch",
     status: "active",
     settings: {},
-  });
-  const memberships = new SgWorkspaceMembershipRegistry(root);
-  await memberships.grant({
-    actorGlobalId: "usr_owner",
-    workspaceId: workspace.workspaceId,
-    targetGlobalId: "usr_admin",
-    role: "admin",
-  });
-  await memberships.grant({
-    actorGlobalId: "usr_owner",
-    workspaceId: workspace.workspaceId,
-    targetGlobalId: "usr_member",
-    role: "member",
   });
   const assessments = new SgAssessmentRegistry({
     definitions: new MemoryStore<SgAssessmentDefinition>(),
     attempts: new MemoryStore<SgAssessmentAttempt>(),
   });
   const lifecycle = new Wsp6NativeLifecycle();
-  return { root, workspace, memberships, assessments, lifecycle };
+  return { root, workspace, assessments, lifecycle };
 }
 
 function toolContext(senderId: string, sessionKey: string, privateChat = false) {
@@ -160,7 +145,7 @@ async function createActiveTest(assessments: SgAssessmentRegistry, workspaceId: 
     workspaceId,
     title: "Быстрый тест",
     kind: "knowledge",
-    actorGlobalId: "usr_owner",
+    actorGlobalId: "usr_monarch",
     questions: [
       {
         questionId: "q1",
@@ -187,7 +172,7 @@ describe("WSP6 assessment tools", () => {
   it("normalizes duplicate model-generated profile keys by result position", async () => {
     const { root, workspace, assessments, lifecycle } = await fixture();
     const admin = createWsp6Tools(
-      toolContext("20", "agent:main:group:profile-normalization"),
+      toolContext("10", "agent:main:group:profile-normalization"),
       root,
       assessments,
       lifecycle,
@@ -231,24 +216,24 @@ describe("WSP6 assessment tools", () => {
     const started = await assessments.start({
       testId: definition.testId,
       workspaceId: workspace.workspaceId,
-      globalId: "usr_member",
+      globalId: "usr_citizen_b",
     });
     await assessments.answer({
       attemptId: started.attempt.attemptId,
-      globalId: "usr_member",
+      globalId: "usr_citizen_b",
       questionId: "q_1",
       answer: "o_1",
     });
     await assessments.answer({
       attemptId: started.attempt.attemptId,
-      globalId: "usr_member",
+      globalId: "usr_citizen_b",
       questionId: "q_2",
       answer: "o_2",
     });
     await expect(
       assessments.answer({
         attemptId: started.attempt.attemptId,
-        globalId: "usr_member",
+        globalId: "usr_citizen_b",
         questionId: "q_3",
         answer: "o_2",
       }),
@@ -283,7 +268,7 @@ describe("WSP6 assessment tools", () => {
   it("creates and publishes an SG 2.1-style categorical profile test", async () => {
     const { root, workspace, assessments, lifecycle } = await fixture();
     const admin = createWsp6Tools(
-      toolContext("20", "agent:main:group:profile"),
+      toolContext("10", "agent:main:group:profile"),
       root,
       assessments,
       lifecycle,
@@ -340,12 +325,12 @@ describe("WSP6 assessment tools", () => {
     const started = await assessments.start({
       testId: definition.testId,
       workspaceId: workspace.workspaceId,
-      globalId: "usr_member",
+      globalId: "usr_citizen_b",
     });
     await expect(
       assessments.answer({
         attemptId: started.attempt.attemptId,
-        globalId: "usr_member",
+        globalId: "usr_citizen_b",
         questionId: "q_1",
         answer: "o_1",
       }),
@@ -361,7 +346,7 @@ describe("WSP6 assessment tools", () => {
     });
   });
 
-  it("allows managers to define tests and denies management to members", async () => {
+  it("allows the monarch to define tests and denies management to citizens", async () => {
     const { root, workspace, assessments, lifecycle } = await fixture();
     const definition = {
       action: "create",
@@ -380,18 +365,18 @@ describe("WSP6 assessment tools", () => {
         },
       ],
     };
-    const member = createWsp6Tools(toolContext("30", "member"), root, assessments, lifecycle);
-    expect(details(await findTool(member, "sg_test_manage").execute("member", definition))).toEqual(
-      { status: "denied", reason: "sg-test-manager-required" },
-    );
-
-    const admin = createWsp6Tools(toolContext("20", "admin"), root, assessments, lifecycle);
+    const citizen = createWsp6Tools(toolContext("30", "citizen"), root, assessments, lifecycle);
     expect(
-      details(await findTool(admin, "sg_test_manage").execute("admin", definition)),
+      details(await findTool(citizen, "sg_test_manage").execute("citizen", definition)),
+    ).toEqual({ status: "denied", reason: "sg-test-manager-required" });
+
+    const monarch = createWsp6Tools(toolContext("10", "monarch"), root, assessments, lifecycle);
+    expect(
+      details(await findTool(monarch, "sg_test_manage").execute("monarch", definition)),
     ).toMatchObject({ status: "created", test: { testId: "managed", status: "draft" } });
     expect(
       details(
-        await findTool(admin, "sg_test_manage").execute("activate", {
+        await findTool(monarch, "sg_test_manage").execute("activate", {
           action: "activate",
           testId: "managed",
         }),
@@ -474,7 +459,7 @@ describe("WSP6 assessment tools", () => {
     const started = await assessments.start({
       testId: "quick",
       workspaceId: workspace.workspaceId,
-      globalId: "usr_member",
+      globalId: "usr_citizen_b",
     });
     const privateTools = createWsp6Tools(
       toolContext("30", "agent:main:direct:30", true),
@@ -538,17 +523,17 @@ describe("WSP6 assessment tools", () => {
     const started = await assessments.start({
       testId: "quick",
       workspaceId: workspace.workspaceId,
-      globalId: "usr_member",
+      globalId: "usr_citizen_b",
     });
     await assessments.answer({
       attemptId: started.attempt.attemptId,
-      globalId: "usr_member",
+      globalId: "usr_citizen_b",
       questionId: "q1",
       answer: "yes",
     });
     await assessments.answer({
       attemptId: started.attempt.attemptId,
-      globalId: "usr_member",
+      globalId: "usr_citizen_b",
       questionId: "q2",
       answer: "one",
     });
@@ -577,38 +562,38 @@ describe("WSP6 assessment tools", () => {
     expect(result).not.toHaveProperty("result");
   });
 
-  it("requires current workspace access for every continuation and manager access for stats", async () => {
-    const { root, workspace, memberships, assessments, lifecycle } = await fixture();
+  it("keeps attempts available to citizens while statistics remain manager-only", async () => {
+    const { root, workspace, assessments, lifecycle } = await fixture();
     await createActiveTest(assessments, workspace.workspaceId);
     const started = await assessments.start({
       testId: "quick",
       workspaceId: workspace.workspaceId,
-      globalId: "usr_member",
+      globalId: "usr_citizen_b",
     });
-    await memberships.revoke({
-      actorGlobalId: "usr_owner",
-      workspaceId: workspace.workspaceId,
-      targetGlobalId: "usr_member",
-    });
-    const formerMember = createWsp6Tools(
-      toolContext("30", "former-member", true),
+    const citizen = createWsp6Tools(
+      toolContext("30", "citizen-resume", true),
       root,
       assessments,
       lifecycle,
     );
     expect(
       details(
-        await findTool(formerMember, "sg_test_attempt").execute("resume", {
+        await findTool(citizen, "sg_test_attempt").execute("resume", {
           action: "resume",
           attemptId: started.attempt.attemptId,
         }),
       ),
-    ).toEqual({ status: "denied", reason: "sg-test-workspace-membership-required" });
+    ).toMatchObject({ status: "native_action_required" });
 
-    const outsider = createWsp6Tools(toolContext("40", "outsider"), root, assessments, lifecycle);
+    const otherCitizen = createWsp6Tools(
+      toolContext("40", "citizen-stats"),
+      root,
+      assessments,
+      lifecycle,
+    );
     expect(
-      details(await findTool(outsider, "sg_test_stats").execute("stats", { testId: "quick" })),
-    ).toEqual({ status: "denied", reason: "sg-test-workspace-membership-required" });
+      details(await findTool(otherCitizen, "sg_test_stats").execute("stats", { testId: "quick" })),
+    ).toEqual({ status: "denied", reason: "sg-test-manager-required" });
   });
 
   it("keeps ordinary polls on the native message tool", () => {

@@ -3,7 +3,6 @@ import os from "node:os";
 import path from "node:path";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
 import { describe, expect, it, vi } from "vitest";
-import { SgWorkspaceMembershipRegistry } from "./workspace-memberships.js";
 import { SgWorkspaceRegistry } from "./workspace-registry.js";
 import { openSgAssessmentStores, SgAssessmentRegistry } from "./wsp6-assessments.js";
 import {
@@ -59,16 +58,6 @@ async function fixture() {
     status: "active",
     settings: {},
   });
-  const memberships = new SgWorkspaceMembershipRegistry(root);
-  for (const globalId of ["usr_one", "usr_two"]) {
-    await memberships.grant({
-      actorGlobalId: "usr_owner",
-      workspaceId: workspace.workspaceId,
-      targetGlobalId: globalId,
-      role: "member",
-    });
-  }
-
   const assessments = new SgAssessmentRegistry(openSgAssessmentStores(root));
   const definition = await assessments.create({
     testId: "interactive",

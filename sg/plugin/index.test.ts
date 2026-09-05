@@ -163,7 +163,7 @@ describe("SG Workspace Manager WSP1", () => {
     expect(second).toEqual(first);
   });
 
-  it("registers normal reply commands plus internal WSP3-WSP6 tools and guidance", async () => {
+  it("registers normal reply commands plus internal WSP3, WSP5 and WSP6 tools", async () => {
     const { root } = await stateDirWithProfiles();
     const registerCommand = vi.fn();
     const registerInteractiveHandler = vi.fn();
@@ -180,7 +180,7 @@ describe("SG Workspace Manager WSP1", () => {
         channel: { outbound: { loadAdapter: vi.fn(async () => undefined) } },
       },
     });
-    expect(registerCommand).toHaveBeenCalledTimes(8);
+    expect(registerCommand).toHaveBeenCalledTimes(7);
     const command = registerCommand.mock.calls[0]?.[0];
     expect(command).toMatchObject({ name: "sg_context", requireAuth: false });
     expect(registerCommand.mock.calls[1]?.[0]).toMatchObject({
@@ -192,31 +192,24 @@ describe("SG Workspace Manager WSP1", () => {
       requireAuth: false,
     });
     expect(registerCommand.mock.calls[3]?.[0]).toMatchObject({
-      name: "sg_wsp4_diag",
-      requireAuth: false,
-    });
-    expect(registerCommand.mock.calls[4]?.[0]).toMatchObject({
       name: "sg_wsp5_diag",
       requireAuth: false,
     });
-    expect(registerCommand.mock.calls[5]?.[0]).toMatchObject({
+    expect(registerCommand.mock.calls[4]?.[0]).toMatchObject({
       name: "sg_wsp6_diag",
       requireAuth: false,
     });
-    expect(registerCommand.mock.calls[6]?.[0]).toMatchObject({
+    expect(registerCommand.mock.calls[5]?.[0]).toMatchObject({
       name: "sg_context_diag",
       acceptsArgs: true,
       requireAuth: false,
     });
-    expect(registerCommand.mock.calls[7]?.[0]).toMatchObject({
+    expect(registerCommand.mock.calls[6]?.[0]).toMatchObject({
       name: "sg_cost_diag",
       requireAuth: false,
     });
     expect(registerTool).toHaveBeenCalledWith(expect.any(Function), {
       names: ["sg_workspace_onboard", "sg_workspace_pending", "sg_workspace_decide"],
-    });
-    expect(registerTool).toHaveBeenCalledWith(expect.any(Function), {
-      names: ["sg_membership_list", "sg_membership_manage"],
     });
     expect(registerTool).toHaveBeenCalledWith(expect.any(Function), {
       names: ["sg_test_manage", "sg_test_attempt", "sg_test_stats"],

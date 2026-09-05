@@ -6,7 +6,6 @@ import {
   type SgContentNativeOperation,
 } from "./content-registry.js";
 import { resolveWorkspaceContext } from "./context.js";
-import { SgWorkspaceMembershipRegistry } from "./workspace-memberships.js";
 import { SgWorkspaceRegistry, type SgWorkspace } from "./workspace-registry.js";
 import {
   buildWsp5MessageAction,
@@ -37,10 +36,9 @@ type AgentTool = {
   ): Promise<ReturnType<typeof jsonResult>>;
 };
 
-type Wsp5ActorRole = "monarch" | "owner" | "admin" | "member";
 type Wsp5Actor = {
   globalId: string;
-  role: Wsp5ActorRole;
+  canManage: boolean;
 };
 
 const mediaSchema = {
@@ -134,7 +132,6 @@ async function resolveWorkspace(
 async function authorizedActor(
   actor: Awaited<ReturnType<typeof actorContext>>,
   workspace: SgWorkspace,
-  memberships: SgWorkspaceMembershipRegistry,
 ): Promise<Wsp5Actor> {
   if (!actor.globalId) {
     throw new Error("sg-content-citizen-required");
@@ -142,24 +139,17 @@ async function authorizedActor(
   if (workspace.status !== "active") {
     throw new Error("sg-content-workspace-not-active");
   }
-  if (actor.projectRole === "monarch") {
-    return { globalId: actor.globalId, role: "monarch" };
-  }
-  const role = await memberships.effectiveRole(workspace.workspaceId, actor.globalId);
-  if (!role) {
-    throw new Error("sg-content-workspace-membership-required");
-  }
-  return { globalId: actor.globalId, role };
+  return { globalId: actor.globalId, canManage: actor.projectRole === "monarch" };
 }
 
 function requireEditor(actor: Wsp5Actor): void {
-  if (!(["monarch", "owner", "admin"] as Wsp5ActorRole[]).includes(actor.role)) {
+  if (!actor.canManage) {
     throw new Error("sg-content-editor-required");
   }
 }
 
 function canManage(actor: Wsp5Actor): boolean {
-  return actor.role !== "member";
+  return actor.canManage;
 }
 
 function draftResult(draft: SgContentDraft) {
@@ -221,13 +211,12 @@ export function createWsp5Tools(
 ): AgentTool[] {
   const contents = new SgContentRegistry(stateDir);
   const workspaces = new SgWorkspaceRegistry(stateDir);
-  const memberships = new SgWorkspaceMembershipRegistry(stateDir);
   return [
     {
       name: "sg_content_draft",
       label: "Черновики публикаций SG",
       description:
-        "Создаёт, редактирует, отправляет на согласование и показывает черновики выбранного сообщества. member работает только со своими черновиками; admin, owner и monarch могут работать со всеми.",
+        "Создаёт, редактирует, отправляет на согласование и показывает черновики выбранного сообщества. Citizen работает только со своими черновиками; управляющие действия доступны монарху до переноса на штатную sender policy.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -251,7 +240,7 @@ export function createWsp5Tools(
             if (!workspace) {
               return jsonResult({ status: "unavailable", reason: "workspace-not-found" });
             }
-            const actor = await authorizedActor(actorContextValue, workspace, memberships);
+            const actor = await authorizedActor(actorContextValue, workspace);
             if (action === "create") {
               const draft = await contents.create({
                 workspaceId: workspace.workspaceId,
@@ -279,7 +268,7 @@ export function createWsp5Tools(
             contents,
             workspaces,
           );
-          const actor = await authorizedActor(actorContextValue, workspace, memberships);
+          const actor = await authorizedActor(actorContextValue, workspace);
           if (action === "get") {
             if (!canManage(actor) && draft.creatorGlobalId !== actor.globalId) {
               throw new Error("sg-content-own-draft-required");
@@ -316,7 +305,7 @@ export function createWsp5Tools(
     {
       name: "sg_content_review",
       label: "Согласование публикации SG",
-      description: "Одобряет или отклоняет ожидающий черновик. Доступно admin, owner и monarch.",
+      description: "Одобряет или отклоняет ожидающий черновик. Доступно монарху.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -333,11 +322,7 @@ export function createWsp5Tools(
             contents,
             workspaces,
           );
-          const actor = await authorizedActor(
-            await actorContext(ctx, stateDir),
-            workspace,
-            memberships,
-          );
+          const actor = await authorizedActor(await actorContext(ctx, stateDir), workspace);
           requireEditor(actor);
           const decision = textParam(params, "decision");
           if (decision !== "approve" && decision !== "reject") {
@@ -361,7 +346,7 @@ export function createWsp5Tools(
       name: "sg_content_publish",
       label: "Опубликовать материал SG сейчас",
       description:
-        "Проверяет Global ID и роль внутри инструмента и готовит черновик к немедленной публикации. Прямая команда admin, owner или monarch одновременно означает редакционное одобрение: вызывай инструмент сразу и не проси повторного согласования. Никогда не сравнивай транспортный sender ID с Global ID самостоятельно. После успешного результата обязательно выполни nextAction штатным message без любых изменений.",
+        "Проверяет Global ID внутри инструмента и готовит черновик к немедленной публикации. Прямая команда монарха одновременно означает редакционное одобрение: вызывай инструмент сразу и не проси повторного согласования. Никогда не сравнивай транспортный sender ID с Global ID самостоятельно. После успешного результата обязательно выполни nextAction штатным message без любых изменений.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -376,7 +361,7 @@ export function createWsp5Tools(
           lifecycle.assertSessionAvailable(ctx.sessionKey);
           const resolved = await draftWorkspace(textParam(params, "draftId"), contents, workspaces);
           workspace = resolved.workspace;
-          actor = await authorizedActor(await actorContext(ctx, stateDir), workspace, memberships);
+          actor = await authorizedActor(await actorContext(ctx, stateDir), workspace);
           requireEditor(actor);
           operation = await contents.beginPublish(resolved.draft.draftId, actor.globalId, true);
           const draft = await contents.findDraft(resolved.draft.draftId);
@@ -433,7 +418,7 @@ export function createWsp5Tools(
           lifecycle.assertSessionAvailable(ctx.sessionKey);
           const resolved = await draftWorkspace(textParam(params, "draftId"), contents, workspaces);
           workspace = resolved.workspace;
-          actor = await authorizedActor(await actorContext(ctx, stateDir), workspace, memberships);
+          actor = await authorizedActor(await actorContext(ctx, stateDir), workspace);
           requireEditor(actor);
           const action = textParam(params, "action");
           let nextAction: Record<string, unknown>;
@@ -560,10 +545,10 @@ export function createWsp5Tools(
 
 export const WSP5_AGENT_GUIDANCE = [
   "WSP5 хранит черновики и редакционные статусы, но не отправляет сообщения и не запускает собственный планировщик.",
-  "member создаёт, редактирует и отправляет на согласование только свои черновики через sg_content_draft.",
-  "Прямая команда admin, owner или monarch опубликовать черновик уже является редакционным одобрением: сразу вызывай sg_content_publish и не спрашивай дополнительного согласия.",
-  "Global ID и роль проверяет сам SG-инструмент. Никогда не сравнивай sender ID канала с Global ID и не делай вывод о полномочиях самостоятельно.",
-  "Для отдельного согласования без публикации admin, owner и monarch используют sg_content_review; расписание создаётся через sg_content_schedule после одобрения.",
+  "Citizen создаёт, редактирует и отправляет на согласование только свои черновики через sg_content_draft.",
+  "Прямая команда монарха опубликовать черновик уже является редакционным одобрением: сразу вызывай sg_content_publish и не спрашивай дополнительного согласия.",
+  "Global ID и разрешённый управляющий контекст проверяет сам SG-инструмент. Никогда не сравнивай sender ID канала с Global ID и не делай вывод о полномочиях самостоятельно.",
+  "Для отдельного согласования без публикации монарх использует sg_content_review; расписание создаётся через sg_content_schedule после одобрения.",
   "После статуса native_action_required обязательно вызови указанный nextTool с nextAction без единого изменения.",
   "Немедленная и запланированная отправка выполняется только штатным message; расписание, перенос и отмена — только штатным automations.",
   "Не сообщай об успехе до успешного результата штатного действия. Ошибка штатного инструмента означает ошибку публикации.",

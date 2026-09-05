@@ -39,8 +39,6 @@ const workspaceToolGrant = [
   "sg_workspace_onboard",
   "sg_workspace_pending",
   "sg_workspace_decide",
-  "sg_membership_list",
-  "sg_membership_manage",
   "sg_content_draft",
   "sg_content_review",
   "sg_content_publish",
@@ -166,11 +164,6 @@ console.log(
         tool.names.includes("sg_workspace_pending") &&
         tool.names.includes("sg_workspace_decide"),
     ),
-    wsp4ToolsRegistered: registry.tools.some(
-      (tool) =>
-        tool.pluginId === "sg-workspace-manager" &&
-        ["sg_membership_list", "sg_membership_manage"].every((name) => tool.names.includes(name)),
-    ),
     wsp5ToolsRegistered: registry.tools.some(
       (tool) =>
         tool.pluginId === "sg-workspace-manager" &&
@@ -194,9 +187,6 @@ console.log(
         "обязательно используй sg_workspace_pending",
       ) === true,
     pendingToolInModelSurface: pluginTools.some((tool) => tool.name === "sg_workspace_pending"),
-    wsp4ToolsInModelSurface: ["sg_membership_list", "sg_membership_manage"].every((name) =>
-      pluginTools.some((tool) => tool.name === name),
-    ),
     wsp5ToolsInModelSurface: [
       "sg_content_draft",
       "sg_content_review",
@@ -207,8 +197,8 @@ console.log(
     wsp6ToolsInModelSurface: ["sg_test_manage", "sg_test_attempt", "sg_test_stats"].every((name) =>
       pluginTools.some((tool) => tool.name === name),
     ),
-    wsp4ToolsAbsentWithoutGrant: !pluginToolsWithoutGrant.some(
-      (tool) => tool.name.startsWith("sg_citizen_") || tool.name.startsWith("sg_membership_"),
+    citizenshipToolsAbsentWithoutGrant: !pluginToolsWithoutGrant.some((tool) =>
+      tool.name.startsWith("sg_citizen_"),
     ),
     wsp5ToolsAbsentWithoutGrant: !pluginToolsWithoutGrant.some((tool) =>
       tool.name.startsWith("sg_content_"),

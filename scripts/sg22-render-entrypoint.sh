@@ -30,7 +30,7 @@ if [ "$workspace_plugin_enabled" = "true" ]; then
     exit 1
   fi
   workspace_plugin_paths='["/app/sg/plugin"]'
-  workspace_plugin_tools='["sg_workspace_onboard","sg_workspace_pending","sg_workspace_decide","sg_citizen_apply","sg_citizen_pending","sg_citizen_decide","sg_membership_list","sg_membership_manage","sg_content_draft","sg_content_review","sg_content_publish","sg_content_schedule","sg_content_dispatch","sg_test_manage","sg_test_attempt","sg_test_stats"]'
+  workspace_plugin_tools='["sg_workspace_onboard","sg_workspace_pending","sg_workspace_decide","sg_citizen_apply","sg_citizen_pending","sg_citizen_decide","sg_content_draft","sg_content_review","sg_content_publish","sg_content_schedule","sg_content_dispatch","sg_test_manage","sg_test_attempt","sg_test_stats"]'
 else
   workspace_plugin_paths='[]'
   workspace_plugin_tools='[]'
@@ -42,6 +42,7 @@ mkdir -p "$state_dir" "$workspace"
 # enter dispatch. This preserves recognized legacy data and only removes invalid
 # duplicate/orphan links; unrecognized stores are backed up rather than overwritten.
 node /app/scripts/sg22-migrate-global-profiles.mjs
+node /app/scripts/sg22-migrate-workspace-memberships.mjs
 
 for file in IDENTITY.md SOUL.md AGENTS.md; do
   if [ ! -f "$source_workspace/$file" ]; then

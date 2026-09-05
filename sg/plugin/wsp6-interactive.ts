@@ -1,6 +1,5 @@
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
 import { resolveWorkspaceContext } from "./context.js";
-import { SgWorkspaceMembershipRegistry } from "./workspace-memberships.js";
 import { SgWorkspaceRegistry, type SgWorkspace } from "./workspace-registry.js";
 import {
   assessmentInteractiveToken,
@@ -200,7 +199,7 @@ function safeError(error: unknown): string {
   if (code === "sg-test-attempt-owner-required") {
     return "Эта кнопка относится к попытке другого участника.";
   }
-  if (code.includes("membership") || code.includes("citizen") || code.includes("authorized")) {
+  if (code.includes("citizen") || code.includes("authorized")) {
     return "У вас нет доступа к этому тесту.";
   }
   if (code.includes("not-active") || code.includes("closed") || code.includes("not-found")) {
@@ -214,7 +213,6 @@ function safeError(error: unknown): string {
 
 export class Wsp6InteractiveController {
   private readonly workspaces: SgWorkspaceRegistry;
-  private readonly memberships: SgWorkspaceMembershipRegistry;
   private readonly counters = { callbacks: 0, started: 0, answered: 0, completed: 0, failed: 0 };
   private registered = false;
 
@@ -224,7 +222,6 @@ export class Wsp6InteractiveController {
     private readonly api: InteractiveApi,
   ) {
     this.workspaces = new SgWorkspaceRegistry(stateDir);
-    this.memberships = new SgWorkspaceMembershipRegistry(stateDir);
   }
 
   snapshot(): Wsp6InteractiveSnapshot {
@@ -282,12 +279,6 @@ export class Wsp6InteractiveController {
     );
     if (!actor.globalId) {
       throw new Error("sg-test-citizen-required");
-    }
-    if (actor.projectRole !== "monarch") {
-      const role = await this.memberships.effectiveRole(workspace.workspaceId, actor.globalId);
-      if (!role) {
-        throw new Error("sg-test-workspace-membership-required");
-      }
     }
     return actor.globalId;
   }

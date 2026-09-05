@@ -51,7 +51,7 @@ export async function buildWsp5Diagnostic(input: {
   try {
     const [content, workspaces, profiles] = await Promise.all([
       new SgContentRegistry(input.stateDir).snapshot(),
-      new SgWorkspaceRegistry(input.stateDir).list(),
+      new SgWorkspaceRegistry(input.stateDir).listWorkspaces(),
       new SgGlobalProfileRegistry(input.stateDir).snapshot(),
     ]);
     draftsSeen = content.drafts.length;

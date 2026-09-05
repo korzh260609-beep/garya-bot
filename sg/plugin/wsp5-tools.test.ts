@@ -39,16 +39,17 @@ async function fixture() {
       })),
     }),
   );
-  const workspace = await new SgWorkspaceRegistry(root).register({
+  const workspaceRegistry = new SgWorkspaceRegistry(root);
+  const scope = await workspaceRegistry.register({
     platform: "telegram",
     accountId: "default",
     resourceId: "telegram:-100500",
     resourceKind: "group",
-    title: "SG Tools Test",
-    ownerGlobalId: "usr_monarch",
-    status: "active",
-    settings: {},
   });
+  const workspace = await workspaceRegistry.findById(scope.resourceScopeId);
+  if (!workspace) {
+    throw new Error("missing workspace compatibility view");
+  }
   const contents = new SgContentRegistry(root);
   const lifecycle = new Wsp5NativeLifecycle(contents);
   return { root, workspace, contents, lifecycle };

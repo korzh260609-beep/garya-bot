@@ -7,7 +7,7 @@ import {
   useNoBundledPlugins,
 } from "../../src/plugins/loader.test-fixtures.js";
 import { resolvePluginTools } from "../../src/plugins/tools.js";
-import { SgWorkspaceRequestRegistry } from "./workspace-requests.js";
+import { SgWorkspaceRegistry } from "./workspace-registry.js";
 
 const stateDir = process.argv[2];
 if (!stateDir) {
@@ -36,9 +36,6 @@ const registry = loadOpenClawPlugins({
 });
 const hookRunner = createHookRunner(registry);
 const workspaceToolGrant = [
-  "sg_workspace_onboard",
-  "sg_workspace_pending",
-  "sg_workspace_decide",
   "sg_content_draft",
   "sg_content_review",
   "sg_content_publish",
@@ -85,11 +82,11 @@ const pluginToolsWithoutGrant = resolvePluginTools({
 
 const promptBuildResult = await hookRunner.runBeforePromptBuild(
   {
-    prompt: "Покажи ожидающие заявки на подключение сообществ",
+    prompt: "Покажи текущий контекст",
     messages: [],
   },
   {
-    runId: "run-pending",
+    runId: "run-context",
     sessionKey: "agent:main:telegram:direct:100",
     channel: "telegram",
     accountId: "default",
@@ -143,26 +140,18 @@ console.log(
     promptHookRegistered: registry.typedHooks.some(
       (hook) => hook.pluginId === "sg-workspace-manager" && hook.hookName === "before_prompt_build",
     ),
-    diagnosticHooksRegistered: [
-      "inbound_claim",
-      "before_prompt_build",
-      "llm_input",
-      "model_call_started",
-      "before_tool_call",
-      "after_tool_call",
-      "before_agent_reply",
-      "message_sent",
-    ].every((hookName) =>
-      registry.typedHooks.some(
-        (hook) => hook.pluginId === "sg-workspace-manager" && hook.hookName === hookName,
-      ),
+    lifecycleHooksRegistered: ["before_prompt_build", "before_tool_call", "after_tool_call"].every(
+      (hookName) =>
+        registry.typedHooks.some(
+          (hook) => hook.pluginId === "sg-workspace-manager" && hook.hookName === hookName,
+        ),
     ),
-    toolsRegistered: registry.tools.some(
+    onboardingToolsAbsent: !registry.tools.some(
       (tool) =>
         tool.pluginId === "sg-workspace-manager" &&
-        tool.names.includes("sg_workspace_onboard") &&
-        tool.names.includes("sg_workspace_pending") &&
-        tool.names.includes("sg_workspace_decide"),
+        tool.names.some((name) =>
+          ["sg_workspace_onboard", "sg_workspace_pending", "sg_workspace_decide"].includes(name),
+        ),
     ),
     wsp5ToolsRegistered: registry.tools.some(
       (tool) =>
@@ -182,11 +171,11 @@ console.log(
           tool.names.includes(name),
         ),
     ),
-    promptGuidanceInjected:
-      promptBuildResult?.prependSystemContext?.includes(
-        "обязательно используй sg_workspace_pending",
-      ) === true,
-    pendingToolInModelSurface: pluginTools.some((tool) => tool.name === "sg_workspace_pending"),
+    onboardingGuidanceAbsent:
+      !promptBuildResult?.prependSystemContext?.includes("sg_workspace_pending"),
+    onboardingToolsAbsentInModelSurface: !pluginTools.some((tool) =>
+      ["sg_workspace_onboard", "sg_workspace_pending", "sg_workspace_decide"].includes(tool.name),
+    ),
     wsp5ToolsInModelSurface: [
       "sg_content_draft",
       "sg_content_review",
@@ -207,12 +196,11 @@ console.log(
       tool.name.startsWith("sg_test_"),
     ),
     pluginToolsExcludedWithoutGrant:
-      withoutWorkspaceGrant.codingToolConstructionPlan.includePluginTools === false,
-    pluginToolsIncludedWithGrant:
-      withWorkspaceGrant.codingToolConstructionPlan.includePluginTools === true,
+      !withoutWorkspaceGrant.codingToolConstructionPlan.includePluginTools,
+    pluginToolsIncludedWithGrant: withWorkspaceGrant.codingToolConstructionPlan.includePluginTools,
     errorDiagnostics: registry.diagnostics.filter((item) => item.level === "error"),
-    dispatchResult,
-    repeatDispatchResult,
-    pendingCount: (await new SgWorkspaceRequestRegistry(stateDir).listPending()).length,
+    dispatchClaimed: dispatchResult?.handled === true,
+    repeatDispatchClaimed: repeatDispatchResult?.handled === true,
+    resourceScopeCount: (await new SgWorkspaceRegistry(stateDir).list()).length,
   })}`,
 );

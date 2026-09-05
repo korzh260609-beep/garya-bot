@@ -12,23 +12,21 @@ import {
   Wsp5NativeLifecycle,
 } from "./wsp5-lifecycle.js";
 
-type Hook = (
-  event: Record<string, unknown>,
-  ctx: Record<string, unknown>,
-) => Promise<unknown> | unknown;
+type Hook = (event: Record<string, unknown>, ctx: Record<string, unknown>) => unknown;
 
 async function fixture() {
   const root = await mkdtemp(path.join(os.tmpdir(), "sg-wsp5-content-"));
-  const workspace = await new SgWorkspaceRegistry(root).register({
+  const workspaceRegistry = new SgWorkspaceRegistry(root);
+  const scope = await workspaceRegistry.register({
     platform: "telegram",
     accountId: "default",
     resourceId: "telegram:-100500",
     resourceKind: "group",
-    title: "SG Test",
-    ownerGlobalId: "usr_owner",
-    status: "active",
-    settings: {},
   });
+  const workspace = await workspaceRegistry.findById(scope.resourceScopeId);
+  if (!workspace) {
+    throw new Error("missing workspace compatibility view");
+  }
   return { root, workspace, contents: new SgContentRegistry(root) };
 }
 

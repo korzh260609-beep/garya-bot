@@ -48,16 +48,17 @@ async function fixture() {
     }),
   );
 
-  const workspace = await new SgWorkspaceRegistry(root).register({
+  const workspaceRegistry = new SgWorkspaceRegistry(root);
+  const scope = await workspaceRegistry.register({
     platform: "telegram",
     accountId: "default",
     resourceId: "telegram:-100500",
     resourceKind: "group",
-    title: "Interactive test",
-    ownerGlobalId: "usr_owner",
-    status: "active",
-    settings: {},
   });
+  const workspace = await workspaceRegistry.findById(scope.resourceScopeId);
+  if (!workspace) {
+    throw new Error("missing workspace compatibility view");
+  }
   const assessments = new SgAssessmentRegistry(openSgAssessmentStores(root));
   const definition = await assessments.create({
     testId: "interactive",
@@ -86,7 +87,7 @@ async function fixture() {
   });
   await assessments.setStatus(definition.testId, "active");
 
-  let registration: InteractiveRegistration | undefined;
+  let registration: InteractiveRegistration;
   const sendText = vi.fn(async (_params: unknown) => ({
     channel: "telegram",
     messageId: "dm-result",

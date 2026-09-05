@@ -121,7 +121,7 @@ async function resolveWorkspace(
   if (!actor.channel || !actor.resourceId) {
     return undefined;
   }
-  return workspaces.resolve({
+  return workspaces.resolveWorkspace({
     platform: actor.channel,
     ...(actor.accountId ? { accountId: actor.accountId } : {}),
     resourceId: actor.resourceId,

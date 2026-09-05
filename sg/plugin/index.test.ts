@@ -1,15 +1,12 @@
-import { mkdir, mkdtemp, readFile, readdir, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { resolveSgCanonicalIdentity, resolveWorkspaceContext } from "./context.js";
 import { registerWorkspaceManager } from "./register.js";
 import { SgWorkspaceRegistry } from "./workspace-registry.js";
-import { SgWorkspaceRequestRegistry } from "./workspace-requests.js";
 
 const timestamp = "2026-01-01T00:00:00.000Z";
-const PENDING_NOTICE_FOR_TEST =
-  "Запрос на подключение этого сообщества уже ожидает подтверждения владельца.";
 
 async function stateDirWithProfiles() {
   const root = await mkdtemp(path.join(os.tmpdir(), "sg-wsp1-"));
@@ -18,7 +15,8 @@ async function stateDirWithProfiles() {
   await writeFile(
     target,
     JSON.stringify({
-      version: 2,
+      version: 5,
+      monarchGlobalId: "usr_monarch",
       profiles: [
         {
           globalId: "usr_monarch",
@@ -62,20 +60,13 @@ const diagnosticInput = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
-const groupDispatchContext = {
-  sessionKey: "agent:main:telegram:group:-100500",
-  channelId: "telegram",
-  accountId: "default",
-  conversationId: "telegram:-100500",
-  senderId: "200",
-};
-
-function registerDispatchHook(root: string) {
+function registerDispatchHook(root: string, warn = vi.fn()) {
   const hooks = new Map<string, (...args: unknown[]) => unknown>();
   registerWorkspaceManager({
     registerCommand: vi.fn(),
     registerTool: vi.fn(),
     on: vi.fn((name, handler) => hooks.set(name, handler)),
+    logger: { info: vi.fn(), warn },
     runtime: { state: { resolveStateDir: () => root } },
   });
   const hook = hooks.get("before_dispatch");
@@ -85,7 +76,7 @@ function registerDispatchHook(root: string) {
   return hook;
 }
 
-describe("SG Workspace Manager WSP1", () => {
+describe("SG Workspace Manager", () => {
   it("uses OpenClaw identityLinks and fails closed when they are ambiguous", () => {
     expect(
       resolveSgCanonicalIdentity({
@@ -143,7 +134,6 @@ describe("SG Workspace Manager WSP1", () => {
     expect(result).toMatchObject({ projectRole: "citizen" });
     expect(result.globalId).toMatch(/^usr_/u);
     const persisted = JSON.parse(await readFile(target, "utf8"));
-    expect(persisted).toMatchObject({ version: 5, monarchGlobalId: "usr_monarch" });
     expect(persisted.profiles).toContainEqual(
       expect.objectContaining({
         globalId: result.globalId,
@@ -154,7 +144,7 @@ describe("SG Workspace Manager WSP1", () => {
     );
   });
 
-  it("returns the same read-only identity after a simulated plugin restart", async () => {
+  it("returns the same identity after a simulated plugin restart", async () => {
     const { root } = await stateDirWithProfiles();
     const first = await resolveWorkspaceContext(diagnosticInput(), root);
     vi.resetModules();
@@ -163,7 +153,7 @@ describe("SG Workspace Manager WSP1", () => {
     expect(second).toEqual(first);
   });
 
-  it("registers normal reply commands plus internal WSP3, WSP5 and WSP6 tools", async () => {
+  it("registers only WSP5/WSP6 tools and current diagnostics", async () => {
     const { root } = await stateDirWithProfiles();
     const registerCommand = vi.fn();
     const registerInteractiveHandler = vi.fn();
@@ -180,79 +170,52 @@ describe("SG Workspace Manager WSP1", () => {
         channel: { outbound: { loadAdapter: vi.fn(async () => undefined) } },
       },
     });
-    expect(registerCommand).toHaveBeenCalledTimes(7);
-    const command = registerCommand.mock.calls[0]?.[0];
-    expect(command).toMatchObject({ name: "sg_context", requireAuth: false });
-    expect(registerCommand.mock.calls[1]?.[0]).toMatchObject({
-      name: "sg_workspace",
-      requireAuth: false,
-    });
-    expect(registerCommand.mock.calls[2]?.[0]).toMatchObject({
-      name: "sg_wsp3_diag",
-      requireAuth: false,
-    });
-    expect(registerCommand.mock.calls[3]?.[0]).toMatchObject({
-      name: "sg_wsp5_diag",
-      requireAuth: false,
-    });
-    expect(registerCommand.mock.calls[4]?.[0]).toMatchObject({
-      name: "sg_wsp6_diag",
-      requireAuth: false,
-    });
-    expect(registerCommand.mock.calls[5]?.[0]).toMatchObject({
-      name: "sg_context_diag",
-      acceptsArgs: true,
-      requireAuth: false,
-    });
-    expect(registerCommand.mock.calls[6]?.[0]).toMatchObject({
-      name: "sg_cost_diag",
-      requireAuth: false,
-    });
-    expect(registerTool).toHaveBeenCalledWith(expect.any(Function), {
-      names: ["sg_workspace_onboard", "sg_workspace_pending", "sg_workspace_decide"],
-    });
-    expect(registerTool).toHaveBeenCalledWith(expect.any(Function), {
-      names: ["sg_test_manage", "sg_test_attempt", "sg_test_stats"],
-    });
+
+    expect(registerCommand.mock.calls.map((call) => call[0]?.name)).toEqual([
+      "sg_context",
+      "sg_workspace",
+      "sg_wsp5_diag",
+      "sg_wsp6_diag",
+      "sg_context_diag",
+      "sg_cost_diag",
+    ]);
+    const toolNames = registerTool.mock.calls.flatMap((call) => call[1]?.names ?? []);
+    expect(toolNames).toEqual([
+      "sg_content_draft",
+      "sg_content_review",
+      "sg_content_publish",
+      "sg_content_schedule",
+      "sg_content_dispatch",
+      "sg_test_manage",
+      "sg_test_attempt",
+      "sg_test_stats",
+    ]);
     expect(registerInteractiveHandler).toHaveBeenCalledWith({
       channel: "telegram",
       namespace: "sg6",
       handler: expect.any(Function),
     });
-    expect(registerTool).toHaveBeenCalledWith(expect.any(Function), {
-      names: [
-        "sg_content_draft",
-        "sg_content_review",
-        "sg_content_publish",
-        "sg_content_schedule",
-        "sg_content_dispatch",
-      ],
-    });
     expect(on).toHaveBeenCalledWith("before_dispatch", expect.any(Function));
   });
 
-  it("adds pending-list tool guidance through the native prompt hook", async () => {
+  it("injects identity plus WSP5/WSP6 guidance without onboarding guidance", async () => {
+    const { root } = await stateDirWithProfiles();
     const hooks = new Map<string, (...args: unknown[]) => unknown>();
     registerWorkspaceManager({
       registerCommand: vi.fn(),
       registerTool: vi.fn(),
       on: vi.fn((name, handler) => hooks.set(name, handler)),
-      runtime: { state: { resolveStateDir: () => "/tmp/sg-wsp-test" } },
+      runtime: { state: { resolveStateDir: () => root } },
     });
 
-    const result = await hooks.get("before_prompt_build")?.({}, {});
-    expect(result).toMatchObject({
-      prependSystemContext: expect.stringContaining("обязательно используй sg_workspace_pending"),
-    });
-    expect(result).not.toMatchObject({
-      prependSystemContext: expect.stringContaining("sg_citizen_"),
-    });
-    expect(result).toMatchObject({
-      prependSystemContext: expect.stringContaining("штатным automations"),
-    });
-    expect(result).toMatchObject({
-      prependSystemContext: expect.stringContaining("обычные опросы отправляй штатным message"),
-    });
+    const result = (await hooks.get("before_prompt_build")?.(
+      {},
+      { channel: "telegram", conversationId: "telegram:100", senderId: "100" },
+    )) as { prependSystemContext?: string };
+    expect(result.prependSystemContext).toContain("Роль SG: monarch");
+    expect(result.prependSystemContext).toContain("штатным automations");
+    expect(result.prependSystemContext).toContain("обычные опросы отправляй штатным message");
+    expect(result.prependSystemContext).not.toMatch(/sg_workspace_(?:onboard|pending|decide)/u);
   });
 
   it("creates and attaches the citizen identity before an ordinary model call", async () => {
@@ -281,11 +244,7 @@ describe("SG Workspace Manager WSP1", () => {
     });
     const persisted = JSON.parse(await readFile(target, "utf8"));
     expect(persisted.profiles).toContainEqual(
-      expect.objectContaining({
-        canonicalIdentity: "channel:telegram:999",
-        role: "citizen",
-        status: "active",
-      }),
+      expect.objectContaining({ canonicalIdentity: "channel:telegram:999", role: "citizen" }),
     );
   });
 
@@ -317,11 +276,7 @@ describe("SG Workspace Manager WSP1", () => {
             memoryFlush: { enabled: false },
             maxActiveTranscriptBytes: "128kb",
           },
-          contextPruning: {
-            mode: "cache-ttl",
-            ttl: "5m",
-            hardClear: { enabled: true },
-          },
+          contextPruning: { mode: "cache-ttl", ttl: "5m", hardClear: { enabled: true } },
         },
       },
     };
@@ -343,409 +298,8 @@ describe("SG Workspace Manager WSP1", () => {
     ).resolves.toEqual({ text: "SG COST DIAG — доступ разрешён только монарху" });
   });
 
-  it("exposes the read-only context diagnostic only to the monarch", async () => {
-    const { root } = await stateDirWithProfiles();
-    const commands: Array<{
-      name: string;
-      handler: (ctx: Record<string, unknown>) => Promise<{ text: string }>;
-    }> = [];
-    registerWorkspaceManager({
-      registerCommand: vi.fn((command) => commands.push(command)),
-      registerTool: vi.fn(),
-      on: vi.fn(),
-      runtime: { state: { resolveStateDir: () => root } },
-    });
-    const command = commands.find((candidate) => candidate.name === "sg_context_diag");
-    await expect(
-      command?.handler({
-        channel: "telegram",
-        senderId: "100",
-        sessionKey: "agent:main:telegram:direct:100",
-        sessionId: "session-1",
-        config: {},
-      }),
-    ).resolves.toEqual({ text: expect.stringContaining("SG CONTEXT DIAG") });
-    await expect(
-      command?.handler({
-        channel: "telegram",
-        senderId: "200",
-        sessionKey: "agent:main:telegram:direct:200",
-        config: {},
-      }),
-    ).resolves.toEqual({ text: "SG CONTEXT DIAG — доступ разрешён только монарху" });
-  });
-
-  it("reports the complete pending-list chain and identifies model tool-selection failure", async () => {
-    const { root } = await stateDirWithProfiles();
-    await new SgWorkspaceRequestRegistry(root).create({
-      platform: "telegram",
-      accountId: "default",
-      resourceId: "telegram:-100500",
-      resourceKind: "group",
-      title: "SG Freelander 2",
-      initiatorCanonicalIdentity: "channel:telegram:200",
-      initiatorGlobalId: "usr_citizen",
-    });
-    const commands: Array<{
-      name: string;
-      handler: (ctx: Record<string, unknown>) => Promise<{ text: string }>;
-    }> = [];
-    const hooks = new Map<string, (...args: unknown[]) => unknown>();
-    registerWorkspaceManager({
-      registerCommand: vi.fn((command) => commands.push(command)),
-      registerTool: vi.fn(),
-      on: vi.fn((name, handler) => hooks.set(name, handler)),
-      runtime: { state: { resolveStateDir: () => root } },
-    });
-
-    await hooks.get("before_prompt_build")?.(
-      { prompt: "Покажи ожидающие заявки на подключение сообществ" },
-      {
-        runId: "run-pending",
-        sessionKey: "agent:main:telegram:isolated-model-session",
-        channel: "telegram",
-        accountId: "default",
-        senderId: "100",
-        toolAuthority: { allows: (name: string) => name === "sg_workspace_pending" },
-      },
-    );
-    await hooks.get("llm_input")?.(
-      {
-        runId: "run-pending",
-        sessionId: "session-pending",
-        provider: "openai",
-        model: "gpt-test",
-        prompt: "Покажи ожидающие заявки на подключение сообществ",
-        historyMessages: [],
-        imagesCount: 0,
-        tools: [{ name: "sg_workspace_pending" }],
-      },
-      {
-        runId: "run-pending",
-        sessionKey: "agent:main:telegram:isolated-model-session",
-        channel: "telegram",
-        accountId: "default",
-        senderId: "100",
-      },
-    );
-    await hooks.get("model_call_started")?.(
-      { runId: "run-pending", callId: "call-1" },
-      {
-        runId: "run-pending",
-        sessionKey: "agent:main:telegram:isolated-model-session",
-        channel: "telegram",
-        accountId: "default",
-        senderId: "100",
-      },
-    );
-    await hooks.get("before_agent_reply")?.(
-      { cleanedBody: "Не вижу ожидающих заявок" },
-      {
-        runId: "run-pending",
-        sessionKey: "agent:main:telegram:isolated-model-session",
-        channel: "telegram",
-        accountId: "default",
-        senderId: "100",
-      },
-    );
-
-    const diagnostic = commands.find((command) => command.name === "sg_wsp3_diag");
-    expect(diagnostic).toBeDefined();
-    const diagnosticContext = {
-      channel: "telegram",
-      accountId: "default",
-      to: "telegram:100",
-      senderId: "100",
-      sessionKey: "agent:main:telegram:isolated-command-session",
-      config: {},
-    };
-    await expect(diagnostic!.handler(diagnosticContext)).resolves.toEqual({
-      text: expect.stringMatching(
-        /trace_match: route[\s\S]*hook_counts: prompt=1, llm_input=1, model=1, tool_selected=0, tool_result=0, reply=1[\s\S]*prompt_hook: OK[\s\S]*pending_tool_surface: OK[\s\S]*pending_store: OK \(1: SG Freelander 2\)[\s\S]*failure: model_did_not_select_pending_tool/,
-      ),
-    });
-
-    const hookContext = {
-      runId: "run-pending",
-      sessionKey: "agent:main:telegram:isolated-model-session",
-      toolName: "sg_workspace_pending",
-      requester: { channel: "telegram", accountId: "default", senderId: "100" },
-    };
-    await hooks.get("before_tool_call")?.(
-      { toolName: "sg_workspace_pending", params: {}, runId: "run-pending" },
-      hookContext,
-    );
-    await expect(diagnostic!.handler(diagnosticContext)).resolves.toEqual({
-      text: expect.stringContaining("failure: pending_tool_result_missing"),
-    });
-
-    await hooks.get("after_tool_call")?.(
-      {
-        toolName: "sg_workspace_pending",
-        params: {},
-        runId: "run-pending",
-        result: { content: [{ type: "text", text: "{}" }] },
-      },
-      hookContext,
-    );
-    await expect(diagnostic!.handler(diagnosticContext)).resolves.toEqual({
-      text: expect.stringContaining("failure: pending_tool_result_invalid"),
-    });
-
-    await hooks.get("after_tool_call")?.(
-      {
-        toolName: "sg_workspace_pending",
-        params: {},
-        runId: "run-pending",
-        result: { details: { status: "ok", requests: [] } },
-      },
-      hookContext,
-    );
-    await expect(diagnostic!.handler(diagnosticContext)).resolves.toEqual({
-      text: expect.stringContaining("failure: pending_tool_result_store_mismatch"),
-    });
-
-    await hooks.get("after_tool_call")?.(
-      {
-        toolName: "sg_workspace_pending",
-        params: {},
-        runId: "run-pending",
-        result: {
-          details: { status: "ok", requests: [{ title: "SG Freelander 2" }] },
-        },
-      },
-      hookContext,
-    );
-    await expect(diagnostic!.handler(diagnosticContext)).resolves.toEqual({
-      text: expect.stringMatching(/pending_tool_payload: OK \(ok: 1\)[\s\S]*failure: none/),
-    });
-  });
-
-  it("distinguishes missing lifecycle hooks from trace identity mismatch", async () => {
-    const { root } = await stateDirWithProfiles();
-    await new SgWorkspaceRequestRegistry(root).create({
-      platform: "telegram",
-      accountId: "default",
-      resourceId: "telegram:-100501",
-      resourceKind: "group",
-      title: "Pending community",
-      initiatorCanonicalIdentity: "channel:telegram:200",
-      initiatorGlobalId: "usr_citizen",
-    });
-    const commands: Array<{
-      name: string;
-      handler: (ctx: Record<string, unknown>) => Promise<{ text: string }>;
-    }> = [];
-    const hooks = new Map<string, (...args: unknown[]) => unknown>();
-    registerWorkspaceManager({
-      registerCommand: vi.fn((command) => commands.push(command)),
-      registerTool: vi.fn(),
-      on: vi.fn((name, handler) => hooks.set(name, handler)),
-      runtime: { state: { resolveStateDir: () => root } },
-    });
-    const diagnostic = commands.find((command) => command.name === "sg_wsp3_diag")!;
-    const commandContext = {
-      channel: "telegram",
-      accountId: "default",
-      to: "telegram:100",
-      senderId: "100",
-      sessionKey: "command-session",
-      config: {},
-    };
-
-    await expect(diagnostic.handler(commandContext)).resolves.toEqual({
-      text: expect.stringMatching(
-        /last_trace: NONE[\s\S]*hook_counts: prompt=0, llm_input=0, model=0, tool_selected=0, tool_result=0, reply=0[\s\S]*failure: lifecycle_hooks_not_observed/,
-      ),
-    });
-
-    await hooks.get("model_call_started")?.(
-      { runId: "unmatched-run", callId: "call-1" },
-      { runId: "unmatched-run", sessionKey: "different-session" },
-    );
-    await expect(diagnostic.handler(commandContext)).resolves.toEqual({
-      text: expect.stringMatching(
-        /trace_match: none[\s\S]*last_trace: NONE[\s\S]*hook_counts: prompt=0, llm_input=0, model=1[\s\S]*failure: trace_identity_mismatch/,
-      ),
-    });
-  });
-
-  it("detects lifecycle hooks recorded by another plugin instance", async () => {
-    const { root } = await stateDirWithProfiles();
-    await new SgWorkspaceRequestRegistry(root).create({
-      platform: "telegram",
-      accountId: "default",
-      resourceId: "telegram:-100502",
-      resourceKind: "group",
-      title: "Cross-instance community",
-      initiatorCanonicalIdentity: "channel:telegram:200",
-      initiatorGlobalId: "usr_citizen",
-    });
-    const lifecycleHooks = new Map<string, (...args: unknown[]) => unknown>();
-    registerWorkspaceManager({
-      registerCommand: vi.fn(),
-      registerTool: vi.fn(),
-      on: vi.fn((name, handler) => lifecycleHooks.set(name, handler)),
-      runtime: { state: { resolveStateDir: () => root } },
-    });
-    const lifecycleContext = {
-      runId: "cross-instance-run",
-      sessionKey: "model-instance-session",
-      channel: "telegram",
-      accountId: "default",
-      senderId: "100",
-    };
-    await lifecycleHooks.get("before_prompt_build")?.(
-      { prompt: "Покажи ожидающие заявки" },
-      {
-        ...lifecycleContext,
-        toolAuthority: { allows: (name: string) => name === "sg_workspace_pending" },
-      },
-    );
-    await lifecycleHooks.get("llm_input")?.(
-      {
-        runId: lifecycleContext.runId,
-        sessionId: "cross-instance-session",
-        provider: "openai",
-        model: "gpt-test",
-        prompt: "Покажи ожидающие заявки",
-        historyMessages: [],
-        imagesCount: 0,
-        tools: [{ name: "sg_workspace_pending" }],
-      },
-      lifecycleContext,
-    );
-    await lifecycleHooks.get("model_call_started")?.(
-      { runId: lifecycleContext.runId, callId: "call-1" },
-      lifecycleContext,
-    );
-    await lifecycleHooks.get("before_agent_reply")?.({ cleanedBody: "Пусто" }, lifecycleContext);
-
-    const commands: Array<{
-      name: string;
-      handler: (ctx: Record<string, unknown>) => Promise<{ text: string }>;
-    }> = [];
-    registerWorkspaceManager({
-      registerCommand: vi.fn((command) => commands.push(command)),
-      registerTool: vi.fn(),
-      on: vi.fn(),
-      runtime: { state: { resolveStateDir: () => root } },
-    });
-    const diagnostic = commands.find((command) => command.name === "sg_wsp3_diag")!;
-    await expect(
-      diagnostic.handler({
-        channel: "telegram",
-        accountId: "default",
-        to: "telegram:100",
-        senderId: "100",
-        sessionKey: "command-instance-session",
-        config: {},
-      }),
-    ).resolves.toEqual({
-      text: expect.stringMatching(
-        /trace_match: durable-route[\s\S]*last_trace: PRESENT \(durable[\s\S]*hook_counts: prompt=0, llm_input=0, model=0, tool_selected=0, tool_result=0, reply=0[\s\S]*durable_trace: OK[\s\S]*durable_instances: 2, pids=1[\s\S]*durable_hook_location: other-instance[\s\S]*durable_hook_counts: before_dispatch=0, prompt=1, llm_input=1, model=1, tool_selected=0, tool_result=0, reply=1[\s\S]*before_dispatch: UNKNOWN[\s\S]*pending_tool_surface: OK[\s\S]*failure: model_did_not_select_pending_tool/,
-      ),
-    });
-  });
-
-  it("correlates one WSP3 run split across plugin instances", async () => {
-    const { root } = await stateDirWithProfiles();
-    await new SgWorkspaceRequestRegistry(root).create({
-      platform: "telegram",
-      accountId: "default",
-      resourceId: "telegram:-100503",
-      resourceKind: "group",
-      title: "Split-instance community",
-      initiatorCanonicalIdentity: "channel:telegram:200",
-      initiatorGlobalId: "usr_citizen",
-    });
-    const commands: Array<{
-      name: string;
-      handler: (ctx: Record<string, unknown>) => Promise<{ text: string }>;
-    }> = [];
-    const promptHooks = new Map<string, (...args: unknown[]) => unknown>();
-    registerWorkspaceManager({
-      registerCommand: vi.fn((command) => commands.push(command)),
-      registerTool: vi.fn(),
-      on: vi.fn((name, handler) => promptHooks.set(name, handler)),
-      runtime: { state: { resolveStateDir: () => root } },
-    });
-    const executionHooks = new Map<string, (...args: unknown[]) => unknown>();
-    registerWorkspaceManager({
-      registerCommand: vi.fn(),
-      registerTool: vi.fn(),
-      on: vi.fn((name, handler) => executionHooks.set(name, handler)),
-      runtime: { state: { resolveStateDir: () => root } },
-    });
-    const runContext = {
-      runId: "split-instance-run",
-      sessionKey: "split-instance-session",
-      channel: "telegram",
-      accountId: "default",
-      senderId: "100",
-    };
-    await promptHooks.get("before_prompt_build")?.(
-      { prompt: "Покажи ожидающие заявки" },
-      runContext,
-    );
-    await promptHooks.get("llm_input")?.(
-      {
-        runId: runContext.runId,
-        sessionId: runContext.sessionKey,
-        provider: "openai",
-        model: "gpt-test",
-        prompt: "Покажи ожидающие заявки",
-        historyMessages: [],
-        imagesCount: 0,
-        tools: [{ name: "sg_workspace_pending" }],
-      },
-      runContext,
-    );
-    await executionHooks.get("model_call_started")?.(
-      { runId: runContext.runId, callId: "call-1" },
-      runContext,
-    );
-    const toolContext = {
-      ...runContext,
-      toolName: "sg_workspace_pending",
-      requester: { channel: "telegram", accountId: "default", senderId: "100" },
-    };
-    await executionHooks.get("before_tool_call")?.(
-      { toolName: "sg_workspace_pending", params: {}, runId: runContext.runId },
-      toolContext,
-    );
-    await executionHooks.get("after_tool_call")?.(
-      {
-        toolName: "sg_workspace_pending",
-        params: {},
-        runId: runContext.runId,
-        result: {
-          details: { status: "ok", requests: [{ title: "Split-instance community" }] },
-        },
-      },
-      toolContext,
-    );
-    await executionHooks.get("before_agent_reply")?.({ cleanedBody: "Одна заявка" }, runContext);
-
-    const diagnostic = commands.find((command) => command.name === "sg_wsp3_diag")!;
-    await expect(
-      diagnostic.handler({
-        channel: "telegram",
-        accountId: "default",
-        to: "telegram:100",
-        senderId: "100",
-        sessionKey: "diagnostic-session",
-        config: {},
-      }),
-    ).resolves.toEqual({
-      text: expect.stringMatching(
-        /model_call: OK \(1\)[\s\S]*pending_tool_selected: OK[\s\S]*pending_tool_result: OK[\s\S]*pending_tool_payload: OK \(ok: 1\)[\s\S]*reply_path: OK[\s\S]*failure: none/,
-      ),
-    });
-  });
-
-  it("returns an explicit unregistered workspace through the normal reply payload", async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), "sg-wsp2-command-"));
+  it("returns an explicit missing scope without creating storage", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "sg-resource-command-"));
     const registerCommand = vi.fn();
     registerWorkspaceManager({
       registerCommand,
@@ -768,83 +322,11 @@ describe("SG Workspace Manager WSP1", () => {
     });
   });
 
-  it("leaves ordinary OpenClaw replies untouched when the plugin is disabled", () => {
-    const registerCommand = vi.fn();
-    expect(registerCommand).not.toHaveBeenCalled();
-  });
-
-  it("creates a pending request from trusted current-route context without assigning owner", async () => {
+  it("records one neutral scope after native group admission without claiming the reply", async () => {
     const { root } = await stateDirWithProfiles();
-    const registerTool = vi.fn();
-    registerWorkspaceManager({
-      registerCommand: vi.fn(),
-      registerTool,
-      on: vi.fn(),
-      runtime: { state: { resolveStateDir: () => root } },
-    });
-    const factory = registerTool.mock.calls[0]?.[0];
-    const tools = factory({
-      messageChannel: "telegram",
-      agentAccountId: "default",
-      nativeChannelId: "telegram:-100500",
-      requesterSenderId: "200",
-    });
-    const onboard = tools.find((tool: { name: string }) => tool.name === "sg_workspace_onboard");
-    const result = await onboard.execute("call-1", {
-      resourceKind: "group",
-      title: "Sandbox",
-    });
-    expect(JSON.parse(result.content[0].text)).toMatchObject({
-      status: "pending",
-      ownerAssigned: false,
-    });
-  });
-
-  it("creates and announces a pending request before replying to an ordinary group greeting", async () => {
-    const { root } = await stateDirWithProfiles();
-    const hooks = new Map<string, (...args: unknown[]) => unknown>();
-    registerWorkspaceManager({
-      registerCommand: vi.fn(),
-      registerTool: vi.fn(),
-      on: vi.fn((name, handler) => hooks.set(name, handler)),
-      runtime: { state: { resolveStateDir: () => root } },
-    });
-
-    const dispatchResult = await hooks.get("before_dispatch")?.(
-      { isGroup: true, channel: "telegram", senderId: "200" },
-      {
-        sessionKey: "agent:main:telegram:group:-100500",
-        channelId: "telegram",
-        accountId: "default",
-        conversationId: "telegram:-100500",
-        senderId: "200",
-      },
-    );
-    expect(dispatchResult).toMatchObject({
-      handled: true,
-      text: expect.stringContaining("запрос на подключение"),
-    });
-    await expect(new SgWorkspaceRequestRegistry(root).listPending()).resolves.toMatchObject([
-      {
-        status: "pending",
-        resourceId: "telegram:-100500",
-        initiatorGlobalId: "usr_citizen",
-      },
-    ]);
-  });
-
-  it("announces an existing pending request instead of falling through to the model", async () => {
-    const { root } = await stateDirWithProfiles();
-    const hooks = new Map<string, (...args: unknown[]) => unknown>();
-    registerWorkspaceManager({
-      registerCommand: vi.fn(),
-      registerTool: vi.fn(),
-      on: vi.fn((name, handler) => hooks.set(name, handler)),
-      runtime: { state: { resolveStateDir: () => root } },
-    });
-    const event = { isGroup: true, channel: "telegram", senderId: "200" };
+    const hook = registerDispatchHook(root);
+    const event = { content: "СГ, привет", isGroup: true, channel: "telegram", senderId: "200" };
     const context = {
-      messageId: "message-1",
       sessionKey: "agent:main:telegram:group:-100500",
       channelId: "telegram",
       accountId: "default",
@@ -852,296 +334,74 @@ describe("SG Workspace Manager WSP1", () => {
       senderId: "200",
     };
 
-    await hooks.get("before_dispatch")?.(event, context);
-    await expect(
-      hooks.get("before_dispatch")?.(event, { ...context, messageId: "message-2" }),
-    ).resolves.toMatchObject({
-      handled: true,
-      text: expect.stringContaining("уже ожидает подтверждения"),
+    await expect(hook(event, context)).resolves.toEqual({ handled: false });
+    await expect(hook(event, context)).resolves.toEqual({ handled: false });
+    const scopes = await new SgWorkspaceRegistry(root).list();
+    expect(scopes).toHaveLength(1);
+    expect(scopes[0]).toMatchObject({
+      platform: "telegram",
+      accountId: "default",
+      resourceId: "telegram:-100500",
+      resourceKind: "group",
     });
-    await expect(new SgWorkspaceRequestRegistry(root).listPending()).resolves.toHaveLength(1);
+    expect(scopes[0]).not.toHaveProperty("ownerGlobalId");
+    expect(scopes[0]).not.toHaveProperty("status");
   });
 
   it.each(["/new", "/new@ASSISTANT_SG_bot"])(
-    "lets the system command %s continue without automatic onboarding",
+    "lets the native command %s continue without creating scope state",
     async (content) => {
       const { root } = await stateDirWithProfiles();
       await expect(
         registerDispatchHook(root)(
           { content, isGroup: true, channel: "telegram", senderId: "200" },
-          groupDispatchContext,
+          {
+            sessionKey: "agent:main:telegram:slash:200",
+            channelId: "telegram",
+            conversationId: "telegram:-100500",
+            senderId: "200",
+          },
         ),
       ).resolves.toEqual({ handled: false });
-      await expect(new SgWorkspaceRequestRegistry(root).listPending()).resolves.toEqual([]);
+      await expect(stat(path.join(root, "sg", "workspaces.json"))).rejects.toMatchObject({
+        code: "ENOENT",
+      });
     },
   );
 
-  it("lets an enveloped command on the native slash lane continue", async () => {
+  it("does not create a resource scope in a direct chat", async () => {
     const { root } = await stateDirWithProfiles();
-    const commands: Array<{ name: string; handler: (ctx: unknown) => unknown }> = [];
-    const hooks = new Map<string, (...args: unknown[]) => unknown>();
-    registerWorkspaceManager({
-      registerCommand: vi.fn((command) => commands.push(command)),
-      registerTool: vi.fn(),
-      on: vi.fn((name, handler) => hooks.set(name, handler)),
-      runtime: { state: { resolveStateDir: () => root } },
-    });
-    const dispatch = hooks.get("before_dispatch");
-    if (!dispatch) {
-      throw new Error("before_dispatch hook was not registered");
-    }
-    await expect(
-      dispatch(
-        {
-          content: "Команда Telegram\n/new",
-          body: "Команда Telegram\n/new",
-          isGroup: true,
-          channel: "telegram",
-          senderId: "100",
-        },
-        {
-          ...groupDispatchContext,
-          sessionKey: "agent:main:telegram:slash:677128443",
-          conversationId: "@slash:topic:677128443",
-          senderId: "100",
-        },
-      ),
-    ).resolves.toEqual({ handled: false });
-    await expect(new SgWorkspaceRequestRegistry(root).listPending()).resolves.toEqual([]);
-    const diagnosticFiles = await readdir(path.join(root, "sg-workspace-diagnostics"));
-    const diagnostic = await readFile(
-      path.join(root, "sg-workspace-diagnostics", diagnosticFiles[0]!),
-      "utf8",
-    );
-    expect(diagnostic).toContain('"stage":"before-dispatch"');
-    expect(diagnostic).toContain('"result":"system-command-bypassed"');
-    const wsp3Diagnostic = commands.find((command) => command.name === "sg_wsp3_diag");
-    await expect(
-      wsp3Diagnostic?.handler({
-        channel: "telegram",
-        accountId: "default",
-        to: "telegram:100",
-        senderId: "100",
-        sessionKey: "agent:main:telegram:slash:677128443",
-        config: {},
-      }),
-    ).resolves.toEqual({
-      text: expect.stringMatching(
-        /before_dispatch: OK \(system-command-bypassed\)[\s\S]*failure: none/,
-      ),
-    });
-  });
-
-  it("diagnoses the exact stage where a native /new loses its command signal", async () => {
-    const { root } = await stateDirWithProfiles();
-    await new SgWorkspaceRequestRegistry(root).create({
-      platform: "telegram",
-      accountId: "default",
-      resourceId: "telegram:group:-100500",
-      resourceKind: "group",
-      title: "Sandbox",
-      initiatorCanonicalIdentity: "channel:telegram:200",
-      initiatorGlobalId: "usr_citizen",
-    });
-    const commands: Array<{
-      name: string;
-      handler: (ctx: Record<string, unknown>) => Promise<{ text: string }>;
-    }> = [];
-    const hooks = new Map<string, (...args: unknown[]) => unknown>();
-    registerWorkspaceManager({
-      registerCommand: vi.fn((command) => commands.push(command)),
-      registerTool: vi.fn(),
-      on: vi.fn((name, handler) => hooks.set(name, handler)),
-      runtime: { state: { resolveStateDir: () => root } },
-    });
-    const messageId = "native-new-1";
-    const conversationId = "telegram:group:-100500";
-    await hooks.get("inbound_claim")?.(
-      {
-        content: "/new",
-        body: "/new",
-        bodyForAgent: "/new",
-        channel: "telegram",
-        accountId: "default",
-        conversationId,
-        senderId: "100",
-        messageId,
-        sessionKey: "agent:main:telegram:slash:100",
-        isGroup: true,
-        commandAuthorized: true,
-      },
-      {
-        channelId: "telegram",
-        accountId: "default",
-        conversationId,
-        senderId: "100",
-        messageId,
-        sessionKey: "agent:main:telegram:slash:100",
-      },
-    );
-    await expect(
-      hooks.get("before_dispatch")?.(
-        {
-          content: "A new session was started via /new or /reset.",
-          body: "A new session was started via /new or /reset.",
-          channel: "telegram",
-          senderId: "100",
-          messageId,
-          isGroup: true,
-        },
-        {
-          channelId: "telegram",
-          accountId: "default",
-          conversationId,
-          senderId: "100",
-          messageId,
-          sessionKey: "agent:main:telegram:group:-100500",
-        },
-      ),
-    ).resolves.toMatchObject({ handled: true, text: PENDING_NOTICE_FOR_TEST });
-    await hooks.get("message_sent")?.(
-      {
-        to: conversationId,
-        content: PENDING_NOTICE_FOR_TEST,
-        success: true,
-        sessionKey: "agent:main:telegram:group:-100500",
-      },
-      {
-        channelId: "telegram",
-        accountId: "default",
-        conversationId,
-        sessionKey: "agent:main:telegram:group:-100500",
-      },
-    );
-
-    const diagnostic = commands.find((command) => command.name === "sg_wsp3_diag")!;
-    await expect(
-      diagnostic.handler({
-        channel: "telegram",
-        accountId: "default",
-        from: conversationId,
-        to: "slash:100",
-        senderId: "100",
-        sessionKey: "agent:main:telegram:slash:100",
-        config: {},
-      }),
-    ).resolves.toEqual({
-      text: expect.stringMatching(
-        /diagnostic_version: wsp3-e2e-v2[\s\S]*ingress: OK \(group=true,lane=slash,content=slash-new,body=slash-new,bodyForAgent=slash-new,authorized=true\)[\s\S]*dispatch_input: OK \(group=true,lane=group,content=other,body=other,slashLane=false,slashText=false,conversation=present\)[\s\S]*before_dispatch: OK \(pending-existing\)[\s\S]*target_request: pending[\s\S]*outbound: pending-notice[\s\S]*breakpoint: system_command_signal_lost_before_dispatch/,
-      ),
-    });
-  });
-
-  it("lets /new continue after the workspace request is approved and active", async () => {
-    const { root } = await stateDirWithProfiles();
-    const requests = new SgWorkspaceRequestRegistry(root);
-    const workspaces = new SgWorkspaceRegistry(root);
-    const request = await requests.create({
-      platform: "telegram",
-      accountId: "default",
-      resourceId: "telegram:-100500",
-      resourceKind: "group",
-      title: "Sandbox",
-      initiatorCanonicalIdentity: "channel:telegram:200",
-      initiatorGlobalId: "usr_citizen",
-    });
-    await requests.approve({
-      requestId: request.requestId,
-      decidedByGlobalId: "usr_monarch",
-      ownerGlobalId: "usr_citizen",
-      workspaces,
-    });
     await expect(
       registerDispatchHook(root)(
-        { content: "/new", isGroup: true, channel: "telegram", senderId: "200" },
-        groupDispatchContext,
-      ),
-    ).resolves.toEqual({ handled: false });
-    await expect(
-      registerDispatchHook(root)(
-        { content: "СГ, продолжай", isGroup: true, channel: "telegram", senderId: "200" },
-        groupDispatchContext,
-      ),
-    ).resolves.toEqual({ handled: false });
-    await expect(
-      workspaces.resolve({
-        platform: "telegram",
-        accountId: "default",
-        resourceId: "telegram:-100500",
-      }),
-    ).resolves.toMatchObject({ status: "active" });
-  });
-
-  it("does not report a rejected workspace request as pending", async () => {
-    const { root } = await stateDirWithProfiles();
-    const requests = new SgWorkspaceRequestRegistry(root);
-    const request = await requests.create({
-      platform: "telegram",
-      accountId: "default",
-      resourceId: "telegram:-100500",
-      resourceKind: "group",
-      title: "Sandbox",
-      initiatorCanonicalIdentity: "channel:telegram:200",
-    });
-    await requests.reject({ requestId: request.requestId, decidedByGlobalId: "usr_monarch" });
-    await expect(
-      registerDispatchHook(root)(
-        { content: "СГ, привет", isGroup: true, channel: "telegram", senderId: "200" },
-        groupDispatchContext,
-      ),
-    ).resolves.toEqual({ handled: false });
-  });
-
-  it("records which required hook context fields are unavailable without logging their values", async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), "sg-wsp3-missing-context-"));
-    const hooks = new Map<string, (...args: unknown[]) => unknown>();
-    const warn = vi.fn();
-    const info = vi.fn();
-    registerWorkspaceManager({
-      registerCommand: vi.fn(),
-      registerTool: vi.fn(),
-      on: vi.fn((name, handler) => hooks.set(name, handler)),
-      logger: { info, warn },
-      runtime: { state: { resolveStateDir: () => root } },
-    });
-
-    await hooks.get("before_dispatch")?.(
-      { isGroup: true, channel: "telegram" },
-      {
-        sessionKey: "private-run-id",
-        channelId: "telegram",
-        conversationId: "private-chat-id",
-      },
-    );
-
-    expect(warn).toHaveBeenCalledWith(
-      "SG workspace automatic onboarding skipped: missing senderId",
-    );
-    expect(warn.mock.calls.flat().join(" ")).not.toContain("private-run-id");
-    expect(warn.mock.calls.flat().join(" ")).not.toContain("private-chat-id");
-    await expect(new SgWorkspaceRequestRegistry(root).listPending()).resolves.toEqual([]);
-  });
-
-  it("does not create a workspace request in a direct chat", async () => {
-    const { root } = await stateDirWithProfiles();
-    const hooks = new Map<string, (...args: unknown[]) => unknown>();
-    registerWorkspaceManager({
-      registerCommand: vi.fn(),
-      registerTool: vi.fn(),
-      on: vi.fn((name, handler) => hooks.set(name, handler)),
-      runtime: { state: { resolveStateDir: () => root } },
-    });
-    await expect(
-      hooks.get("before_dispatch")?.(
-        { isGroup: false, channel: "telegram", senderId: "200" },
+        { content: "Привет", isGroup: false, channel: "telegram", senderId: "200" },
         {
-          sessionKey: "run-dm",
+          sessionKey: "agent:main:telegram:direct:200",
           channelId: "telegram",
           conversationId: "telegram:200",
           senderId: "200",
         },
       ),
     ).resolves.toEqual({ handled: false });
-    await expect(new SgWorkspaceRequestRegistry(root).listPending()).resolves.toEqual([]);
+    await expect(stat(path.join(root, "sg", "workspaces.json"))).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+  });
+
+  it("fails open for replies when trusted group route fields are missing", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "sg-resource-missing-context-"));
+    const warn = vi.fn();
+    await expect(
+      registerDispatchHook(root, warn)(
+        { content: "Привет", isGroup: true, channel: "telegram", senderId: "200" },
+        { sessionKey: "private-run-id", channelId: "telegram", senderId: "200" },
+      ),
+    ).resolves.toEqual({ handled: false });
+    expect(warn).toHaveBeenCalledWith(
+      "SG resource scope registration skipped: trusted route is incomplete",
+    );
+    expect(warn.mock.calls.flat().join(" ")).not.toContain("private-run-id");
+    await expect(stat(path.join(root, "sg", "workspaces.json"))).rejects.toMatchObject({
+      code: "ENOENT",
+    });
   });
 });

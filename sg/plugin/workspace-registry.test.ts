@@ -9,24 +9,22 @@ const registration = (resourceId: string, resourceKind: "group" | "channel" = "g
   accountId: "default",
   resourceId,
   resourceKind,
-  title: resourceId,
-  ownerGlobalId: "usr_monarch",
-  status: "active" as const,
-  settings: {},
 });
 
 async function createRegistry() {
-  const root = await mkdtemp(path.join(os.tmpdir(), "sg-wsp2-"));
+  const root = await mkdtemp(path.join(os.tmpdir(), "sg-resource-scope-"));
   return { root, registry: new SgWorkspaceRegistry(root) };
 }
 
-describe("SG Workspace Manager WSP2", () => {
+describe("SG neutral resource scopes", () => {
   it("isolates two groups and one channel", async () => {
     const { registry } = await createRegistry();
     const groupA = await registry.register(registration("group-a"));
     const groupB = await registry.register(registration("group-b"));
     const channel = await registry.register(registration("channel-a", "channel"));
-    expect(new Set([groupA.workspaceId, groupB.workspaceId, channel.workspaceId]).size).toBe(3);
+    expect(
+      new Set([groupA.resourceScopeId, groupB.resourceScopeId, channel.resourceScopeId]).size,
+    ).toBe(3);
     await expect(
       registry.resolve({ platform: "telegram", accountId: "default", resourceId: "group-a" }),
     ).resolves.toEqual(groupA);
@@ -40,9 +38,8 @@ describe("SG Workspace Manager WSP2", () => {
       topicId: "42",
       parentResourceId: "group-a",
       resourceKind: "topic",
-      title: "Topic 42",
     });
-    expect(topic.workspaceId).not.toBe(parent.workspaceId);
+    expect(topic.resourceScopeId).not.toBe(parent.resourceScopeId);
     await expect(
       registry.resolve({
         platform: "telegram",
@@ -57,10 +54,10 @@ describe("SG Workspace Manager WSP2", () => {
     const { registry } = await createRegistry();
     const first = await registry.register({ ...registration("group-a"), platform: "TELEGRAM" });
     const second = await registry.register({ ...registration(" group-a ") });
-    expect(second.workspaceId).toBe(first.workspaceId);
+    expect(second.resourceScopeId).toBe(first.resourceScopeId);
   });
 
-  it("serializes concurrent registrations without losing a workspace", async () => {
+  it("serializes concurrent registrations without losing a scope", async () => {
     const { registry } = await createRegistry();
     const [groupA, groupB] = await Promise.all([
       registry.register(registration("group-a")),
@@ -74,18 +71,13 @@ describe("SG Workspace Manager WSP2", () => {
     ).resolves.toEqual(groupB);
   });
 
-  it("persists registration and status across a simulated restart", async () => {
+  it("persists a neutral scope across a simulated restart", async () => {
     const { root, registry } = await createRegistry();
     const created = await registry.register(registration("group-a"));
-    await registry.setStatus(created.workspaceId, "suspended");
     const restarted = new SgWorkspaceRegistry(root);
     await expect(
       restarted.resolve({ platform: "telegram", accountId: "default", resourceId: "group-a" }),
-    ).resolves.toMatchObject({ workspaceId: created.workspaceId, status: "suspended" });
-    await registry.setStatus(created.workspaceId, "archived");
-    await expect(
-      restarted.resolve({ platform: "telegram", accountId: "default", resourceId: "group-a" }),
-    ).resolves.toMatchObject({ workspaceId: created.workspaceId, status: "archived" });
+    ).resolves.toEqual(created);
   });
 
   it("fails safely for an unregistered resource", async () => {
@@ -101,7 +93,7 @@ describe("SG Workspace Manager WSP2", () => {
     await mkdir(path.join(root, "sg"));
     await writeFile(path.join(root, "sg", "workspaces.json"), "{}");
     await expect(registry.resolve({ platform: "telegram", resourceId: "group-a" })).rejects.toThrow(
-      "sg-workspace-store-invalid",
+      "sg-resource-scope-store-invalid",
     );
   });
 });

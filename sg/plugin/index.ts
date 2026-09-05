@@ -15,8 +15,6 @@ export type {
 } from "./citizenship-registry.js";
 export * from "./register.js";
 export * from "./workspace-registry.js";
-export * from "./workspace-requests.js";
-export * from "./workspace-tools.js";
 export * from "./content-registry.js";
 export * from "./wsp5-diagnostics.js";
 export * from "./wsp5-lifecycle.js";

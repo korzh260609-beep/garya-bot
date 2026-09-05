@@ -23,12 +23,12 @@ describe("SG Workspace Manager real loader and dispatch runner", () => {
       pluginLoaded: true,
       hookRegistered: true,
       promptHookRegistered: true,
-      diagnosticHooksRegistered: true,
-      toolsRegistered: true,
+      lifecycleHooksRegistered: true,
+      onboardingToolsAbsent: true,
       wsp5ToolsRegistered: true,
       wsp6ToolsRegistered: true,
-      promptGuidanceInjected: true,
-      pendingToolInModelSurface: true,
+      onboardingGuidanceAbsent: true,
+      onboardingToolsAbsentInModelSurface: true,
       wsp5ToolsInModelSurface: true,
       wsp6ToolsInModelSurface: true,
       citizenshipToolsAbsentWithoutGrant: true,
@@ -37,15 +37,12 @@ describe("SG Workspace Manager real loader and dispatch runner", () => {
       pluginToolsExcludedWithoutGrant: true,
       pluginToolsIncludedWithGrant: true,
       errorDiagnostics: [],
-      dispatchResult: { handled: true },
-      repeatDispatchResult: {
-        handled: true,
-        text: expect.stringContaining("уже ожидает подтверждения"),
-      },
-      pendingCount: 1,
+      dispatchClaimed: false,
+      repeatDispatchClaimed: false,
+      resourceScopeCount: 1,
     });
-    expect(await readFile(path.join(stateDir, "sg", "workspace-requests.json"), "utf8")).toContain(
-      '"status": "pending"',
+    expect(await readFile(path.join(stateDir, "sg", "workspaces.json"), "utf8")).toContain(
+      '"resourceScopes"',
     );
   }, 30_000);
 });

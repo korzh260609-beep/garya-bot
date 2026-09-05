@@ -1,7 +1,12 @@
 # SG 2.2 — Block 3: Identity & Global Profile Integration
 
 ## Status
-CLOSED
+HISTORICAL IMPLEMENTATION EVIDENCE — ROLE MODEL SUPERSEDED
+
+> The guest-first profile behavior and general role-transition model documented below
+> are no longer current requirements. Preserve this file as evidence of the original
+> implementation, but use `pillars/roadmap/SG22_ROLE_MODEL_MIGRATION_PLAN.md` for all
+> new work and closure decisions.
 
 ## Purpose
 Integrate SG Global ID, SG profile, and SG domain roles into the existing OpenClaw identity, session, routing, and access-control architecture without creating a parallel identity or permission system.

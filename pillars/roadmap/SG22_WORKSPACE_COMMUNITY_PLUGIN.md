@@ -2,9 +2,17 @@
 
 ## Status
 
-IN PROGRESS — WSP1 CLOSED
+SUPERSEDED FOR ROLE/AUTHORITY IMPLEMENTATION
 
-This document is the canonical implementation plan for the external SG workspace/community plugin above OpenClaw.
+> The role, citizenship, workspace-membership and group-onboarding model in this
+> historical roadmap is obsolete and must not be implemented further. The approved
+> replacement and ordered removal plan is
+> `pillars/roadmap/SG22_ROLE_MODEL_MIGRATION_PLAN.md`. WSP stage history below is kept
+> only as implementation evidence. Where it conflicts with that plan or
+> `pillars/entity/SG_ENTITY.md`, the new plan and entity definition take precedence.
+
+This document records the original implementation plan for the external SG
+workspace/community plugin above OpenClaw.
 
 Working name: `SG Workspace Manager`.
 

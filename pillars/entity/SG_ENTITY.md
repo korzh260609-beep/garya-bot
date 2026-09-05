@@ -83,6 +83,9 @@ Therefore:
 
 ## Canonical user roles
 
+Implementation migration plan:
+`pillars/roadmap/SG22_ROLE_MODEL_MIGRATION_PLAN.md`.
+
 - GARY's verified identity resolves to one persistent Global ID and the `monarch` role.
 - Every other person becomes a `citizen` automatically on their first valid interaction with SG and receives one persistent Global ID.
 - Citizenship does not require an application, manual approval, or membership in a group or channel.

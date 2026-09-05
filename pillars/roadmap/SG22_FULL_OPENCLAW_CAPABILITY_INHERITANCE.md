@@ -81,7 +81,9 @@ The canonical SG 2.2 list must be understood as follows:
 12. **Tasks/Automation** — use OpenClaw tasks/automations as authoritative; add SG ownership/semantics/presentation only where missing.
 13. **Channels** — the same SG entity must operate through all permitted OpenClaw channels; do not create SG channel runtimes.
 14. **Sources** — use OpenClaw web/browser/file/provider tools; add only SG source-management semantics where required.
-15. **Groups/users/subscriptions** — use OpenClaw channel/access identity mechanisms and add SG membership/subscription business semantics above them.
+15. **Groups/users/subscriptions** — use OpenClaw channel/access identity mechanisms;
+    follow `pillars/roadmap/SG22_ROLE_MODEL_MIGRATION_PLAN.md` for automatic citizenship,
+    Global-ID personal workspaces and removal of parallel SG group roles.
 16. **Observability** — use OpenClaw diagnostics/telemetry and add only SG-specific events/metrics/audit records where required.
 17. **Authority/duplication audit** — verify both that no duplicate SG platform systems exist and that SG has not lost any permitted OpenClaw capability.
 18. **Full verification** — verify SG behavior plus full permitted OpenClaw capability inheritance at the exact tested commit.

@@ -2,6 +2,9 @@
 
 Canonical checklist for building and evolving the SG entity above a clean OpenClaw base.
 
+Canonical role-model removal and replacement plan:
+`pillars/roadmap/SG22_ROLE_MODEL_MIGRATION_PLAN.md`.
+
 Status flow: NOT STARTED → IN PROGRESS → IMPLEMENTED → VERIFIED → CLOSED
 
 ## Global integration rule
@@ -70,7 +73,7 @@ SG-specific code must not silently reduce, shadow, replace, fork or disable othe
 
 1. OpenClaw foundation — IMPLEMENTED / VERIFIED
 2. SG entity above OpenClaw workspace — IMPLEMENTED
-3. SG Identity / Global ID / roles semantics above OpenClaw identity — CLOSED
+3. SG Identity / Global ID / roles semantics above OpenClaw identity — REOPENED / MIGRATION REQUIRED
 3A. Telegram Test Runtime through OpenClaw — NOT STARTED
 4. Full OpenClaw GitHub/repository capability availability to SG — NOT STARTED
 5. SG Memory 2.0 semantics above OpenClaw memory — NOT STARTED
@@ -120,7 +123,12 @@ Project SG begins with this entity above OpenClaw. OpenClaw itself is not conver
 
 ## Point 3 — SG Identity / Global ID / roles semantics
 
-Status: CLOSED.
+Status: **REOPENED — APPROVED ROLE-MODEL MIGRATION REQUIRED**.
+
+The original implementation evidence remains in
+`pillars/roadmap/SG22_IDENTITY_GLOBAL_PROFILE_INTEGRATION.md`, but its guest-first and
+manual role-transition behavior is superseded. Follow
+`pillars/roadmap/SG22_ROLE_MODEL_MIGRATION_PLAN.md` for implementation and closure.
 
 Canonical implementation and evidence:
 `pillars/roadmap/SG22_IDENTITY_GLOBAL_PROFILE_INTEGRATION.md`.
@@ -135,11 +143,16 @@ OpenClaw ownership:
 SG scope:
 - stable SG Global ID;
 - persistent SG global profile;
-- SG domain roles `monarch`, `citizen`, `guest`;
+- exactly one configured `monarch`; every other valid first interaction becomes
+  `citizen` automatically;
+- one personal SG workspace bound to each Global ID;
 - SG identity fields in runtime context.
 
 Do not:
-- create a second identity, session, linking or permission system.
+- create a second identity, session, linking or permission system;
+- create citizenship applications or manual citizen approval;
+- activate `guest` until separately approved;
+- create SG group roles `owner`, `admin` or `member`.
 
 ## Point 3A — Telegram Test Runtime through OpenClaw
 
@@ -373,7 +386,10 @@ Do not:
 
 ## Point 15 — SG groups/users/subscriptions semantics above OpenClaw channel access
 
-Canonical staged plugin plan:
+Canonical implementation plan:
+`pillars/roadmap/SG22_ROLE_MODEL_MIGRATION_PLAN.md`.
+
+Historical staged plugin evidence:
 `pillars/roadmap/SG22_WORKSPACE_COMMUNITY_PLUGIN.md`.
 
 Default work type: **OpenClaw audit + SG business-semantic overlay**.
@@ -384,11 +400,16 @@ OpenClaw ownership:
 - pairing, allowlists, access groups and multi-account routing.
 
 SG scope:
-- add SG membership/profile/subscription/payment/expiry business semantics;
+- use automatic citizen profiles and Global-ID-bound personal workspaces;
+- isolate shared group/channel/topic data by trusted current resource scope without SG
+  group roles;
+- add subscription/payment/expiry business semantics only if separately approved;
 - express access consequences through native OpenClaw access mechanisms.
 
 Do not:
-- create a second group router, sender identity system or general access engine.
+- create a second group router, sender identity system or general access engine;
+- create citizenship applications or SG group `owner`, `admin` or `member` roles;
+- copy native channel roles into an SG membership registry.
 
 ## Point 16 — SG observability semantics above OpenClaw diagnostics/telemetry
 

@@ -2,8 +2,8 @@ import { mkdtemp } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { SgContentRegistry, type SgContentDraft } from "./content-registry.js";
-import { SgWorkspaceRegistry, type SgWorkspace } from "./workspace-registry.js";
+import { SgContentRegistry, type SgContentDraft, type SgContentScope } from "./content-registry.js";
+import { SgWorkspaceRegistry } from "./workspace-registry.js";
 import {
   buildWsp5MessageAction,
   buildWsp5ScheduleAdd,
@@ -17,34 +17,40 @@ type Hook = (event: Record<string, unknown>, ctx: Record<string, unknown>) => un
 async function fixture() {
   const root = await mkdtemp(path.join(os.tmpdir(), "sg-wsp5-content-"));
   const workspaceRegistry = new SgWorkspaceRegistry(root);
-  const scope = await workspaceRegistry.register({
+  const resource = await workspaceRegistry.register({
     platform: "telegram",
     accountId: "default",
     resourceId: "telegram:-100500",
     resourceKind: "group",
   });
-  const workspace = await workspaceRegistry.findById(scope.resourceScopeId);
-  if (!workspace) {
-    throw new Error("missing workspace compatibility view");
-  }
-  return { root, workspace, contents: new SgContentRegistry(root) };
+  const contentScope = {
+    kind: "resource",
+    resourceScopeId: resource.resourceScopeId,
+  } as const;
+  const target = {
+    platform: resource.platform,
+    accountId: resource.accountId,
+    resourceId: resource.resourceId,
+  };
+  return { root, contentScope, target, contents: new SgContentRegistry(root) };
 }
 
 async function approvedDraft(
   contents: SgContentRegistry,
-  workspace: SgWorkspace,
+  scope: SgContentScope,
   input: { highImpact?: boolean; media?: boolean } = {},
 ): Promise<SgContentDraft> {
   const draft = await contents.create({
-    workspaceId: workspace.workspaceId,
+    scope,
     creatorGlobalId: "usr_member",
     text: "Точный текст публикации",
     media: input.media ? [{ type: "image", media: "https://example.test/image.png" }] : [],
     highImpact: input.highImpact ?? false,
   });
-  await contents.submit(draft.draftId, "usr_member", false);
+  await contents.submit(draft.draftId, scope, "usr_member");
   return contents.review({
     draftId: draft.draftId,
+    scope,
     actorGlobalId: "usr_admin",
     decision: "approve",
   });
@@ -78,22 +84,22 @@ async function runHook(
 
 describe("SG Workspace Manager WSP5 content state", () => {
   it("keeps member editing limited to the creator and resets approval on edits", async () => {
-    const { contents, workspace } = await fixture();
-    const approved = await approvedDraft(contents, workspace);
+    const { contents, contentScope } = await fixture();
+    const approved = await approvedDraft(contents, contentScope);
 
     await expect(
       contents.update({
         draftId: approved.draftId,
+        scope: contentScope,
         actorGlobalId: "usr_other_member",
-        canManage: false,
         text: "Чужое изменение",
       }),
     ).rejects.toThrow("sg-content-own-draft-required");
 
     const updated = await contents.update({
       draftId: approved.draftId,
+      scope: contentScope,
       actorGlobalId: "usr_member",
-      canManage: false,
       text: "Новая редакция",
     });
     expect(updated).toMatchObject({
@@ -105,22 +111,22 @@ describe("SG Workspace Manager WSP5 content state", () => {
   });
 
   it("atomically records editor approval before a direct publication", async () => {
-    const { contents, workspace } = await fixture();
+    const { contents, contentScope, target } = await fixture();
     const draft = await contents.create({
-      workspaceId: workspace.workspaceId,
+      scope: contentScope,
       creatorGlobalId: "usr_owner",
       text: "Прямая публикация владельца",
       media: [],
       highImpact: false,
     });
 
-    await expect(contents.beginPublish(draft.draftId, "usr_owner")).rejects.toThrow(
+    await expect(contents.beginPublish(draft.draftId, contentScope, "usr_owner")).rejects.toThrow(
       "sg-content-approval-required",
     );
 
-    const operation = await contents.beginPublish(draft.draftId, "usr_owner", true);
-    const publishing = await contents.findDraft(draft.draftId);
-    const params = buildWsp5MessageAction(publishing!, workspace);
+    const operation = await contents.beginPublish(draft.draftId, contentScope, "usr_owner", true);
+    const publishing = await contents.findDraft(draft.draftId, contentScope);
+    const params = buildWsp5MessageAction(publishing!, target);
     const { lifecycle, hooks } = registeredLifecycle(contents);
     lifecycle.queue({
       sessionKey: "session-owner-direct",
@@ -129,7 +135,7 @@ describe("SG Workspace Manager WSP5 content state", () => {
       toolName: "message",
       params,
       requireApproval: false,
-      workspace,
+      target,
     });
     await runHook(
       hooks,
@@ -158,11 +164,11 @@ describe("SG Workspace Manager WSP5 content state", () => {
   });
 
   it("publishes text and representative media only after an exact native message action", async () => {
-    const { contents, workspace } = await fixture();
-    const draft = await approvedDraft(contents, workspace, { media: true });
-    const operation = await contents.beginPublish(draft.draftId, "usr_admin");
-    const publishing = await contents.findDraft(draft.draftId);
-    const params = buildWsp5MessageAction(publishing!, workspace);
+    const { contents, contentScope, target } = await fixture();
+    const draft = await approvedDraft(contents, contentScope, { media: true });
+    const operation = await contents.beginPublish(draft.draftId, contentScope, "usr_admin");
+    const publishing = await contents.findDraft(draft.draftId, contentScope);
+    const params = buildWsp5MessageAction(publishing!, target);
     const { lifecycle, hooks } = registeredLifecycle(contents);
     lifecycle.queue({
       sessionKey: "session-publish",
@@ -171,7 +177,7 @@ describe("SG Workspace Manager WSP5 content state", () => {
       toolName: "message",
       params,
       requireApproval: false,
-      workspace,
+      target,
     });
 
     await runHook(
@@ -199,10 +205,13 @@ describe("SG Workspace Manager WSP5 content state", () => {
   });
 
   it("blocks a changed destination and records no false publication success", async () => {
-    const { contents, workspace } = await fixture();
-    const draft = await approvedDraft(contents, workspace);
-    const operation = await contents.beginPublish(draft.draftId, "usr_admin");
-    const params = buildWsp5MessageAction((await contents.findDraft(draft.draftId))!, workspace);
+    const { contents, contentScope, target } = await fixture();
+    const draft = await approvedDraft(contents, contentScope);
+    const operation = await contents.beginPublish(draft.draftId, contentScope, "usr_admin");
+    const params = buildWsp5MessageAction(
+      (await contents.findDraft(draft.draftId, contentScope))!,
+      target,
+    );
     const { lifecycle, hooks } = registeredLifecycle(contents);
     lifecycle.queue({
       sessionKey: "session-block",
@@ -211,7 +220,7 @@ describe("SG Workspace Manager WSP5 content state", () => {
       toolName: "message",
       params,
       requireApproval: false,
-      workspace,
+      target,
     });
 
     await expect(
@@ -233,10 +242,13 @@ describe("SG Workspace Manager WSP5 content state", () => {
   });
 
   it("uses the native approval gate for high-impact publication", async () => {
-    const { contents, workspace } = await fixture();
-    const draft = await approvedDraft(contents, workspace, { highImpact: true });
-    const operation = await contents.beginPublish(draft.draftId, "usr_admin");
-    const params = buildWsp5MessageAction((await contents.findDraft(draft.draftId))!, workspace);
+    const { contents, contentScope, target } = await fixture();
+    const draft = await approvedDraft(contents, contentScope, { highImpact: true });
+    const operation = await contents.beginPublish(draft.draftId, contentScope, "usr_admin");
+    const params = buildWsp5MessageAction(
+      (await contents.findDraft(draft.draftId, contentScope))!,
+      target,
+    );
     const { lifecycle, hooks } = registeredLifecycle(contents);
     lifecycle.queue({
       sessionKey: "session-approval",
@@ -245,7 +257,7 @@ describe("SG Workspace Manager WSP5 content state", () => {
       toolName: "message",
       params,
       requireApproval: true,
-      workspace,
+      target,
     });
 
     await expect(
@@ -260,16 +272,17 @@ describe("SG Workspace Manager WSP5 content state", () => {
     });
   });
 
-  it("persists a native schedule across restart and preserves the selected workspace", async () => {
-    const { root, contents, workspace } = await fixture();
-    const draft = await approvedDraft(contents, workspace);
+  it("persists a native schedule across restart and preserves the selected scope", async () => {
+    const { root, contents, contentScope, target } = await fixture();
+    const draft = await approvedDraft(contents, contentScope);
     const at = new Date(Date.now() + 3_600_000).toISOString();
     const begun = await contents.beginSchedule({
       draftId: draft.draftId,
+      scope: contentScope,
       actorGlobalId: "usr_admin",
       at,
     });
-    const scheduling = await contents.findDraft(draft.draftId);
+    const scheduling = await contents.findDraft(draft.draftId, contentScope);
     const params = buildWsp5ScheduleAdd(scheduling!, begun.dispatchToken);
     const { lifecycle, hooks } = registeredLifecycle(contents);
     lifecycle.queue({
@@ -279,7 +292,7 @@ describe("SG Workspace Manager WSP5 content state", () => {
       toolName: "automations",
       params,
       requireApproval: false,
-      workspace,
+      target,
     });
     await runHook(
       hooks,
@@ -289,7 +302,7 @@ describe("SG Workspace Manager WSP5 content state", () => {
     );
 
     const restarted = new SgContentRegistry(root);
-    await expect(restarted.findDraft(draft.draftId)).resolves.toMatchObject({
+    await expect(restarted.findDraft(draft.draftId, contentScope)).resolves.toMatchObject({
       deliveryStatus: "scheduled",
       scheduledAt: at,
       automationJobId: "cron-job-1",
@@ -306,11 +319,12 @@ describe("SG Workspace Manager WSP5 content state", () => {
   });
 
   it("reschedules through automations and restores the prior time when native update fails", async () => {
-    const { contents, workspace } = await fixture();
-    const draft = await approvedDraft(contents, workspace);
+    const { contents, contentScope } = await fixture();
+    const draft = await approvedDraft(contents, contentScope);
     const firstAt = new Date(Date.now() + 3_600_000).toISOString();
     const scheduled = await contents.beginSchedule({
       draftId: draft.draftId,
+      scope: contentScope,
       actorGlobalId: "usr_admin",
       at: firstAt,
     });
@@ -323,6 +337,7 @@ describe("SG Workspace Manager WSP5 content state", () => {
     const secondAt = new Date(Date.now() + 7_200_000).toISOString();
     const moved = await contents.beginReschedule({
       draftId: draft.draftId,
+      scope: contentScope,
       actorGlobalId: "usr_admin",
       at: secondAt,
     });
@@ -337,7 +352,7 @@ describe("SG Workspace Manager WSP5 content state", () => {
       actorGlobalId: "usr_admin",
       error: "gateway-unavailable",
     });
-    await expect(contents.findDraft(draft.draftId)).resolves.toMatchObject({
+    await expect(contents.findDraft(draft.draftId, contentScope)).resolves.toMatchObject({
       deliveryStatus: "scheduled",
       scheduledAt: firstAt,
       automationJobId: "cron-job-1",
@@ -346,10 +361,11 @@ describe("SG Workspace Manager WSP5 content state", () => {
   });
 
   it("cancels through automations and prevents later scheduled delivery", async () => {
-    const { contents, workspace } = await fixture();
-    const draft = await approvedDraft(contents, workspace);
+    const { contents, contentScope } = await fixture();
+    const draft = await approvedDraft(contents, contentScope);
     const scheduled = await contents.beginSchedule({
       draftId: draft.draftId,
+      scope: contentScope,
       actorGlobalId: "usr_admin",
       at: new Date(Date.now() + 3_600_000).toISOString(),
     });
@@ -359,7 +375,7 @@ describe("SG Workspace Manager WSP5 content state", () => {
       actorGlobalId: "usr_admin",
       automationJobId: "cron-job-1",
     });
-    const cancel = await contents.beginCancel(draft.draftId, "usr_admin");
+    const cancel = await contents.beginCancel(draft.draftId, contentScope, "usr_admin");
     expect(buildWsp5ScheduleRemove(cancel.jobId)).toEqual({
       action: "remove",
       jobId: "cron-job-1",
@@ -369,7 +385,7 @@ describe("SG Workspace Manager WSP5 content state", () => {
       success: true,
       actorGlobalId: "usr_admin",
     });
-    const cancelled = await contents.findDraft(draft.draftId);
+    const cancelled = await contents.findDraft(draft.draftId, contentScope);
     expect(cancelled).toMatchObject({ deliveryStatus: "cancelled" });
     expect(cancelled).not.toHaveProperty("automationJobId");
     expect(cancelled).not.toHaveProperty("dispatchToken");

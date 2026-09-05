@@ -4,7 +4,6 @@ import {
   type SgContentDraft,
   type SgContentNativeOperation,
 } from "./content-registry.js";
-import type { SgWorkspace } from "./workspace-registry.js";
 
 type LifecycleApi = Pick<OpenClawPluginApi, "on"> & {
   logger?: { info(message: string): void; warn(message: string): void };
@@ -17,7 +16,14 @@ type PendingNativeAction = {
   toolName: "message" | "automations";
   params: Record<string, unknown>;
   requireApproval: boolean;
-  workspace: SgWorkspace;
+  target: Wsp5DeliveryTarget;
+};
+
+export type Wsp5DeliveryTarget = {
+  platform: string;
+  accountId?: string;
+  resourceId: string;
+  topicId?: string;
 };
 
 export type Wsp5LifecycleSnapshot = {
@@ -106,15 +112,14 @@ function nativeResultId(result: unknown): string | undefined {
 
 export function buildWsp5MessageAction(
   draft: SgContentDraft,
-  workspace: SgWorkspace,
+  target: Wsp5DeliveryTarget,
 ): Record<string, unknown> {
-  const threadId = draft.topicId ?? workspace.topicId;
   return {
     action: "send",
-    channel: workspace.platform,
-    target: workspace.resourceId,
-    ...(workspace.accountId ? { accountId: workspace.accountId } : {}),
-    ...(threadId ? { threadId } : {}),
+    channel: target.platform,
+    target: target.resourceId,
+    ...(target.accountId ? { accountId: target.accountId } : {}),
+    ...(target.topicId ? { threadId: target.topicId } : {}),
     ...(draft.text ? { message: draft.text } : {}),
     ...(draft.media.length > 0
       ? {
@@ -207,9 +212,9 @@ export class Wsp5NativeLifecycle {
         operation: pending.operation,
         success,
         actorGlobalId: pending.actorGlobalId,
-        platform: pending.workspace.platform,
-        target: pending.workspace.resourceId,
-        topicId: pending.workspace.topicId,
+        platform: pending.target.platform,
+        target: pending.target.resourceId,
+        topicId: pending.target.topicId,
         ...(pending.operation.kind === "schedule" ? { automationJobId: resultId } : {}),
         ...(pending.operation.kind === "publish" ? { nativeResultId: resultId } : {}),
         ...(!success ? { error: input.error ?? "native-action-failed" } : {}),
@@ -228,7 +233,7 @@ export class Wsp5NativeLifecycle {
         const sessionKey = ctx.sessionKey?.trim();
         const pending = sessionKey ? this.pending.get(sessionKey) : undefined;
         if (!pending || canonicalToolName(event.toolName) !== pending.toolName) {
-          return;
+          return undefined;
         }
         if (!sameParams(event.params, pending.params)) {
           this.counters.blocked += 1;
@@ -239,12 +244,12 @@ export class Wsp5NativeLifecycle {
           };
         }
         if (!pending.requireApproval) {
-          return;
+          return undefined;
         }
         return {
           requireApproval: {
             title: "Подтвердить публикацию SG",
-            description: `Публикация ${pending.operation.draftId} в ${pending.workspace.title}`,
+            description: `Публикация ${pending.operation.draftId} в ${pending.target.resourceId}`,
             severity: "warning",
             allowedDecisions: ["allow-once", "deny"],
             pluginId: "sg-workspace-manager",

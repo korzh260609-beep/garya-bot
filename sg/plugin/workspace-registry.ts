@@ -206,6 +206,15 @@ export class SgWorkspaceRegistry {
     return scope ? compatibilityView(scope) : undefined;
   }
 
+  async findScopeById(resourceScopeId: string): Promise<SgResourceScope | undefined> {
+    const normalizedId = resourceScopeId.trim();
+    return structuredClone(
+      (await this.read()).resourceScopes.find(
+        (candidate) => candidate.resourceScopeId === normalizedId,
+      ),
+    );
+  }
+
   async list(): Promise<SgResourceScope[]> {
     return structuredClone((await this.read()).resourceScopes);
   }

@@ -16,6 +16,9 @@ telegram_owner_id="${SG_MONARCH_TELEGRAM_USER_ID:-${MONARCH_USER_ID:-}}"
 monarch_global_id="${SG_MONARCH_GLOBAL_USER_ID:-}"
 workspace_plugin_enabled="${SG_WORKSPACE_PLUGIN_ENABLED:-true}"
 
+# toolsBySender owner-only WSP5 management: sg_content_review,
+# sg_content_publish and sg_content_schedule.
+
 case "$workspace_plugin_enabled" in
   true|false) ;;
   *)
@@ -31,9 +34,11 @@ if [ "$workspace_plugin_enabled" = "true" ]; then
   fi
   workspace_plugin_paths='["/app/sg/plugin"]'
   workspace_plugin_tools='["sg_citizen_apply","sg_citizen_pending","sg_citizen_decide","sg_content_draft","sg_content_review","sg_content_publish","sg_content_schedule","sg_content_dispatch","sg_test_manage","sg_test_attempt","sg_test_stats"]'
+  workspace_sender_tools="{\"*\":{\"deny\":[\"sg_content_review\",\"sg_content_publish\",\"sg_content_schedule\"]},\"channel:telegram:${telegram_owner_id}\":{\"alsoAllow\":[\"sg_content_review\",\"sg_content_publish\",\"sg_content_schedule\"]}}"
 else
   workspace_plugin_paths='[]'
   workspace_plugin_tools='[]'
+  workspace_sender_tools='{}'
 fi
 
 mkdir -p "$state_dir" "$workspace"
@@ -44,6 +49,7 @@ mkdir -p "$state_dir" "$workspace"
 node /app/scripts/sg22-migrate-global-profiles.mjs
 node /app/scripts/sg22-migrate-workspace-memberships.mjs
 node /app/scripts/sg22-migrate-workspace-requests.mjs
+node /app/scripts/sg22-migrate-wsp5-content.mjs
 
 for file in IDENTITY.md SOUL.md AGENTS.md; do
   if [ ! -f "$source_workspace/$file" ]; then
@@ -95,7 +101,8 @@ if [ ! -f "$config_path" ]; then
     "dmScope": "per-channel-peer"
   },
   "tools": {
-    "alsoAllow": $workspace_plugin_tools
+    "alsoAllow": $workspace_plugin_tools,
+    "toolsBySender": $workspace_sender_tools
   },
   "messages": {
     "groupChat": {
@@ -160,7 +167,7 @@ node /app/openclaw.mjs onboard --non-interactive --accept-risk --skip-health --s
 
 # Restamp runtime settings on every boot so persistent state cannot restore
 # stale one-user access, stale Telegram group restrictions, or stale provider configuration.
-config_batch='[{"path":"gateway.mode","value":"local"},{"path":"gateway.bind","value":"lan"},{"path":"gateway.port","value":'"${port}"'},{"path":"gateway.auth.mode","value":"token"},{"path":"agents.defaults.model.primary","value":"'"${primary_model}"'"},{"path":"agents.defaults.compaction.enabled","value":true},{"path":"agents.defaults.compaction.mode","value":"safeguard"},{"path":"agents.defaults.compaction.keepRecentTokens","value":12000},{"path":"agents.defaults.compaction.recentTurnsPreserve","value":4},{"path":"agents.defaults.compaction.identifierPolicy","value":"off"},{"path":"agents.defaults.compaction.qualityGuard","value":{"enabled":true,"maxRetries":1}},{"path":"agents.defaults.compaction.midTurnPrecheck","value":{"enabled":true}},{"path":"agents.defaults.compaction.memoryFlush.enabled","value":false},{"path":"agents.defaults.compaction.maxActiveTranscriptBytes","value":"128kb"},{"path":"agents.defaults.compaction.notifyUser","value":false},{"path":"agents.defaults.contextPruning.mode","value":"cache-ttl"},{"path":"agents.defaults.contextPruning.ttl","value":"5m"},{"path":"agents.defaults.contextPruning.hardClear.enabled","value":true},{"path":"session.dmScope","value":"per-channel-peer"},{"path":"tools.alsoAllow","value":'"${workspace_plugin_tools}"'},{"path":"auth.order.openai","value":["openai:api-key"]},{"path":"memory.search.provider","value":"openai"},{"path":"memory.search.remote.apiKey","value":{"source":"env","provider":"default","id":"OPENAI_API_KEY"}},{"path":"messages.groupChat.mentionPatterns","value":["(^|[\\s,.:;!?])сг([\\s,.:;!?]|$)","(^|[\\s,.:;!?])sg([\\s,.:;!?]|$)"]},{"path":"channels.telegram.dmPolicy","value":"open"},{"path":"channels.telegram.allowFrom","value":["*"]},{"path":"channels.telegram.groupPolicy","value":"allowlist"},{"path":"channels.telegram.groups","value":{"*":{"requireMention":true}}},{"path":"plugins.load.paths","value":'"${workspace_plugin_paths}"'},{"path":"plugins.entries.sg-workspace-manager.enabled","value":'"${workspace_plugin_enabled}"'},{"path":"plugins.entries.sg-workspace-manager.hooks.allowPromptInjection","value":true},{"path":"plugins.entries.sg-workspace-manager.hooks.allowConversationAccess","value":true}]'
+config_batch='[{"path":"gateway.mode","value":"local"},{"path":"gateway.bind","value":"lan"},{"path":"gateway.port","value":'"${port}"'},{"path":"gateway.auth.mode","value":"token"},{"path":"agents.defaults.model.primary","value":"'"${primary_model}"'"},{"path":"agents.defaults.compaction.enabled","value":true},{"path":"agents.defaults.compaction.mode","value":"safeguard"},{"path":"agents.defaults.compaction.keepRecentTokens","value":12000},{"path":"agents.defaults.compaction.recentTurnsPreserve","value":4},{"path":"agents.defaults.compaction.identifierPolicy","value":"off"},{"path":"agents.defaults.compaction.qualityGuard","value":{"enabled":true,"maxRetries":1}},{"path":"agents.defaults.compaction.midTurnPrecheck","value":{"enabled":true}},{"path":"agents.defaults.compaction.memoryFlush.enabled","value":false},{"path":"agents.defaults.compaction.maxActiveTranscriptBytes","value":"128kb"},{"path":"agents.defaults.compaction.notifyUser","value":false},{"path":"agents.defaults.contextPruning.mode","value":"cache-ttl"},{"path":"agents.defaults.contextPruning.ttl","value":"5m"},{"path":"agents.defaults.contextPruning.hardClear.enabled","value":true},{"path":"session.dmScope","value":"per-channel-peer"},{"path":"tools.alsoAllow","value":'"${workspace_plugin_tools}"'},{"path":"tools.toolsBySender","value":'"${workspace_sender_tools}"'},{"path":"auth.order.openai","value":["openai:api-key"]},{"path":"memory.search.provider","value":"openai"},{"path":"memory.search.remote.apiKey","value":{"source":"env","provider":"default","id":"OPENAI_API_KEY"}},{"path":"messages.groupChat.mentionPatterns","value":["(^|[\\s,.:;!?])сг([\\s,.:;!?]|$)","(^|[\\s,.:;!?])sg([\\s,.:;!?]|$)"]},{"path":"channels.telegram.dmPolicy","value":"open"},{"path":"channels.telegram.allowFrom","value":["*"]},{"path":"channels.telegram.groupPolicy","value":"allowlist"},{"path":"channels.telegram.groups","value":{"*":{"requireMention":true}}},{"path":"plugins.load.paths","value":'"${workspace_plugin_paths}"'},{"path":"plugins.entries.sg-workspace-manager.enabled","value":'"${workspace_plugin_enabled}"'},{"path":"plugins.entries.sg-workspace-manager.hooks.allowPromptInjection","value":true},{"path":"plugins.entries.sg-workspace-manager.hooks.allowConversationAccess","value":true}]'
 
 if [ -n "$telegram_owner_id" ]; then
   config_batch="${config_batch%]} ,{\"path\":\"commands.ownerAllowFrom\",\"value\":[\"telegram:${telegram_owner_id}\"]}]"

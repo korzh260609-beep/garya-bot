@@ -1,18 +1,21 @@
 import { jsonResult } from "openclaw/plugin-sdk/tool-results";
 import {
+  sameContentScope,
   SgContentRegistry,
   type SgContentDraft,
   type SgContentMediaReference,
   type SgContentNativeOperation,
+  type SgContentScope,
 } from "./content-registry.js";
 import { resolveWorkspaceContext } from "./context.js";
-import { SgWorkspaceRegistry, type SgWorkspace } from "./workspace-registry.js";
+import { SgWorkspaceRegistry, type SgResourceScope } from "./workspace-registry.js";
 import {
   buildWsp5MessageAction,
   buildWsp5ScheduleAdd,
   buildWsp5ScheduleRemove,
   buildWsp5ScheduleUpdate,
   Wsp5NativeLifecycle,
+  type Wsp5DeliveryTarget,
 } from "./wsp5-lifecycle.js";
 
 type ToolContext = {
@@ -38,7 +41,8 @@ type AgentTool = {
 
 type Wsp5Actor = {
   globalId: string;
-  canManage: boolean;
+  scope: SgContentScope;
+  target: Wsp5DeliveryTarget;
 };
 
 const mediaSchema = {
@@ -110,53 +114,79 @@ async function actorContext(ctx: ToolContext, stateDir: string) {
   );
 }
 
-async function resolveWorkspace(
-  params: Record<string, unknown>,
+function normalizedRouteId(channel: string, value: string): string {
+  const prefix = `${channel.trim().toLowerCase()}:`;
+  const normalized = value.trim();
+  return normalized.toLowerCase().startsWith(prefix) ? normalized.slice(prefix.length) : normalized;
+}
+
+function isPersonalRoute(actor: Awaited<ReturnType<typeof actorContext>>): boolean {
+  return Boolean(
+    actor.senderId &&
+    actor.resourceId &&
+    normalizedRouteId(actor.channel, actor.resourceId) ===
+      normalizedRouteId(actor.channel, actor.senderId),
+  );
+}
+
+function resourceTarget(scope: SgResourceScope): Wsp5DeliveryTarget {
+  return {
+    platform: scope.platform,
+    ...(scope.accountId ? { accountId: scope.accountId } : {}),
+    resourceId: scope.resourceId,
+    ...(scope.topicId ? { topicId: scope.topicId } : {}),
+  };
+}
+
+async function resolveActor(
   actor: Awaited<ReturnType<typeof actorContext>>,
-  workspaces: SgWorkspaceRegistry,
-): Promise<SgWorkspace | undefined> {
-  if (typeof params.workspaceId === "string" && params.workspaceId.trim()) {
-    return workspaces.findById(params.workspaceId.trim());
+  scopes: SgWorkspaceRegistry,
+): Promise<Wsp5Actor | undefined> {
+  if (!actor.globalId) {
+    throw new Error("sg-content-citizen-required");
   }
   if (!actor.channel || !actor.resourceId) {
     return undefined;
   }
-  return workspaces.resolveWorkspace({
+  if (isPersonalRoute(actor)) {
+    return {
+      globalId: actor.globalId,
+      scope: { kind: "personal", globalId: actor.globalId },
+      target: {
+        platform: actor.channel,
+        ...(actor.accountId ? { accountId: actor.accountId } : {}),
+        resourceId: actor.resourceId,
+        ...(actor.topicId ? { topicId: actor.topicId } : {}),
+      },
+    };
+  }
+  const route = {
     platform: actor.channel,
     ...(actor.accountId ? { accountId: actor.accountId } : {}),
     resourceId: actor.resourceId,
     ...(actor.topicId ? { topicId: actor.topicId } : {}),
-  });
-}
-
-async function authorizedActor(
-  actor: Awaited<ReturnType<typeof actorContext>>,
-  workspace: SgWorkspace,
-): Promise<Wsp5Actor> {
-  if (!actor.globalId) {
-    throw new Error("sg-content-citizen-required");
+  };
+  let scope = await scopes.resolve(route);
+  if (!scope && actor.topicId) {
+    scope = await scopes.register({
+      ...route,
+      resourceKind: "topic",
+      parentResourceId: actor.resourceId,
+    });
   }
-  if (workspace.status !== "active") {
-    throw new Error("sg-content-workspace-not-active");
-  }
-  return { globalId: actor.globalId, canManage: actor.projectRole === "monarch" };
-}
-
-function requireEditor(actor: Wsp5Actor): void {
-  if (!actor.canManage) {
-    throw new Error("sg-content-editor-required");
-  }
-}
-
-function canManage(actor: Wsp5Actor): boolean {
-  return actor.canManage;
+  return scope
+    ? {
+        globalId: actor.globalId,
+        scope: { kind: "resource", resourceScopeId: scope.resourceScopeId },
+        target: resourceTarget(scope),
+      }
+    : undefined;
 }
 
 function draftResult(draft: SgContentDraft) {
   return {
     draftId: draft.draftId,
-    workspaceId: draft.workspaceId,
-    topicId: draft.topicId,
+    scope: draft.scope,
     creatorGlobalId: draft.creatorGlobalId,
     text: draft.text,
     media: draft.media,
@@ -170,36 +200,50 @@ function draftResult(draft: SgContentDraft) {
   };
 }
 
-async function draftWorkspace(
+async function scopedDraft(
   draftId: string,
+  scope: SgContentScope,
   contents: SgContentRegistry,
-  workspaces: SgWorkspaceRegistry,
-): Promise<{ draft: SgContentDraft; workspace: SgWorkspace }> {
-  const draft = await contents.findDraft(draftId);
+): Promise<SgContentDraft> {
+  const draft = await contents.findDraft(draftId, scope);
   if (!draft) {
     throw new Error("sg-content-draft-not-found");
   }
-  const workspace = await workspaces.findById(draft.workspaceId);
-  if (!workspace) {
-    throw new Error("sg-content-workspace-not-found");
+  return draft;
+}
+
+async function dispatchTarget(
+  scope: SgContentScope,
+  scopes: SgWorkspaceRegistry,
+): Promise<Wsp5DeliveryTarget> {
+  if (scope.kind !== "resource") {
+    throw new Error("sg-content-resource-scope-required");
   }
-  return { draft, workspace };
+  const resource = await scopes.findScopeById(scope.resourceScopeId);
+  if (!resource) {
+    throw new Error("sg-content-resource-scope-not-found");
+  }
+  return resourceTarget(resource);
 }
 
 async function failQueuedOperation(
   contents: SgContentRegistry,
   operation: SgContentNativeOperation,
   actorGlobalId: string,
-  workspace: SgWorkspace,
+  target: Wsp5DeliveryTarget | undefined,
   error: unknown,
 ): Promise<void> {
   await contents.finishNative({
     operation,
     success: false,
     actorGlobalId,
-    platform: workspace.platform,
-    target: workspace.resourceId,
-    ...(workspace.topicId ? { topicId: workspace.topicId } : {}),
+    ...(target
+      ? {
+          platform: target.platform,
+          target: target.resourceId,
+          ...(target.topicId ? { topicId: target.topicId } : {}),
+        }
+      : {}),
     error: error instanceof Error ? error.message : String(error),
   });
 }
@@ -216,17 +260,15 @@ export function createWsp5Tools(
       name: "sg_content_draft",
       label: "Черновики публикаций SG",
       description:
-        "Создаёт, редактирует, отправляет на согласование и показывает черновики выбранного сообщества. Citizen работает только со своими черновиками; управляющие действия доступны монарху до переноса на штатную sender policy.",
+        "Создаёт, редактирует, отправляет на согласование и показывает собственные черновики в текущем личном или общем контексте. Контекст определяется только текущим доверенным маршрутом.",
       parameters: {
         type: "object",
         additionalProperties: false,
         properties: {
           action: { type: "string", enum: ["create", "update", "submit", "get", "list"] },
-          workspaceId: { type: "string", minLength: 1 },
           draftId: { type: "string", minLength: 1 },
           text: { type: "string" },
           media: mediaSchema,
-          topicId: { type: ["string", "null"] },
           highImpact: { type: "boolean" },
         },
         required: ["action"],
@@ -235,19 +277,14 @@ export function createWsp5Tools(
         try {
           const action = textParam(params, "action");
           const actorContextValue = await actorContext(ctx, stateDir);
+          const actor = await resolveActor(actorContextValue, workspaces);
+          if (!actor) {
+            return jsonResult({ status: "unavailable", reason: "content-scope-not-found" });
+          }
           if (action === "create" || action === "list") {
-            const workspace = await resolveWorkspace(params, actorContextValue, workspaces);
-            if (!workspace) {
-              return jsonResult({ status: "unavailable", reason: "workspace-not-found" });
-            }
-            const actor = await authorizedActor(actorContextValue, workspace);
             if (action === "create") {
               const draft = await contents.create({
-                workspaceId: workspace.workspaceId,
-                topicId:
-                  typeof params.topicId === "string" && params.topicId.trim()
-                    ? params.topicId.trim()
-                    : workspace.topicId,
+                scope: actor.scope,
                 creatorGlobalId: actor.globalId,
                 ...(typeof params.text === "string" ? { text: params.text } : {}),
                 media: mediaParam(params.media) ?? [],
@@ -258,25 +295,20 @@ export function createWsp5Tools(
             const snapshot = await contents.snapshot();
             const drafts = snapshot.drafts.filter(
               (draft) =>
-                draft.workspaceId === workspace.workspaceId &&
-                (canManage(actor) || draft.creatorGlobalId === actor.globalId),
+                sameContentScope(draft.scope, actor.scope) &&
+                draft.creatorGlobalId === actor.globalId,
             );
             return jsonResult({ status: "ok", drafts: drafts.map(draftResult) });
           }
-          const { draft, workspace } = await draftWorkspace(
-            textParam(params, "draftId"),
-            contents,
-            workspaces,
-          );
-          const actor = await authorizedActor(actorContextValue, workspace);
+          const draft = await scopedDraft(textParam(params, "draftId"), actor.scope, contents);
           if (action === "get") {
-            if (!canManage(actor) && draft.creatorGlobalId !== actor.globalId) {
+            if (draft.creatorGlobalId !== actor.globalId) {
               throw new Error("sg-content-own-draft-required");
             }
             return jsonResult({ status: "ok", draft: draftResult(draft) });
           }
           if (action === "submit") {
-            const updated = await contents.submit(draft.draftId, actor.globalId, canManage(actor));
+            const updated = await contents.submit(draft.draftId, actor.scope, actor.globalId);
             return jsonResult({ status: "pending", draft: draftResult(updated) });
           }
           if (action !== "update") {
@@ -284,13 +316,10 @@ export function createWsp5Tools(
           }
           const updated = await contents.update({
             draftId: draft.draftId,
+            scope: actor.scope,
             actorGlobalId: actor.globalId,
-            canManage: canManage(actor),
             ...(typeof params.text === "string" ? { text: params.text } : {}),
             ...(params.media !== undefined ? { media: mediaParam(params.media) } : {}),
-            ...(params.topicId === null || typeof params.topicId === "string"
-              ? { topicId: params.topicId }
-              : {}),
             ...(typeof params.highImpact === "boolean" ? { highImpact: params.highImpact } : {}),
           });
           return jsonResult({ status: "updated", draft: draftResult(updated) });
@@ -317,19 +346,18 @@ export function createWsp5Tools(
       },
       async execute(_toolCallId, params) {
         try {
-          const { draft, workspace } = await draftWorkspace(
-            textParam(params, "draftId"),
-            contents,
-            workspaces,
-          );
-          const actor = await authorizedActor(await actorContext(ctx, stateDir), workspace);
-          requireEditor(actor);
+          const actor = await resolveActor(await actorContext(ctx, stateDir), workspaces);
+          if (!actor) {
+            throw new Error("sg-content-scope-not-found");
+          }
+          const draft = await scopedDraft(textParam(params, "draftId"), actor.scope, contents);
           const decision = textParam(params, "decision");
           if (decision !== "approve" && decision !== "reject") {
             throw new Error("sg-content-review-decision-invalid");
           }
           const updated = await contents.review({
             draftId: draft.draftId,
+            scope: actor.scope,
             actorGlobalId: actor.globalId,
             decision,
           });
@@ -356,27 +384,32 @@ export function createWsp5Tools(
       async execute(_toolCallId, params) {
         let operation: SgContentNativeOperation | undefined;
         let actor: Wsp5Actor | undefined;
-        let workspace: SgWorkspace | undefined;
         try {
           lifecycle.assertSessionAvailable(ctx.sessionKey);
-          const resolved = await draftWorkspace(textParam(params, "draftId"), contents, workspaces);
-          workspace = resolved.workspace;
-          actor = await authorizedActor(await actorContext(ctx, stateDir), workspace);
-          requireEditor(actor);
-          operation = await contents.beginPublish(resolved.draft.draftId, actor.globalId, true);
-          const draft = await contents.findDraft(resolved.draft.draftId);
+          actor = await resolveActor(await actorContext(ctx, stateDir), workspaces);
+          if (!actor) {
+            throw new Error("sg-content-scope-not-found");
+          }
+          const current = await scopedDraft(textParam(params, "draftId"), actor.scope, contents);
+          operation = await contents.beginPublish(
+            current.draftId,
+            actor.scope,
+            actor.globalId,
+            true,
+          );
+          const draft = await contents.findDraft(current.draftId, actor.scope);
           if (!draft) {
             throw new Error("sg-content-draft-not-found");
           }
-          const nextAction = buildWsp5MessageAction(draft, workspace);
+          const nextAction = buildWsp5MessageAction(draft, actor.target);
           lifecycle.queue({
             sessionKey: ctx.sessionKey,
             actorGlobalId: actor.globalId,
             operation,
             toolName: "message",
             params: nextAction,
-            requireApproval: draft.highImpact || workspace.settings.protectedPublication === true,
-            workspace,
+            requireApproval: draft.highImpact,
+            target: actor.target,
           });
           return jsonResult({
             status: "native_action_required",
@@ -385,8 +418,8 @@ export function createWsp5Tools(
             nextAction,
           });
         } catch (error) {
-          if (operation && actor && workspace) {
-            await failQueuedOperation(contents, operation, actor.globalId, workspace, error);
+          if (operation && actor) {
+            await failQueuedOperation(contents, operation, actor.globalId, actor.target, error);
           }
           return jsonResult({
             status: "denied",
@@ -413,41 +446,46 @@ export function createWsp5Tools(
       async execute(_toolCallId, params) {
         let operation: SgContentNativeOperation | undefined;
         let actor: Wsp5Actor | undefined;
-        let workspace: SgWorkspace | undefined;
         try {
           lifecycle.assertSessionAvailable(ctx.sessionKey);
-          const resolved = await draftWorkspace(textParam(params, "draftId"), contents, workspaces);
-          workspace = resolved.workspace;
-          actor = await authorizedActor(await actorContext(ctx, stateDir), workspace);
-          requireEditor(actor);
+          actor = await resolveActor(await actorContext(ctx, stateDir), workspaces);
+          if (!actor) {
+            throw new Error("sg-content-scope-not-found");
+          }
+          if (actor.scope.kind !== "resource") {
+            throw new Error("sg-content-resource-scope-required");
+          }
+          const draft = await scopedDraft(textParam(params, "draftId"), actor.scope, contents);
           const action = textParam(params, "action");
           let nextAction: Record<string, unknown>;
           if (action === "schedule") {
             const begun = await contents.beginSchedule({
-              draftId: resolved.draft.draftId,
+              draftId: draft.draftId,
+              scope: actor.scope,
               actorGlobalId: actor.globalId,
               at: textParam(params, "at"),
             });
             operation = begun.operation;
-            const draft = await contents.findDraft(resolved.draft.draftId);
-            if (!draft) {
+            const scheduling = await contents.findDraft(draft.draftId, actor.scope);
+            if (!scheduling) {
               throw new Error("sg-content-draft-not-found");
             }
-            nextAction = buildWsp5ScheduleAdd(draft, begun.dispatchToken);
+            nextAction = buildWsp5ScheduleAdd(scheduling, begun.dispatchToken);
           } else if (action === "reschedule") {
             const begun = await contents.beginReschedule({
-              draftId: resolved.draft.draftId,
+              draftId: draft.draftId,
+              scope: actor.scope,
               actorGlobalId: actor.globalId,
               at: textParam(params, "at"),
             });
             operation = begun.operation;
-            const draft = await contents.findDraft(resolved.draft.draftId);
-            if (!draft?.pendingScheduledAt) {
+            const scheduling = await contents.findDraft(draft.draftId, actor.scope);
+            if (!scheduling?.pendingScheduledAt) {
               throw new Error("sg-content-pending-schedule-missing");
             }
-            nextAction = buildWsp5ScheduleUpdate(begun.jobId, draft.pendingScheduledAt);
+            nextAction = buildWsp5ScheduleUpdate(begun.jobId, scheduling.pendingScheduledAt);
           } else if (action === "cancel") {
-            const begun = await contents.beginCancel(resolved.draft.draftId, actor.globalId);
+            const begun = await contents.beginCancel(draft.draftId, actor.scope, actor.globalId);
             operation = begun.operation;
             nextAction = buildWsp5ScheduleRemove(begun.jobId);
           } else {
@@ -459,20 +497,18 @@ export function createWsp5Tools(
             operation,
             toolName: "automations",
             params: nextAction,
-            requireApproval:
-              action !== "cancel" &&
-              (resolved.draft.highImpact || workspace.settings.protectedPublication === true),
-            workspace,
+            requireApproval: action !== "cancel" && draft.highImpact,
+            target: actor.target,
           });
           return jsonResult({
             status: "native_action_required",
-            draftId: resolved.draft.draftId,
+            draftId: draft.draftId,
             nextTool: "automations",
             nextAction,
           });
         } catch (error) {
-          if (operation && actor && workspace) {
-            await failQueuedOperation(contents, operation, actor.globalId, workspace, error);
+          if (operation && actor) {
+            await failQueuedOperation(contents, operation, actor.globalId, actor.target, error);
           }
           return jsonResult({
             status: "denied",
@@ -497,23 +533,19 @@ export function createWsp5Tools(
       },
       async execute(_toolCallId, params) {
         let operation: SgContentNativeOperation | undefined;
-        let workspace: SgWorkspace | undefined;
+        let target: Wsp5DeliveryTarget | undefined;
         try {
           if (ctx.requesterSenderId) {
             throw new Error("sg-content-dispatch-automation-only");
           }
           lifecycle.assertSessionAvailable(ctx.sessionKey);
-          const resolved = await draftWorkspace(textParam(params, "draftId"), contents, workspaces);
-          workspace = resolved.workspace;
-          operation = await contents.beginScheduledDispatch(
-            resolved.draft.draftId,
+          const begun = await contents.beginScheduledDispatch(
+            textParam(params, "draftId"),
             textParam(params, "dispatchToken"),
           );
-          const draft = await contents.findDraft(resolved.draft.draftId);
-          if (!draft) {
-            throw new Error("sg-content-draft-not-found");
-          }
-          const nextAction = buildWsp5MessageAction(draft, workspace);
+          operation = begun.operation;
+          target = await dispatchTarget(begun.draft.scope, workspaces);
+          const nextAction = buildWsp5MessageAction(begun.draft, target);
           lifecycle.queue({
             sessionKey: ctx.sessionKey,
             actorGlobalId: "system:automation",
@@ -521,17 +553,17 @@ export function createWsp5Tools(
             toolName: "message",
             params: nextAction,
             requireApproval: false,
-            workspace,
+            target,
           });
           return jsonResult({
             status: "native_action_required",
-            draftId: draft.draftId,
+            draftId: begun.draft.draftId,
             nextTool: "message",
             nextAction,
           });
         } catch (error) {
-          if (operation && workspace) {
-            await failQueuedOperation(contents, operation, "system:automation", workspace, error);
+          if (operation) {
+            await failQueuedOperation(contents, operation, "system:automation", target, error);
           }
           return jsonResult({
             status: "denied",
@@ -547,7 +579,8 @@ export const WSP5_AGENT_GUIDANCE = [
   "WSP5 хранит черновики и редакционные статусы, но не отправляет сообщения и не запускает собственный планировщик.",
   "Citizen создаёт, редактирует и отправляет на согласование только свои черновики через sg_content_draft.",
   "Прямая команда монарха опубликовать черновик уже является редакционным одобрением: сразу вызывай sg_content_publish и не спрашивай дополнительного согласия.",
-  "Global ID и разрешённый управляющий контекст проверяет сам SG-инструмент. Никогда не сравнивай sender ID канала с Global ID и не делай вывод о полномочиях самостоятельно.",
+  "Текущий личный или общий scope SG определяет только из доверенного маршрута; не запрашивай и не передавай идентификатор scope.",
+  "Доступ к управляющим WSP5-инструментам задаёт штатная sender-specific policy OpenClaw; не сравнивай sender ID канала с Global ID самостоятельно.",
   "Для отдельного согласования без публикации монарх использует sg_content_review; расписание создаётся через sg_content_schedule после одобрения.",
   "После статуса native_action_required обязательно вызови указанный nextTool с nextAction без единого изменения.",
   "Немедленная и запланированная отправка выполняется только штатным message; расписание, перенос и отмена — только штатным automations.",

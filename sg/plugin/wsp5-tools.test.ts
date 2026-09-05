@@ -40,19 +40,19 @@ async function fixture() {
     }),
   );
   const workspaceRegistry = new SgWorkspaceRegistry(root);
-  const scope = await workspaceRegistry.register({
+  const resource = await workspaceRegistry.register({
     platform: "telegram",
     accountId: "default",
     resourceId: "telegram:-100500",
     resourceKind: "group",
   });
-  const workspace = await workspaceRegistry.findById(scope.resourceScopeId);
-  if (!workspace) {
-    throw new Error("missing workspace compatibility view");
-  }
+  const contentScope = {
+    kind: "resource",
+    resourceScopeId: resource.resourceScopeId,
+  } as const;
   const contents = new SgContentRegistry(root);
   const lifecycle = new Wsp5NativeLifecycle(contents);
-  return { root, workspace, contents, lifecycle };
+  return { root, contentScope, contents, lifecycle };
 }
 
 function toolContext(senderId: string, sessionKey: string) {
@@ -80,13 +80,12 @@ function findTool(tools: ReturnType<typeof createWsp5Tools>, name: string) {
 
 describe("SG Workspace Manager WSP5 tools", () => {
   it("lets a citizen create, edit and submit only their draft", async () => {
-    const { root, workspace, lifecycle } = await fixture();
+    const { root, lifecycle } = await fixture();
     const tools = createWsp5Tools(toolContext("30", "session-member"), root, lifecycle);
     const draftTool = findTool(tools, "sg_content_draft");
     const created = details(
       await draftTool.execute("create", {
         action: "create",
-        workspaceId: workspace.workspaceId,
         text: "Черновик участника",
       }),
     );
@@ -99,14 +98,13 @@ describe("SG Workspace Manager WSP5 tools", () => {
     expect(submitted).toMatchObject({ status: "pending", draft: { editorialStatus: "pending" } });
   });
 
-  it("denies review and publication to a citizen but allows the monarch", async () => {
-    const { root, workspace, lifecycle } = await fixture();
+  it("leaves management authorization to the native sender policy", async () => {
+    const { root, lifecycle } = await fixture();
     const memberTools = createWsp5Tools(toolContext("30", "session-member"), root, lifecycle);
     const draftTool = findTool(memberTools, "sg_content_draft");
     const created = details(
       await draftTool.execute("create", {
         action: "create",
-        workspaceId: workspace.workspaceId,
         text: "Материал",
       }),
     );
@@ -119,26 +117,12 @@ describe("SG Workspace Manager WSP5 tools", () => {
         decision: "approve",
       }),
     );
-    expect(memberReview).toEqual({ status: "denied", reason: "sg-content-editor-required" });
-
-    const monarchTools = createWsp5Tools(toolContext("10", "session-monarch"), root, lifecycle);
-    const approved = details(
-      await findTool(monarchTools, "sg_content_review").execute("review-monarch", {
-        draftId,
-        decision: "approve",
-      }),
-    );
-    expect(approved).toMatchObject({ status: "approved" });
+    expect(memberReview).toMatchObject({ status: "approved" });
 
     const memberPublish = details(
       await findTool(memberTools, "sg_content_publish").execute("publish-member", { draftId }),
     );
-    expect(memberPublish).toEqual({ status: "denied", reason: "sg-content-editor-required" });
-
-    const monarchPublish = details(
-      await findTool(monarchTools, "sg_content_publish").execute("publish-monarch", { draftId }),
-    );
-    expect(monarchPublish).toMatchObject({
+    expect(memberPublish).toMatchObject({
       status: "native_action_required",
       nextTool: "message",
       nextAction: {
@@ -151,7 +135,7 @@ describe("SG Workspace Manager WSP5 tools", () => {
   });
 
   it("treats a monarch publish command as approval without a second confirmation", async () => {
-    const { root, workspace, contents, lifecycle } = await fixture();
+    const { root, contentScope, contents, lifecycle } = await fixture();
     const monarchTools = createWsp5Tools(
       toolContext("10", "session-monarch-publish"),
       root,
@@ -160,7 +144,6 @@ describe("SG Workspace Manager WSP5 tools", () => {
     const created = details(
       await findTool(monarchTools, "sg_content_draft").execute("create-monarch", {
         action: "create",
-        workspaceId: workspace.workspaceId,
         text: "Материал владельца",
       }),
     );
@@ -180,7 +163,7 @@ describe("SG Workspace Manager WSP5 tools", () => {
         message: "Материал владельца",
       },
     });
-    await expect(contents.findDraft(draftId)).resolves.toMatchObject({
+    await expect(contents.findDraft(draftId, contentScope)).resolves.toMatchObject({
       editorialStatus: "approved",
       deliveryStatus: "publishing",
       approvedByGlobalId: "usr_monarch",
@@ -192,7 +175,7 @@ describe("SG Workspace Manager WSP5 tools", () => {
   });
 
   it("lets the monarch publish a pending citizen draft as the approval decision", async () => {
-    const { root, workspace, contents, lifecycle } = await fixture();
+    const { root, contentScope, contents, lifecycle } = await fixture();
     const memberTools = createWsp5Tools(
       toolContext("30", "session-member-submit"),
       root,
@@ -201,7 +184,6 @@ describe("SG Workspace Manager WSP5 tools", () => {
     const created = details(
       await findTool(memberTools, "sg_content_draft").execute("create-member", {
         action: "create",
-        workspaceId: workspace.workspaceId,
         text: "Материал участника",
       }),
     );
@@ -221,7 +203,7 @@ describe("SG Workspace Manager WSP5 tools", () => {
     );
 
     expect(published).toMatchObject({ status: "native_action_required", nextTool: "message" });
-    await expect(contents.findDraft(draftId)).resolves.toMatchObject({
+    await expect(contents.findDraft(draftId, contentScope)).resolves.toMatchObject({
       editorialStatus: "approved",
       deliveryStatus: "publishing",
       approvedByGlobalId: "usr_monarch",
@@ -229,12 +211,11 @@ describe("SG Workspace Manager WSP5 tools", () => {
   });
 
   it("lets a citizen work without an SG workspace membership record", async () => {
-    const { root, workspace, lifecycle } = await fixture();
+    const { root, lifecycle } = await fixture();
     const citizenTools = createWsp5Tools(toolContext("40", "session-citizen"), root, lifecycle);
     const result = details(
       await findTool(citizenTools, "sg_content_draft").execute("create-citizen", {
         action: "create",
-        workspaceId: workspace.workspaceId,
         text: "Недоступный черновик",
       }),
     );
@@ -245,17 +226,18 @@ describe("SG Workspace Manager WSP5 tools", () => {
   });
 
   it("returns an exact native automations action for an approved schedule", async () => {
-    const { root, workspace, contents, lifecycle } = await fixture();
+    const { root, contentScope, contents, lifecycle } = await fixture();
     const draft = await contents.create({
-      workspaceId: workspace.workspaceId,
+      scope: contentScope,
       creatorGlobalId: "usr_citizen_b",
       text: "Запланированный материал",
       media: [],
       highImpact: false,
     });
-    await contents.submit(draft.draftId, "usr_citizen_b", false);
+    await contents.submit(draft.draftId, contentScope, "usr_citizen_b");
     await contents.review({
       draftId: draft.draftId,
+      scope: contentScope,
       actorGlobalId: "usr_monarch",
       decision: "approve",
     });

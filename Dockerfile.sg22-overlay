@@ -18,7 +18,8 @@ COPY --chown=node:node scripts/sg22-render-entrypoint.sh /app/scripts/sg22-rende
 COPY --chown=node:node scripts/sg22-migrate-global-profiles.mjs /app/scripts/sg22-migrate-global-profiles.mjs
 COPY --chown=node:node scripts/sg22-migrate-workspace-memberships.mjs /app/scripts/sg22-migrate-workspace-memberships.mjs
 COPY --chown=node:node scripts/sg22-migrate-workspace-requests.mjs /app/scripts/sg22-migrate-workspace-requests.mjs
-RUN chmod 755 /app/scripts/sg22-render-entrypoint.sh /app/scripts/sg22-migrate-global-profiles.mjs /app/scripts/sg22-migrate-workspace-memberships.mjs /app/scripts/sg22-migrate-workspace-requests.mjs
+COPY --chown=node:node scripts/sg22-migrate-wsp5-content.mjs /app/scripts/sg22-migrate-wsp5-content.mjs
+RUN chmod 755 /app/scripts/sg22-render-entrypoint.sh /app/scripts/sg22-migrate-global-profiles.mjs /app/scripts/sg22-migrate-workspace-memberships.mjs /app/scripts/sg22-migrate-workspace-requests.mjs /app/scripts/sg22-migrate-wsp5-content.mjs
 
 USER node
 ENTRYPOINT ["tini", "-s", "--"]

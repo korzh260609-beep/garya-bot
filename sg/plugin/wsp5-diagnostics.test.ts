@@ -69,7 +69,7 @@ describe("SG Workspace Manager WSP5 diagnostics", () => {
 
   it("fails on a corrupt durable content store", async () => {
     const root = await diagnosticRoot();
-    await writeFile(path.join(root, "sg", "content.json"), '{"version":1,"drafts":"broken"}');
+    await writeFile(path.join(root, "sg", "content.json"), '{"version":2,"drafts":"broken"}');
     const result = await buildWsp5Diagnostic({
       stateDir: root,
       actor,

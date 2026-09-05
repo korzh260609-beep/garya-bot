@@ -1,5 +1,5 @@
 import { SgGlobalProfileRegistry } from "./citizenship-registry.js";
-import { SgContentRegistry } from "./content-registry.js";
+import { SgContentRegistry, type SgContentScope } from "./content-registry.js";
 import type { SgWorkspaceContext } from "./context.js";
 import { SgWorkspaceRegistry } from "./workspace-registry.js";
 import type { Wsp5LifecycleSnapshot } from "./wsp5-lifecycle.js";
@@ -51,7 +51,7 @@ export async function buildWsp5Diagnostic(input: {
   try {
     const [content, workspaces, profiles] = await Promise.all([
       new SgContentRegistry(input.stateDir).snapshot(),
-      new SgWorkspaceRegistry(input.stateDir).listWorkspaces(),
+      new SgWorkspaceRegistry(input.stateDir).list(),
       new SgGlobalProfileRegistry(input.stateDir).snapshot(),
     ]);
     draftsSeen = content.drafts.length;
@@ -63,15 +63,18 @@ export async function buildWsp5Diagnostic(input: {
         `v=${content.version},drafts=${draftsSeen},publications=${publicationsSeen},audit=${content.audit.length}`,
       ),
     );
-    const workspaceIds = new Set(workspaces.map((item) => item.workspaceId));
+    const resourceScopeIds = new Set(workspaces.map((item) => item.resourceScopeId));
     const profileIds = new Set(profiles.profiles.map((item) => item.globalId));
     const draftIds = new Set(content.drafts.map((item) => item.draftId));
+    const scopeExists = (scope: SgContentScope) =>
+      scope.kind === "personal"
+        ? profileIds.has(scope.globalId)
+        : resourceScopeIds.has(scope.resourceScopeId);
     const brokenDrafts = content.drafts.filter(
-      (draft) => !workspaceIds.has(draft.workspaceId) || !profileIds.has(draft.creatorGlobalId),
+      (draft) => !scopeExists(draft.scope) || !profileIds.has(draft.creatorGlobalId),
     );
     const brokenPublications = content.publications.filter(
-      (publication) =>
-        !draftIds.has(publication.draftId) || !workspaceIds.has(publication.workspaceId),
+      (publication) => !draftIds.has(publication.draftId) || !scopeExists(publication.scope),
     );
     const brokenSchedules = content.drafts.filter(
       (draft) =>

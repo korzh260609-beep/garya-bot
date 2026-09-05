@@ -22,10 +22,13 @@ export type SgDeliveryStatus =
   | "cancelled"
   | "failed";
 
+export type SgContentScope =
+  | { kind: "personal"; globalId: string }
+  | { kind: "resource"; resourceScopeId: string };
+
 export type SgContentDraft = {
   draftId: string;
-  workspaceId: string;
-  topicId?: string;
+  scope: SgContentScope;
   creatorGlobalId: string;
   text?: string;
   media: SgContentMediaReference[];
@@ -50,7 +53,7 @@ export type SgPublicationRecord = {
   publicationId: string;
   operationId: string;
   draftId: string;
-  workspaceId: string;
+  scope: SgContentScope;
   revision: number;
   mode: "now" | "scheduled";
   platform: string;
@@ -87,7 +90,7 @@ export type SgContentAuditEvent = {
   operationId: string;
   action: SgContentAuditAction;
   draftId: string;
-  workspaceId: string;
+  scope: SgContentScope;
   actorGlobalId: string;
   fromEditorial: SgEditorialStatus;
   toEditorial: SgEditorialStatus;
@@ -98,19 +101,25 @@ export type SgContentAuditEvent = {
 };
 
 export type SgContentStore = {
-  version: 1;
+  version: 2;
   drafts: SgContentDraft[];
   publications: SgPublicationRecord[];
   audit: SgContentAuditEvent[];
 };
 
 export type SgContentNativeOperation =
-  | { kind: "publish"; draftId: string; operationId: string; mode: "now" | "scheduled" }
-  | { kind: "schedule"; draftId: string; operationId: string }
-  | { kind: "reschedule"; draftId: string; operationId: string }
-  | { kind: "cancel"; draftId: string; operationId: string };
+  | {
+      kind: "publish";
+      draftId: string;
+      scope: SgContentScope;
+      operationId: string;
+      mode: "now" | "scheduled";
+    }
+  | { kind: "schedule"; draftId: string; scope: SgContentScope; operationId: string }
+  | { kind: "reschedule"; draftId: string; scope: SgContentScope; operationId: string }
+  | { kind: "cancel"; draftId: string; scope: SgContentScope; operationId: string };
 
-const emptyStore = (): SgContentStore => ({ version: 1, drafts: [], publications: [], audit: [] });
+const emptyStore = (): SgContentStore => ({ version: 2, drafts: [], publications: [], audit: [] });
 const LOCK_OPTIONS = {
   retries: { retries: 20, factor: 1.2, minTimeout: 10, maxTimeout: 100 },
   stale: 30_000,
@@ -154,6 +163,27 @@ function validMedia(value: unknown): value is SgContentMediaReference {
   );
 }
 
+function validContentScope(value: unknown): value is SgContentScope {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+  const item = value as Partial<SgContentScope>;
+  if (item.kind === "personal") {
+    return Object.keys(value).length === 2 && nonEmpty(item.globalId);
+  }
+  return (
+    item.kind === "resource" && Object.keys(value).length === 2 && nonEmpty(item.resourceScopeId)
+  );
+}
+
+export function sameContentScope(left: SgContentScope, right: SgContentScope): boolean {
+  return left.kind === "personal" && right.kind === "personal"
+    ? left.globalId === right.globalId
+    : left.kind === "resource" && right.kind === "resource"
+      ? left.resourceScopeId === right.resourceScopeId
+      : false;
+}
+
 function validDraft(value: unknown): value is SgContentDraft {
   if (!value || typeof value !== "object") {
     return false;
@@ -161,7 +191,7 @@ function validDraft(value: unknown): value is SgContentDraft {
   const item = value as Partial<SgContentDraft>;
   return (
     nonEmpty(item.draftId) &&
-    nonEmpty(item.workspaceId) &&
+    validContentScope(item.scope) &&
     nonEmpty(item.creatorGlobalId) &&
     optionalText(item.text) &&
     (nonEmpty(item.text) || (Array.isArray(item.media) && item.media.length > 0)) &&
@@ -173,7 +203,6 @@ function validDraft(value: unknown): value is SgContentDraft {
     Number(item.revision) > 0 &&
     editorialStatuses.has(item.editorialStatus as SgEditorialStatus) &&
     deliveryStatuses.has(item.deliveryStatus as SgDeliveryStatus) &&
-    (item.topicId === undefined || nonEmpty(item.topicId)) &&
     (item.approvedByGlobalId === undefined || nonEmpty(item.approvedByGlobalId)) &&
     (item.approvedAt === undefined || timestamp(item.approvedAt)) &&
     (item.rejectedByGlobalId === undefined || nonEmpty(item.rejectedByGlobalId)) &&
@@ -197,7 +226,7 @@ function validPublication(value: unknown): value is SgPublicationRecord {
     nonEmpty(item.publicationId) &&
     nonEmpty(item.operationId) &&
     nonEmpty(item.draftId) &&
-    nonEmpty(item.workspaceId) &&
+    validContentScope(item.scope) &&
     Number.isInteger(item.revision) &&
     ["now", "scheduled"].includes(item.mode ?? "") &&
     nonEmpty(item.platform) &&
@@ -220,7 +249,7 @@ function validAudit(value: unknown): value is SgContentAuditEvent {
     nonEmpty(item.operationId) &&
     nonEmpty(item.action) &&
     nonEmpty(item.draftId) &&
-    nonEmpty(item.workspaceId) &&
+    validContentScope(item.scope) &&
     nonEmpty(item.actorGlobalId) &&
     editorialStatuses.has(item.fromEditorial as SgEditorialStatus) &&
     editorialStatuses.has(item.toEditorial as SgEditorialStatus) &&
@@ -237,7 +266,7 @@ export function validateContentStore(value: unknown): value is SgContentStore {
   }
   const store = value as Partial<SgContentStore>;
   if (
-    store.version !== 1 ||
+    store.version !== 2 ||
     !Array.isArray(store.drafts) ||
     !store.drafts.every(validDraft) ||
     !Array.isArray(store.publications) ||
@@ -250,13 +279,19 @@ export function validateContentStore(value: unknown): value is SgContentStore {
   const draftIds = store.drafts.map((item) => item.draftId);
   const publicationIds = store.publications.map((item) => item.publicationId);
   const eventIds = store.audit.map((item) => item.eventId);
-  const draftIdSet = new Set(draftIds);
+  const draftScopes = new Map(store.drafts.map((item) => [item.draftId, item.scope]));
   return (
     new Set(draftIds).size === draftIds.length &&
     new Set(publicationIds).size === publicationIds.length &&
     new Set(eventIds).size === eventIds.length &&
-    store.publications.every((item) => draftIdSet.has(item.draftId)) &&
-    store.audit.every((item) => draftIdSet.has(item.draftId)) &&
+    store.publications.every((item) => {
+      const draftScope = draftScopes.get(item.draftId);
+      return Boolean(draftScope && sameContentScope(item.scope, draftScope));
+    }) &&
+    store.audit.every((item) => {
+      const draftScope = draftScopes.get(item.draftId);
+      return Boolean(draftScope && sameContentScope(item.scope, draftScope));
+    }) &&
     store.drafts.every((item) =>
       item.deliveryStatus === "scheduled"
         ? Boolean(item.scheduledAt && item.automationJobId && item.dispatchToken)
@@ -271,6 +306,18 @@ function requireDraft(store: SgContentStore, draftId: string): SgContentDraft {
   const draft = store.drafts.find((item) => item.draftId === draftId.trim());
   if (!draft) {
     throw new Error("sg-content-draft-not-found");
+  }
+  return draft;
+}
+
+function requireScopedDraft(
+  store: SgContentStore,
+  draftId: string,
+  scope: SgContentScope,
+): SgContentDraft {
+  const draft = requireDraft(store, draftId);
+  if (!sameContentScope(draft.scope, scope)) {
+    throw new Error("sg-content-scope-denied");
   }
   return draft;
 }
@@ -318,7 +365,7 @@ function pushAudit(
     operationId: id,
     action,
     draftId: after.draftId,
-    workspaceId: after.workspaceId,
+    scope: structuredClone(after.scope),
     actorGlobalId,
     fromEditorial: before.editorialStatus,
     toEditorial: after.editorialStatus,
@@ -360,20 +407,24 @@ export class SgContentRegistry {
     return structuredClone(await this.read());
   }
 
-  async findDraft(draftId: string): Promise<SgContentDraft | undefined> {
+  async findDraft(draftId: string, scope: SgContentScope): Promise<SgContentDraft | undefined> {
     return structuredClone(
-      (await this.read()).drafts.find((item) => item.draftId === draftId.trim()),
+      (await this.read()).drafts.find(
+        (item) => item.draftId === draftId.trim() && sameContentScope(item.scope, scope),
+      ),
     );
   }
 
   async create(input: {
-    workspaceId: string;
-    topicId?: string;
+    scope: SgContentScope;
     creatorGlobalId: string;
     text?: string;
     media: SgContentMediaReference[];
     highImpact: boolean;
   }): Promise<SgContentDraft> {
+    if (!validContentScope(input.scope)) {
+      throw new Error("sg-content-scope-invalid");
+    }
     const text = input.text?.trim() || undefined;
     if (!text && input.media.length === 0) {
       throw new Error("sg-content-body-required");
@@ -385,8 +436,7 @@ export class SgContentRegistry {
       const now = new Date().toISOString();
       const draft: SgContentDraft = {
         draftId: `draft_${randomUUID()}`,
-        workspaceId: input.workspaceId.trim(),
-        ...(input.topicId?.trim() ? { topicId: input.topicId.trim() } : {}),
+        scope: structuredClone(input.scope),
         creatorGlobalId: input.creatorGlobalId.trim(),
         ...(text ? { text } : {}),
         media: structuredClone(input.media),
@@ -405,17 +455,16 @@ export class SgContentRegistry {
 
   async update(input: {
     draftId: string;
+    scope: SgContentScope;
     actorGlobalId: string;
-    canManage: boolean;
     text?: string;
     media?: SgContentMediaReference[];
-    topicId?: string | null;
     highImpact?: boolean;
   }): Promise<SgContentDraft> {
     return this.mutate((store) => {
-      const current = requireDraft(store, input.draftId);
+      const current = requireScopedDraft(store, input.draftId, input.scope);
       assertEditableDelivery(current);
-      if (!input.canManage && current.creatorGlobalId !== input.actorGlobalId.trim()) {
+      if (current.creatorGlobalId !== input.actorGlobalId.trim()) {
         throw new Error("sg-content-own-draft-required");
       }
       const text = input.text === undefined ? current.text : input.text.trim() || undefined;
@@ -432,12 +481,6 @@ export class SgContentRegistry {
         ...editable,
         ...(text ? { text } : { text: undefined }),
         media: structuredClone(media),
-        topicId:
-          input.topicId === undefined
-            ? current.topicId
-            : input.topicId === null
-              ? undefined
-              : input.topicId.trim() || undefined,
         highImpact: input.highImpact ?? current.highImpact,
         revision: current.revision + 1,
         editorialStatus: "draft",
@@ -454,13 +497,13 @@ export class SgContentRegistry {
 
   async submit(
     draftId: string,
+    scope: SgContentScope,
     actorGlobalId: string,
-    canManage: boolean,
   ): Promise<SgContentDraft> {
     return this.mutate((store) => {
-      const current = requireDraft(store, draftId);
+      const current = requireScopedDraft(store, draftId, scope);
       assertEditableDelivery(current);
-      if (!canManage && current.creatorGlobalId !== actorGlobalId.trim()) {
+      if (current.creatorGlobalId !== actorGlobalId.trim()) {
         throw new Error("sg-content-own-draft-required");
       }
       if (current.editorialStatus === "approved") {
@@ -479,11 +522,12 @@ export class SgContentRegistry {
 
   async review(input: {
     draftId: string;
+    scope: SgContentScope;
     actorGlobalId: string;
     decision: "approve" | "reject";
   }): Promise<SgContentDraft> {
     return this.mutate((store) => {
-      const current = requireDraft(store, input.draftId);
+      const current = requireScopedDraft(store, input.draftId, input.scope);
       assertEditableDelivery(current);
       if (current.editorialStatus !== "pending") {
         throw new Error("sg-content-review-pending-required");
@@ -514,11 +558,12 @@ export class SgContentRegistry {
 
   async beginPublish(
     draftId: string,
+    scope: SgContentScope,
     actorGlobalId: string,
     approveForPublication = false,
   ): Promise<SgContentNativeOperation> {
     return this.mutate((store) => {
-      const current = requireDraft(store, draftId);
+      const current = requireScopedDraft(store, draftId, scope);
       assertEditableDelivery(current);
       const id = operationId();
       if (!approveForPublication) {
@@ -547,12 +592,19 @@ export class SgContentRegistry {
       };
       store.drafts[store.drafts.indexOf(approved)] = updated;
       pushAudit(store, approved, updated, "publish_request", actorGlobalId, id);
-      return { kind: "publish", draftId: current.draftId, operationId: id, mode: "now" };
+      return {
+        kind: "publish",
+        draftId: current.draftId,
+        scope: structuredClone(current.scope),
+        operationId: id,
+        mode: "now",
+      };
     });
   }
 
   async beginSchedule(input: {
     draftId: string;
+    scope: SgContentScope;
     actorGlobalId: string;
     at: string;
   }): Promise<{ operation: SgContentNativeOperation; dispatchToken: string }> {
@@ -561,7 +613,7 @@ export class SgContentRegistry {
       throw new Error("sg-content-schedule-must-be-future");
     }
     return this.mutate((store) => {
-      const current = requireDraft(store, input.draftId);
+      const current = requireScopedDraft(store, input.draftId, input.scope);
       assertApproved(current);
       assertEditableDelivery(current);
       const id = operationId();
@@ -577,7 +629,12 @@ export class SgContentRegistry {
       store.drafts[store.drafts.indexOf(current)] = updated;
       pushAudit(store, current, updated, "schedule_request", input.actorGlobalId, id, at);
       return {
-        operation: { kind: "schedule", draftId: current.draftId, operationId: id },
+        operation: {
+          kind: "schedule",
+          draftId: current.draftId,
+          scope: structuredClone(current.scope),
+          operationId: id,
+        },
         dispatchToken,
       };
     });
@@ -585,6 +642,7 @@ export class SgContentRegistry {
 
   async beginReschedule(input: {
     draftId: string;
+    scope: SgContentScope;
     actorGlobalId: string;
     at: string;
   }): Promise<{ operation: SgContentNativeOperation; jobId: string }> {
@@ -593,7 +651,7 @@ export class SgContentRegistry {
       throw new Error("sg-content-schedule-must-be-future");
     }
     return this.mutate((store) => {
-      const current = requireDraft(store, input.draftId);
+      const current = requireScopedDraft(store, input.draftId, input.scope);
       if (current.deliveryStatus !== "scheduled" || !current.automationJobId) {
         throw new Error("sg-content-active-schedule-required");
       }
@@ -608,7 +666,12 @@ export class SgContentRegistry {
       store.drafts[store.drafts.indexOf(current)] = updated;
       pushAudit(store, current, updated, "reschedule_request", input.actorGlobalId, id, at);
       return {
-        operation: { kind: "reschedule", draftId: current.draftId, operationId: id },
+        operation: {
+          kind: "reschedule",
+          draftId: current.draftId,
+          scope: structuredClone(current.scope),
+          operationId: id,
+        },
         jobId: current.automationJobId,
       };
     });
@@ -616,10 +679,11 @@ export class SgContentRegistry {
 
   async beginCancel(
     draftId: string,
+    scope: SgContentScope,
     actorGlobalId: string,
   ): Promise<{ operation: SgContentNativeOperation; jobId: string }> {
     return this.mutate((store) => {
-      const current = requireDraft(store, draftId);
+      const current = requireScopedDraft(store, draftId, scope);
       if (current.deliveryStatus !== "scheduled" || !current.automationJobId) {
         throw new Error("sg-content-active-schedule-required");
       }
@@ -633,7 +697,12 @@ export class SgContentRegistry {
       store.drafts[store.drafts.indexOf(current)] = updated;
       pushAudit(store, current, updated, "cancel_request", actorGlobalId, id);
       return {
-        operation: { kind: "cancel", draftId: current.draftId, operationId: id },
+        operation: {
+          kind: "cancel",
+          draftId: current.draftId,
+          scope: structuredClone(current.scope),
+          operationId: id,
+        },
         jobId: current.automationJobId,
       };
     });
@@ -642,7 +711,7 @@ export class SgContentRegistry {
   async beginScheduledDispatch(
     draftId: string,
     dispatchToken: string,
-  ): Promise<SgContentNativeOperation> {
+  ): Promise<{ operation: SgContentNativeOperation; draft: SgContentDraft }> {
     return this.mutate((store) => {
       const current = requireDraft(store, draftId);
       if (
@@ -660,7 +729,16 @@ export class SgContentRegistry {
       };
       store.drafts[store.drafts.indexOf(current)] = updated;
       pushAudit(store, current, updated, "scheduled_dispatch", "system:automation", id);
-      return { kind: "publish", draftId: current.draftId, operationId: id, mode: "scheduled" };
+      return {
+        operation: {
+          kind: "publish",
+          draftId: current.draftId,
+          scope: structuredClone(current.scope),
+          operationId: id,
+          mode: "scheduled",
+        },
+        draft: structuredClone(updated),
+      };
     });
   }
 
@@ -676,7 +754,7 @@ export class SgContentRegistry {
     error?: string;
   }): Promise<SgContentDraft> {
     return this.mutate((store) => {
-      const current = requireDraft(store, input.operation.draftId);
+      const current = requireScopedDraft(store, input.operation.draftId, input.operation.scope);
       const now = new Date().toISOString();
       let updated: SgContentDraft;
       let action: SgContentAuditAction;
@@ -696,7 +774,7 @@ export class SgContentRegistry {
             publicationId: `pub_${randomUUID()}`,
             operationId: input.operation.operationId,
             draftId: current.draftId,
-            workspaceId: current.workspaceId,
+            scope: structuredClone(current.scope),
             revision: current.revision,
             mode: input.operation.mode,
             platform: input.platform,

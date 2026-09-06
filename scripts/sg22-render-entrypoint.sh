@@ -16,7 +16,7 @@ telegram_owner_id="${SG_MONARCH_TELEGRAM_USER_ID:-${MONARCH_USER_ID:-}}"
 monarch_global_id="${SG_MONARCH_GLOBAL_USER_ID:-}"
 workspace_plugin_enabled="${SG_WORKSPACE_PLUGIN_ENABLED:-true}"
 
-# Exact Telegram sender policy keeps development and privileged SG tools Monarch-only.
+# toolsBySender wildcard deny keeps "exec", "process", "write", "edit", "apply_patch", and "subagents" Monarch-only alongside privileged WSP5/WSP6 management.
 
 case "$workspace_plugin_enabled" in
   true|false) ;;

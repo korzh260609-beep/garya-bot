@@ -1,4 +1,4 @@
-import { SgGlobalProfileRegistry } from "./citizenship-registry.js";
+import { SgGlobalProfileRegistry } from "./global-profile-registry.js";
 import { SgContentRegistry, type SgContentScope } from "./content-registry.js";
 import type { SgWorkspaceContext } from "./context.js";
 import { SgWorkspaceRegistry } from "./workspace-registry.js";

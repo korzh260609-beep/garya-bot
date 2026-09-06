@@ -2,10 +2,10 @@ import {
   SgGlobalProfileRegistry,
   type SgGlobalProfile,
   type SgProjectRole,
-} from "./citizenship-registry.js";
+} from "./global-profile-registry.js";
 import { resolvePersonalWorkspaceRoot } from "./personal-workspace.js";
 
-export type { SgProjectRole } from "./citizenship-registry.js";
+export type { SgProjectRole } from "./global-profile-registry.js";
 export type SgWorkspaceContextInput = {
   channel: string;
   accountId?: string;
@@ -26,6 +26,8 @@ export type SgWorkspaceContext = {
   projectRole?: SgProjectRole;
   personalWorkspaceId?: string;
   personalWorkspaceRoot?: string;
+  resourceScopeId?: string;
+  nativePolicyOutcome?: "admitted";
 };
 
 const normalize = (value: string | undefined) => (value ?? "").trim().toLowerCase();
@@ -102,9 +104,12 @@ export async function resolveWorkspaceContext(
 
 export function formatWorkspaceContext(context: SgWorkspaceContext): string {
   return [
-    "SG Workspace Manager — WSP1 (read-only)",
+    "SG — identity and scope",
     `Global ID: ${context.globalId ?? "не найден"}`,
     `Роль SG: ${context.projectRole ?? "не определена"}`,
+    `Личный workspace ID: ${context.personalWorkspaceId ?? "не определён"}`,
+    `Resource scope ID: ${context.resourceScopeId ?? "не определён"}`,
+    `Native OpenClaw policy: ${context.nativePolicyOutcome ?? "не наблюдалась"}`,
     `Канал: ${context.channel}`,
     `Аккаунт: ${context.accountId ?? "default"}`,
     `Ресурс: ${context.resourceId ?? "не определён"}`,

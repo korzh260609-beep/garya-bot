@@ -4,7 +4,10 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "vitest";
-import { SgGlobalProfileRegistry, validateGlobalProfileStore } from "./citizenship-registry.js";
+import {
+  SgGlobalProfileRegistry,
+  validateGlobalProfileStore,
+} from "./global-profile-registry.js";
 import { resolveWorkspaceContext } from "./context.js";
 import { SgWorkspaceRegistry } from "./workspace-registry.js";
 

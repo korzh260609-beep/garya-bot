@@ -2,7 +2,7 @@
 
 ## Status
 
-**APPROVED CANONICAL IMPLEMENTATION PLAN — NOT YET IMPLEMENTED**
+**IN PROGRESS — PHASES 0–10 COMPLETE; PHASE 11 ACTIVE**
 
 Approved role model date: 2026-09-05.
 
@@ -36,9 +36,12 @@ with this document, this document and `pillars/entity/SG_ENTITY.md` take precede
 10. OpenClaw core and the standard Telegram adapter remain unchanged. SG-specific
     behavior stays in the external SG plugin and deployment configuration.
 
-## Current audited implementation
+## Historical pre-migration audit
 
-The repository currently contains a working but obsolete WSP4-era model.
+The table below records the obsolete implementation found before Phase 0. It is
+historical migration evidence, not a description of the current runtime.
+
+At audit time, the repository contained a working but obsolete WSP4-era model.
 
 | Area | Current implementation | Required result |
 | --- | --- | --- |
@@ -228,7 +231,7 @@ Exit gate: new tests fail against the old implementation for the intended reason
 8. Fail closed for missing, malformed or ambiguous canonical identity without inventing
    a guest profile.
 
-Primary files: `sg/plugin/context.ts`, `sg/plugin/citizenship-registry.ts`, registration
+Primary files: `sg/plugin/context.ts`, `sg/plugin/global-profile-registry.ts`, registration
 code and their tests. Rename the registry to a role-neutral global-profile module once
 callers have moved.
 
@@ -431,5 +434,6 @@ The migration is complete only when all statements below are true:
 
 ## Immediate next action
 
-Begin with Phase 0 and Phase 1 only. Do not delete old runtime paths until the new
-contract tests and verified state backup exist.
+Complete Phase 11 diagnostics and documentation against its red contract tests. Then
+begin Phase 12 verification only after separate owner authorization. Do not deploy or
+migrate live state from the intermediate Phase 11 commit.

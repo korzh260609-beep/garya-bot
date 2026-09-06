@@ -109,6 +109,38 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
   const contextDiagnostics = new SgContextDiagnostics(stateDir, api);
   contextDiagnostics.register();
 
+  const resolveDiagnosticContext = async (ctx: CommandContext) => {
+    const actor = await resolveWorkspaceContext(
+      {
+        channel: ctx.channel,
+        accountId: ctx.accountId,
+        to: ctx.to,
+        threadParentId: ctx.threadParentId,
+        messageThreadId: ctx.messageThreadId,
+        senderId: ctx.senderId,
+        identityLinks: ctx.config.session?.identityLinks,
+      },
+      stateDir,
+    );
+    const routeResourceId = ctx.threadParentId ?? ctx.to;
+    const scope = routeResourceId
+      ? await registry.resolve({
+          platform: ctx.channel,
+          accountId: ctx.accountId,
+          resourceId: canonicalResourceId(ctx.channel, routeResourceId),
+          ...(ctx.messageThreadId !== undefined
+            ? { topicId: String(ctx.messageThreadId) }
+            : {}),
+        })
+      : undefined;
+    return {
+      ...actor,
+      ...(scope ? { resourceScopeId: scope.resourceScopeId } : {}),
+      // Reaching the command handler proves native OpenClaw admission for this request.
+      nativePolicyOutcome: "admitted" as const,
+    };
+  };
+
   api.registerTool((ctx) => createWsp5Tools(ctx, stateDir, wsp5Lifecycle), {
     names: [...WSP5_TOOL_NAMES],
   });
@@ -120,7 +152,7 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
 
   api.on("before_prompt_build", async (_event, ctx) => {
     let identityContext = [
-      "SG Workspace Manager — WSP1 (read-only)",
+      "SG — identity and scope",
       "Global ID: не найден",
       "Роль SG: не определена",
     ].join("\n");
@@ -180,19 +212,7 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
     name: "sg_context",
     description: "Показать безопасный диагностический контекст SG",
     requireAuth: false,
-    handler: async (ctx) => ({
-      text: formatWorkspaceContext(
-        await resolveWorkspaceContext({
-          channel: ctx.channel,
-          accountId: ctx.accountId,
-          to: ctx.to,
-          threadParentId: ctx.threadParentId,
-          messageThreadId: ctx.messageThreadId,
-          senderId: ctx.senderId,
-          identityLinks: ctx.config.session?.identityLinks,
-        }),
-      ),
-    }),
+    handler: async (ctx) => ({ text: formatWorkspaceContext(await resolveDiagnosticContext(ctx)) }),
   });
   api.registerCommand({
     name: "sg_workspace",

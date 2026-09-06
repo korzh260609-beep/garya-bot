@@ -4,6 +4,7 @@ import { withFileLock } from "openclaw/plugin-sdk/file-lock";
 import { readJsonFileWithFallback, writeJsonFileAtomically } from "openclaw/plugin-sdk/json-store";
 
 export type SgProjectRole = "citizen" | "monarch";
+// Legacy guest values are accepted only while reading pre-migration profile state.
 export type SgPersistedProjectRole = SgProjectRole | "guest";
 export type SgProfileStatus = "active" | "suspended" | "archived";
 

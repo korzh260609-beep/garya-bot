@@ -5,14 +5,17 @@ export * from "./context.js";
 export * from "./personal-workspace.js";
 export * from "./cost-diagnostics.js";
 export * from "./context-diagnostics.js";
-export { SgGlobalProfileRegistry, validateGlobalProfileStore } from "./citizenship-registry.js";
+export {
+  SgGlobalProfileRegistry,
+  validateGlobalProfileStore,
+} from "./global-profile-registry.js";
 export type {
   SgGlobalProfile,
   SgGlobalProfileStore,
   SgIdentityLink,
   SgPersistedProjectRole,
   SgProfileStatus,
-} from "./citizenship-registry.js";
+} from "./global-profile-registry.js";
 export * from "./register.js";
 export * from "./workspace-registry.js";
 export * from "./content-registry.js";

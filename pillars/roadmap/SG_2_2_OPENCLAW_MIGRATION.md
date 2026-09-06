@@ -5,6 +5,9 @@ Canonical checklist for building and evolving the SG entity above a clean OpenCl
 Canonical role-model removal and replacement plan:
 `pillars/roadmap/SG22_ROLE_MODEL_MIGRATION_PLAN.md`.
 
+Role migration status: Phases 0–10 complete; Phase 11 diagnostics and documentation
+active; Phase 12 verification not started.
+
 Status flow: NOT STARTED → IN PROGRESS → IMPLEMENTED → VERIFIED → CLOSED
 
 ## Global integration rule

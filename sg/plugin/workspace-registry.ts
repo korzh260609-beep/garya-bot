@@ -20,8 +20,8 @@ export type SgResourceScope = SgWorkspaceResource & {
   updatedAt: string;
 };
 
-// Transitional WSP5/WSP6 view. It contains no persisted SG authority and is removed
-// when those features move to resourceScopeId in phases 8 and 9.
+// Legacy-name compatibility view used only by existing callers and migration tests. It
+// contains no persisted SG authority and remains bounded until Phase 12 verifies removal.
 export type SgWorkspace = SgWorkspaceResource & {
   workspaceId: string;
   resourceKind: SgWorkspaceResourceKind;

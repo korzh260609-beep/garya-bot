@@ -32,7 +32,7 @@ if [ "$workspace_plugin_enabled" = "true" ]; then
     exit 1
   fi
   workspace_plugin_paths='["/app/sg/plugin"]'
-  workspace_plugin_tools='["sg_citizen_apply","sg_citizen_pending","sg_citizen_decide","sg_content_draft","sg_content_review","sg_content_publish","sg_content_schedule","sg_content_dispatch","sg_test_manage","sg_test_attempt","sg_test_stats"]'
+  workspace_plugin_tools='["sg_content_draft","sg_content_review","sg_content_publish","sg_content_schedule","sg_content_dispatch","sg_test_manage","sg_test_attempt","sg_test_stats"]'
   workspace_sender_tools="{\"*\":{\"deny\":[\"read\",\"write\",\"edit\",\"apply_patch\",\"exec\",\"process\",\"code_execution\",\"terminal\",\"github_identity_status\",\"github_publish\",\"*github*\",\"sessions_spawn\",\"subagents\",\"openclaw\",\"skill_workshop\",\"sg_content_review\",\"sg_content_publish\",\"sg_content_schedule\",\"sg_test_manage\",\"sg_test_stats\"]},\"channel:telegram:${telegram_owner_id}\":{\"alsoAllow\":[\"sg_content_review\",\"sg_content_publish\",\"sg_content_schedule\",\"sg_test_manage\",\"sg_test_stats\"]}}"
 else
   workspace_plugin_paths='[]'

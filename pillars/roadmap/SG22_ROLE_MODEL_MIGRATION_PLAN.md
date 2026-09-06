@@ -2,7 +2,7 @@
 
 ## Status
 
-**IN PROGRESS — PHASES 0–10 COMPLETE; PHASE 11 ACTIVE**
+**IN PROGRESS — PHASES 0–11 COMPLETE; PHASE 12 LOCAL VERIFICATION PASSED; OWNER HANDOFF PENDING**
 
 Approved role model date: 2026-09-05.
 
@@ -386,6 +386,18 @@ Required matrix:
 - WSP5/WSP6 migrated data and current-route isolation;
 - ordinary OpenClaw Telegram replies unchanged.
 
+Local verification evidence (2026-09-06):
+
+- Phase 12 verification matrix: 5/5 passed;
+- SG plugin suite: 133/133 passed;
+- Render entrypoint suite: 3/3 passed;
+- compaction safeguard suite: 134/134 passed;
+- compaction/session suites: 168/168 passed;
+- `tsgo:core` and `tsgo:test:src`: passed.
+
+This is working-tree evidence only. It is not exact final-commit, image-digest,
+deployment or live-state evidence, so Phase 12 remains open.
+
 After all exact-commit tests pass:
 
 1. build the exact image from that commit;
@@ -434,6 +446,8 @@ The migration is complete only when all statements below are true:
 
 ## Immediate next action
 
-Complete Phase 11 diagnostics and documentation against its red contract tests. Then
-begin Phase 12 verification only after separate owner authorization. Do not deploy or
-migrate live state from the intermediate Phase 11 commit.
+After separate owner authorization, create and verify the exact Phase 12 commit. Then,
+under separate authorization, build and publish the exact image, record its digest and
+provide backup and rollback evidence. Do not deploy to Render or migrate/verify live
+state without a separate decision from GARY; GARY performs the Render deployment
+manually.

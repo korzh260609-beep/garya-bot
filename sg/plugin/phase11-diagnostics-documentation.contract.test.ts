@@ -48,15 +48,17 @@ describe("SG 2.2 Phase 11 diagnostics and documentation", () => {
     expect(productionSources.join("\n")).not.toContain("citizenship-registry");
   });
 
-  it("records Phases 0-10 as complete and Phase 11 as the current step", async () => {
+  it("records Phases 0-11 as complete and Phase 12 owner handoff as pending", async () => {
     const plan = await readFile(
       path.join(repoRoot, "pillars", "roadmap", "SG22_ROLE_MODEL_MIGRATION_PLAN.md"),
       "utf8",
     );
 
     expect(plan).not.toContain("NOT YET IMPLEMENTED");
-    expect(plan).toMatch(/Phases? 0[–-]10[^\n]*(?:complete|completed|выполнены)/iu);
-    expect(plan).toMatch(/Immediate next action[\s\S]{0,500}Phase 11/iu);
+    expect(plan).toMatch(/Phases? 0[–-]11[^\n]*(?:complete|completed|выполнены)/iu);
+    expect(plan).toMatch(/Phase 12[^\n]*local verification passed/iu);
+    expect(plan).toMatch(/Immediate next action[\s\S]{0,500}exact Phase 12 commit/iu);
+    expect(plan).toMatch(/Phase 12 remains open/iu);
   });
 
   it("marks documents that retain the obsolete role model as historical", async () => {

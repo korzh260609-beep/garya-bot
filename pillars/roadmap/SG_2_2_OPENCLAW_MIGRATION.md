@@ -5,8 +5,11 @@ Canonical checklist for building and evolving the SG entity above a clean OpenCl
 Canonical role-model removal and replacement plan:
 `pillars/roadmap/SG22_ROLE_MODEL_MIGRATION_PLAN.md`.
 
-Role migration status: Phases 0–10 complete; Phase 11 diagnostics and documentation
-active; Phase 12 verification not started.
+Role migration status: Phases 0–11 complete; Phase 12 local verification passed on
+2026-09-06 (matrix 5/5, SG plugin 133/133, entrypoint 3/3, compaction safeguard
+134/134, compaction/session 168/168, `tsgo:core` and `tsgo:test:src` passed). Owner
+handoff remains pending. This is working-tree evidence, not exact final-commit,
+image-digest, deployment or live-state evidence; Phase 12 is not complete.
 
 Status flow: NOT STARTED → IN PROGRESS → IMPLEMENTED → VERIFIED → CLOSED
 

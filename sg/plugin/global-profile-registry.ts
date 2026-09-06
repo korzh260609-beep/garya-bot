@@ -38,7 +38,7 @@ const emptyStore = (): SgGlobalProfileStore => ({
 });
 
 const LOCK_OPTIONS = {
-  retries: { retries: 20, factor: 1.2, minTimeout: 10, maxTimeout: 100 },
+  retries: { retries: 50, factor: 1.2, minTimeout: 10, maxTimeout: 100, randomize: true },
   stale: 30_000,
   staleRecovery: "fail-closed" as const,
 };

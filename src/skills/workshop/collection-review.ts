@@ -20,6 +20,7 @@ import { sha256Hex } from "../../infra/crypto-digest.js";
 import { createSubsystemLogger } from "../../logging/subsystem.js";
 import { runWithGatewayIndependentRootWorkAdmission } from "../../process/gateway-work-admission.js";
 import { CommandLane } from "../../process/lanes.js";
+import { INTERNAL_MESSAGE_CHANNEL } from "../../utils/message-channel-constants.js";
 import {
   MAX_RECONCILED_SKILLS,
   MAX_RECONCILED_SKILL_BYTES,
@@ -129,6 +130,8 @@ async function runSkillCollectionReview(params: {
       sessionManager: SessionManager.inMemory(params.workspaceDir),
       agentId: params.agentId,
       trigger: "cron",
+      messageProvider: INTERNAL_MESSAGE_CHANNEL,
+      senderIsOwner: true,
       lane: CommandLane.SkillWorkshopReview,
       agentHarnessId: "openclaw",
       agentHarnessRuntimeOverride: "openclaw",

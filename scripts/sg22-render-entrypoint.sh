@@ -192,7 +192,7 @@ else
   echo "SG GitHub diagnostic: authenticated=false reason=cli_missing"
 fi
 if [ "$workspace_plugin_enabled" = "true" ]; then
-  for plugin_file in index.ts register.ts cost-diagnostics.ts openclaw.plugin.json package.json; do
+  for plugin_file in index.ts register.ts cost-diagnostics.ts render-tools.ts openclaw.plugin.json package.json; do
     if [ ! -f "/app/sg/plugin/$plugin_file" ]; then
       echo "SG 2.2 startup error: missing plugin file $plugin_file" >&2
       exit 1

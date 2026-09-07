@@ -3,9 +3,9 @@ import { chmod, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
+import { pickSandboxToolPolicy } from "../../src/agents/sandbox-tool-policy.js";
 import { isToolAllowedByPolicyName } from "../../src/agents/tool-policy-match.js";
 import { mergeAlsoAllowPolicy, resolveToolProfilePolicy } from "../../src/agents/tool-policy.js";
-import { pickSandboxToolPolicy } from "../../src/agents/sandbox-tool-policy.js";
 import { resolveToolsBySender } from "../../src/config/group-policy.js";
 import type { GroupToolPolicyBySenderConfig } from "../../src/config/types.tools.js";
 import { registerWorkspaceManager } from "./register.js";
@@ -86,6 +86,7 @@ async function createEntrypointHarness() {
     "index.ts",
     "register.ts",
     "cost-diagnostics.ts",
+    "render-tools.ts",
     "openclaw.plugin.json",
     "package.json",
   ]) {
@@ -153,7 +154,9 @@ exit 0
       },
     });
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
-    return JSON.parse(await readFile(path.join(stateDir, "openclaw.json"), "utf8")) as RuntimeConfig;
+    return JSON.parse(
+      await readFile(path.join(stateDir, "openclaw.json"), "utf8"),
+    ) as RuntimeConfig;
   };
 
   return { run, stateDir };

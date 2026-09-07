@@ -77,7 +77,7 @@ describe("SG 2.2 Render entrypoint", () => {
       '{"path":"agents.defaults.contextPruning.hardClear.enabled","value":true}',
     );
     expect(script).toContain(
-      "for plugin_file in index.ts register.ts cost-diagnostics.ts openclaw.plugin.json package.json",
+      "for plugin_file in index.ts register.ts cost-diagnostics.ts render-tools.ts openclaw.plugin.json package.json",
     );
   });
 });

@@ -15,6 +15,7 @@ config_path="$state_dir/openclaw.json"
 telegram_owner_id="${SG_MONARCH_TELEGRAM_USER_ID:-${MONARCH_USER_ID:-}}"
 monarch_global_id="${SG_MONARCH_GLOBAL_USER_ID:-}"
 workspace_plugin_enabled="${SG_WORKSPACE_PLUGIN_ENABLED:-true}"
+export GH_CONFIG_DIR="${GH_CONFIG_DIR:-$state_dir/github-cli}"
 
 # The wildcard policy keeps infrastructure, private-session access, and privileged
 # WSP5/WSP6 management Monarch-only. The exact Monarch policy restores the full surface.
@@ -41,7 +42,8 @@ else
   workspace_sender_tools='{}'
 fi
 
-mkdir -p "$state_dir" "$workspace"
+mkdir -p "$state_dir" "$workspace" "$GH_CONFIG_DIR"
+chmod 700 "$GH_CONFIG_DIR"
 
 # Repair/migrate the persistent SG Global ID store before any Telegram message can
 # enter dispatch. This preserves recognized legacy data and only removes invalid
@@ -179,6 +181,16 @@ node /app/openclaw.mjs config set --batch-json "$config_batch"
 node /app/openclaw.mjs config set agents.defaults.models "{\"${primary_model}\":{\"agentRuntime\":{\"id\":\"openclaw\"}}}" --strict-json --merge
 
 echo "SG workspace diagnostic: image_commit=${SG22_IMAGE_COMMIT:-unknown} enabled=${workspace_plugin_enabled}"
+if command -v gh >/dev/null 2>&1; then
+  github_login="$(gh api user --jq .login 2>/dev/null || true)"
+  if [ -n "$github_login" ]; then
+    echo "SG GitHub diagnostic: authenticated=true login=${github_login}"
+  else
+    echo "SG GitHub diagnostic: authenticated=false reason=authorization_missing"
+  fi
+else
+  echo "SG GitHub diagnostic: authenticated=false reason=cli_missing"
+fi
 if [ "$workspace_plugin_enabled" = "true" ]; then
   for plugin_file in index.ts register.ts cost-diagnostics.ts openclaw.plugin.json package.json; do
     if [ ! -f "/app/sg/plugin/$plugin_file" ]; then

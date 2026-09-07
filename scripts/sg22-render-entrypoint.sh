@@ -16,7 +16,8 @@ telegram_owner_id="${SG_MONARCH_TELEGRAM_USER_ID:-${MONARCH_USER_ID:-}}"
 monarch_global_id="${SG_MONARCH_GLOBAL_USER_ID:-}"
 workspace_plugin_enabled="${SG_WORKSPACE_PLUGIN_ENABLED:-true}"
 
-# toolsBySender wildcard deny keeps "exec", "process", "write", "edit", "apply_patch", and "subagents" Monarch-only alongside privileged WSP5/WSP6 management.
+# The wildcard policy keeps infrastructure, private-session access, and privileged
+# WSP5/WSP6 management Monarch-only. The exact Monarch policy restores the full surface.
 
 case "$workspace_plugin_enabled" in
   true|false) ;;
@@ -32,8 +33,8 @@ if [ "$workspace_plugin_enabled" = "true" ]; then
     exit 1
   fi
   workspace_plugin_paths='["/app/sg/plugin"]'
-  workspace_plugin_tools='["sg_content_draft","sg_content_review","sg_content_publish","sg_content_schedule","sg_content_dispatch","sg_test_manage","sg_test_attempt","sg_test_stats"]'
-  workspace_sender_tools="{\"*\":{\"deny\":[\"read\",\"write\",\"edit\",\"apply_patch\",\"exec\",\"process\",\"code_execution\",\"terminal\",\"github_identity_status\",\"github_publish\",\"*github*\",\"sessions_spawn\",\"subagents\",\"openclaw\",\"skill_workshop\",\"sg_content_review\",\"sg_content_publish\",\"sg_content_schedule\",\"sg_test_manage\",\"sg_test_stats\"]},\"channel:telegram:${telegram_owner_id}\":{\"alsoAllow\":[\"sg_content_review\",\"sg_content_publish\",\"sg_content_schedule\",\"sg_test_manage\",\"sg_test_stats\"]}}"
+  workspace_plugin_tools='["sg_content_draft","sg_content_review","sg_content_publish","sg_content_schedule","sg_content_dispatch","sg_test_manage","sg_test_attempt","sg_test_stats","sg_render"]'
+  workspace_sender_tools="{\"*\":{\"deny\":[\"read\",\"write\",\"edit\",\"apply_patch\",\"exec\",\"process\",\"code_execution\",\"terminal\",\"github_identity_status\",\"github_publish\",\"*github*\",\"sg_render\",\"gateway\",\"nodes\",\"openclaw\",\"skill_workshop\",\"sessions\",\"sessions_list\",\"sessions_history\",\"sessions_search\",\"sessions_spawn\",\"subagents\",\"secrets\",\"environment\",\"sg_content_review\",\"sg_content_publish\",\"sg_content_schedule\",\"sg_test_manage\",\"sg_test_stats\"]},\"channel:telegram:${telegram_owner_id}\":{\"alsoAllow\":[\"sg_content_review\",\"sg_content_publish\",\"sg_content_schedule\",\"sg_test_manage\",\"sg_test_stats\"]}}"
 else
   workspace_plugin_paths='[]'
   workspace_plugin_tools='[]'
@@ -101,14 +102,15 @@ if [ ! -f "$config_path" ]; then
     "dmScope": "per-channel-peer"
   },
   "tools": {
+    "profile": "full",
     "alsoAllow": $workspace_plugin_tools,
     "toolsBySender": $workspace_sender_tools
   },
   "messages": {
     "groupChat": {
       "mentionPatterns": [
-        "(^|[\\s,.:;!?])сг([\\s,.:;!?]|$)",
-        "(^|[\\s,.:;!?])sg([\\s,.:;!?]|$)"
+        "(^|[\\\\s,.:;!?])сг([\\\\s,.:;!?]|$)",
+        "(^|[\\\\s,.:;!?])sg([\\\\s,.:;!?]|$)"
       ]
     }
   },
@@ -167,7 +169,7 @@ node /app/openclaw.mjs onboard --non-interactive --accept-risk --skip-health --s
 
 # Restamp runtime settings on every boot so persistent state cannot restore
 # stale one-user access, stale Telegram group restrictions, or stale provider configuration.
-config_batch='[{"path":"gateway.mode","value":"local"},{"path":"gateway.bind","value":"lan"},{"path":"gateway.port","value":'"${port}"'},{"path":"gateway.auth.mode","value":"token"},{"path":"agents.defaults.model.primary","value":"'"${primary_model}"'"},{"path":"agents.defaults.compaction.enabled","value":true},{"path":"agents.defaults.compaction.mode","value":"safeguard"},{"path":"agents.defaults.compaction.keepRecentTokens","value":12000},{"path":"agents.defaults.compaction.recentTurnsPreserve","value":4},{"path":"agents.defaults.compaction.identifierPolicy","value":"off"},{"path":"agents.defaults.compaction.qualityGuard","value":{"enabled":true,"maxRetries":1}},{"path":"agents.defaults.compaction.midTurnPrecheck","value":{"enabled":true}},{"path":"agents.defaults.compaction.memoryFlush.enabled","value":false},{"path":"agents.defaults.compaction.maxActiveTranscriptBytes","value":"128kb"},{"path":"agents.defaults.compaction.notifyUser","value":false},{"path":"agents.defaults.contextPruning.mode","value":"cache-ttl"},{"path":"agents.defaults.contextPruning.ttl","value":"5m"},{"path":"agents.defaults.contextPruning.hardClear.enabled","value":true},{"path":"session.dmScope","value":"per-channel-peer"},{"path":"tools.alsoAllow","value":'"${workspace_plugin_tools}"'},{"path":"tools.toolsBySender","value":'"${workspace_sender_tools}"'},{"path":"auth.order.openai","value":["openai:api-key"]},{"path":"memory.search.provider","value":"openai"},{"path":"memory.search.remote.apiKey","value":{"source":"env","provider":"default","id":"OPENAI_API_KEY"}},{"path":"messages.groupChat.mentionPatterns","value":["(^|[\\s,.:;!?])сг([\\s,.:;!?]|$)","(^|[\\s,.:;!?])sg([\\s,.:;!?]|$)"]},{"path":"channels.telegram.dmPolicy","value":"open"},{"path":"channels.telegram.allowFrom","value":["*"]},{"path":"channels.telegram.groupPolicy","value":"allowlist"},{"path":"channels.telegram.groups","value":{"*":{"requireMention":true}}},{"path":"plugins.load.paths","value":'"${workspace_plugin_paths}"'},{"path":"plugins.entries.sg-workspace-manager.enabled","value":'"${workspace_plugin_enabled}"'},{"path":"plugins.entries.sg-workspace-manager.hooks.allowPromptInjection","value":true},{"path":"plugins.entries.sg-workspace-manager.hooks.allowConversationAccess","value":true}]'
+config_batch='[{"path":"gateway.mode","value":"local"},{"path":"gateway.bind","value":"lan"},{"path":"gateway.port","value":'"${port}"'},{"path":"gateway.auth.mode","value":"token"},{"path":"agents.defaults.model.primary","value":"'"${primary_model}"'"},{"path":"agents.defaults.compaction.enabled","value":true},{"path":"agents.defaults.compaction.mode","value":"safeguard"},{"path":"agents.defaults.compaction.keepRecentTokens","value":12000},{"path":"agents.defaults.compaction.recentTurnsPreserve","value":4},{"path":"agents.defaults.compaction.identifierPolicy","value":"off"},{"path":"agents.defaults.compaction.qualityGuard","value":{"enabled":true,"maxRetries":1}},{"path":"agents.defaults.compaction.midTurnPrecheck","value":{"enabled":true}},{"path":"agents.defaults.compaction.memoryFlush.enabled","value":false},{"path":"agents.defaults.compaction.maxActiveTranscriptBytes","value":"128kb"},{"path":"agents.defaults.compaction.notifyUser","value":false},{"path":"agents.defaults.contextPruning.mode","value":"cache-ttl"},{"path":"agents.defaults.contextPruning.ttl","value":"5m"},{"path":"agents.defaults.contextPruning.hardClear.enabled","value":true},{"path":"session.dmScope","value":"per-channel-peer"},{"path":"tools.profile","value":"full"},{"path":"tools.alsoAllow","value":'"${workspace_plugin_tools}"'},{"path":"tools.toolsBySender","value":'"${workspace_sender_tools}"'},{"path":"auth.order.openai","value":["openai:api-key"]},{"path":"memory.search.provider","value":"openai"},{"path":"memory.search.remote.apiKey","value":{"source":"env","provider":"default","id":"OPENAI_API_KEY"}},{"path":"messages.groupChat.mentionPatterns","value":["(^|[\\s,.:;!?])сг([\\s,.:;!?]|$)","(^|[\\s,.:;!?])sg([\\s,.:;!?]|$)"]},{"path":"channels.telegram.dmPolicy","value":"open"},{"path":"channels.telegram.allowFrom","value":["*"]},{"path":"channels.telegram.groupPolicy","value":"allowlist"},{"path":"channels.telegram.groups","value":{"*":{"requireMention":true}}},{"path":"plugins.load.paths","value":'"${workspace_plugin_paths}"'},{"path":"plugins.entries.sg-workspace-manager.enabled","value":'"${workspace_plugin_enabled}"'},{"path":"plugins.entries.sg-workspace-manager.hooks.allowPromptInjection","value":true},{"path":"plugins.entries.sg-workspace-manager.hooks.allowConversationAccess","value":true}]'
 
 if [ -n "$telegram_owner_id" ]; then
   config_batch="${config_batch%]} ,{\"path\":\"commands.ownerAllowFrom\",\"value\":[\"telegram:${telegram_owner_id}\"]}]"

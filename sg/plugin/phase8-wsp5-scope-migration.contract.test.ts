@@ -351,8 +351,13 @@ describe("SG 2.2 Phase 8 WSP5 personal/resource scopes", () => {
 
     expect(entrypoint).toContain('"path":"tools.toolsBySender"');
     expect(entrypoint).toMatch(/channel:telegram:\$\{telegram_owner_id\}/u);
+    const policyMatch = entrypoint.match(/^\s*workspace_sender_tools="(.+)"$/mu);
+    expect(policyMatch).not.toBeNull();
+    const policies = JSON.parse(
+      (policyMatch?.[1] ?? "{}").replaceAll('\\"', '"').replaceAll("${telegram_owner_id}", "100"),
+    ) as Record<string, { deny?: string[] }>;
     for (const tool of ["sg_content_review", "sg_content_publish", "sg_content_schedule"]) {
-      expect(entrypoint).toMatch(new RegExp(`toolsBySender[\\s\\S]*${tool}`, "u"));
+      expect(policies["*"]?.deny).toContain(tool);
     }
   });
 

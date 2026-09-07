@@ -44,6 +44,7 @@ const workspaceToolGrant = [
   "sg_test_manage",
   "sg_test_attempt",
   "sg_test_stats",
+  "sg_render",
 ];
 const withoutWorkspaceGrant = resolveEmbeddedAttemptToolConstructionPlan({
   toolsEnabled: true,

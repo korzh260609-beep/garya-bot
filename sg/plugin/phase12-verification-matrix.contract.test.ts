@@ -20,6 +20,7 @@ const currentPluginTools = [
   "sg_test_manage",
   "sg_test_attempt",
   "sg_test_stats",
+  "sg_render",
 ] as const;
 
 function readShellJsonArray(source: string, variable: string): string[] {
@@ -32,10 +33,8 @@ function readSenderPolicies(source: string) {
   const match = source.match(/^\s*workspace_sender_tools="(.+)"$/mu);
   expect(match, "workspace_sender_tools must be literal JSON").not.toBeNull();
   return JSON.parse(
-    (match?.[1] ?? "{}")
-      .replaceAll('\\"', '"')
-      .replaceAll("${telegram_owner_id}", "100"),
-  ) as Record<string, { alsoAllow?: string[]; deny?: string[] }>;
+    (match?.[1] ?? "{}").replaceAll('\\"', '"').replaceAll("${telegram_owner_id}", "100"),
+  ) as Record<string, { allow?: string[]; alsoAllow?: string[]; deny?: string[] }>;
 }
 
 const migrationScripts = [
@@ -63,7 +62,7 @@ function runMigrationChain(root: string) {
 }
 
 describe("SG 2.2 Phase 12 verification matrix", () => {
-  it("exposes only the current WSP5/WSP6 tools through the runtime allowlist", async () => {
+  it("exposes only the current SG tools through the runtime allowlist", async () => {
     const entrypoint = await readFile(
       path.join(repoRoot, "scripts", "sg22-render-entrypoint.sh"),
       "utf8",

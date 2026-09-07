@@ -153,7 +153,7 @@ describe("SG Workspace Manager", () => {
     expect(second).toEqual(first);
   });
 
-  it("registers only WSP5/WSP6 tools and current diagnostics", async () => {
+  it("registers only current SG tools and diagnostics", async () => {
     const { root } = await stateDirWithProfiles();
     const registerCommand = vi.fn();
     const registerInteractiveHandler = vi.fn();
@@ -189,6 +189,7 @@ describe("SG Workspace Manager", () => {
       "sg_test_manage",
       "sg_test_attempt",
       "sg_test_stats",
+      "sg_render",
     ]);
     expect(registerInteractiveHandler).toHaveBeenCalledWith({
       channel: "telegram",

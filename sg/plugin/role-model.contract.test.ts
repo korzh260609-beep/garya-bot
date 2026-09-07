@@ -4,11 +4,8 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "vitest";
-import {
-  SgGlobalProfileRegistry,
-  validateGlobalProfileStore,
-} from "./global-profile-registry.js";
 import { resolveWorkspaceContext } from "./context.js";
+import { SgGlobalProfileRegistry, validateGlobalProfileStore } from "./global-profile-registry.js";
 import { SgWorkspaceRegistry } from "./workspace-registry.js";
 
 const timestamp = "2026-01-01T00:00:00.000Z";
@@ -326,12 +323,19 @@ describe("SG 2.2 canonical role model contract", () => {
   });
 
   it("default-denies development tool discovery and invocation for non-Monarch senders", async () => {
-    const source = await readDevelopmentPolicySources();
+    const entrypoint = await readFile(
+      path.join(repoRoot, "scripts", "sg22-render-entrypoint.sh"),
+      "utf8",
+    );
+    const policyMatch = entrypoint.match(/^\s*workspace_sender_tools="(.+)"$/mu);
+    assert.ok(policyMatch);
+    const policies = JSON.parse(
+      policyMatch[1].replaceAll('\\"', '"').replaceAll("${telegram_owner_id}", "100"),
+    ) as Record<string, { deny?: string[] }>;
+    const citizenDeny = policies["*"]?.deny ?? [];
 
-    assert.match(source, /toolsBySender/u);
-    assert.match(source, /["']\*["']/u);
     for (const denied of ["exec", "process", "write", "edit", "apply_patch", "subagents"]) {
-      assert.match(source, new RegExp(`deny[\\s\\S]*["']${denied}["']`, "u"));
+      assert.ok(citizenDeny.includes(denied));
     }
   });
 

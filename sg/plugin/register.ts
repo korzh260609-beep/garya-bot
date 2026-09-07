@@ -3,6 +3,7 @@ import { SgContentRegistry } from "./content-registry.js";
 import { SgContextDiagnostics, type SgContextDiagnosticCommand } from "./context-diagnostics.js";
 import { formatWorkspaceContext, resolveWorkspaceContext } from "./context.js";
 import { buildSgCostDiagnostic, type SgCostDiagnosticConfig } from "./cost-diagnostics.js";
+import { createSgRenderTool } from "./render-tools.js";
 import { formatWorkspaceResolution, SgWorkspaceRegistry } from "./workspace-registry.js";
 import { buildWsp5Diagnostic } from "./wsp5-diagnostics.js";
 import { Wsp5NativeLifecycle } from "./wsp5-lifecycle.js";
@@ -49,12 +50,7 @@ type WorkspacePluginApi = {
     requireAuth: boolean;
     handler(ctx: CommandContext): Promise<{ text: string }>;
   }): void;
-  registerTool(
-    factory: (
-      ctx: Parameters<typeof createWsp5Tools>[0],
-    ) => ReturnType<typeof createWsp5Tools> | ReturnType<typeof createWsp6Tools>,
-    options: { names: string[] },
-  ): void;
+  registerTool: OpenClawPluginApi["registerTool"];
   on: OpenClawPluginApi["on"];
   logger?: { info(message: string): void; warn(message: string): void };
 };
@@ -67,6 +63,7 @@ const WSP5_TOOL_NAMES = [
   "sg_content_dispatch",
 ] as const;
 const WSP6_TOOL_NAMES = ["sg_test_manage", "sg_test_attempt", "sg_test_stats"] as const;
+const RENDER_TOOL_NAMES = ["sg_render"] as const;
 
 function canonicalResourceId(channel: string, conversationId: string): string {
   const normalizedChannel = channel.trim().toLowerCase();
@@ -128,9 +125,7 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
           platform: ctx.channel,
           accountId: ctx.accountId,
           resourceId: canonicalResourceId(ctx.channel, routeResourceId),
-          ...(ctx.messageThreadId !== undefined
-            ? { topicId: String(ctx.messageThreadId) }
-            : {}),
+          ...(ctx.messageThreadId !== undefined ? { topicId: String(ctx.messageThreadId) } : {}),
         })
       : undefined;
     return {
@@ -147,6 +142,7 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
   api.registerTool((ctx) => createWsp6Tools(ctx, stateDir, resolveAssessments(), wsp6Lifecycle), {
     names: [...WSP6_TOOL_NAMES],
   });
+  api.registerTool((ctx) => createSgRenderTool(ctx), { names: [...RENDER_TOOL_NAMES] });
   wsp5Lifecycle.register(api);
   wsp6Lifecycle.register(api);
 

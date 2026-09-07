@@ -18,6 +18,14 @@ export default defineConfig({
         repoRoot,
         "packages/normalization-core/src/record-coerce.ts",
       ),
+      "@openclaw/normalization-core/string-coerce": path.join(
+        repoRoot,
+        "packages/normalization-core/src/string-coerce.ts",
+      ),
+      "@openclaw/normalization-core/string-normalization": path.join(
+        repoRoot,
+        "packages/normalization-core/src/string-normalization.ts",
+      ),
     },
   },
   test: {

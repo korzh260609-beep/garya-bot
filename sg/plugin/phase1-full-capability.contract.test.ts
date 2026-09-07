@@ -3,7 +3,7 @@ import { chmod, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { filterToolsByPolicy } from "../../src/agents/agent-tools.policy.js";
+import { isToolAllowedByPolicyName } from "../../src/agents/tool-policy-match.js";
 import { mergeAlsoAllowPolicy, resolveToolProfilePolicy } from "../../src/agents/tool-policy.js";
 import { pickSandboxToolPolicy } from "../../src/agents/sandbox-tool-policy.js";
 import { resolveToolsBySender } from "../../src/config/group-policy.js";
@@ -168,15 +168,18 @@ function effectiveTools(config: RuntimeConfig, senderId: string) {
     resolveToolProfilePolicy(fullProfileConfig.tools?.profile),
     fullProfileConfig.tools?.alsoAllow,
   );
-  const afterProfile = filterToolsByPolicy(toolCatalog, profilePolicy);
+  const afterProfile = toolCatalog.filter((tool) =>
+    isToolAllowedByPolicyName(tool.name, profilePolicy),
+  );
   const senderPolicy = resolveToolsBySender({
     toolsBySender: fullProfileConfig.tools?.toolsBySender,
     messageProvider: "telegram",
     senderId,
   });
-  return filterToolsByPolicy(afterProfile, pickSandboxToolPolicy(senderPolicy)).map(
-    (tool) => tool.name,
-  );
+  const senderToolPolicy = pickSandboxToolPolicy(senderPolicy);
+  return afterProfile
+    .filter((tool) => isToolAllowedByPolicyName(tool.name, senderToolPolicy))
+    .map((tool) => tool.name);
 }
 
 describe("SG 2.2 Phase 1 full capability contracts", () => {

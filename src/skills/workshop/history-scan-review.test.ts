@@ -27,6 +27,8 @@ describe("Skill Workshop history scan review", () => {
       expect.objectContaining({
         provider: "openai",
         model: "gpt-test",
+        messageProvider: "webchat",
+        senderIsOwner: true,
         modelSelectionLocked: true,
         modelFallbacksOverride: [],
       }),

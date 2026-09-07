@@ -4,6 +4,7 @@ import { resolveDefaultModelForAgent } from "../../agents/model-selection-config
 import { SessionManager } from "../../agents/sessions/index.js";
 import type { OpenClawConfig } from "../../config/types.openclaw.js";
 import { CommandLane } from "../../process/lanes.js";
+import { INTERNAL_MESSAGE_CHANNEL } from "../../utils/message-channel-constants.js";
 import {
   buildSkillHistoryScanPrompt,
   type SkillHistoryScanPromptSession,
@@ -77,6 +78,8 @@ export async function runSkillHistoryScanReview(params: {
       sessionManager: SessionManager.inMemory(params.workspaceDir),
       agentId: params.agentId,
       trigger: "manual",
+      messageProvider: INTERNAL_MESSAGE_CHANNEL,
+      senderIsOwner: true,
       lane: CommandLane.SkillWorkshopReview,
       agentHarnessId: "openclaw",
       agentHarnessRuntimeOverride: "openclaw",

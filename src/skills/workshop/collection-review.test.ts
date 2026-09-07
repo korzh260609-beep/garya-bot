@@ -116,6 +116,8 @@ describe("skill collection review", () => {
     expect(runEmbeddedAgent).toHaveBeenCalledWith(
       expect.objectContaining({
         trigger: "cron",
+        messageProvider: "webchat",
+        senderIsOwner: true,
         authProfileId: "openai:work",
         authProfileIdSource: "user",
         toolsAllow: ["skill_workshop"],

@@ -12,6 +12,14 @@ import { registerWorkspaceManager } from "./register.js";
 
 type RuntimeConfig = {
   session?: { dmScope?: string };
+  messages?: { groupChat?: { mentionPatterns?: string[] } };
+  channels?: {
+    telegram?: {
+      enabled?: boolean;
+      groups?: Record<string, { requireMention?: boolean }>;
+    };
+  };
+  tts?: { provider?: string; auto?: string };
   tools?: {
     profile?: string;
     alsoAllow?: string[];
@@ -45,6 +53,7 @@ const toolCatalog = [
   "music_generate",
   "video_generate",
   "tts",
+  "automations",
   "sessions",
   "sessions_list",
   "sessions_history",
@@ -291,11 +300,32 @@ describe("SG 2.2 Phase 1 full capability contracts", () => {
       "music_generate",
       "video_generate",
       "tts",
+      "automations",
       "sg_content_draft",
       "sg_content_dispatch",
       "sg_test_attempt",
     ]) {
       expect(names, required).toContain(required);
+    }
+  });
+
+  it("exposes Phase 5 Telegram delivery through native OpenClaw capabilities", async () => {
+    const harness = await createEntrypointHarness();
+    const config = await harness.run();
+    const monarchTools = effectiveTools(config, ownerId);
+    const citizenTools = effectiveTools(config, "citizen-1");
+
+    expect(config.session?.dmScope).toBe("per-channel-peer");
+    expect(config.channels?.telegram?.enabled).toBe(true);
+    expect(config.channels?.telegram?.groups?.["*"]?.requireMention).toBe(true);
+    expect(config.messages?.groupChat?.mentionPatterns).toEqual(
+      expect.arrayContaining([expect.stringContaining("сг"), expect.stringContaining("sg")]),
+    );
+    expect(config.tts).toMatchObject({ provider: "openai", auto: "off" });
+
+    for (const tool of ["message", "tts", "automations", "browser", "web_search", "web_fetch"]) {
+      expect(monarchTools, tool).toContain(tool);
+      expect(citizenTools, tool).toContain(tool);
     }
   });
 

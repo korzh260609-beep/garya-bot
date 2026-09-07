@@ -53,6 +53,22 @@ jobs:
       - name: Test WSP1-WSP6 plugin contracts
         run: node scripts/run-vitest.mjs run --config sg/plugin/vitest.config.ts
 
+      - name: Test Phase 5 native Telegram capabilities
+        run: |
+          pnpm test \
+            extensions/telegram/src/dm-session-key.test.ts \
+            extensions/telegram/src/bot-message-context.require-mention.test.ts \
+            extensions/telegram/src/bot-message-dispatch.reply-targets.test.ts \
+            extensions/telegram/src/bot/native-quote.test.ts \
+            extensions/telegram/src/bot-handlers.media.test.ts \
+            extensions/telegram/src/bot-handlers.reaction.runtime.test.ts \
+            extensions/telegram/src/inline-buttons.test.ts \
+            extensions/telegram/src/channel-actions.test.ts \
+            extensions/telegram/src/topic-conversation.test.ts \
+            extensions/telegram/src/voice.test.ts \
+            extensions/telegram/src/outbound-adapter.presentation.test.ts \
+            extensions/telegram/src/poll-visibility.test.ts
+
       - name: Test OpenClaw compaction decimal identifier fix
         run: pnpm test src/agents/agent-hooks/compaction-safeguard.test.ts
 

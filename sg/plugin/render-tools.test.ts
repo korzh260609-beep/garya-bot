@@ -5,8 +5,10 @@ import { createSgRenderTool } from "./render-tools.js";
 
 type ToolResult = { details: unknown };
 
-function renderTool(senderIsOwner = true): AnyAgentTool {
-  return createSgRenderTool({ senderIsOwner } as OpenClawPluginToolContext);
+function renderTool(
+  context: Partial<OpenClawPluginToolContext> = { senderIsOwner: true },
+): AnyAgentTool {
+  return createSgRenderTool(context as OpenClawPluginToolContext);
 }
 
 async function execute(tool: AnyAgentTool, parameters: Record<string, unknown>): Promise<unknown> {
@@ -45,11 +47,56 @@ describe("sg_render Phase 4", () => {
     vi.stubGlobal("fetch", fetchMock);
     vi.stubEnv("RENDER_API_KEY", "phase-4-secret");
 
-    await expect(execute(renderTool(false), { action: "list_services" })).resolves.toStrictEqual({
+    await expect(
+      execute(renderTool({ senderIsOwner: false }), { action: "list_services" }),
+    ).resolves.toStrictEqual({
       status: "forbidden",
       reason: "monarch-required",
     });
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("restores Render access for the trusted Telegram Monarch after a restart", async () => {
+    vi.stubEnv("SG_MONARCH_TELEGRAM_USER_ID", "100");
+    vi.stubEnv("RENDER_API_KEY", "phase-4-secret");
+
+    const result = await execute(
+      renderTool({ messageChannel: "telegram", requesterSenderId: "100" }),
+      { action: "status" },
+    );
+
+    expect(result).toStrictEqual({
+      status: "ready",
+      workspaceConfigured: false,
+      serviceConfigured: false,
+    });
+  });
+
+  it("does not restore Render access for another Telegram sender", async () => {
+    vi.stubEnv("SG_MONARCH_TELEGRAM_USER_ID", "100");
+    vi.stubEnv("RENDER_API_KEY", "phase-4-secret");
+
+    await expect(
+      execute(
+        renderTool({
+          messageChannel: "telegram",
+          requesterSenderId: "200",
+          senderIsOwner: false,
+        }),
+        { action: "status" },
+      ),
+    ).resolves.toStrictEqual({ status: "forbidden", reason: "monarch-required" });
+  });
+
+  it("does not trust the configured Telegram id on another channel", async () => {
+    vi.stubEnv("SG_MONARCH_TELEGRAM_USER_ID", "100");
+    vi.stubEnv("RENDER_API_KEY", "phase-4-secret");
+
+    await expect(
+      execute(renderTool({ messageChannel: "discord", requesterSenderId: "100" }), {
+        action: "status",
+      }),
+    ).resolves.toStrictEqual({ status: "forbidden", reason: "monarch-required" });
   });
 
   it("reports readiness without exposing credential values", async () => {

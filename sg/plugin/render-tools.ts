@@ -407,6 +407,11 @@ async function performAction(action: RenderAction, params: RenderParameters, api
 }
 
 export function createSgRenderTool(ctx: OpenClawPluginToolContext): AnyAgentTool {
+  const configuredTelegramMonarch = configured("SG_MONARCH_TELEGRAM_USER_ID");
+  const trustedTelegramMonarch =
+    ctx.messageChannel?.trim().toLowerCase() === "telegram" &&
+    Boolean(configuredTelegramMonarch) &&
+    ctx.requesterSenderId?.trim() === configuredTelegramMonarch;
   return {
     name: "sg_render",
     label: "Render SG",
@@ -437,7 +442,7 @@ export function createSgRenderTool(ctx: OpenClawPluginToolContext): AnyAgentTool
       },
     },
     async execute(_toolCallId, rawParameters) {
-      if (ctx.senderIsOwner !== true) {
+      if (ctx.senderIsOwner !== true && !trustedTelegramMonarch) {
         return jsonResult({ status: "forbidden", reason: "monarch-required" });
       }
       const params = (rawParameters ?? {}) as RenderParameters;

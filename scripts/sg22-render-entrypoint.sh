@@ -35,7 +35,7 @@ if [ "$workspace_plugin_enabled" = "true" ]; then
   fi
   workspace_plugin_paths='["/app/sg/plugin"]'
   workspace_plugin_tools='["sg_content_draft","sg_content_review","sg_content_publish","sg_content_schedule","sg_content_dispatch","sg_test_manage","sg_test_attempt","sg_test_stats","sg_render"]'
-  workspace_sender_tools="{\"*\":{\"deny\":[\"read\",\"write\",\"edit\",\"apply_patch\",\"exec\",\"process\",\"code_execution\",\"terminal\",\"github_identity_status\",\"github_publish\",\"*github*\",\"sg_render\",\"gateway\",\"nodes\",\"openclaw\",\"skill_workshop\",\"sessions\",\"sessions_list\",\"sessions_history\",\"sessions_search\",\"sessions_spawn\",\"subagents\",\"secrets\",\"environment\",\"sg_content_review\",\"sg_content_publish\",\"sg_content_schedule\",\"sg_test_manage\",\"sg_test_stats\"]},\"channel:telegram:${telegram_owner_id}\":{\"alsoAllow\":[\"sg_content_review\",\"sg_content_publish\",\"sg_content_schedule\",\"sg_test_manage\",\"sg_test_stats\"]}}"
+  workspace_sender_tools="{\"*\":{\"deny\":[\"read\",\"write\",\"edit\",\"apply_patch\",\"exec\",\"process\",\"code_execution\",\"terminal\",\"github_identity_status\",\"github_publish\",\"*github*\",\"sg_render\",\"gateway\",\"nodes\",\"openclaw\",\"skill_workshop\",\"sessions\",\"sessions_list\",\"sessions_history\",\"sessions_search\",\"sessions_send\",\"sessions_spawn\",\"subagents\",\"secrets\",\"environment\",\"sg_content_review\",\"sg_content_publish\",\"sg_content_schedule\",\"sg_test_manage\",\"sg_test_stats\"]},\"channel:telegram:${telegram_owner_id}\":{\"alsoAllow\":[\"sg_content_review\",\"sg_content_publish\",\"sg_content_schedule\",\"sg_test_manage\",\"sg_test_stats\"]}}"
 else
   workspace_plugin_paths='[]'
   workspace_plugin_tools='[]'

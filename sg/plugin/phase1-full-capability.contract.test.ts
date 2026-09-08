@@ -58,6 +58,7 @@ const toolCatalog = [
   "sessions_list",
   "sessions_history",
   "sessions_search",
+  "sessions_send",
   "sessions_spawn",
   "subagents",
   "github_identity_status",
@@ -346,6 +347,14 @@ describe("SG 2.2 Phase 1 full capability contracts", () => {
     }
     expect(names).toContain("memory_search");
     expect(names).toContain("memory_get");
+  });
+
+  it("keeps cross-session send available only to the Monarch", async () => {
+    const harness = await createEntrypointHarness();
+    const config = await harness.run();
+
+    expect(effectiveTools(config, ownerId)).toContain("sessions_send");
+    expect(effectiveTools(config, "citizen-1")).not.toContain("sessions_send");
   });
 
   it("restores the same full capability policy after a stale-state restart", async () => {

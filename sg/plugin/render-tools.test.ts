@@ -30,12 +30,20 @@ afterEach(() => {
 });
 
 describe("sg_render Phase 4", () => {
-  it("keeps raw Control UI HTML from becoming a false post-deploy failure", () => {
+  it("keeps automated post-deploy verification out of the browser", () => {
     const description = renderTool().description;
 
-    expect(description).toContain("Never treat fallback text in raw root HTML as a UI failure");
-    expect(description).toContain("verify Control UI only in a real browser");
+    expect(description).toContain("must not open Control UI or a browser automatically");
+    expect(description).toContain("UI as not_verified");
     expect(description).toContain("continue the remaining deploy checks");
+    expect(description).not.toContain("verify Control UI only in a real browser");
+  });
+
+  it("uses the server-side Render memory metric instead of a public debug URL", () => {
+    const description = renderTool().description;
+
+    expect(description).toContain("action=metrics with metric=memory");
+    expect(description).toContain("Never use a public debug URL for RSS");
   });
 
   it("declares Phase 4 runtime inputs and startup integrity coverage", async () => {

@@ -413,8 +413,8 @@ export function createSgRenderTool(_ctx: OpenClawPluginToolContext): AnyAgentToo
     description:
       "Monarch-only Render API operations for services, deploys, logs, metrics, ENV, and Blueprint validation. " +
       "For post-deploy checks use Live status, source SHA, image_commit logs, /health, gateway, Telegram, model API, sg_render, then RSS. " +
-      "Never treat fallback text in raw root HTML as a UI failure: verify Control UI only in a real browser. " +
-      "If browser verification is unavailable, report UI as not_verified and continue the remaining deploy checks.",
+      "Automated post-deploy checks must not open Control UI or a browser automatically; report UI as not_verified and continue the remaining deploy checks. " +
+      "Obtain RSS evidence server-side using sg_render action=metrics with metric=memory. Never use a public debug URL for RSS.",
     parameters: {
       type: "object",
       additionalProperties: false,

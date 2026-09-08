@@ -30,6 +30,14 @@ afterEach(() => {
 });
 
 describe("sg_render Phase 4", () => {
+  it("keeps raw Control UI HTML from becoming a false post-deploy failure", () => {
+    const description = renderTool().description;
+
+    expect(description).toContain("Never treat fallback text in raw root HTML as a UI failure");
+    expect(description).toContain("verify Control UI only in a real browser");
+    expect(description).toContain("continue the remaining deploy checks");
+  });
+
   it("declares Phase 4 runtime inputs and startup integrity coverage", async () => {
     const [blueprint, entrypoint] = await Promise.all([
       readFile("render.yaml", "utf8"),

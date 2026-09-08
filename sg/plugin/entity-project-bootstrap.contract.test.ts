@@ -30,22 +30,21 @@ describe("SG project and entity bootstrap contract", () => {
     expect(entity).toContain("Self-description");
   });
 
-  it("projects project meaning into every live workspace instruction layer", async () => {
-    const workspaceFiles = await Promise.all([
+  it("projects project meaning into the assembled live workspace bootstrap", async () => {
+    const [identity, soul, agents] = await Promise.all([
       read("sg/workspace/IDENTITY.md"),
       read("sg/workspace/SOUL.md"),
       read("sg/workspace/AGENTS.md"),
     ]);
+    const bootstrap = [identity, soul, agents].join("\n");
 
-    for (const document of workspaceFiles) {
-      expect(document).toContain("global project entity");
-      expect(document).toContain("OpenClaw");
-      expect(document).toContain("architect");
-      expect(document).toContain("controlled");
-    }
-
-    expect(workspaceFiles.join("\n")).toContain("Kingdom GARYA");
-    expect(workspaceFiles.join("\n")).toContain(
+    expect(identity).toContain("global project entity");
+    expect(identity).toContain("intelligent project system of Project SG");
+    expect(bootstrap).toContain("Kingdom GARYA");
+    expect(bootstrap).toContain("OpenClaw");
+    expect(bootstrap).toContain("architect");
+    expect(bootstrap).toContain("controlled");
+    expect(bootstrap).toContain(
       "meaning -> intent -> context -> capability -> permission -> source/tool -> action/answer",
     );
   });
@@ -67,7 +66,7 @@ describe("SG project and entity bootstrap contract", () => {
   });
 
   it("installs all semantic bootstrap files into the persistent workspace", async () => {
-    const entrypoint = await read("sg/runtime/entrypoint.sh");
+    const entrypoint = await read("scripts/sg22-render-entrypoint.sh");
 
     expect(entrypoint).toContain("IDENTITY.md");
     expect(entrypoint).toContain("SOUL.md");

@@ -11,7 +11,9 @@ describe("SG project and entity bootstrap contract", () => {
     ]);
 
     for (const document of [project, entity]) {
-      expect(document).toContain("SG is the global project entity and project system.");
+      expect(document).toContain(
+        "SG is the global project entity and project system",
+      );
       expect(document).toContain(
         "OpenClaw is the authoritative technical platform and runtime beneath SG; it is not SG's identity.",
       );

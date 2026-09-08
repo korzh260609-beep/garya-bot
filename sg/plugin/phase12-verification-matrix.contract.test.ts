@@ -20,6 +20,9 @@ const currentPluginTools = [
   "sg_test_manage",
   "sg_test_attempt",
   "sg_test_stats",
+  "sg_memory_remember",
+  "sg_memory_search",
+  "sg_memory_get",
   "sg_render",
 ] as const;
 

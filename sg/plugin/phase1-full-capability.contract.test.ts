@@ -45,6 +45,9 @@ const toolCatalog = [
   "web_fetch",
   "memory_search",
   "memory_get",
+  "sg_memory_remember",
+  "sg_memory_search",
+  "sg_memory_get",
   "message",
   "file_fetch",
   "file_write",
@@ -95,6 +98,7 @@ async function createEntrypointHarness() {
   for (const file of [
     "index.ts",
     "register.ts",
+    "personal-memory-tools.ts",
     "cost-diagnostics.ts",
     "render-tools.ts",
     "openclaw.plugin.json",
@@ -282,7 +286,7 @@ describe("SG 2.2 Phase 1 full capability contracts", () => {
     }
   });
 
-  it("keeps ordinary browser, search, memory, message, file and media tools for citizens", async () => {
+  it("keeps ordinary browser, search, isolated memory, message, file and media tools for citizens", async () => {
     const harness = await createEntrypointHarness();
     const config = await harness.run();
     const names = effectiveTools(config, "citizen-1");
@@ -291,8 +295,9 @@ describe("SG 2.2 Phase 1 full capability contracts", () => {
       "browser",
       "web_search",
       "web_fetch",
-      "memory_search",
-      "memory_get",
+      "sg_memory_remember",
+      "sg_memory_search",
+      "sg_memory_get",
       "message",
       "file_fetch",
       "file_write",
@@ -345,8 +350,10 @@ describe("SG 2.2 Phase 1 full capability contracts", () => {
     ]) {
       expect(names, crossSessionReader).not.toContain(crossSessionReader);
     }
-    expect(names).toContain("memory_search");
-    expect(names).toContain("memory_get");
+    expect(names).not.toContain("memory_search");
+    expect(names).not.toContain("memory_get");
+    expect(names).toContain("sg_memory_search");
+    expect(names).toContain("sg_memory_get");
   });
 
   it("keeps cross-session send available only to the Monarch", async () => {

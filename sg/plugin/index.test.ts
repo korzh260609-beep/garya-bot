@@ -189,6 +189,9 @@ describe("SG Workspace Manager", () => {
       "sg_test_manage",
       "sg_test_attempt",
       "sg_test_stats",
+      "sg_memory_remember",
+      "sg_memory_search",
+      "sg_memory_get",
       "sg_render",
     ]);
     expect(registerInteractiveHandler).toHaveBeenCalledWith({
@@ -214,6 +217,7 @@ describe("SG Workspace Manager", () => {
       { channel: "telegram", conversationId: "telegram:100", senderId: "100" },
     )) as { prependSystemContext?: string };
     expect(result.prependSystemContext).toContain("Роль SG: monarch");
+    expect(result.prependSystemContext).toContain("sg_memory_search");
     expect(result.prependSystemContext).toContain("штатным automations");
     expect(result.prependSystemContext).toContain("обычные опросы отправляй штатным message");
     expect(result.prependSystemContext).not.toMatch(/sg_workspace_(?:onboard|pending|decide)/u);

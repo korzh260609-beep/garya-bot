@@ -30,11 +30,12 @@ describe("SG 2.2 Render entrypoint", () => {
       '{"path":"plugins.entries.sg-workspace-manager.hooks.allowConversationAccess","value":true}',
     );
     expect(script).toContain(
-      'workspace_plugin_tools=\'["sg_content_draft","sg_content_review","sg_content_publish","sg_content_schedule","sg_content_dispatch","sg_test_manage","sg_test_attempt","sg_test_stats","sg_render"]\'',
+      'workspace_plugin_tools=\'["sg_content_draft","sg_content_review","sg_content_publish","sg_content_schedule","sg_content_dispatch","sg_test_manage","sg_test_attempt","sg_test_stats","sg_memory_remember","sg_memory_search","sg_memory_get","sg_render"]\'',
     );
     expect(script).toContain("node /app/scripts/sg22-migrate-workspace-memberships.mjs");
     expect(script).toContain("node /app/scripts/sg22-migrate-workspace-requests.mjs");
     expect(script).toContain("node /app/scripts/sg22-migrate-wsp6-assessments.mjs");
+    expect(script).toMatch(/deny[^\\n]+memory_search[^\\n]+memory_get/u);
     expect(script).toMatch(/deny[^\n]+sg_test_manage[^\n]+sg_test_stats/u);
     expect(script).toMatch(/alsoAllow[^\n]+sg_test_manage[^\n]+sg_test_stats/u);
     expect(script).toContain('{"path":"tools.alsoAllow","value":\'"${workspace_plugin_tools}"\'}');
@@ -77,7 +78,7 @@ describe("SG 2.2 Render entrypoint", () => {
       '{"path":"agents.defaults.contextPruning.hardClear.enabled","value":true}',
     );
     expect(script).toContain(
-      "for plugin_file in index.ts register.ts cost-diagnostics.ts render-tools.ts openclaw.plugin.json package.json",
+      "for plugin_file in index.ts register.ts personal-memory-tools.ts cost-diagnostics.ts render-tools.ts openclaw.plugin.json package.json",
     );
   });
 });

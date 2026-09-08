@@ -3,6 +3,10 @@ import { SgContentRegistry } from "./content-registry.js";
 import { SgContextDiagnostics, type SgContextDiagnosticCommand } from "./context-diagnostics.js";
 import { formatWorkspaceContext, resolveWorkspaceContext } from "./context.js";
 import { buildSgCostDiagnostic, type SgCostDiagnosticConfig } from "./cost-diagnostics.js";
+import {
+  createPersonalMemoryTools,
+  PERSONAL_MEMORY_AGENT_GUIDANCE,
+} from "./personal-memory-tools.js";
 import { createSgRenderTool } from "./render-tools.js";
 import { formatWorkspaceResolution, SgWorkspaceRegistry } from "./workspace-registry.js";
 import { buildWsp5Diagnostic } from "./wsp5-diagnostics.js";
@@ -63,6 +67,11 @@ const WSP5_TOOL_NAMES = [
   "sg_content_dispatch",
 ] as const;
 const WSP6_TOOL_NAMES = ["sg_test_manage", "sg_test_attempt", "sg_test_stats"] as const;
+const PERSONAL_MEMORY_TOOL_NAMES = [
+  "sg_memory_remember",
+  "sg_memory_search",
+  "sg_memory_get",
+] as const;
 const RENDER_TOOL_NAMES = ["sg_render"] as const;
 
 function canonicalResourceId(channel: string, conversationId: string): string {
@@ -142,6 +151,9 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
   api.registerTool((ctx) => createWsp6Tools(ctx, stateDir, resolveAssessments(), wsp6Lifecycle), {
     names: [...WSP6_TOOL_NAMES],
   });
+  api.registerTool((ctx) => createPersonalMemoryTools(ctx, stateDir), {
+    names: [...PERSONAL_MEMORY_TOOL_NAMES],
+  });
   api.registerTool((ctx) => createSgRenderTool(ctx), { names: [...RENDER_TOOL_NAMES] });
   wsp5Lifecycle.register(api);
   wsp6Lifecycle.register(api);
@@ -171,7 +183,7 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
       );
     }
     return {
-      prependSystemContext: `${identityContext}\n\n${WSP5_AGENT_GUIDANCE}\n${WSP6_AGENT_GUIDANCE}`,
+      prependSystemContext: `${identityContext}\n\n${PERSONAL_MEMORY_AGENT_GUIDANCE}\n${WSP5_AGENT_GUIDANCE}\n${WSP6_AGENT_GUIDANCE}`,
     };
   });
 

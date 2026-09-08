@@ -34,8 +34,8 @@ if [ "$workspace_plugin_enabled" = "true" ]; then
     exit 1
   fi
   workspace_plugin_paths='["/app/sg/plugin"]'
-  workspace_plugin_tools='["sg_content_draft","sg_content_review","sg_content_publish","sg_content_schedule","sg_content_dispatch","sg_test_manage","sg_test_attempt","sg_test_stats","sg_render"]'
-  workspace_sender_tools="{\"*\":{\"deny\":[\"read\",\"write\",\"edit\",\"apply_patch\",\"exec\",\"process\",\"code_execution\",\"terminal\",\"github_identity_status\",\"github_publish\",\"*github*\",\"sg_render\",\"gateway\",\"nodes\",\"openclaw\",\"skill_workshop\",\"sessions\",\"sessions_list\",\"sessions_history\",\"sessions_search\",\"sessions_send\",\"sessions_spawn\",\"subagents\",\"secrets\",\"environment\",\"sg_content_review\",\"sg_content_publish\",\"sg_content_schedule\",\"sg_test_manage\",\"sg_test_stats\"]},\"channel:telegram:${telegram_owner_id}\":{\"alsoAllow\":[\"sg_content_review\",\"sg_content_publish\",\"sg_content_schedule\",\"sg_test_manage\",\"sg_test_stats\"]}}"
+  workspace_plugin_tools='["sg_content_draft","sg_content_review","sg_content_publish","sg_content_schedule","sg_content_dispatch","sg_test_manage","sg_test_attempt","sg_test_stats","sg_memory_remember","sg_memory_search","sg_memory_get","sg_render"]'
+  workspace_sender_tools="{\"*\":{\"deny\":[\"read\",\"write\",\"edit\",\"apply_patch\",\"exec\",\"process\",\"code_execution\",\"terminal\",\"github_identity_status\",\"github_publish\",\"*github*\",\"sg_render\",\"gateway\",\"nodes\",\"openclaw\",\"skill_workshop\",\"sessions\",\"sessions_list\",\"sessions_history\",\"sessions_search\",\"sessions_send\",\"sessions_spawn\",\"subagents\",\"secrets\",\"environment\",\"memory_search\",\"memory_get\",\"sg_content_review\",\"sg_content_publish\",\"sg_content_schedule\",\"sg_test_manage\",\"sg_test_stats\"]},\"channel:telegram:${telegram_owner_id}\":{\"alsoAllow\":[\"sg_content_review\",\"sg_content_publish\",\"sg_content_schedule\",\"sg_test_manage\",\"sg_test_stats\"]}}"
 else
   workspace_plugin_paths='[]'
   workspace_plugin_tools='[]'
@@ -196,7 +196,7 @@ else
   echo "SG GitHub diagnostic: authenticated=false reason=cli_missing"
 fi
 if [ "$workspace_plugin_enabled" = "true" ]; then
-  for plugin_file in index.ts register.ts cost-diagnostics.ts render-tools.ts openclaw.plugin.json package.json; do
+  for plugin_file in index.ts register.ts personal-memory-tools.ts cost-diagnostics.ts render-tools.ts openclaw.plugin.json package.json; do
     if [ ! -f "/app/sg/plugin/$plugin_file" ]; then
       echo "SG 2.2 startup error: missing plugin file $plugin_file" >&2
       exit 1

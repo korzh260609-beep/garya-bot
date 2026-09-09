@@ -2108,8 +2108,13 @@ describe("compaction-safeguard recent-turn preservation", () => {
       qualityGuardMaxRetries: 1,
     });
     const event = createCompactionEvent({
-      messageText: `${"older history ".repeat(900_000)}${latestAsk}`,
+      messageText: latestAsk,
       tokensBefore: 3_000_000,
+    });
+    event.preparation.messagesToSummarize.unshift({
+      role: "user",
+      content: "older history ".repeat(900_000),
+      timestamp: 0,
     });
     (
       event.preparation as { settings?: { reserveTokens: number }; isSplitTurn?: boolean }

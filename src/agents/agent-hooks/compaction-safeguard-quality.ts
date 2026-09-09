@@ -255,18 +255,37 @@ export function createSummaryQualityRetentionPlan(
   };
 }
 
+type StructuredFallbackSummaryFacts = {
+  latestAsk?: string | null;
+  identifiers?: string[];
+  identifierPolicy?: CompactionSummarizationInstructions["identifierPolicy"];
+};
+
+function escapeRequiredSummaryHeadings(text: string): string {
+  const headings = new Set<string>(REQUIRED_SUMMARY_SECTIONS);
+  return text
+    .split(/\r?\n/u)
+    .map((line) => (headings.has(line.trim()) ? `> ${line}` : line))
+    .join("\n");
+}
+
 /** Return a structured fallback summary when model output is missing/invalid. */
-export function buildStructuredFallbackSummary(previousSummary: string | undefined): string {
+export function buildStructuredFallbackSummary(
+  previousSummary: string | undefined,
+  facts?: StructuredFallbackSummaryFacts,
+): string {
   const trimmedPreviousSummary = previousSummary?.trim() ?? "";
-  if (trimmedPreviousSummary && hasRequiredSummarySections(trimmedPreviousSummary)) {
+  if (!facts && trimmedPreviousSummary && hasRequiredSummarySections(trimmedPreviousSummary)) {
     return trimmedPreviousSummary;
   }
+  const identifiers =
+    (facts?.identifierPolicy ?? "strict") === "strict" ? (facts?.identifiers ?? []) : [];
   const values = [
-    trimmedPreviousSummary || "No prior history.",
+    escapeRequiredSummaryHeadings(trimmedPreviousSummary) || "No prior history.",
     "None.",
     "None.",
-    "None.",
-    "None captured.",
+    facts?.latestAsk?.trim() || "None.",
+    identifiers.length > 0 ? identifiers.join("\n") : "None captured.",
   ];
   return REQUIRED_SUMMARY_SECTIONS.map((heading, index) => `${heading}\n${values[index]}`).join(
     "\n\n",

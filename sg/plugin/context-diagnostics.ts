@@ -156,6 +156,12 @@ function classifyError(error: unknown): string {
   return text ? "other" : "none";
 }
 
+function extractCompactionReasonCodes(error: unknown): string {
+  const text = typeof error === "string" ? error : error instanceof Error ? error.message : "";
+  const match = text.match(/\breasonCodes?=([a-z0-9_,.-]+)/iu);
+  return match?.[1] ?? "unknown";
+}
+
 function latest(events: ContextEvent[], stage: string): ContextEvent | undefined {
   return events.toReversed().find((event) => event.stage === stage);
 }
@@ -433,6 +439,7 @@ export class SgContextDiagnostics {
         {
           success: event.success,
           errorClass: classifyError(event.error),
+          compactionReasonCodes: extractCompactionReasonCodes(event.error),
           messages: event.messages.length,
         },
       );
@@ -569,6 +576,7 @@ export class SgContextDiagnostics {
       `compaction_before: ${beforeCompaction ? `OBSERVED (${fact(beforeCompaction, "tokens") ?? "?"} tokens)` : "NOT_OBSERVED"}`,
       `compaction_after: ${afterCompaction ? `SUCCESS (${fact(afterCompaction, "tokens") ?? "?"} tokens)` : "NOT_OBSERVED"}`,
       `last_error: ${fact(ended, "errorClass") ?? "none"}`,
+      `compaction_reason_codes: ${fact(ended, "compactionReasonCodes") ?? "unknown"}`,
       `compaction_probe: ${probeText}`,
       `breakpoint: ${breakpoint}`,
       `events: ${events.length}`,

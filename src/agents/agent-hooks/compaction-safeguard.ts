@@ -1387,7 +1387,7 @@ export default function compactionSafeguardExtension(api: ExtensionAPI): void {
             );
             setCompactionSafeguardCancelReason(
               ctx.sessionManager,
-              "Compaction safeguard finalized summary failed quality checks and corrective generation failed.",
+              "Compaction safeguard finalized summary failed quality checks and corrective generation failed. reasonCode=corrective_generation_failed",
             );
             return { cancel: true };
           }
@@ -1427,7 +1427,7 @@ export default function compactionSafeguardExtension(api: ExtensionAPI): void {
           );
           setCompactionSafeguardCancelReason(
             ctx.sessionManager,
-            "Compaction safeguard required facts exceed the finalized summary budget.",
+            "Compaction safeguard required facts exceed the finalized summary budget. reasonCode=required_facts_exceed_budget",
           );
           return { cancel: true };
         }
@@ -1445,13 +1445,48 @@ export default function compactionSafeguardExtension(api: ExtensionAPI): void {
           const reasonCodes = [
             ...new Set(quality.reasons.map((reason) => reason.split(":", 1)[0])),
           ];
+          if (canRegenerate) {
+            const requiredAskContext = formatRequiredAskContext(latestUserAsk ?? "");
+            const fallbackBody = buildStructuredFallbackSummary(finalized.structuralSummary, {
+              latestAsk: requiredAskContext,
+              identifiers,
+              identifierPolicy,
+            });
+            const fallbackFinalized = await finalizeSummaryText(
+              fallbackBody,
+              { preservedTurnsSection: preservedTurnsSectionLocal },
+              producerLosses,
+              {
+                auditSummary: fallbackBody,
+                identifiers,
+                latestAsk: latestUserAsk,
+                requiredAskContext,
+                identifierPolicy,
+              },
+            );
+            const fallbackQuality = auditSummaryQuality({
+              summary: fallbackFinalized.summary,
+              structuralSummary: fallbackFinalized.structuralSummary,
+              identifiers,
+              latestAsk: latestUserAsk,
+              identifierPolicy,
+            });
+            if (!fallbackFinalized.qualityRetentionInfeasible && fallbackQuality.ok) {
+              log.warn(
+                "Compaction safeguard: applied structured quality fallback; " +
+                  `reasonCodes=${reasonCodes.join(",")} reasonCount=${quality.reasons.length}`,
+              );
+              return compactionResult(fallbackFinalized.summary);
+            }
+          }
           log.warn(
             "Compaction safeguard: finalized summary failed quality checks; " +
               `reasonCodes=${reasonCodes.join(",")} reasonCount=${quality.reasons.length}`,
           );
           setCompactionSafeguardCancelReason(
             ctx.sessionManager,
-            "Compaction safeguard finalized summary failed quality checks.",
+            "Compaction safeguard finalized summary failed quality checks. " +
+              `reasonCodes=${reasonCodes.join(",")}`,
           );
           return { cancel: true };
         }

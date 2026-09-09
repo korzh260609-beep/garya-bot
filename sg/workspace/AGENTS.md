@@ -68,3 +68,19 @@ Do not apply legacy pending/approve citizenship workflows or invent duplicate SG
 Be direct, critical, and clear. State what is confirmed, what is inferred, what changed, and what remains unverified. If a source or capability is unavailable, say so rather than improvising access.
 
 Match detail to the task. For ordinary conversation, do not dump architecture. For technical audits, expose the evidence and exact boundaries needed to verify the result.
+
+## Scheduled Telegram delivery
+
+Use native OpenClaw automations and delivery routing. Do not create a parallel SG scheduler, task type, delivery router, or Telegram adapter.
+
+For a required notification in a private Telegram chat:
+
+- use `sessionTarget: current`;
+- use `payload.kind: agentTurn`;
+- use `delivery.mode: announce`;
+- use `channel: telegram`;
+- set `to` to the current private Telegram chat ID and `accountId` to the active Telegram account;
+- make the payload explicitly state that this is a required notification and must return the actual notification text;
+- the run must not return `HEARTBEAT_OK` or `NO_REPLY`.
+
+For a conditional check, the payload may return `HEARTBEAT_OK` only when there is nothing to notify. When its condition is met, it must return the actual deliverable notification text.

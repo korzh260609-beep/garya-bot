@@ -7,7 +7,7 @@ import {
   createPersonalMemoryTools,
   PERSONAL_MEMORY_AGENT_GUIDANCE,
 } from "./personal-memory-tools.js";
-import { createSgRenderTool } from "./render-tools.js";
+import {\n  createProjectMemoryTools,\n  PROJECT_MEMORY_AGENT_GUIDANCE,\n  PROJECT_MEMORY_TOOL_NAMES,\n} from "./project-memory-tools.js";\nimport { createSgRenderTool } from "./render-tools.js";
 import { formatWorkspaceResolution, SgWorkspaceRegistry } from "./workspace-registry.js";
 import { buildWsp5Diagnostic } from "./wsp5-diagnostics.js";
 import { Wsp5NativeLifecycle } from "./wsp5-lifecycle.js";
@@ -159,7 +159,7 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
   wsp6Lifecycle.register(api);
 
   api.on("before_prompt_build", async (_event, ctx) => {
-    let identityContext = [
+    let projectMemoryGuidance = "";\n    let identityContext = [
       "SG — identity and scope",
       "Global ID: не найден",
       "Роль SG: не определена",
@@ -183,7 +183,7 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
       );
     }
     return {
-      prependSystemContext: `${identityContext}\n\n${PERSONAL_MEMORY_AGENT_GUIDANCE}\n${WSP5_AGENT_GUIDANCE}\n${WSP6_AGENT_GUIDANCE}`,
+      prependSystemContext: `${identityContext}\n\n${PERSONAL_MEMORY_AGENT_GUIDANCE}${projectMemoryGuidance}\n${WSP5_AGENT_GUIDANCE}\n${WSP6_AGENT_GUIDANCE}`,
     };
   });
 

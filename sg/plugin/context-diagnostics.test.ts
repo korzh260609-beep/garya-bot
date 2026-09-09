@@ -123,6 +123,39 @@ describe("SG context end-to-end diagnostics", () => {
     expect(result).toContain("breakpoint: COMPACTION_QUALITY_GUARD");
   });
 
+  it("reports exact redacted quality reason codes without private summary text", async () => {
+    const { diagnostics, hooks, identity } = await fixture();
+    await hooks.get("llm_input")?.(
+      {
+        ...identity,
+        provider: "openai",
+        model: "gpt-5.4-mini",
+        prompt: "hello",
+        historyMessages: [],
+        tools: [],
+      },
+      identity,
+    );
+    await hooks.get("before_compaction")?.({ messageCount: 5, tokenCount: 128_001 }, identity);
+    await hooks.get("agent_end")?.(
+      {
+        runId: identity.runId,
+        messages: [],
+        success: false,
+        error:
+          "Compaction safeguard finalized summary failed quality checks. " +
+          "reasonCodes=missing_section,latest_user_ask_not_reflected",
+      },
+      identity,
+    );
+
+    const result = await diagnostics.report({ ...identity, config });
+    expect(result).toContain(
+      "compaction_reason_codes: missing_section,latest_user_ask_not_reflected",
+    );
+    expect(result).not.toContain("private summary body");
+  });
+
   it("does not let an older successful compaction mask a newer failed attempt", async () => {
     const { diagnostics, hooks, identity } = await fixture();
     await hooks.get("llm_input")?.(

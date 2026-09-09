@@ -2093,6 +2093,43 @@ describe("compaction-safeguard recent-turn preservation", () => {
     expect(consumeCompactionSafeguardCancelReason(sessionManager)).toBeNull();
   });
 
+  it("uses a bounded structured fallback after repeated guard rejection on a multi-megabyte session", async () => {
+    mockSummarizeInStages.mockReset();
+    mockSummarizeInStages
+      .mockResolvedValueOnce(summaryResult("invalid first attempt"))
+      .mockResolvedValueOnce(summaryResult("invalid corrective attempt"));
+
+    const latestAsk = "confirm the final deployment status";
+    const sessionManager = stubSessionManager();
+    setCompactionSafeguardRuntime(sessionManager, {
+      model: createAnthropicModelFixture(),
+      recentTurnsPreserve: 0,
+      qualityGuardEnabled: true,
+      qualityGuardMaxRetries: 1,
+    });
+    const event = createCompactionEvent({
+      messageText: `${"older history ".repeat(900_000)}${latestAsk}`,
+      tokensBefore: 3_000_000,
+    });
+    (
+      event.preparation as { settings?: { reserveTokens: number }; isSplitTurn?: boolean }
+    ).settings = { reserveTokens: 4_000 };
+    (event.preparation as { isSplitTurn?: boolean }).isSplitTurn = false;
+
+    const { result } = await runCompactionScenario({ sessionManager, event, apiKey: "test-key" });
+
+    const summary = expectCompactionResult(result).summary;
+    expect(summary.length).toBeLessThanOrEqual(MAX_COMPACTION_SUMMARY_CHARS);
+    expect(summary).toContain("## Decisions");
+    expect(summary).toContain("## Open TODOs");
+    expect(summary).toContain("## Constraints/Rules");
+    expect(summary).toContain("## Pending user asks");
+    expect(summary).toContain("## Exact identifiers");
+    expect(summary).toContain(latestAsk);
+    expect(mockSummarizeInStages).toHaveBeenCalledTimes(2);
+    expect(consumeCompactionSafeguardCancelReason(sessionManager)).toBeNull();
+  });
+
   it("returns the first finalized retry that passes the source audit", async () => {
     mockSummarizeInStages.mockReset();
     const latestAsk = "report the deployment status";

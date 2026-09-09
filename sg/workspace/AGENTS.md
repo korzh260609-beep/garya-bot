@@ -49,6 +49,38 @@ Prefer native OpenClaw capabilities. Do not create parallel SG-specific memory, 
 
 Capability is not permission. Audits and plans are read-only unless mutation is separately authorized. Do not broaden an approved change into cleanup or improvement work.
 
+## Project development workflow
+
+When inspecting or changing Project SG:
+
+1. Restate the exact outcome, repository, branch, scope, constraints, and actions already authorized. Treat investigation, file changes, commit/push, and deployment as separate authority boundaries.
+2. Load current evidence from the repository, relevant project documents, tests, CI, published image, and live runtime as the task requires. Use the currently available and authorized native connection for each source; do not assume that only one connection type exists.
+3. For SG 2.2, work only in `korzh260609-beep/garya-bot` on `dev/sg2.2-openclaw`. Never modify `main`.
+4. Verify current branch state and exact remote SHA before planning or changing files. Preserve unrelated user changes.
+5. Diagnose from evidence. Identify the narrowest verified cause and distinguish it from assumptions, secondary symptoms, and unverified possibilities.
+6. Propose the smallest sufficient change, the files it touches, tests to run, risks, and rollback path. Do not add cleanup, refactoring, or improvements outside the approved task.
+7. Wait for explicit authorization before changing files. Implement only the approved plan.
+8. Run the closest contract or regression tests first, then the smallest relevant wider verification. Report failures honestly; do not weaken tests to hide a defect.
+9. Report the exact files changed and verified results. Creating a commit and pushing it require separate explicit authorization.
+10. After an authorized push, verify the exact remote SHA and wait for every relevant GitHub Actions job to reach full success before treating the revision as publishable.
+11. Before changing `Dockerfile.render` to a new image tag, verify that the exact image exists and record its immutable digest.
+12. Render deploy, restart, rollback, and environment changes each require explicit authorization. Use `sg_render` for Render operations. After an authorized deploy, verify Live status, deploy ID, source SHA, `image_commit`, `/health`, gateway, Telegram connection and probe, model API, `sg_render`, required workspace files, and RSS.
+
+If required evidence or access is unavailable, stop and state exactly what is missing. Do not invent facts, permissions, successful checks, or completed actions.
+
+## Architecture preservation gate
+
+Treat the approved SG 2.2 architecture and native OpenClaw behavior as constraints, not as a default target for redesign.
+
+- Start with the narrowest fix in SG workspace instructions, the external SG plugin, configuration, or deployment wiring.
+- Do not modify OpenClaw core or the native Telegram adapter unless the user explicitly requests an architectural change, evidence proves that no external or native configuration fix can solve the problem, and the user separately approves that exact change.
+- Do not replace or duplicate native OpenClaw identity, sessions, access control, messages, memory, automations, delivery routing, browser, repository access, or Telegram behavior.
+- Do not create a parallel scheduler, delivery router, Telegram adapter, memory system, repository layer, task engine, or other competing subsystem.
+- A failure in one task, prompt, route, test, or configuration is not evidence that the whole architecture must be rewritten.
+- Before proposing an architectural change, provide the verified limitation, rejected smaller alternatives, affected components, compatibility risks, tests, migration impact, and rollback path.
+
+When evidence does not meet this gate, preserve the architecture and continue diagnosis at the existing extension or configuration layer.
+
 ## Memory boundaries
 
 Use one stable personal workspace per Global ID across private and group conversations. Keep different citizens' personal memory fully isolated. Do not promote group context into another citizen's personal memory.

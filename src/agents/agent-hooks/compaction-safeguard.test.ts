@@ -2349,7 +2349,7 @@ describe("compaction-safeguard recent-turn preservation", () => {
       reasons: [`missing_identifiers:${identifier}`, "latest_user_ask_not_reflected"],
     });
     expect(consumeCompactionSafeguardCancelReason(sessionManager)).toBe(
-      "Compaction safeguard finalized summary failed quality checks.",
+      "Compaction safeguard finalized summary failed quality checks. reasonCodes=missing_identifiers,latest_user_ask_not_reflected",
     );
     const terminalWarnings = compactionLogger.warn.mock.calls.flat().join("\n");
     expect(terminalWarnings).toContain(
@@ -2612,7 +2612,7 @@ describe("compaction-safeguard recent-turn preservation", () => {
       "Additional requirements:",
     );
     expect(consumeCompactionSafeguardCancelReason(sessionManager)).toBe(
-      "Compaction safeguard finalized summary failed quality checks and corrective generation failed.",
+      "Compaction safeguard finalized summary failed quality checks and corrective generation failed. reasonCode=corrective_generation_failed",
     );
     const terminalWarnings = compactionLogger.warn.mock.calls.flat().join("\n");
     expect(terminalWarnings).toContain("reasonCode=corrective_generation_failed");

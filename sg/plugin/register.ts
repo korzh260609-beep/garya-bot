@@ -7,7 +7,12 @@ import {
   createPersonalMemoryTools,
   PERSONAL_MEMORY_AGENT_GUIDANCE,
 } from "./personal-memory-tools.js";
-import {\n  createProjectMemoryTools,\n  PROJECT_MEMORY_AGENT_GUIDANCE,\n  PROJECT_MEMORY_TOOL_NAMES,\n} from "./project-memory-tools.js";\nimport { createSgRenderTool } from "./render-tools.js";
+import {
+  createProjectMemoryTools,
+  PROJECT_MEMORY_AGENT_GUIDANCE,
+  PROJECT_MEMORY_TOOL_NAMES,
+} from "./project-memory-tools.js";
+import { createSgRenderTool } from "./render-tools.js";
 import { formatWorkspaceResolution, SgWorkspaceRegistry } from "./workspace-registry.js";
 import { buildWsp5Diagnostic } from "./wsp5-diagnostics.js";
 import { Wsp5NativeLifecycle } from "./wsp5-lifecycle.js";
@@ -154,29 +159,35 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
   api.registerTool((ctx) => createPersonalMemoryTools(ctx, stateDir), {
     names: [...PERSONAL_MEMORY_TOOL_NAMES],
   });
+  api.registerTool((ctx) => createProjectMemoryTools(ctx, stateDir), {
+    names: [...PROJECT_MEMORY_TOOL_NAMES],
+  });
   api.registerTool((ctx) => createSgRenderTool(ctx), { names: [...RENDER_TOOL_NAMES] });
   wsp5Lifecycle.register(api);
   wsp6Lifecycle.register(api);
 
   api.on("before_prompt_build", async (_event, ctx) => {
-    let projectMemoryGuidance = "";\n    let identityContext = [
+    let projectMemoryGuidance = "";
+    let identityContext = [
       "SG — identity and scope",
       "Global ID: не найден",
       "Роль SG: не определена",
     ].join("\n");
     try {
-      identityContext = formatWorkspaceContext(
-        await resolveWorkspaceContext(
-          {
-            channel: ctx.channel ?? ctx.messageProvider ?? "",
-            accountId: ctx.accountId,
-            to: ctx.conversationId,
-            senderId: ctx.senderId,
-            identityLinks: api.config?.session?.identityLinks,
-          },
-          stateDir,
-        ),
+      const identity = await resolveWorkspaceContext(
+        {
+          channel: ctx.channel ?? ctx.messageProvider ?? "",
+          accountId: ctx.accountId,
+          to: ctx.conversationId,
+          senderId: ctx.senderId,
+          identityLinks: api.config?.session?.identityLinks,
+        },
+        stateDir,
       );
+      identityContext = formatWorkspaceContext(identity);
+      if (identity.projectRole === "monarch" && identity.globalId) {
+        projectMemoryGuidance = `\n${PROJECT_MEMORY_AGENT_GUIDANCE}`;
+      }
     } catch (error) {
       api.logger?.warn(
         `[sg-workspace] identity resolution failed safely: ${error instanceof Error ? error.message : String(error)}`,

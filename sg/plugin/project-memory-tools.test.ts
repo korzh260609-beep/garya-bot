@@ -381,6 +381,7 @@ describe("SG Project Memory 3.0 over OpenClaw Memory Core", () => {
       "sg_project_memory_get",
     ]) {
       expect(entrypoint).toContain(toolName);
+      expect(entrypoint.split(toolName)).toHaveLength(4);
     }
     expect(entrypoint).not.toContain("memory-wiki");
   });

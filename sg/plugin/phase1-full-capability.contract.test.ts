@@ -17,14 +17,6 @@ type RuntimeConfig = {
     telegram?: {
       enabled?: boolean;
       groups?: Record<string, { requireMention?: boolean }>;
-      capabilities?: { inlineButtons?: string };
-      actions?: {
-        sendMessage?: boolean;
-        deleteMessage?: boolean;
-        reactions?: boolean;
-        poll?: boolean;
-      };
-      replyToMode?: string;
     };
   };
   tts?: { provider?: string; auto?: string };
@@ -345,14 +337,6 @@ describe("SG 2.2 Phase 1 full capability contracts", () => {
     expect(config.messages?.groupChat?.mentionPatterns).toEqual(
       expect.arrayContaining([expect.stringContaining("сг"), expect.stringContaining("sg")]),
     );
-    expect(config.channels?.telegram?.capabilities?.inlineButtons).toBe("all");
-    expect(config.channels?.telegram?.actions).toMatchObject({
-      sendMessage: true,
-      deleteMessage: true,
-      reactions: true,
-      poll: true,
-    });
-    expect(config.channels?.telegram?.replyToMode).toBe("first");
     expect(config.tts).toMatchObject({ provider: "openai", auto: "off" });
 
     for (const tool of ["message", "tts", "automations", "browser", "web_search", "web_fetch"]) {

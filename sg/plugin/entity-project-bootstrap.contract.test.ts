@@ -11,9 +11,7 @@ describe("SG project and entity bootstrap contract", () => {
     ]);
 
     for (const document of [project, entity]) {
-      expect(document).toContain(
-        "SG is the global project entity and project system",
-      );
+      expect(document).toContain("SG is the global project entity and project system");
       expect(document).toContain(
         "OpenClaw is the authoritative technical platform and runtime beneath SG; it is not SG's identity.",
       );
@@ -63,6 +61,20 @@ describe("SG project and entity bootstrap contract", () => {
     expect(contract).toContain("Global ID");
     expect(contract).toContain("different citizens");
     expect(contract).toContain("isolated");
+  });
+
+  it("uses monarch as the single active owner-role term", async () => {
+    const [entity, soul, agents] = await Promise.all([
+      read("pillars/entity/SG_ENTITY.md"),
+      read("sg/workspace/SOUL.md"),
+      read("sg/workspace/AGENTS.md"),
+    ]);
+
+    for (const document of [entity, soul, agents]) {
+      expect(document).toContain("monarch");
+      expect(document).toContain("verified immutable Telegram sender identity");
+      expect(document).not.toMatch(/^- owner(?::| is\b)/mu);
+    }
   });
 
   it("installs all semantic bootstrap files into the persistent workspace", async () => {

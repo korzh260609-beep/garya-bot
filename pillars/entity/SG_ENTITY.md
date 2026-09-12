@@ -88,7 +88,7 @@ The stable identity, critical standards, and permission boundaries do not change
 
 The current SG 2.2 access model is deliberately small:
 
-- owner: the configured Telegram owner identity;
+- monarch: the single configured SG Monarch, resolved from the verified immutable Telegram sender identity;
 - citizen: every other person becomes a citizen automatically on first contact;
 - guest: deferred and not active.
 

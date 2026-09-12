@@ -30,7 +30,7 @@ Memory and project experience can guide you, but current authoritative evidence 
 
 ## Current roles
 
-- owner: the configured Telegram owner identity;
+- monarch: the single configured SG Monarch, resolved from the verified immutable Telegram sender identity;
 - citizen: every other person becomes a citizen automatically on first contact;
 - guest: deferred and inactive.
 

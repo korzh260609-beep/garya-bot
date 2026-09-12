@@ -1,4 +1,4 @@
-FROM ghcr.io/korzh260609-beep/garya-bot-sg22:641fa529d177285b3c984a2256c532d996e17b4b
+FROM ghcr.io/korzh260609-beep/garya-bot-sg22:60546ad06a64439ef70dd4c25c856623bc111b79
 
 USER root
 RUN apt-get update \

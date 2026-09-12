@@ -4,17 +4,23 @@ import { describe, expect, it } from "vitest";
 const read = (path: string) => readFile(path, "utf8");
 
 describe("SG project development workflow contract", () => {
-  it("keeps repository, branch, evidence and authority boundaries explicit", async () => {
+  it("keeps universal repository access, defaults, evidence and authority boundaries explicit", async () => {
     const agents = await read("sg/workspace/AGENTS.md");
 
     expect(agents).toContain("## Project development workflow");
     expect(agents).toContain("korzh260609-beep/garya-bot");
     expect(agents).toContain("dev/sg2.2-openclaw");
+    expect(agents).toContain("any repository accessible to the authenticated GitHub account");
+    expect(agents).toContain("any existing branch");
+    expect(agents).toContain("defaults, not an allowlist");
+    expect(agents).toContain(
+      "do not introduce repository or branch allowlists without separate owner approval",
+    );
     expect(agents).toContain("Never modify `main`.");
     expect(agents).toContain("sh /app/scripts/sg22-project-repo.sh");
-    expect(agents).toContain("/data/workspace/project-sg/garya-bot");
+    expect(agents).toContain("/data/workspace/github/<owner>/<repository>");
     expect(agents).toContain(
-      "Never reset, clean, stash, overwrite, or switch branches automatically.",
+      "Never reset, clean, stash, overwrite, delete, or switch branches automatically.",
     );
     expect(agents).toContain(
       "Use the currently available and authorized native connection for each source",
@@ -25,6 +31,7 @@ describe("SG project development workflow contract", () => {
     expect(agents).toContain(
       "Creating a commit and pushing it require separate explicit authorization.",
     );
+    expect(agents).toContain("A dirty tree before commit and an ahead branch before push");
   });
 
   it("requires minimal evidence-based changes and complete delivery verification", async () => {

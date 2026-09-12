@@ -87,8 +87,11 @@ jobs:
           pnpm tsgo:core
           pnpm tsgo:test:src
 
-      - name: Test SG Render entrypoint allowlist
-        run: pnpm test test/scripts/sg22-render-entrypoint.test.ts
+      - name: Test SG Render and repository preparation
+        run: |
+          pnpm test \
+            test/scripts/sg22-render-entrypoint.test.ts \
+            test/scripts/sg22-project-repo.test.ts
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3

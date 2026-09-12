@@ -150,15 +150,16 @@ When inspecting or changing Project SG:
 1. Restate the exact outcome, repository, branch, scope, constraints, and actions already authorized. Treat investigation, file changes, commit/push, and deployment as separate authority boundaries.
 2. Load current evidence from the repository, relevant project documents, tests, CI, published image, and live runtime as the task requires. Use the currently available and authorized native connection for each source; do not assume that only one connection type exists.
 3. For SG 2.2, work only in `korzh260609-beep/garya-bot` on `dev/sg2.2-openclaw`. Never modify `main`.
-4. Verify current branch state and exact remote SHA before planning or changing files. Preserve unrelated user changes.
-5. Diagnose from evidence. Identify the narrowest verified cause and distinguish it from assumptions, secondary symptoms, and unverified possibilities.
-6. Propose the smallest sufficient change, the files it touches, tests to run, risks, and rollback path. Do not add cleanup, refactoring, or improvements outside the approved task.
-7. Wait for explicit authorization before changing files. Implement only the approved plan.
-8. Run the closest contract or regression tests first, then the smallest relevant wider verification. Report failures honestly; do not weaken tests to hide a defect.
-9. Report the exact files changed and verified results. Creating a commit and pushing it require separate explicit authorization.
-10. After an authorized push, verify the exact remote SHA and wait for every relevant GitHub Actions job to reach full success before treating the revision as publishable.
-11. Before changing `Dockerfile.render` to a new image tag, verify that the exact image exists and record its immutable digest.
-12. Render deploy, restart, rollback, and environment changes each require explicit authorization. Use `sg_render` for Render operations. After an authorized deploy, verify Live status, deploy ID, source SHA, `image_commit`, `/health`, gateway, Telegram connection and probe, model API, `sg_render`, required workspace files, and RSS.
+4. Remote-only inspection may use the native GitHub connection. Any task that needs a working tree, file changes, local tests, commit, or push must first run `sh /app/scripts/sg22-project-repo.sh` and then work only in `/data/workspace/project-sg/garya-bot` (or the same path below the configured OpenClaw workspace). Treat `status=ready`, the approved branch, equal local and remote SHA, and a clean working tree as required preconditions.
+5. Verify current branch state and exact remote SHA before planning or changing files. Preserve unrelated user changes. Never reset, clean, stash, overwrite, or switch branches automatically. If the checkout has the wrong origin or branch, is dirty, contains unpublished commits, has diverged, or cannot authenticate, stop and report the exact condition.
+6. Diagnose from evidence. Identify the narrowest verified cause and distinguish it from assumptions, secondary symptoms, and unverified possibilities.
+7. Propose the smallest sufficient change, the files it touches, tests to run, risks, and rollback path. Do not add cleanup, refactoring, or improvements outside the approved task.
+8. Wait for explicit authorization before changing files. Implement only the approved plan.
+9. Run the closest contract or regression tests first, then the smallest relevant wider verification. Keep local verification narrow enough for the live Render service; use GitHub Actions for the complete suite. Report failures honestly and do not weaken tests to hide a defect.
+10. Report the exact files changed and verified results. Creating a commit and pushing it require separate explicit authorization.
+11. Immediately before an authorized commit or push, rerun the repository preparation check and verify the diff contains only approved work. After an authorized push, verify the exact remote SHA and wait for every relevant GitHub Actions job to reach full success before treating the revision as publishable.
+12. Before changing `Dockerfile.render` to a new image tag, verify that the exact image exists and record its immutable digest.
+13. Render deploy, restart, rollback, and environment changes each require explicit authorization. Use `sg_render` for Render operations. After an authorized deploy, verify Live status, deploy ID, source SHA, `image_commit`, `/health`, gateway, Telegram connection and probe, model API, `sg_render`, required workspace files, and RSS.
 
 If required evidence or access is unavailable, stop and state exactly what is missing. Do not invent facts, permissions, successful checks, or completed actions.
 

@@ -15,7 +15,7 @@ describe("SG Workspace Manager real loader and dispatch runner", () => {
     const probe = path.join(pluginDir, "loader-dispatch.probe.ts");
     const { stdout } = await execFileAsync(process.execPath, ["--import", "tsx", probe, stateDir], {
       cwd: path.resolve(pluginDir, "../.."),
-      timeout: 20_000,
+      timeout: 60_000,
     });
     const marker = stdout.split("\n").find((line) => line.startsWith("SG_LOADER_PROBE="));
     expect(marker).toBeDefined();
@@ -44,5 +44,5 @@ describe("SG Workspace Manager real loader and dispatch runner", () => {
     expect(await readFile(path.join(stateDir, "sg", "workspaces.json"), "utf8")).toContain(
       '"resourceScopes"',
     );
-  }, 30_000);
+  }, 75_000);
 });

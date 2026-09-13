@@ -65,6 +65,18 @@ export function resolvePluginMetadataEnvFingerprint(env: NodeJS.ProcessEnv): str
   });
 }
 
+/** Restores process-local behavior and immutability after a snapshot crosses a worker boundary. */
+export function restorePluginMetadataSnapshot(
+  snapshot: Omit<PluginMetadataSnapshot, "normalizePluginId">,
+): PluginMetadataSnapshot {
+  return freezeSnapshotValue({
+    ...snapshot,
+    normalizePluginId: createPluginRegistryIdNormalizer(snapshot.index, {
+      manifestRegistry: snapshot.manifestRegistry,
+    }),
+  });
+}
+
 function throwReadonlyPluginMetadataMutation(): never {
   throw new TypeError("Plugin metadata snapshots are immutable");
 }

@@ -14,7 +14,7 @@ services:
       - key: OPENCLAW_GATEWAY_TOKEN
         generateValue: true
       - key: OPENCLAW_PRIMARY_MODEL
-        value: openai/gpt-5.4-mini
+        value: openai/gpt-5.6-terra
       - key: TELEGRAM_BOT_TOKEN
         sync: false
       - key: OPENAI_API_KEY

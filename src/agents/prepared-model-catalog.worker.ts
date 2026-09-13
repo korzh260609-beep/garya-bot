@@ -1,5 +1,6 @@
 /** Worker-thread entrypoint for complete model-catalog discovery. */
 import { parentPort, workerData } from "node:worker_threads";
+import { restorePluginMetadataSnapshot } from "../plugins/plugin-metadata-snapshot.js";
 import { withPluginRuntimeGenerationScope } from "../plugins/runtime/generation-scope.js";
 import {
   resolveAgentCredentialMapFromStore,
@@ -75,7 +76,17 @@ function refreshAuthStore(params: {
 
 async function prepareWorkerGeneration(value: PreparedModelCatalogWorkerInput) {
   const { prepareWorkspaceBuildGroup } = await import("./prepared-model-runtime.facts.js");
-  const prepared = await prepareWorkspaceBuildGroup([value.input], "live");
+  // A worker must reconstruct the exact metadata generation selected by its parent.
+  // Rediscovery can choose a different workspace/plugin overlay and invalidate the fingerprint.
+  const metadata = restorePluginMetadataSnapshot(value.pluginMetadataSnapshot);
+  const prepared = await prepareWorkspaceBuildGroup(
+    [value.input],
+    "live",
+    {},
+    undefined,
+    undefined,
+    metadata,
+  );
   const agentFacts = prepared.agentFacts[0];
   if (!agentFacts) {
     throw new Error("prepared model catalog worker produced no agent facts");

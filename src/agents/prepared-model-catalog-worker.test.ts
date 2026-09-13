@@ -84,6 +84,10 @@ describe("prepared model catalog worker input", () => {
     expect(cloned.input.runtimePluginSelections).toEqual([
       { provider: "selected", modelId: "model" },
     ]);
+    expect(cloned.pluginMetadataSnapshot).toMatchObject({
+      policyHash: "test-policy",
+      configFingerprint: "test-config",
+    });
     expect(cloned.input).not.toHaveProperty("loadRuntimePlugins");
   });
 });

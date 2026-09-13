@@ -2,6 +2,16 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 describe("SG 2.2 Render entrypoint", () => {
+  it("uses Terra as the declared and runtime fallback primary model", async () => {
+    const [script, blueprint] = await Promise.all([
+      readFile(new URL("../../scripts/sg22-render-entrypoint.sh", import.meta.url), "utf8"),
+      readFile(new URL("../../render.yaml", import.meta.url), "utf8"),
+    ]);
+
+    expect(script).toContain('primary_model="${OPENCLAW_PRIMARY_MODEL:-openai/gpt-5.6-terra}"');
+    expect(blueprint).toMatch(/key: OPENCLAW_PRIMARY_MODEL\s+value: openai\/gpt-5\.6-terra/u);
+  });
+
   it("requires the configured Monarch identity and Global ID when the plugin is enabled", async () => {
     const script = await readFile(
       new URL("../../scripts/sg22-render-entrypoint.sh", import.meta.url),

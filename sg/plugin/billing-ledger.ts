@@ -54,6 +54,17 @@ type BillingEntryRow = {
   created_at: number;
 };
 
+type BillingCorrelationRow = {
+  global_id: string;
+  operation_id: string;
+};
+
+type BillingPartRow = {
+  outcome: "pending" | "completed" | "error";
+  actual_cost_nano_usd: number | null;
+  charged_nano_usd: number | null;
+};
+
 function requireIdentifier(value: string, field: string): string {
   if (!value || value !== value.trim()) {
     throw new Error(`sg-billing-${field}-invalid`);
@@ -153,6 +164,29 @@ export class SgBillingLedger {
 
       CREATE INDEX IF NOT EXISTS sg_billing_entries_global_id_entry_id
         ON sg_billing_entries(global_id, entry_id);
+
+      CREATE TABLE IF NOT EXISTS sg_billing_correlations (
+        correlation_id TEXT PRIMARY KEY,
+        global_id TEXT NOT NULL,
+        operation_id TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        FOREIGN KEY (global_id, operation_id)
+          REFERENCES sg_billing_operations(global_id, operation_id)
+      ) STRICT;
+
+      CREATE TABLE IF NOT EXISTS sg_billing_operation_parts (
+        global_id TEXT NOT NULL,
+        operation_id TEXT NOT NULL,
+        part_id TEXT NOT NULL,
+        outcome TEXT NOT NULL CHECK (outcome IN ('pending', 'completed', 'error')),
+        actual_cost_nano_usd INTEGER CHECK (actual_cost_nano_usd >= 0),
+        charged_nano_usd INTEGER CHECK (charged_nano_usd >= 0),
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        PRIMARY KEY (global_id, operation_id, part_id),
+        FOREIGN KEY (global_id, operation_id)
+          REFERENCES sg_billing_operations(global_id, operation_id)
+      ) STRICT;
     `);
   }
 
@@ -294,6 +328,359 @@ export class SgBillingLedger {
       },
       { busyTimeoutMs: 5_000, databaseLabel: "sg-billing-ledger", operationLabel: "reserve" },
     );
+  }
+
+  async reserveAvailable(params: { globalId: string; operationId: string }): Promise<number> {
+    const globalId = requireIdentifier(params.globalId, "global-id");
+    const operationId = requireIdentifier(params.operationId, "operation-id");
+    let reservedAmount = 0;
+    runSqliteImmediateTransactionSync(
+      this.database,
+      () => {
+        const now = Date.now();
+        this.ensureAccount(globalId, now);
+        const existing = this.operation(globalId, operationId);
+        if (existing) {
+          if (existing.operation_type === "usage" && existing.state === "reserved") {
+            reservedAmount = existing.amount_nano_usd;
+            return;
+          }
+          throw new Error("sg-billing-idempotency-conflict");
+        }
+        const account = this.account(globalId);
+        const available = account.balance_nano_usd - account.reserved_nano_usd;
+        if (available < 1) {
+          throw new Error("sg-billing-insufficient-funds");
+        }
+        reservedAmount = available;
+        this.database
+          .prepare(
+            `INSERT INTO sg_billing_operations
+              (global_id, operation_id, operation_type, state, amount_nano_usd, created_at, updated_at)
+             VALUES (?, ?, 'usage', 'reserved', ?, ?, ?)`,
+          )
+          .run(globalId, operationId, available, now, now);
+        this.database
+          .prepare(
+            `UPDATE sg_billing_accounts
+             SET reserved_nano_usd = ?, updated_at = ?
+             WHERE global_id = ?`,
+          )
+          .run(checkedAdd(account.reserved_nano_usd, available), now, globalId);
+        this.database
+          .prepare(
+            `INSERT INTO sg_billing_entries
+              (global_id, operation_id, entry_type, amount_nano_usd, created_at)
+             VALUES (?, ?, 'reserve', ?, ?)`,
+          )
+          .run(globalId, operationId, available, now);
+      },
+      {
+        busyTimeoutMs: 5_000,
+        databaseLabel: "sg-billing-ledger",
+        operationLabel: "reserve-available",
+      },
+    );
+    return reservedAmount;
+  }
+
+  async bindCorrelation(params: {
+    correlationId: string;
+    globalId: string;
+    operationId: string;
+  }): Promise<void> {
+    const correlationId = requireIdentifier(params.correlationId, "correlation-id");
+    const globalId = requireIdentifier(params.globalId, "global-id");
+    const operationId = requireIdentifier(params.operationId, "operation-id");
+    runSqliteImmediateTransactionSync(
+      this.database,
+      () => {
+        const operation = this.operation(globalId, operationId);
+        if (!operation || operation.operation_type !== "usage") {
+          throw new Error("sg-billing-reservation-not-found");
+        }
+        const existing = this.database
+          .prepare(
+            `SELECT global_id, operation_id
+             FROM sg_billing_correlations
+             WHERE correlation_id = ?`,
+          )
+          .get(correlationId) as BillingCorrelationRow | undefined;
+        if (existing) {
+          if (existing.global_id === globalId && existing.operation_id === operationId) {
+            return;
+          }
+          throw new Error("sg-billing-idempotency-conflict");
+        }
+        this.database
+          .prepare(
+            `INSERT INTO sg_billing_correlations
+              (correlation_id, global_id, operation_id, created_at)
+             VALUES (?, ?, ?, ?)`,
+          )
+          .run(correlationId, globalId, operationId, Date.now());
+      },
+      {
+        busyTimeoutMs: 5_000,
+        databaseLabel: "sg-billing-ledger",
+        operationLabel: "bind-correlation",
+      },
+    );
+  }
+
+  async resolveCorrelation(
+    correlationIdInput: string,
+  ): Promise<{ globalId: string; operationId: string } | undefined> {
+    const correlationId = requireIdentifier(correlationIdInput, "correlation-id");
+    const row = this.database
+      .prepare(
+        `SELECT global_id, operation_id
+         FROM sg_billing_correlations
+         WHERE correlation_id = ?`,
+      )
+      .get(correlationId) as BillingCorrelationRow | undefined;
+    return row ? { globalId: row.global_id, operationId: row.operation_id } : undefined;
+  }
+
+  async recordPart(params: {
+    globalId: string;
+    operationId: string;
+    partId: string;
+    outcome: "completed" | "error";
+    actualCostNanoUsd?: number;
+  }): Promise<void> {
+    const globalId = requireIdentifier(params.globalId, "global-id");
+    const operationId = requireIdentifier(params.operationId, "operation-id");
+    const partId = requireIdentifier(params.partId, "part-id");
+    const actualCostNanoUsd =
+      params.actualCostNanoUsd === undefined
+        ? undefined
+        : requireNanoUsd(params.actualCostNanoUsd, "actual-cost", true);
+    const chargedNanoUsd =
+      actualCostNanoUsd === undefined ? undefined : checkedCharge(actualCostNanoUsd);
+    runSqliteImmediateTransactionSync(
+      this.database,
+      () => {
+        const operation = this.operation(globalId, operationId);
+        if (!operation || operation.operation_type !== "usage") {
+          throw new Error("sg-billing-reservation-not-found");
+        }
+        if (operation.state !== "reserved") {
+          throw new Error("sg-billing-reservation-invalid");
+        }
+        const existing = this.database
+          .prepare(
+            `SELECT outcome, actual_cost_nano_usd, charged_nano_usd
+             FROM sg_billing_operation_parts
+             WHERE global_id = ? AND operation_id = ? AND part_id = ?`,
+          )
+          .get(globalId, operationId, partId) as BillingPartRow | undefined;
+        if (existing) {
+          if (
+            (existing.outcome === params.outcome || existing.outcome === "pending") &&
+            existing.actual_cost_nano_usd === (actualCostNanoUsd ?? null) &&
+            existing.charged_nano_usd === (chargedNanoUsd ?? null)
+          ) {
+            if (existing.outcome === "pending") {
+              this.database
+                .prepare(
+                  `UPDATE sg_billing_operation_parts
+                   SET outcome = ?, updated_at = ?
+                   WHERE global_id = ? AND operation_id = ? AND part_id = ?`,
+                )
+                .run(params.outcome, Date.now(), globalId, operationId, partId);
+            }
+            return;
+          }
+          throw new Error("sg-billing-idempotency-conflict");
+        }
+
+        const now = Date.now();
+        if (actualCostNanoUsd === undefined || chargedNanoUsd === undefined) {
+          this.database
+            .prepare(
+              `INSERT INTO sg_billing_operation_parts
+                (global_id, operation_id, part_id, outcome, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?)`,
+            )
+            .run(globalId, operationId, partId, params.outcome, now, now);
+          return;
+        }
+
+        const chargedSoFar = operation.charged_nano_usd ?? 0;
+        const remainingReserve = operation.amount_nano_usd - chargedSoFar;
+        if (chargedNanoUsd > remainingReserve) {
+          throw new Error("sg-billing-settlement-exceeds-prepaid-funds");
+        }
+        const account = this.account(globalId);
+        const nextActual = checkedAdd(operation.actual_cost_nano_usd ?? 0, actualCostNanoUsd);
+        const nextCharged = checkedAdd(chargedSoFar, chargedNanoUsd);
+        this.database
+          .prepare(
+            `INSERT INTO sg_billing_operation_parts
+              (global_id, operation_id, part_id, outcome, actual_cost_nano_usd,
+               charged_nano_usd, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          )
+          .run(
+            globalId,
+            operationId,
+            partId,
+            params.outcome,
+            actualCostNanoUsd,
+            chargedNanoUsd,
+            now,
+            now,
+          );
+        this.database
+          .prepare(
+            `UPDATE sg_billing_operations
+             SET actual_cost_nano_usd = ?, charged_nano_usd = ?, updated_at = ?
+             WHERE global_id = ? AND operation_id = ?`,
+          )
+          .run(nextActual, nextCharged, now, globalId, operationId);
+        this.database
+          .prepare(
+            `UPDATE sg_billing_accounts
+             SET balance_nano_usd = ?, reserved_nano_usd = ?, updated_at = ?
+             WHERE global_id = ?`,
+          )
+          .run(
+            account.balance_nano_usd - chargedNanoUsd,
+            account.reserved_nano_usd - chargedNanoUsd,
+            now,
+            globalId,
+          );
+      },
+      {
+        busyTimeoutMs: 5_000,
+        databaseLabel: "sg-billing-ledger",
+        operationLabel: "record-part",
+      },
+    );
+  }
+
+  async recordUnpricedPart(params: {
+    globalId: string;
+    operationId: string;
+    partId: string;
+  }): Promise<void> {
+    const globalId = requireIdentifier(params.globalId, "global-id");
+    const operationId = requireIdentifier(params.operationId, "operation-id");
+    const partId = requireIdentifier(params.partId, "part-id");
+    runSqliteImmediateTransactionSync(
+      this.database,
+      () => {
+        const operation = this.operation(globalId, operationId);
+        if (!operation || operation.operation_type !== "usage") {
+          throw new Error("sg-billing-reservation-not-found");
+        }
+        if (operation.state !== "reserved") {
+          throw new Error("sg-billing-reservation-invalid");
+        }
+        const existing = this.database
+          .prepare(
+            `SELECT outcome, actual_cost_nano_usd, charged_nano_usd
+             FROM sg_billing_operation_parts
+             WHERE global_id = ? AND operation_id = ? AND part_id = ?`,
+          )
+          .get(globalId, operationId, partId) as BillingPartRow | undefined;
+        if (existing) {
+          if (
+            existing.outcome === "pending" &&
+            existing.actual_cost_nano_usd === null &&
+            existing.charged_nano_usd === null
+          ) {
+            return;
+          }
+          throw new Error("sg-billing-idempotency-conflict");
+        }
+        const now = Date.now();
+        this.database
+          .prepare(
+            `INSERT INTO sg_billing_operation_parts
+              (global_id, operation_id, part_id, outcome, created_at, updated_at)
+             VALUES (?, ?, ?, 'pending', ?, ?)`,
+          )
+          .run(globalId, operationId, partId, now, now);
+      },
+      {
+        busyTimeoutMs: 5_000,
+        databaseLabel: "sg-billing-ledger",
+        operationLabel: "record-unpriced-part",
+      },
+    );
+  }
+
+  async finalizeParts(params: {
+    globalId: string;
+    operationId: string;
+    outcome: "completed" | "error";
+  }): Promise<boolean> {
+    const globalId = requireIdentifier(params.globalId, "global-id");
+    const operationId = requireIdentifier(params.operationId, "operation-id");
+    let finalized = false;
+    runSqliteImmediateTransactionSync(
+      this.database,
+      () => {
+        const operation = this.operation(globalId, operationId);
+        if (!operation || operation.operation_type !== "usage") {
+          throw new Error("sg-billing-reservation-not-found");
+        }
+        if (operation.state === "terminal") {
+          if (operation.outcome === params.outcome) {
+            finalized = true;
+            return;
+          }
+          throw new Error("sg-billing-idempotency-conflict");
+        }
+        const unpriced = this.database
+          .prepare(
+            `SELECT COUNT(*) AS count
+             FROM sg_billing_operation_parts
+             WHERE global_id = ? AND operation_id = ? AND actual_cost_nano_usd IS NULL`,
+          )
+          .get(globalId, operationId) as { count: number };
+        if (unpriced.count > 0) {
+          return;
+        }
+        const chargedNanoUsd = operation.charged_nano_usd ?? 0;
+        const actualCostNanoUsd = operation.actual_cost_nano_usd ?? 0;
+        const remainingReserve = operation.amount_nano_usd - chargedNanoUsd;
+        const account = this.account(globalId);
+        const now = Date.now();
+        this.database
+          .prepare(
+            `UPDATE sg_billing_operations
+             SET state = 'terminal', outcome = ?, actual_cost_nano_usd = ?,
+                 charged_nano_usd = ?, updated_at = ?
+             WHERE global_id = ? AND operation_id = ?`,
+          )
+          .run(params.outcome, actualCostNanoUsd, chargedNanoUsd, now, globalId, operationId);
+        this.database
+          .prepare(
+            `UPDATE sg_billing_accounts
+             SET reserved_nano_usd = ?, updated_at = ?
+             WHERE global_id = ?`,
+          )
+          .run(account.reserved_nano_usd - remainingReserve, now, globalId);
+        this.database
+          .prepare(
+            `INSERT INTO sg_billing_entries
+              (global_id, operation_id, entry_type, outcome,
+               actual_cost_nano_usd, charged_nano_usd, created_at)
+             VALUES (?, ?, 'complete', ?, ?, ?, ?)`,
+          )
+          .run(globalId, operationId, params.outcome, actualCostNanoUsd, chargedNanoUsd, now);
+        finalized = true;
+      },
+      {
+        busyTimeoutMs: 5_000,
+        databaseLabel: "sg-billing-ledger",
+        operationLabel: "finalize-parts",
+      },
+    );
+    return finalized;
   }
 
   async complete(params: {

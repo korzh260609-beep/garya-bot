@@ -17,6 +17,14 @@ export default defineConfig({
         replacement: path.join(repoRoot, "src/plugin-sdk/json-store.ts"),
       },
       {
+        find: "openclaw/plugin-sdk/sqlite-runtime",
+        replacement: path.join(repoRoot, "src/plugin-sdk/sqlite-runtime.ts"),
+      },
+      {
+        find: "openclaw/plugin-sdk/plugin-state-runtime",
+        replacement: path.join(repoRoot, "src/plugin-sdk/plugin-state-runtime.ts"),
+      },
+      {
         find: "openclaw/plugin-sdk/session-transcript-runtime",
         replacement: path.join(repoRoot, "src/plugin-sdk/session-transcript-runtime.ts"),
       },

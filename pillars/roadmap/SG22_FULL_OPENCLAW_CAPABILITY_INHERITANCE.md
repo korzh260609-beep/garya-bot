@@ -77,7 +77,10 @@ The canonical SG 2.2 list must be understood as follows:
 8. **Historical & Semantic Search** — extend OpenClaw memory search only for SG-specific historical semantics that are missing.
 9. **Canonical Semantic Model** — add SG semantic normalization above the OpenClaw agent/dispatch lifecycle, not another agent loop or dispatcher.
 10. **Action Gate** — express SG-specific risk/confirmation semantics through OpenClaw security/approval mechanisms, not a second permission engine.
-11. **AI policy/cost** — use OpenClaw provider/model/auth/routing capabilities and add only SG quality/cost policy and accounting semantics where missing.
+11. **AI policy/cost** — use OpenClaw provider/model/auth/routing capabilities and add only SG quality/cost policy and accounting semantics where missing;
+    follow `pillars/roadmap/SG22_PREPAID_BILLING_AND_MODEL_ROUTING_PLAN.md` for the
+    owner-approved prepaid balance, complete OpenAI cost attribution, fixed `cost × 2`
+    charging and cheap/medium/expensive/Auto routing contract.
 12. **Tasks/Automation** — use OpenClaw tasks/automations as authoritative; add SG ownership/semantics/presentation only where missing.
 13. **Channels** — the same SG entity must operate through all permitted OpenClaw channels; do not create SG channel runtimes.
 14. **Sources** — use OpenClaw web/browser/file/provider tools; add only SG source-management semantics where required.

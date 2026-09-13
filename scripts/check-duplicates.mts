@@ -18,6 +18,7 @@ const targets = [
   "docs",
   "qa",
   "security",
+  "sg",
   "test",
   "skills",
   "config",

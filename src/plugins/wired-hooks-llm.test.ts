@@ -55,6 +55,61 @@ async function expectLlmHookCall(params: {
 }
 
 describe("llm hook runner methods", () => {
+  it("merges model-call limits conservatively and stops on a block", async () => {
+    const first = vi.fn(() => ({ maxOutputTokens: 200 }));
+    const second = vi.fn(() => ({ maxOutputTokens: 80, maxRetries: 0 }));
+    const blocker = vi.fn(() => ({ block: true, blockReason: "budget exhausted" }));
+    const skipped = vi.fn(() => ({ maxOutputTokens: 1 }));
+    const { runner } = createHookRunnerWithRegistry([
+      { hookName: "before_model_call", handler: first },
+      { hookName: "before_model_call", handler: second },
+      { hookName: "before_model_call", handler: blocker },
+      { hookName: "before_model_call", handler: skipped },
+    ]);
+    const event = {
+      runId: "run-1",
+      callId: "call-1",
+      provider: "openai",
+      model: "gpt-5",
+      maxOutputTokens: 400,
+      inputUpperBoundTokens: 8_000,
+      cost: { input: 1, output: 2, cacheRead: 0.5, cacheWrite: 1.25 },
+    };
+
+    await expect(runner.runBeforeModelCall(event, hookCtx)).resolves.toEqual({
+      block: true,
+      blockReason: "budget exhausted",
+      maxOutputTokens: 80,
+      maxRetries: 0,
+    });
+    expect(skipped).not.toHaveBeenCalled();
+  });
+
+  it("stops billable provider authorization on the first blocking hook", async () => {
+    const allow = vi.fn(() => ({ block: false }));
+    const blocker = vi.fn(() => ({ block: true, blockReason: "upper bound unavailable" }));
+    const skipped = vi.fn(() => ({ block: false }));
+    const { runner } = createHookRunnerWithRegistry([
+      { hookName: "before_billable_operation", handler: allow },
+      { hookName: "before_billable_operation", handler: blocker },
+      { hookName: "before_billable_operation", handler: skipped },
+    ]);
+    const event = {
+      runId: "run-video-1",
+      toolCallId: "call-video-1",
+      provider: "openrouter",
+      model: "google/veo-3.1",
+      category: "video_generation",
+      costUpperBound: { totalUsd: 0.5, evidence: "catalog-upper-bound" as const },
+    };
+
+    await expect(runner.runBeforeBillableOperation(event, hookCtx)).resolves.toEqual({
+      block: true,
+      blockReason: "upper bound unavailable",
+    });
+    expect(skipped).not.toHaveBeenCalled();
+  });
+
   it.each([
     {
       name: "runModelCallStarted invokes registered model_call_started hooks",
@@ -131,6 +186,7 @@ describe("llm hook runner methods", () => {
     ]);
 
     expect(runner.hasHooks("model_call_started")).toBe(true);
+    expect(runner.hasHooks("before_model_call")).toBe(false);
     expect(runner.hasHooks("model_call_ended")).toBe(false);
     expect(runner.hasHooks("llm_input")).toBe(true);
     expect(runner.hasHooks("llm_output")).toBe(false);
@@ -151,6 +207,8 @@ describe("llm hook runner methods", () => {
       quantity: 1,
       unit: "images",
       dimensions: { size: "1024x1024", quality: "high" },
+      cost: { totalUsd: 0.08, evidence: "provider-billed" as const },
+      usage: { input: 12, output: 34, total: 46 },
     };
 
     await runner.runBillableOperationCompleted(event, hookCtx);

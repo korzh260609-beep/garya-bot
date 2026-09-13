@@ -114,6 +114,8 @@ export type VideoGenerationProviderOptionType = "number" | "boolean" | "string";
 
 /* jscpd:ignore-start -- Core mirrors public SDK capability shape; assignability checks guard drift. */
 export type VideoGenerationModeCapabilities = {
+  /** Proven catalog maximum for one normalized provider request, in USD. */
+  costUpperBoundUsd?: number;
   maxVideos?: number;
   maxInputImages?: number;
   maxInputImagesByModel?: Readonly<Record<string, number>>;

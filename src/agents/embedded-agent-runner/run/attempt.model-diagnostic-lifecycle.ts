@@ -426,11 +426,12 @@ function withDiagnosticRequestContext(
 
 export function createModelLifecycle(params: {
   ctx: ModelCallDiagnosticContext;
+  callId?: string;
   options: ModelCallStreamOptions;
   requestTimeoutMs?: number;
   createObserver: (capturePromptStats: boolean) => ModelCallObserver;
 }) {
-  const callId = params.ctx.nextCallId();
+  const callId = params.callId ?? params.ctx.nextCallId();
   const trace = freezeDiagnosticTraceContext(createChildDiagnosticTraceContext(params.ctx.trace));
   const observer = params.createObserver(areDiagnosticsEnabledForProcess());
   const eventBase = baseModelCallEvent(params.ctx, callId, trace, observer.promptStats);

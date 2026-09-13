@@ -89,6 +89,8 @@ export type ImageGenerationResult = {
 };
 
 type ImageGenerationModeCapabilities = {
+  /** Proven catalog maximum for one normalized provider request, in USD. */
+  costUpperBoundUsd?: number;
   maxCount?: number;
   supportsSize?: boolean;
   supportsAspectRatio?: boolean;

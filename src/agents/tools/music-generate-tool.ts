@@ -49,7 +49,10 @@ import {
   runMediaGenerationTask,
   type MusicGenerationTaskHandle,
 } from "./media-generate-background.js";
-import type { MediaGenerationExecutionResult } from "./media-generate-billable-hook.js";
+import {
+  readMediaGenerationBilling,
+  type MediaGenerationExecutionResult,
+} from "./media-generate-billable-hook.js";
 import {
   applyMusicGenerationModelConfigDefaults,
   buildMediaReferenceDetails,
@@ -431,6 +434,16 @@ async function executeMusicGenerationJob(params: {
       inputImages: params.loadedReferenceImages.map((entry) => entry.sourceImage),
       autoProviderFallback: params.autoProviderFallback,
       timeoutMs: params.timeoutMs,
+      ...(params.taskHandle
+        ? {
+            billingContext: {
+              runId: params.taskHandle.runId,
+              toolCallId: params.taskHandle.toolCallId,
+              sessionKey: params.taskHandle.requesterSessionKey,
+              agentId: params.taskHandle.requesterAgentId,
+            },
+          }
+        : {}),
     },
     createCapabilityProviderRuntimeDeps(params.providers),
   );
@@ -543,6 +556,7 @@ async function executeMusicGenerationJob(params: {
       category: "music_generation",
       quantity: savedTracks.length,
       unit: "tracks",
+      ...readMediaGenerationBilling(result.metadata),
       dimensions: {
         ...(typeof appliedDurationSeconds === "number"
           ? { durationSeconds: appliedDurationSeconds }

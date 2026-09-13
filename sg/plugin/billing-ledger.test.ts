@@ -246,6 +246,77 @@ describe("SG prepaid billing ledger", () => {
     });
   });
 
+  it("atomically bounds concurrent provider authorizations within one reservation", async () => {
+    const { ledger } = await openLedger();
+    await credit(ledger, "usr_one", 1_000);
+    await ledger.reserve({ globalId: "usr_one", operationId: "run:bounded", amountNanoUsd: 1_000 });
+
+    const results = await Promise.allSettled([
+      ledger.authorizePart({
+        globalId: "usr_one",
+        operationId: "run:bounded",
+        partId: "model:first",
+        authorizedNanoUsd: 700,
+      }),
+      ledger.authorizePart({
+        globalId: "usr_one",
+        operationId: "run:bounded",
+        partId: "model:second",
+        authorizedNanoUsd: 700,
+      }),
+    ]);
+
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    expect(results.filter((result) => result.status === "rejected")).toHaveLength(1);
+    await expect(
+      ledger.prepaidCapacity({ globalId: "usr_one", operationId: "run:bounded" }),
+    ).resolves.toEqual({ remainingNanoUsd: 300, hasUnpricedParts: false });
+  });
+
+  it("converts a pending unpriced media part into a bounded authorization", async () => {
+    const { ledger } = await openLedger();
+    await credit(ledger, "usr_one", 1_000);
+    await ledger.reserve({ globalId: "usr_one", operationId: "run:media", amountNanoUsd: 1_000 });
+    await ledger.recordUnpricedPart({
+      globalId: "usr_one",
+      operationId: "run:media",
+      partId: "tool:media",
+    });
+
+    await ledger.authorizePart({
+      globalId: "usr_one",
+      operationId: "run:media",
+      partId: "tool:media",
+      authorizedNanoUsd: 800,
+    });
+
+    await expect(
+      ledger.prepaidCapacity({ globalId: "usr_one", operationId: "run:media" }),
+    ).resolves.toEqual({ remainingNanoUsd: 200, hasUnpricedParts: false });
+  });
+
+  it("blocks further capacity after an authorized part ends without an exact cost", async () => {
+    const { ledger } = await openLedger();
+    await credit(ledger, "usr_one", 1_000);
+    await ledger.reserve({ globalId: "usr_one", operationId: "run:unknown", amountNanoUsd: 1_000 });
+    await ledger.authorizePart({
+      globalId: "usr_one",
+      operationId: "run:unknown",
+      partId: "model:unknown",
+      authorizedNanoUsd: 700,
+    });
+    await ledger.recordPart({
+      globalId: "usr_one",
+      operationId: "run:unknown",
+      partId: "model:unknown",
+      outcome: "completed",
+    });
+
+    await expect(
+      ledger.prepaidCapacity({ globalId: "usr_one", operationId: "run:unknown" }),
+    ).resolves.toEqual({ remainingNanoUsd: 1_000, hasUnpricedParts: true });
+  });
+
   it("persists balance, reservation, idempotency, and journal across reopen", async () => {
     const { ledger, root } = await openLedger();
     await credit(ledger, "usr_one", 1_000);

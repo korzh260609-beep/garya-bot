@@ -144,6 +144,8 @@ export type VideoGenerationProviderOptionType = "number" | "boolean" | "string";
 
 /** Capability limits and supported options for one video generation mode. */
 export type VideoGenerationModeCapabilities = {
+  /** Proven catalog maximum for one normalized provider request, in USD. */
+  costUpperBoundUsd?: number;
   maxVideos?: number;
   maxInputImages?: number;
   maxInputImagesByModel?: Readonly<Record<string, number>>;

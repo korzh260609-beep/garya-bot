@@ -545,6 +545,16 @@ export function buildOpenRouterVideoGenerationProvider(): VideoGenerationProvide
               ? { generationId: normalizeOptionalString(completed.generation_id) }
               : {}),
             ...(completed.usage ? { usage: completed.usage } : {}),
+            ...(typeof completed.usage?.cost === "number" && completed.usage.cost >= 0
+              ? {
+                  billing: {
+                    cost: {
+                      totalUsd: completed.usage.cost,
+                      evidence: "provider-billed",
+                    },
+                  },
+                }
+              : {}),
           },
         };
       } finally {

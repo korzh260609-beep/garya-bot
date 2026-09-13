@@ -72,7 +72,10 @@ import {
   runMediaGenerationTask,
   type ImageGenerationTaskHandle,
 } from "./media-generate-background.js";
-import type { MediaGenerationExecutionResult } from "./media-generate-billable-hook.js";
+import {
+  readMediaGenerationBilling,
+  type MediaGenerationExecutionResult,
+} from "./media-generate-billable-hook.js";
 import {
   applyImageGenerationModelConfigDefaults,
   buildMediaReferenceDetails,
@@ -729,6 +732,16 @@ async function executeImageGenerationJob(params: {
       timeoutMs: params.timeoutMs,
       providerOptions: params.providerOptions,
       ssrfPolicy: params.ssrfPolicy,
+      ...(params.taskHandle
+        ? {
+            billingContext: {
+              runId: params.taskHandle.runId,
+              toolCallId: params.taskHandle.toolCallId,
+              sessionKey: params.taskHandle.requesterSessionKey,
+              agentId: params.taskHandle.requesterAgentId,
+            },
+          }
+        : {}),
     },
     createCapabilityProviderRuntimeDeps(params.providers),
   );
@@ -809,6 +822,7 @@ async function executeImageGenerationJob(params: {
       category: "image_generation",
       quantity: savedImages.length,
       unit: "images",
+      ...readMediaGenerationBilling(result.metadata),
       dimensions: {
         ...(appliedResolution ? { resolution: appliedResolution } : {}),
         ...(normalizedSize || (params.size && !sizeTranslatedToAspectRatio)

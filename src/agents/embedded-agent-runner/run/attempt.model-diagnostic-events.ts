@@ -1,6 +1,11 @@
 import { clampTimerTimeoutMs } from "@openclaw/normalization-core/number-coercion";
 import { isPromiseLike } from "@openclaw/normalization-core/promise-like";
 import { isRecord } from "@openclaw/normalization-core/record-coerce";
+import { getGlobalHookRunner } from "../../../plugins/hook-runner-global.js";
+import type {
+  PluginHookAgentContext,
+  PluginHookBeforeModelCallEvent,
+} from "../../../plugins/hook-types.js";
 /**
  * Emits diagnostic model-call events around embedded-agent stream functions.
  */
@@ -178,6 +183,117 @@ function observeModelCallResult(result: unknown, lifecycle: ModelCallLifecycle):
   return result;
 }
 
+function requirePositiveSafeInteger(value: unknown, field: string): number {
+  if (!Number.isSafeInteger(value) || (value as number) <= 0) {
+    throw new Error(`before_model_call cannot establish ${field}`);
+  }
+  return value as number;
+}
+
+function requireNonnegativeFinite(value: unknown, field: string): number {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    throw new Error(`before_model_call cannot establish ${field}`);
+  }
+  return value;
+}
+
+async function runBeforeModelCall(params: {
+  model: Parameters<StreamFn>[0];
+  options: Parameters<StreamFn>[2];
+  ctx: ModelCallDiagnosticContext;
+  callId: string;
+}): Promise<Parameters<StreamFn>[2]> {
+  const hookRunner = getGlobalHookRunner();
+  if (params.ctx.suppressPluginHooks === true || !hookRunner?.hasHooks("before_model_call")) {
+    return params.options;
+  }
+  const requestedMaxOutputTokens = requirePositiveSafeInteger(
+    params.options?.maxTokens ?? params.model.maxTokens,
+    "maxOutputTokens",
+  );
+  const contextWindowTokens = requirePositiveSafeInteger(
+    params.ctx.contextTokenBudget ?? params.model.contextTokens ?? params.model.contextWindow,
+    "context window",
+  );
+  const inputUpperBoundTokens = Math.max(1, contextWindowTokens - requestedMaxOutputTokens);
+  const event = Object.freeze({
+    runId: params.ctx.runId,
+    callId: params.callId,
+    ...(params.ctx.sessionKey ? { sessionKey: params.ctx.sessionKey } : {}),
+    ...(params.ctx.sessionId ? { sessionId: params.ctx.sessionId } : {}),
+    provider: params.ctx.provider,
+    model: params.ctx.model,
+    ...(params.ctx.api ? { api: params.ctx.api } : {}),
+    ...(params.ctx.transport ? { transport: params.ctx.transport } : {}),
+    ...(params.ctx.contextTokenBudget ? { contextTokenBudget: params.ctx.contextTokenBudget } : {}),
+    ...(params.ctx.contextWindowSource
+      ? { contextWindowSource: params.ctx.contextWindowSource }
+      : {}),
+    ...(params.ctx.contextWindowReferenceTokens
+      ? { contextWindowReferenceTokens: params.ctx.contextWindowReferenceTokens }
+      : {}),
+    maxOutputTokens: requestedMaxOutputTokens,
+    ...(params.options?.maxRetries !== undefined ? { maxRetries: params.options.maxRetries } : {}),
+    inputUpperBoundTokens,
+    cost: {
+      input: requireNonnegativeFinite(params.model.cost.input, "input cost"),
+      output: requireNonnegativeFinite(params.model.cost.output, "output cost"),
+      cacheRead: requireNonnegativeFinite(params.model.cost.cacheRead, "cacheRead cost"),
+      cacheWrite: requireNonnegativeFinite(params.model.cost.cacheWrite, "cacheWrite cost"),
+    },
+  }) satisfies PluginHookBeforeModelCallEvent;
+  const hookCtx = Object.freeze({
+    runId: params.ctx.runId,
+    trace: params.ctx.trace,
+    ...(params.ctx.sessionKey ? { sessionKey: params.ctx.sessionKey } : {}),
+    ...(params.ctx.sessionId ? { sessionId: params.ctx.sessionId } : {}),
+    modelProviderId: params.ctx.provider,
+    modelId: params.ctx.model,
+    ...(params.ctx.contextTokenBudget ? { contextTokenBudget: params.ctx.contextTokenBudget } : {}),
+    ...(params.ctx.contextWindowSource
+      ? { contextWindowSource: params.ctx.contextWindowSource }
+      : {}),
+    ...(params.ctx.contextWindowReferenceTokens
+      ? { contextWindowReferenceTokens: params.ctx.contextWindowReferenceTokens }
+      : {}),
+  }) satisfies PluginHookAgentContext;
+  const decision = await hookRunner.runBeforeModelCall(event, hookCtx);
+  if (decision?.block === true) {
+    throw new Error(
+      decision.blockReason?.trim() || "before_model_call blocked the provider request",
+    );
+  }
+  const cappedMaxOutputTokens =
+    decision?.maxOutputTokens === undefined
+      ? undefined
+      : requirePositiveSafeInteger(decision.maxOutputTokens, "hook maxOutputTokens");
+  if (cappedMaxOutputTokens !== undefined && cappedMaxOutputTokens > requestedMaxOutputTokens) {
+    throw new Error("before_model_call cannot raise maxOutputTokens");
+  }
+  const cappedMaxRetries = decision?.maxRetries;
+  if (
+    cappedMaxRetries !== undefined &&
+    (!Number.isSafeInteger(cappedMaxRetries) || cappedMaxRetries < 0)
+  ) {
+    throw new Error("before_model_call cannot establish hook maxRetries");
+  }
+  if (
+    cappedMaxRetries !== undefined &&
+    params.options?.maxRetries !== undefined &&
+    cappedMaxRetries > params.options.maxRetries
+  ) {
+    throw new Error("before_model_call cannot raise maxRetries");
+  }
+  if (cappedMaxOutputTokens === undefined && cappedMaxRetries === undefined) {
+    return params.options;
+  }
+  return {
+    ...params.options,
+    ...(cappedMaxOutputTokens !== undefined ? { maxTokens: cappedMaxOutputTokens } : {}),
+    ...(cappedMaxRetries !== undefined ? { maxRetries: cappedMaxRetries } : {}),
+  };
+}
+
 /**
  * Wraps a model stream function with diagnostic model-call lifecycle events,
  * traceparent propagation, request/response byte accounting, optional captured
@@ -195,34 +311,46 @@ export function wrapStreamFnWithDiagnosticModelCallEvents(
       configuredRequestTimeoutMs > 0
         ? clampTimerTimeoutMs(configuredRequestTimeoutMs)
         : undefined;
-    const lifecycle = createModelLifecycle({
-      ctx,
-      options,
-      requestTimeoutMs,
-      createObserver: (capturePromptStats) =>
-        createModelObserver({
-          streamContext,
-          contentCapture: ctx.contentCapture,
-          suppressPluginHooks: ctx.suppressPluginHooks,
-          capturePromptStats,
-        }),
-    });
+    const execute = (effectiveOptions: Parameters<StreamFn>[2], callId?: string) => {
+      const lifecycle = createModelLifecycle({
+        ctx,
+        ...(callId ? { callId } : {}),
+        options: effectiveOptions,
+        requestTimeoutMs,
+        createObserver: (capturePromptStats) =>
+          createModelObserver({
+            streamContext,
+            contentCapture: ctx.contentCapture,
+            suppressPluginHooks: ctx.suppressPluginHooks,
+            capturePromptStats,
+          }),
+      });
 
-    try {
-      const result = streamFn(model, streamContext, lifecycle.propagatedOptions);
-      if (isPromiseLike(result)) {
-        return result.then(
-          (resolved) => observeModelCallResult(resolved, lifecycle),
-          (err: unknown) => {
-            lifecycle.emitError(err);
-            throw err;
-          },
-        );
+      try {
+        const result = streamFn(model, streamContext, lifecycle.propagatedOptions);
+        if (isPromiseLike(result)) {
+          return result.then(
+            (resolved) => observeModelCallResult(resolved, lifecycle),
+            (err: unknown) => {
+              lifecycle.emitError(err);
+              throw err;
+            },
+          );
+        }
+        return observeModelCallResult(result, lifecycle);
+      } catch (err) {
+        lifecycle.emitError(err);
+        throw err;
       }
-      return observeModelCallResult(result, lifecycle);
-    } catch (err) {
-      lifecycle.emitError(err);
-      throw err;
+    };
+
+    const hookRunner = getGlobalHookRunner();
+    if (ctx.suppressPluginHooks === true || !hookRunner?.hasHooks("before_model_call")) {
+      return execute(options);
     }
+    const callId = ctx.nextCallId();
+    return runBeforeModelCall({ model, options, ctx, callId }).then((effectiveOptions) =>
+      execute(effectiveOptions, callId),
+    );
   }) as StreamFn;
 }

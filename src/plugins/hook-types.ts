@@ -95,6 +95,8 @@ export type {
 
 export type PluginHookName =
   | "before_model_resolve"
+  | "before_model_call"
+  | "before_billable_operation"
   | "agent_turn_prepare"
   | "before_prompt_build"
   | "before_agent_reply"
@@ -140,6 +142,8 @@ export type PluginHookName =
 
 const PLUGIN_HOOK_NAMES = [
   "before_model_resolve",
+  "before_model_call",
+  "before_billable_operation",
   "agent_turn_prepare",
   "before_prompt_build",
   "before_agent_reply",
@@ -366,6 +370,50 @@ type PluginHookModelCallBaseEvent = {
   contextWindowReferenceTokens?: number;
 };
 
+/** Last blocking boundary before a resolved model request reaches its provider. */
+export type PluginHookBeforeModelCallEvent = PluginHookModelCallBaseEvent & {
+  /** Requested provider output cap after model/config normalization. */
+  maxOutputTokens: number;
+  /** Explicit caller retry cap, when set. One initial attempt is not a retry. */
+  maxRetries?: number;
+  /** Conservative successful-request input ceiling enforced by the context window. */
+  inputUpperBoundTokens: number;
+  /** Active catalog prices in USD per million tokens. */
+  cost: {
+    input: number;
+    output: number;
+    cacheRead: number;
+    cacheWrite: number;
+  };
+};
+
+export type PluginHookBeforeModelCallResult = {
+  block?: boolean;
+  blockReason?: string;
+  /** Optional lower output cap. Hooks cannot raise the requested cap. */
+  maxOutputTokens?: number;
+  /** Optional lower provider retry cap. */
+  maxRetries?: number;
+};
+
+/** Last blocking boundary before a non-model paid operation reaches its provider. */
+export type PluginHookBeforeBillableOperationEvent = {
+  runId: string;
+  toolCallId?: string;
+  category: string;
+  provider: string;
+  model: string;
+  costUpperBound?: {
+    totalUsd: number;
+    evidence: "catalog-upper-bound";
+  };
+};
+
+export type PluginHookBeforeBillableOperationResult = {
+  block?: boolean;
+  blockReason?: string;
+};
+
 export type PluginHookModelCallStartedEvent = PluginHookModelCallBaseEvent;
 
 export type PluginHookModelCallEndedEvent = PluginHookModelCallBaseEvent & {
@@ -404,6 +452,19 @@ type PluginHookBillableOperationTerminalBase = {
   unit?: string;
   dimensions?: Readonly<Record<string, PluginJsonValue>>;
   providerRequestId?: string;
+  /** Normalized monetary cost when the provider/runtime can prove or calculate it. */
+  cost?: {
+    totalUsd: number;
+    evidence: "provider-billed" | "catalog-estimate" | "reconciled";
+  };
+  /** Normalized billable usage; provider-specific metadata remains private. */
+  usage?: {
+    input?: number;
+    output?: number;
+    cacheRead?: number;
+    cacheWrite?: number;
+    total?: number;
+  };
 };
 
 /** Terminal provider result for paid work that can outlive its originating tool call. */
@@ -1228,6 +1289,17 @@ export type PluginHookHandlerMap = {
   ) =>
     | Promise<PluginHookBeforeModelResolveResult | void>
     | PluginHookBeforeModelResolveResult
+    | void;
+  before_model_call: (
+    event: PluginHookBeforeModelCallEvent,
+    ctx: PluginHookAgentContext,
+  ) => Promise<PluginHookBeforeModelCallResult | void> | PluginHookBeforeModelCallResult | void;
+  before_billable_operation: (
+    event: PluginHookBeforeBillableOperationEvent,
+    ctx: PluginHookAgentContext,
+  ) =>
+    | Promise<PluginHookBeforeBillableOperationResult | void>
+    | PluginHookBeforeBillableOperationResult
     | void;
   before_prompt_build: (
     event: PluginHookBeforePromptBuildEvent,

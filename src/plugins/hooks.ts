@@ -53,6 +53,10 @@ import type {
   PluginHookReplyDispatchResult,
   PluginHookBeforeModelResolveEvent,
   PluginHookBeforeModelResolveResult,
+  PluginHookBeforeModelCallEvent,
+  PluginHookBeforeModelCallResult,
+  PluginHookBeforeBillableOperationEvent,
+  PluginHookBeforeBillableOperationResult,
   PluginHookBeforePromptBuildEvent,
   PluginHookBeforePromptBuildResult,
   PluginHookBeforeCompactionEvent,
@@ -184,6 +188,8 @@ const DEFAULT_VOID_HOOK_TIMEOUT_MS_BY_HOOK: Partial<Record<PluginHookName, numbe
   gateway_stop: 5_000,
 };
 const DEFAULT_MODIFYING_HOOK_TIMEOUT_MS_BY_HOOK: Partial<Record<PluginHookName, number>> = {
+  before_model_call: 15_000,
+  before_billable_operation: 15_000,
   before_agent_run: 15_000,
   // Policy hooks fail closed in the global runner. A bounded timeout turns a
   // stalled policy process into a denial instead of freezing the operation.
@@ -455,6 +461,34 @@ export function createHookRunner(
     // Keep the first defined override so higher-priority hooks win.
     modelOverride: firstDefined(acc?.modelOverride, next.modelOverride),
     providerOverride: firstDefined(acc?.providerOverride, next.providerOverride),
+  });
+
+  const mergeBeforeModelCall = (
+    acc: PluginHookBeforeModelCallResult | undefined,
+    next: PluginHookBeforeModelCallResult,
+  ): PluginHookBeforeModelCallResult => ({
+    block: acc?.block === true || next.block === true,
+    blockReason: acc?.blockReason ?? next.blockReason,
+    maxOutputTokens:
+      acc?.maxOutputTokens === undefined
+        ? next.maxOutputTokens
+        : next.maxOutputTokens === undefined
+          ? acc.maxOutputTokens
+          : Math.min(acc.maxOutputTokens, next.maxOutputTokens),
+    maxRetries:
+      acc?.maxRetries === undefined
+        ? next.maxRetries
+        : next.maxRetries === undefined
+          ? acc.maxRetries
+          : Math.min(acc.maxRetries, next.maxRetries),
+  });
+
+  const mergeBeforeBillableOperation = (
+    acc: PluginHookBeforeBillableOperationResult | undefined,
+    next: PluginHookBeforeBillableOperationResult,
+  ): PluginHookBeforeBillableOperationResult => ({
+    block: acc?.block === true || next.block === true,
+    blockReason: acc?.blockReason ?? next.blockReason,
   });
 
   const normalizeHookToolsAllow = (value: unknown): string[] | undefined => {
@@ -1051,6 +1085,38 @@ export function createHookRunner(
       event,
       ctx,
       { mergeResults: mergeBeforeModelResolve },
+    );
+  }
+
+  async function runBeforeModelCall(
+    event: PluginHookBeforeModelCallEvent,
+    ctx: PluginHookAgentContext,
+  ): Promise<PluginHookBeforeModelCallResult | undefined> {
+    return runModifyingHook<"before_model_call", PluginHookBeforeModelCallResult>(
+      "before_model_call",
+      event,
+      ctx,
+      {
+        mergeResults: mergeBeforeModelCall,
+        shouldStop: (result) => result.block === true,
+        terminalLabel: "block=true",
+      },
+    );
+  }
+
+  async function runBeforeBillableOperation(
+    event: PluginHookBeforeBillableOperationEvent,
+    ctx: PluginHookAgentContext,
+  ): Promise<PluginHookBeforeBillableOperationResult | undefined> {
+    return runModifyingHook<"before_billable_operation", PluginHookBeforeBillableOperationResult>(
+      "before_billable_operation",
+      event,
+      ctx,
+      {
+        mergeResults: mergeBeforeBillableOperation,
+        shouldStop: (result) => result.block === true,
+        terminalLabel: "block=true",
+      },
     );
   }
 
@@ -1752,6 +1818,8 @@ export function createHookRunner(
   return {
     // Agent hooks
     runBeforeModelResolve,
+    runBeforeModelCall,
+    runBeforeBillableOperation,
     runAgentTurnPrepare,
     runBeforePromptBuild,
     runAuthorizedPromptBuild,

@@ -69,6 +69,8 @@ export type MusicGenerationMode = "generate" | "edit";
 
 /** Capability block for prompt-only music generation. */
 export type MusicGenerationModeCapabilities = {
+  /** Proven catalog maximum for one normalized provider request, in USD. */
+  costUpperBoundUsd?: number;
   maxTracks?: number;
   maxDurationSeconds?: number;
   supportsLyrics?: boolean;

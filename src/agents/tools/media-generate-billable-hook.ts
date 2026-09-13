@@ -1,3 +1,4 @@
+import { isRecord } from "@openclaw/normalization-core/record-coerce";
 import { getGlobalHookRunner } from "../../plugins/hook-runner-global.js";
 import type {
   PluginHookAgentContext,
@@ -19,6 +20,40 @@ export type MediaGenerationExecutionResult = {
     providerRequestId?: string;
   };
 };
+
+export function readMediaGenerationBilling(
+  metadata: Record<string, unknown> | undefined,
+): Pick<PluginHookBillableOperationCompletedEvent, "cost" | "usage"> {
+  const billing = metadata?.billing;
+  if (!isRecord(billing) || !isRecord(billing.cost)) {
+    return {};
+  }
+  const totalUsd = billing.cost.totalUsd;
+  const evidence = billing.cost.evidence;
+  if (
+    typeof totalUsd !== "number" ||
+    !Number.isFinite(totalUsd) ||
+    totalUsd < 0 ||
+    (evidence !== "provider-billed" && evidence !== "catalog-estimate" && evidence !== "reconciled")
+  ) {
+    return {};
+  }
+  const billingUsage = isRecord(billing.usage) ? billing.usage : undefined;
+  const usage = billingUsage
+    ? Object.fromEntries(
+        (["input", "output", "cacheRead", "cacheWrite", "total"] as const).flatMap((key) => {
+          const value = billingUsage[key];
+          return typeof value === "number" && Number.isFinite(value) && value >= 0
+            ? [[key, value]]
+            : [];
+        }),
+      )
+    : undefined;
+  return {
+    cost: { totalUsd, evidence },
+    ...(usage && Object.keys(usage).length > 0 ? { usage } : {}),
+  };
+}
 
 export async function runMediaGenerationBillableCompletionHook(params: {
   result: MediaGenerationExecutionResult;

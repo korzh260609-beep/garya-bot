@@ -144,6 +144,8 @@ describe("SG billing hook integration contract", () => {
     const { hooks } = register(root);
 
     expect(hooks.has("before_agent_run")).toBe(true);
+    expect(hooks.has("before_model_call")).toBe(true);
+    expect(hooks.has("before_billable_operation")).toBe(true);
     expect(hooks.has("before_tool_call")).toBe(true);
     expect(hooks.has("model_call_ended")).toBe(true);
     expect(hooks.has("billable_operation_completed")).toBe(true);
@@ -243,6 +245,39 @@ describe("SG billing hook integration contract", () => {
     });
   });
 
+  it("authorizes a bounded model call and denies concurrent spend beyond prepaid funds", async () => {
+    const root = await createStateDir();
+    await credit(root, usdToNanoUsd(0.01));
+    const { hooks } = register(root);
+    const ctx = agentContext("run-hard-limit");
+    await runHooks(hooks, "before_agent_run", beforeRunEvent, ctx);
+    const request = {
+      runId: "run-hard-limit",
+      callId: "call-first",
+      provider: "openai",
+      model: "gpt-5.6-terra",
+      maxOutputTokens: 1_000,
+      inputUpperBoundTokens: 1_000,
+      cost: { input: 2, output: 12, cacheRead: 0.2, cacheWrite: 2.5 },
+    };
+
+    const first = await runHooks(hooks, "before_model_call", request, ctx);
+    const second = await runHooks(
+      hooks,
+      "before_model_call",
+      { ...request, callId: "call-second" },
+      ctx,
+    );
+
+    expect(first).toContainEqual({ maxOutputTokens: 83, maxRetries: 0 });
+    expect(second).toContainEqual(
+      expect.objectContaining({
+        block: true,
+        blockReason: expect.stringContaining("cannot cover"),
+      }),
+    );
+  });
+
   it("does not charge a duplicated model terminal event twice", async () => {
     const root = await createStateDir();
     const openingBalance = usdToNanoUsd(1);
@@ -338,6 +373,147 @@ describe("SG billing hook integration contract", () => {
     );
 
     expect((await snapshot(root)).reservedNanoUsd).toBe(afterReserve.reservedNanoUsd);
+  });
+
+  it("blocks media before provider I/O when a catalog upper bound is unavailable", async () => {
+    const root = await createStateDir();
+    await credit(root, usdToNanoUsd(1));
+    const { hooks } = register(root);
+    const ctx = {
+      ...agentContext("run-unbounded-media"),
+      requester: { channel: "telegram", accountId: "default", senderId: "200" },
+    };
+    await runHooks(hooks, "before_agent_run", beforeRunEvent, ctx);
+    await runHooks(
+      hooks,
+      "before_tool_call",
+      {
+        toolName: "image_generate",
+        params: {},
+        runId: "run-unbounded-media",
+        toolCallId: "tool-image-unbounded",
+      },
+      ctx,
+    );
+
+    const results = await runHooks(
+      hooks,
+      "before_billable_operation",
+      {
+        runId: "run-unbounded-media",
+        toolCallId: "tool-image-unbounded",
+        provider: "openai",
+        model: "gpt-image-1.5",
+        category: "image_generation",
+      },
+      ctx,
+    );
+
+    expect(results).toContainEqual(
+      expect.objectContaining({ block: true, blockReason: expect.stringContaining("maximum") }),
+    );
+  });
+
+  it("charges an exact provider-billed media total times two", async () => {
+    const root = await createStateDir();
+    const openingBalance = usdToNanoUsd(1);
+    await credit(root, openingBalance);
+    const { hooks } = register(root);
+    const ctx = {
+      ...agentContext("run-priced-media"),
+      requester: { channel: "telegram", accountId: "default", senderId: "200" },
+    };
+    await runHooks(hooks, "before_agent_run", beforeRunEvent, ctx);
+    await runHooks(
+      hooks,
+      "before_tool_call",
+      {
+        toolName: "video_generate",
+        params: { durationSeconds: 4 },
+        runId: "run-priced-media",
+        toolCallId: "tool-video-priced",
+      },
+      ctx,
+    );
+    await runHooks(
+      hooks,
+      "before_billable_operation",
+      {
+        runId: "run-priced-media",
+        toolCallId: "tool-video-priced",
+        provider: "openrouter",
+        model: "google/veo-3.1",
+        category: "video_generation",
+        costUpperBound: { totalUsd: 0.5, evidence: "catalog-upper-bound" },
+      },
+      ctx,
+    );
+    await runHooks(
+      hooks,
+      "billable_operation_completed",
+      {
+        runId: "run-priced-media",
+        toolCallId: "tool-video-priced",
+        provider: "openrouter",
+        model: "google/veo-3.1",
+        category: "video_generation",
+        outcome: "completed",
+        quantity: 1,
+        unit: "videos",
+        cost: { totalUsd: 0.4, evidence: "provider-billed" },
+      },
+      ctx,
+    );
+    await runHooks(hooks, "agent_end", { messages: [], success: true }, ctx);
+
+    await expect(snapshot(root)).resolves.toEqual({
+      balanceNanoUsd: openingBalance - usdToNanoUsd(0.4) * 2,
+      reservedNanoUsd: 0,
+      availableNanoUsd: openingBalance - usdToNanoUsd(0.4) * 2,
+    });
+  });
+
+  it("blocks a media upper bound that exceeds the citizen's prepaid balance", async () => {
+    const root = await createStateDir();
+    await credit(root, usdToNanoUsd(0.5));
+    const { hooks } = register(root);
+    const ctx = {
+      ...agentContext("run-expensive-media"),
+      requester: { channel: "telegram", accountId: "default", senderId: "200" },
+    };
+    await runHooks(hooks, "before_agent_run", beforeRunEvent, ctx);
+    await runHooks(
+      hooks,
+      "before_tool_call",
+      {
+        toolName: "video_generate",
+        params: {},
+        runId: "run-expensive-media",
+        toolCallId: "tool-video-expensive",
+      },
+      ctx,
+    );
+
+    const results = await runHooks(
+      hooks,
+      "before_billable_operation",
+      {
+        runId: "run-expensive-media",
+        toolCallId: "tool-video-expensive",
+        provider: "openrouter",
+        model: "google/veo-3.1",
+        category: "video_generation",
+        costUpperBound: { totalUsd: 0.5, evidence: "catalog-upper-bound" },
+      },
+      ctx,
+    );
+
+    expect(results).toContainEqual(
+      expect.objectContaining({
+        block: true,
+        blockReason: expect.stringContaining("cannot cover"),
+      }),
+    );
   });
 
   it("fails closed when a paid run has no provable requester identity", async () => {

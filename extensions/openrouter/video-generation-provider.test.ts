@@ -339,6 +339,7 @@ describe("openrouter video generation provider", () => {
       videoToVideo: { enabled: false },
     });
     expectRecordFields(requireRecord(capabilities.generate, "generate capabilities"), {
+      costUpperBoundUsd: 0.5,
       supportsAudio: true,
       supportedDurationSeconds: [5, 8],
       aspectRatios: ["16:9"],
@@ -348,6 +349,7 @@ describe("openrouter video generation provider", () => {
     expectRecordFields(requireRecord(capabilities.imageToVideo, "image-to-video capabilities"), {
       enabled: true,
       maxInputImages: 2,
+      costUpperBoundUsd: 0.5,
     });
   });
 
@@ -817,6 +819,9 @@ describe("openrouter video generation provider", () => {
       status: "completed",
       generationId: "gen-123",
       usage: { cost: 0.25, is_byok: false },
+      billing: {
+        cost: { totalUsd: 0.25, evidence: "provider-billed" },
+      },
     });
   });
 

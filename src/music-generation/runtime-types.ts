@@ -2,6 +2,7 @@
 import type { AuthProfileStore } from "../agents/auth-profiles/types.js";
 import type { FallbackAttempt } from "../agents/model-fallback.types.js";
 import type { OpenClawConfig } from "../config/types.openclaw.js";
+import type { MediaGenerationBillingContext } from "../media-generation/billable-operation.js";
 import type {
   GeneratedMusicAsset,
   MusicGenerationIgnoredOverride,
@@ -31,6 +32,8 @@ export type GenerateMusicParams = {
   autoProviderFallback?: boolean;
   /** Optional per-request provider timeout in milliseconds. */
   timeoutMs?: number;
+  /** Internal provider-boundary correlation for prepaid authorization. */
+  billingContext?: MediaGenerationBillingContext;
 };
 
 /** Result returned after a successful runtime provider attempt. */

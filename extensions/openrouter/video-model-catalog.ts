@@ -181,6 +181,19 @@ function buildOpenRouterVideoModelCapabilities(
   const pricingSkus = normalizeStringRecord(model.pricing_skus);
   if (pricingSkus) {
     capabilities.pricingSkus = pricingSkus;
+    const generateUpperBoundUsd = Number(pricingSkus.generate);
+    if (Number.isFinite(generateUpperBoundUsd) && generateUpperBoundUsd > 0) {
+      capabilities.generate = {
+        ...capabilities.generate,
+        costUpperBoundUsd: generateUpperBoundUsd,
+      };
+      if (capabilities.imageToVideo?.enabled) {
+        capabilities.imageToVideo = {
+          ...capabilities.imageToVideo,
+          costUpperBoundUsd: generateUpperBoundUsd,
+        };
+      }
+    }
   }
   if (allowedPassthroughParameters.length > 0) {
     capabilities.allowedPassthroughParameters = allowedPassthroughParameters;

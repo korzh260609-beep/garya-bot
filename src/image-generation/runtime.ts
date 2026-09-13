@@ -5,6 +5,7 @@ import { resolveAgentModelTimeoutMsValue } from "../config/model-input.js";
 import type { OpenClawConfig } from "../config/types.openclaw.js";
 import { formatErrorMessage } from "../infra/errors.js";
 import { createSubsystemLogger } from "../logging/subsystem.js";
+import { authorizeMediaGenerationProviderCall } from "../media-generation/billable-operation.js";
 import { parseImageGenerationModelRef } from "../media-generation/model-ref.js";
 import {
   getImageGenerationProvider,
@@ -119,6 +120,7 @@ export async function generateImage(
       continue;
     }
 
+    let providerSpendAuthorized = false;
     try {
       const timeoutMs = resolveMediaProviderRequestTimeoutMs({
         timeoutMs: requestedTimeoutMs,
@@ -143,6 +145,13 @@ export async function generateImage(
         outputFormat: params.outputFormat,
         background: params.background,
         inputImages: params.inputImages,
+      });
+      providerSpendAuthorized = await authorizeMediaGenerationProviderCall({
+        billingContext: params.billingContext,
+        category: "image_generation",
+        provider: candidate.provider,
+        model: candidate.model,
+        costUpperBoundUsd: modeCapabilities.costUpperBoundUsd,
       });
       // Providers receive only supported overrides. Ignored/normalized values
       // are returned to callers so user-facing replies can explain adjustments.
@@ -191,6 +200,9 @@ export async function generateImage(
         ignoredOverrides: sanitized.ignoredOverrides,
       };
     } catch (err) {
+      if (providerSpendAuthorized) {
+        throw err;
+      }
       lastError = err;
       const described = isFailoverError(err) ? describeFailoverError(err) : undefined;
       attempts.push({

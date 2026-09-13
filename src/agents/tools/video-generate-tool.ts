@@ -55,7 +55,10 @@ import {
   videoGenerationTaskLifecycle,
   type VideoGenerationTaskHandle,
 } from "./media-generate-background.js";
-import type { MediaGenerationExecutionResult } from "./media-generate-billable-hook.js";
+import {
+  readMediaGenerationBilling,
+  type MediaGenerationExecutionResult,
+} from "./media-generate-billable-hook.js";
 import {
   applyVideoGenerationModelConfigDefaults,
   buildMediaReferenceDetails,
@@ -629,6 +632,16 @@ async function executeVideoGenerationJob(params: {
       autoProviderFallback: params.autoProviderFallback,
       providerOptions: params.providerOptions,
       timeoutMs: params.timeoutMs,
+      ...(params.taskHandle
+        ? {
+            billingContext: {
+              runId: params.taskHandle.runId,
+              toolCallId: params.taskHandle.toolCallId,
+              sessionKey: params.taskHandle.requesterSessionKey,
+              agentId: params.taskHandle.requesterAgentId,
+            },
+          }
+        : {}),
     },
     createCapabilityProviderRuntimeDeps(params.providers),
   );
@@ -813,6 +826,7 @@ async function executeVideoGenerationJob(params: {
       category: "video_generation",
       quantity: totalCount,
       unit: "videos",
+      ...readMediaGenerationBilling(result.metadata),
       dimensions: {
         ...(normalizedSize ||
         (!ignoredOverrideKeys.has("size") && params.size && !sizeTranslatedToAspectRatio)

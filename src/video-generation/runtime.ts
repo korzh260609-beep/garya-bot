@@ -3,6 +3,7 @@ import type { FallbackAttempt } from "../agents/model-fallback.types.js";
 import { resolveAgentModelTimeoutMsValue } from "../config/model-input.js";
 import type { OpenClawConfig } from "../config/types.openclaw.js";
 import { createSubsystemLogger } from "../logging/subsystem.js";
+import { authorizeMediaGenerationProviderCall } from "../media-generation/billable-operation.js";
 import { parseVideoGenerationModelRef } from "../media-generation/model-ref.js";
 import {
   getVideoGenerationProvider,
@@ -282,6 +283,7 @@ export async function generateVideo(
       }
     }
 
+    let providerSpendAuthorized = false;
     try {
       const sanitized = resolveVideoGenerationOverrides({
         provider: activeProvider,
@@ -319,6 +321,19 @@ export async function generateVideo(
       if (supportedDurations) {
         generationRequest[SUPPORTED_DURATIONS_HINT] = supportedDurations;
       }
+      const { capabilities: billableCapabilities } = resolveVideoGenerationModeCapabilities({
+        provider: activeProvider,
+        model: candidate.model,
+        inputImageCount,
+        inputVideoCount,
+      });
+      providerSpendAuthorized = await authorizeMediaGenerationProviderCall({
+        billingContext: params.billingContext,
+        category: "video_generation",
+        provider: candidate.provider,
+        model: candidate.model,
+        costUpperBoundUsd: billableCapabilities?.costUpperBoundUsd,
+      });
       const result: VideoGenerationResult = await provider.generateVideo(generationRequest);
       if (!Array.isArray(result.videos) || result.videos.length === 0) {
         throw new Error("Video generation provider returned no videos.");
@@ -359,6 +374,9 @@ export async function generateVideo(
         },
       };
     } catch (err) {
+      if (providerSpendAuthorized) {
+        throw err;
+      }
       lastError = err;
       recordCapabilityCandidateFailure({
         attempts,

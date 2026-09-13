@@ -3,6 +3,7 @@ import type { FallbackAttempt } from "../agents/model-fallback.types.js";
 import { resolveAgentModelTimeoutMsValue } from "../config/model-input.js";
 import type { OpenClawConfig } from "../config/types.openclaw.js";
 import { createSubsystemLogger } from "../logging/subsystem.js";
+import { authorizeMediaGenerationProviderCall } from "../media-generation/billable-operation.js";
 import { parseMusicGenerationModelRef } from "../media-generation/model-ref.js";
 import {
   getMusicGenerationProvider,
@@ -94,6 +95,7 @@ export async function generateMusic(
       continue;
     }
 
+    let providerSpendAuthorized = false;
     try {
       const sanitized = resolveMusicGenerationOverrides({
         provider,
@@ -103,6 +105,16 @@ export async function generateMusic(
         durationSeconds: params.durationSeconds,
         format: params.format,
         inputImages: params.inputImages,
+      });
+      const modeCapabilities = params.inputImages?.length
+        ? provider.capabilities.edit
+        : (provider.capabilities.generate ?? provider.capabilities);
+      providerSpendAuthorized = await authorizeMediaGenerationProviderCall({
+        billingContext: params.billingContext,
+        category: "music_generation",
+        provider: candidate.provider,
+        model: candidate.model,
+        costUpperBoundUsd: modeCapabilities?.costUpperBoundUsd,
       });
       const result: MusicGenerationResult = await provider.generateMusic({
         provider: candidate.provider,
@@ -143,6 +155,9 @@ export async function generateMusic(
         ignoredOverrides: sanitized.ignoredOverrides,
       };
     } catch (err) {
+      if (providerSpendAuthorized) {
+        throw err;
+      }
       lastError = err;
       // Preserve failed candidates so callers can see which provider/model refs were tried.
       recordCapabilityCandidateFailure({

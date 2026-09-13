@@ -786,4 +786,79 @@ describe("wrapStreamFnWithDiagnosticModelCallEvents lifecycle", () => {
     expect(started).not.toHaveBeenCalled();
     expect(ended).not.toHaveBeenCalled();
   });
+
+  it("blocks before invoking the provider stream", async () => {
+    const providerStream = vi.fn();
+    const beforeModelCall = vi.fn(() => ({
+      block: true,
+      blockReason: "prepaid budget exhausted",
+    }));
+    const { registry } = createHookRunnerWithRegistry([
+      { hookName: "before_model_call", handler: beforeModelCall },
+    ]);
+    initializeGlobalHookRunner(registry);
+    const wrapped = wrapStreamFnWithDiagnosticModelCallEvents(providerStream as never, {
+      runId: "run-prepaid-block",
+      provider: "openai",
+      model: "gpt-5.6-terra",
+      trace: createDiagnosticTraceContext(),
+      contextTokenBudget: 10_000,
+      nextCallId: () => "call-prepaid-block",
+    });
+
+    await expect(
+      wrapped(
+        {
+          cost: { input: 2, output: 12, cacheRead: 0.2, cacheWrite: 2.5 },
+          maxTokens: 2_000,
+        } as never,
+        {} as never,
+        { maxTokens: 1_000 } as never,
+      ),
+    ).rejects.toThrow("prepaid budget exhausted");
+    expect(providerStream).not.toHaveBeenCalled();
+    expect(beforeModelCall).toHaveBeenCalledWith(
+      expect.objectContaining({
+        callId: "call-prepaid-block",
+        maxOutputTokens: 1_000,
+        inputUpperBoundTokens: 9_000,
+        cost: { input: 2, output: 12, cacheRead: 0.2, cacheWrite: 2.5 },
+      }),
+      expect.objectContaining({ runId: "run-prepaid-block" }),
+    );
+  });
+
+  it("applies a lower hook output cap to the provider request", async () => {
+    const providerStream = vi.fn(async () => ({}));
+    const { registry } = createHookRunnerWithRegistry([
+      {
+        hookName: "before_model_call",
+        handler: () => ({ maxOutputTokens: 64, maxRetries: 0 }),
+      },
+    ]);
+    initializeGlobalHookRunner(registry);
+    const wrapped = wrapStreamFnWithDiagnosticModelCallEvents(providerStream as never, {
+      runId: "run-prepaid-cap",
+      provider: "openai",
+      model: "gpt-5.6-terra",
+      trace: createDiagnosticTraceContext(),
+      contextTokenBudget: 10_000,
+      nextCallId: () => "call-prepaid-cap",
+    });
+
+    await wrapped(
+      {
+        cost: { input: 2, output: 12, cacheRead: 0.2, cacheWrite: 2.5 },
+        maxTokens: 2_000,
+      } as never,
+      {} as never,
+      { maxTokens: 1_000, maxRetries: 2 } as never,
+    );
+
+    expect(providerStream).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({ maxTokens: 64, maxRetries: 0, requestId: "call-prepaid-cap" }),
+    );
+  });
 });

@@ -10,6 +10,8 @@ type SgBillingHookApi = {
 };
 
 const PAID_MEDIA_TOOL_NAMES = new Set(["image_generate", "video_generate", "music_generate"]);
+const NANO_USD_PER_TOKEN_PER_MILLION_RATE = 1_000;
+const CUSTOMER_PRICE_MULTIPLIER = 2;
 
 export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir: string }): void {
   const { api, stateDir } = params;
@@ -111,6 +113,69 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
     }
   });
 
+  api.on("before_model_call", async (event) => {
+    const correlation = await ledger.resolveCorrelation(`run:${event.runId}`);
+    if (!correlation) {
+      return;
+    }
+    try {
+      const capacity = await ledger.prepaidCapacity(correlation);
+      if (capacity.hasUnpricedParts) {
+        return {
+          block: true,
+          blockReason: "SG cannot authorize new spend while prior provider cost is unknown",
+        };
+      }
+      const inputRate = Math.max(
+        event.cost.input,
+        event.cost.cacheRead,
+        event.cost.cacheWrite,
+        event.cost.input * 2,
+      );
+      const outputRate = event.cost.output;
+      if (
+        !Number.isFinite(inputRate) ||
+        inputRate < 0 ||
+        !Number.isFinite(outputRate) ||
+        outputRate < 0 ||
+        (inputRate === 0 && outputRate === 0)
+      ) {
+        return { block: true, blockReason: "SG model pricing is unavailable" };
+      }
+      const providerBudgetNanoUsd = Math.floor(
+        capacity.remainingNanoUsd / CUSTOMER_PRICE_MULTIPLIER,
+      );
+      const inputUpperBoundNanoUsd = Math.ceil(
+        event.inputUpperBoundTokens * inputRate * NANO_USD_PER_TOKEN_PER_MILLION_RATE,
+      );
+      const outputBudgetNanoUsd = providerBudgetNanoUsd - inputUpperBoundNanoUsd;
+      const maxOutputTokens =
+        outputRate === 0
+          ? event.maxOutputTokens
+          : Math.min(
+              event.maxOutputTokens,
+              Math.floor(outputBudgetNanoUsd / (outputRate * NANO_USD_PER_TOKEN_PER_MILLION_RATE)),
+            );
+      if (maxOutputTokens < 1) {
+        return { block: true, blockReason: "SG prepaid balance cannot cover this model request" };
+      }
+      const providerAuthorizedNanoUsd =
+        inputUpperBoundNanoUsd +
+        Math.ceil(maxOutputTokens * outputRate * NANO_USD_PER_TOKEN_PER_MILLION_RATE);
+      await ledger.authorizePart({
+        ...correlation,
+        partId: `model:${event.callId}`,
+        authorizedNanoUsd: providerAuthorizedNanoUsd * CUSTOMER_PRICE_MULTIPLIER,
+      });
+      return { maxOutputTokens, maxRetries: 0 };
+    } catch (error) {
+      api.logger?.warn(
+        `[sg-billing] model authorization failed safely: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return { block: true, blockReason: "SG prepaid billing could not authorize this model call" };
+    }
+  });
+
   api.on("before_tool_call", async (event, ctx) => {
     if (!PAID_MEDIA_TOOL_NAMES.has(event.toolName)) {
       return;
@@ -153,6 +218,50 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
     }
   });
 
+  api.on("before_billable_operation", async (event) => {
+    if (!event.toolCallId) {
+      return {
+        block: true,
+        blockReason: "SG cannot prove the paid-operation correlation",
+      };
+    }
+    const correlation = await ledger.resolveCorrelation(`tool:${event.toolCallId}`);
+    if (!correlation) {
+      // Monarch operations never create a citizen reservation and remain unrestricted.
+      return;
+    }
+    const upperBound = event.costUpperBound;
+    if (
+      upperBound?.evidence !== "catalog-upper-bound" ||
+      !Number.isFinite(upperBound.totalUsd) ||
+      upperBound.totalUsd <= 0
+    ) {
+      return {
+        block: true,
+        blockReason: "SG cannot prove this provider's maximum media cost",
+      };
+    }
+    try {
+      const providerUpperBoundNanoUsd = usdToNanoUsd(upperBound.totalUsd);
+      await ledger.authorizePart({
+        ...correlation,
+        partId: `tool:${event.toolCallId}`,
+        authorizedNanoUsd: providerUpperBoundNanoUsd * CUSTOMER_PRICE_MULTIPLIER,
+      });
+      return { block: false };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      api.logger?.warn(`[sg-billing] paid operation authorization failed safely: ${message}`);
+      return {
+        block: true,
+        blockReason:
+          message === "sg-billing-insufficient-prepaid-capacity"
+            ? "SG prepaid balance cannot cover this media request"
+            : "SG prepaid billing could not authorize this media request",
+      };
+    }
+  });
+
   api.on("billable_operation_completed", async (event) => {
     if (!event.toolCallId) {
       api.logger?.warn("[sg-billing] paid operation has no tool correlation; reserve retained");
@@ -165,15 +274,22 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
       );
       return;
     }
+    const exactCostUsd =
+      event.cost?.evidence === "provider-billed" || event.cost?.evidence === "reconciled"
+        ? event.cost.totalUsd
+        : undefined;
     try {
       await ledger.recordPart({
         ...correlation,
         partId: `tool:${event.toolCallId}`,
         outcome: event.outcome,
+        ...(exactCostUsd === undefined ? {} : { actualCostNanoUsd: usdToNanoUsd(exactCostUsd) }),
       });
-      api.logger?.warn(
-        `[sg-billing] provider cost unavailable; reserve retained for paid operation ${event.toolCallId}`,
-      );
+      if (exactCostUsd === undefined) {
+        api.logger?.warn(
+          `[sg-billing] provider cost unavailable; reserve retained for paid operation ${event.toolCallId}`,
+        );
+      }
     } catch (error) {
       api.logger?.warn(
         `[sg-billing] paid operation settlement failed safely; reserve retained: ${error instanceof Error ? error.message : String(error)}`,

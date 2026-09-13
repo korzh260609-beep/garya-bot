@@ -1,3 +1,4 @@
+import { asFiniteNumber } from "@openclaw/normalization-core/number-coercion";
 import { isRecord } from "@openclaw/normalization-core/record-coerce";
 import {
   areDiagnosticsEnabledForProcess,
@@ -149,9 +150,23 @@ function normalizedModelCallUsage(rawUsage: unknown): ModelCallUsage | undefined
     return undefined;
   }
   const promptTokens = derivePromptTokens(usage);
+  const rawCost = isRecord(rawUsage.cost) ? rawUsage.cost : undefined;
+  const cost = rawCost
+    ? {
+        input: asFiniteNumber(rawCost.input),
+        output: asFiniteNumber(rawCost.output),
+        cacheRead: asFiniteNumber(rawCost.cacheRead),
+        cacheWrite: asFiniteNumber(rawCost.cacheWrite),
+        total: asFiniteNumber(rawCost.total),
+        ...(rawCost.totalOrigin === "provider-billed"
+          ? ({ totalOrigin: "provider-billed" } as const)
+          : {}),
+      }
+    : undefined;
   return {
     ...usage,
     ...(promptTokens !== undefined ? { promptTokens } : {}),
+    ...(cost ? { cost } : {}),
   };
 }
 

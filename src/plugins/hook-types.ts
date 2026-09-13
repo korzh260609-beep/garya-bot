@@ -100,6 +100,7 @@ export type PluginHookName =
   | "before_agent_reply"
   | "model_call_started"
   | "model_call_ended"
+  | "billable_operation_completed"
   | "llm_input"
   | "llm_output"
   | "before_agent_finalize"
@@ -144,6 +145,7 @@ const PLUGIN_HOOK_NAMES = [
   "before_agent_reply",
   "model_call_started",
   "model_call_ended",
+  "billable_operation_completed",
   "llm_input",
   "llm_output",
   "before_agent_finalize",
@@ -375,7 +377,49 @@ export type PluginHookModelCallEndedEvent = PluginHookModelCallBaseEvent & {
   responseStreamBytes?: number;
   timeToFirstByteMs?: number;
   upstreamRequestIdHash?: string;
+  usage?: {
+    input?: number;
+    output?: number;
+    cacheRead?: number;
+    cacheWrite?: number;
+    reasoningTokens?: number;
+    promptTokens?: number;
+    total?: number;
+    cost?: {
+      input?: number;
+      output?: number;
+      cacheRead?: number;
+      cacheWrite?: number;
+      total?: number;
+      totalOrigin?: "provider-billed";
+    };
+  };
 };
+
+type PluginHookBillableOperationTerminalBase = {
+  runId: string;
+  toolCallId?: string;
+  category: string;
+  quantity?: number;
+  unit?: string;
+  dimensions?: Readonly<Record<string, PluginJsonValue>>;
+  providerRequestId?: string;
+};
+
+/** Terminal provider result for paid work that can outlive its originating tool call. */
+export type PluginHookBillableOperationCompletedEvent =
+  | (PluginHookBillableOperationTerminalBase & {
+      outcome: "completed";
+      provider: string;
+      model: string;
+    })
+  | (PluginHookBillableOperationTerminalBase & {
+      outcome: "error";
+      /** Resolved provider, when failure happened after provider resolution. */
+      provider?: string;
+      /** Resolved model, when failure happened after model resolution. */
+      model?: string;
+    });
 
 export type PluginHookLlmOutputEvent = {
   runId: string;
@@ -1199,6 +1243,10 @@ export type PluginHookHandlerMap = {
   ) => Promise<void> | void;
   model_call_ended: (
     event: PluginHookModelCallEndedEvent,
+    ctx: PluginHookAgentContext,
+  ) => Promise<void> | void;
+  billable_operation_completed: (
+    event: PluginHookBillableOperationCompletedEvent,
     ctx: PluginHookAgentContext,
   ) => Promise<void> | void;
   llm_input: (event: PluginHookLlmInputEvent, ctx: PluginHookAgentContext) => Promise<void> | void;

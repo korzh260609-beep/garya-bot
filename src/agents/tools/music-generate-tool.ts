@@ -49,6 +49,7 @@ import {
   runMediaGenerationTask,
   type MusicGenerationTaskHandle,
 } from "./media-generate-background.js";
+import type { MediaGenerationExecutionResult } from "./media-generate-billable-hook.js";
 import {
   applyMusicGenerationModelConfigDefaults,
   buildMediaReferenceDetails,
@@ -388,14 +389,10 @@ async function loadReferenceImages(params: {
 
 type LoadedReferenceImage = Awaited<ReturnType<typeof loadReferenceImages>>[number];
 
-type ExecutedMusicGeneration = {
-  provider: string;
-  model: string;
-  count: number;
+type ExecutedMusicGeneration = MediaGenerationExecutionResult & {
   attachments: AgentGeneratedAttachment[];
   contentText: string;
   details: Record<string, unknown>;
-  wakeResult: string;
 };
 
 async function executeMusicGenerationJob(params: {
@@ -542,6 +539,20 @@ async function executeMusicGenerationJob(params: {
     provider: result.provider,
     model: result.model,
     count: savedTracks.length,
+    billableOperation: {
+      category: "music_generation",
+      quantity: savedTracks.length,
+      unit: "tracks",
+      dimensions: {
+        ...(typeof appliedDurationSeconds === "number"
+          ? { durationSeconds: appliedDurationSeconds }
+          : {}),
+        ...(!ignoredOverrideKeys.has("instrumental") && typeof params.instrumental === "boolean"
+          ? { instrumental: params.instrumental }
+          : {}),
+        ...(!ignoredOverrideKeys.has("format") && params.format ? { format: params.format } : {}),
+      },
+    },
     attachments,
     contentText: lines.join("\n"),
     wakeResult: lines.join("\n"),
@@ -645,7 +656,7 @@ export function createMusicGenerateTool(options?: {
     description:
       "Create song/jingle/beat/loop/soundtrack/anthem/instrumental. Make/generate music => call; lyrics-only request => text only. prompt: style/genre/mood/tempo/instruments/purpose; lyrics: exact sung words; image/images condition on reference image(s). action=list discovers providers/models. Session chat background: call once/request, await, then visible reply + structured media. status checks active task.",
     parameters: MusicGenerateToolSchema,
-    execute: async (_toolCallId, rawArgs, signal) => {
+    execute: async (toolCallId, rawArgs, signal) => {
       const args = rawArgs as Record<string, unknown>;
       const action = resolveAction(args);
 
@@ -766,6 +777,7 @@ export function createMusicGenerateTool(options?: {
       return runMediaGenerationTask({
         lifecycle: musicGenerationTaskLifecycle,
         generationLabel: "music",
+        toolCallId,
         sessionKey: options?.agentSessionKey,
         requesterAgentId: options?.requesterAgentId,
         requesterOrigin: options?.requesterOrigin,

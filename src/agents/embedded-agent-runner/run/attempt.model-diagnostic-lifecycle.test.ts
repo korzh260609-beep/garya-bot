@@ -607,6 +607,148 @@ describe("wrapStreamFnWithDiagnosticModelCallEvents lifecycle", () => {
     expect(JSON.stringify([started.mock.calls, ended.mock.calls])).not.toContain(secretChunk);
   });
 
+  it("exposes completed per-call usage and provider-billed cost to model-call hooks", async () => {
+    const ended = vi.fn();
+    const { registry } = createHookRunnerWithRegistry([
+      { hookName: "model_call_ended", handler: ended },
+    ]);
+    initializeGlobalHookRunner(registry);
+
+    async function* stream() {
+      yield {
+        type: "done",
+        message: {
+          role: "assistant",
+          content: [{ type: "text", text: "ok" }],
+          usage: {
+            input: 120,
+            output: 30,
+            cacheRead: 40,
+            cacheWrite: 10,
+            reasoningTokens: 12,
+            totalTokens: 200,
+            cost: {
+              input: 0.00012,
+              output: 0.00018,
+              cacheRead: 0.000004,
+              cacheWrite: 0.0000125,
+              total: 0.0003165,
+              totalOrigin: "provider-billed",
+            },
+          },
+        },
+      };
+    }
+    const wrapped = wrapStreamFnWithDiagnosticModelCallEvents(
+      (() => stream()) as unknown as StreamFn,
+      {
+        runId: "run-billing-completed",
+        provider: "openai",
+        model: "gpt-5.6-terra",
+        api: "openai-responses",
+        trace: createDiagnosticTraceContext(),
+        nextCallId: () => "call-billing-completed",
+      },
+    );
+
+    await drain(wrapped({} as never, {} as never, {} as never) as AsyncIterable<unknown>);
+    await new Promise<void>((resolve) => {
+      setImmediate(resolve);
+    });
+
+    const endedEvent = requireMockRecordArg(ended, 0, 0, "ended billing hook event");
+    expect(endedEvent).toMatchObject({
+      runId: "run-billing-completed",
+      callId: "call-billing-completed",
+      outcome: "completed",
+      usage: {
+        input: 120,
+        output: 30,
+        cacheRead: 40,
+        cacheWrite: 10,
+        reasoningTokens: 12,
+        total: 200,
+        cost: {
+          total: 0.0003165,
+          totalOrigin: "provider-billed",
+        },
+      },
+    });
+  });
+
+  it("exposes incurred per-call usage when the model call ends with an error", async () => {
+    const ended = vi.fn();
+    const { registry } = createHookRunnerWithRegistry([
+      { hookName: "model_call_ended", handler: ended },
+    ]);
+    initializeGlobalHookRunner(registry);
+
+    async function* stream() {
+      yield {
+        type: "error",
+        error: {
+          role: "assistant",
+          stopReason: "error",
+          content: [],
+          usage: {
+            input: 80,
+            output: 5,
+            cacheRead: 20,
+            cacheWrite: 0,
+            reasoningTokens: 3,
+            totalTokens: 105,
+            cost: {
+              input: 0.00008,
+              output: 0.00003,
+              cacheRead: 0.000002,
+              cacheWrite: 0,
+              total: 0.000112,
+              totalOrigin: "provider-billed",
+            },
+          },
+        },
+      };
+      throw new Error("provider stream terminated after billable output");
+    }
+    const wrapped = wrapStreamFnWithDiagnosticModelCallEvents(
+      (() => stream()) as unknown as StreamFn,
+      {
+        runId: "run-billing-error",
+        provider: "openai",
+        model: "gpt-5.6-terra",
+        api: "openai-responses",
+        trace: createDiagnosticTraceContext(),
+        nextCallId: () => "call-billing-error",
+      },
+    );
+
+    await expect(
+      drain(wrapped({} as never, {} as never, {} as never) as AsyncIterable<unknown>),
+    ).rejects.toThrow("provider stream terminated after billable output");
+    await new Promise<void>((resolve) => {
+      setImmediate(resolve);
+    });
+
+    const endedEvent = requireMockRecordArg(ended, 0, 0, "errored billing hook event");
+    expect(endedEvent).toMatchObject({
+      runId: "run-billing-error",
+      callId: "call-billing-error",
+      outcome: "error",
+      usage: {
+        input: 80,
+        output: 5,
+        cacheRead: 20,
+        cacheWrite: 0,
+        reasoningTokens: 3,
+        total: 105,
+        cost: {
+          total: 0.000112,
+          totalOrigin: "provider-billed",
+        },
+      },
+    });
+  });
+
   it("keeps core model-call diagnostics while suppressing finalization plugin hooks", async () => {
     const started = vi.fn();
     const ended = vi.fn();

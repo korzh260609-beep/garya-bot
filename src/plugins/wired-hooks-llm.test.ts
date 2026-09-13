@@ -135,4 +135,26 @@ describe("llm hook runner methods", () => {
     expect(runner.hasHooks("llm_input")).toBe(true);
     expect(runner.hasHooks("llm_output")).toBe(false);
   });
+
+  it("runs generic billable operation completion hooks", async () => {
+    const handler = vi.fn();
+    const { runner } = createHookRunnerWithRegistry([
+      { hookName: "billable_operation_completed", handler },
+    ]);
+    const event = {
+      runId: "run-image-1",
+      toolCallId: "call-image-1",
+      provider: "openai",
+      model: "gpt-image-1.5",
+      category: "image_generation",
+      outcome: "completed" as const,
+      quantity: 1,
+      unit: "images",
+      dimensions: { size: "1024x1024", quality: "high" },
+    };
+
+    await runner.runBillableOperationCompleted(event, hookCtx);
+
+    expect(handler).toHaveBeenCalledWith(event, hookCtx);
+  });
 });

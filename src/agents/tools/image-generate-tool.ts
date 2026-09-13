@@ -72,6 +72,7 @@ import {
   runMediaGenerationTask,
   type ImageGenerationTaskHandle,
 } from "./media-generate-background.js";
+import type { MediaGenerationExecutionResult } from "./media-generate-billable-hook.js";
 import {
   applyImageGenerationModelConfigDefaults,
   buildMediaReferenceDetails,
@@ -669,14 +670,10 @@ async function inferResolutionFromInputImages(
 
 type LoadedReferenceImage = Awaited<ReturnType<typeof loadReferenceImages>>[number];
 
-type ExecutedImageGeneration = {
-  provider: string;
-  model: string;
-  count: number;
+type ExecutedImageGeneration = MediaGenerationExecutionResult & {
   attachments: AgentGeneratedAttachment[];
   contentText: string;
   details: Record<string, unknown>;
-  wakeResult: string;
 };
 
 const defaultScheduleImageGenerateBackgroundWork = createDefaultMediaGenerateBackgroundScheduler({
@@ -808,6 +805,24 @@ async function executeImageGenerationJob(params: {
     provider: result.provider,
     model: result.model,
     count: savedImages.length,
+    billableOperation: {
+      category: "image_generation",
+      quantity: savedImages.length,
+      unit: "images",
+      dimensions: {
+        ...(appliedResolution ? { resolution: appliedResolution } : {}),
+        ...(normalizedSize || (params.size && !sizeTranslatedToAspectRatio)
+          ? { size: normalizedSize ?? params.size }
+          : {}),
+        ...(normalizedAspectRatio || params.aspectRatio
+          ? { aspectRatio: normalizedAspectRatio ?? params.aspectRatio }
+          : {}),
+        ...(params.quality ? { quality: params.quality } : {}),
+        ...(params.outputFormat ? { outputFormat: params.outputFormat } : {}),
+        ...(params.background ? { background: params.background } : {}),
+        operation: params.inputImages.length > 0 ? "edit" : "generate",
+      },
+    },
     attachments,
     contentText: lines.join("\n"),
     wakeResult: lines.join("\n"),
@@ -899,7 +914,7 @@ export function createImageGenerateTool(options?: {
     description:
       'Create/edit images. Batch via count; aspectRatio and resolution up to 4K. Session chat runs background: call once/request, await completion, then visible reply with structured media attachment. Transparent: outputFormat png|webp + background="transparent"; OpenAI also openai.background, default gpt-image-1.5. action=list providers/models/readiness/auth; status active task.',
     parameters: ImageGenerateToolSchema,
-    execute: async (_toolCallId, args, signal) => {
+    execute: async (toolCallId, args, signal) => {
       const params = args as Record<string, unknown>;
       const action = resolveAction(params);
       if (action === "list") {
@@ -1064,6 +1079,7 @@ export function createImageGenerateTool(options?: {
       return runMediaGenerationTask({
         lifecycle: imageGenerationTaskLifecycle,
         generationLabel: "image",
+        toolCallId,
         sessionKey: options?.agentSessionKey,
         requesterAgentId: options?.requesterAgentId,
         requesterOrigin: options?.requesterOrigin,

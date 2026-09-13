@@ -12,21 +12,52 @@ import {
   VIDEO_GENERATION_TASK_KIND,
 } from "../media-generation-task-status.js";
 import {
-  buildMediaGenerationStartedToolResult,
   createMediaGenerationTaskLifecycle,
   notifyMediaGenerationAsyncTaskStarted,
   scheduleMediaGenerationTaskCompletion,
   shouldDetachMediaGenerationTask,
   type MediaGenerateAsyncStartCallback,
   type MediaGenerateBackgroundScheduler,
-  type MediaGenerationExecutionResult,
   type MediaGenerationTaskHandle,
 } from "./media-generate-background-shared.js";
+import type { MediaGenerationExecutionResult } from "./media-generate-billable-hook.js";
+
+function buildMediaGenerationStartedToolResult(params: {
+  toolName: string;
+  generationLabel: string;
+  completionLabel: string;
+  taskHandle: MediaGenerationTaskHandle;
+  detailExtras?: Record<string, unknown>;
+  messages?: Array<string | undefined>;
+}) {
+  return {
+    content: [
+      {
+        type: "text" as const,
+        text: [
+          `Background task started for ${params.generationLabel} generation (${params.taskHandle.taskId}). Do not call ${params.toolName} again for this request. Wait for the completion event; the completion agent will send the finished ${params.completionLabel} here when it's ready.`,
+          ...(params.messages ?? []),
+        ]
+          .filter((entry): entry is string => Boolean(entry))
+          .join("\n"),
+      },
+    ],
+    details: {
+      async: true,
+      status: "started",
+      taskId: params.taskHandle.taskId,
+      runId: params.taskHandle.runId,
+      task: { taskId: params.taskHandle.taskId, runId: params.taskHandle.runId },
+      ...params.detailExtras,
+    },
+  };
+}
 
 /** Owns task admission and the shared foreground or detached generation lifecycle. */
 export async function runMediaGenerationTask<T extends MediaGenerationExecutionResult>(params: {
   lifecycle: ReturnType<typeof createMediaGenerationTaskLifecycle>;
   generationLabel: "image" | "video" | "music";
+  toolCallId?: string;
   sessionKey?: string;
   requesterAgentId?: string;
   requesterOrigin?: DeliveryContext;
@@ -49,6 +80,7 @@ export async function runMediaGenerationTask<T extends MediaGenerationExecutionR
   const title = `${generationLabel.charAt(0).toUpperCase()}${generationLabel.slice(1)}`;
   const handle = lifecycle.createTaskRun({
     sessionKey: params.sessionKey,
+    toolCallId: params.toolCallId,
     requesterAgentId: params.requesterAgentId,
     requesterOrigin: params.requesterOrigin,
     prompt: params.prompt,
@@ -75,6 +107,7 @@ export async function runMediaGenerationTask<T extends MediaGenerationExecutionR
       progressSummary,
       config: params.config,
       toolName: `${title} generation`,
+      billableCategory: `${generationLabel}_generation`,
       onWakeFailure: params.onFailure,
       run: () => params.run(handle),
     });

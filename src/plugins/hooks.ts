@@ -57,6 +57,7 @@ import type {
   PluginHookBeforePromptBuildResult,
   PluginHookBeforeCompactionEvent,
   PluginHookModelCallEndedEvent,
+  PluginHookBillableOperationCompletedEvent,
   PluginHookModelCallStartedEvent,
   PluginHookInboundClaimContext,
   PluginHookInboundClaimEvent,
@@ -1763,6 +1764,10 @@ export function createHookRunner(
       event: PluginHookModelCallEndedEvent,
       ctx: PluginHookAgentContext,
     ): Promise<void> => runVoidHook("model_call_ended", event, ctx),
+    runBillableOperationCompleted: async (
+      event: PluginHookBillableOperationCompletedEvent,
+      ctx: PluginHookAgentContext,
+    ): Promise<void> => runVoidHook("billable_operation_completed", event, ctx),
     runLlmInput: async (
       event: PluginHookLlmInputEvent,
       ctx: PluginHookAgentContext,

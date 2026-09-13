@@ -36,6 +36,12 @@ const cronContinuationCleanupMocks = vi.hoisted(() => ({
 const sessionMocks = vi.hoisted(() => ({
   loadSessionEntry: vi.fn<() => SessionEntry | undefined>(() => undefined),
 }));
+const billableOperationHookMocks = vi.hoisted(() => ({
+  runner: {
+    hasHooks: vi.fn((hookName: string) => hookName === "billable_operation_completed"),
+    runBillableOperationCompleted: vi.fn(async () => {}),
+  },
+}));
 
 vi.mock("../subagents/announce/subagent-announce-delivery.js", () => subagentAnnounceDeliveryMocks);
 vi.mock("../../config/sessions/session-accessor.js", async () => ({
@@ -48,6 +54,9 @@ vi.mock("../../config/sessions/session-accessor.js", async () => ({
 vi.mock("../../tasks/detached-task-runtime.js", () => detachedTaskRuntimeMocks);
 vi.mock("../../tasks/task-registry-delivery-runtime.js", () => taskRegistryDeliveryRuntimeMocks);
 vi.mock("../../tasks/cron-run-continuation-cleanup.js", () => cronContinuationCleanupMocks);
+vi.mock("../../plugins/hook-runner-global.js", () => ({
+  getGlobalHookRunner: () => billableOperationHookMocks.runner,
+}));
 
 import {
   createMediaGenerationTaskLifecycle,
@@ -67,6 +76,8 @@ beforeEach(() => {
   taskRegistryDeliveryRuntimeMocks.sendMessage.mockReset();
   cronContinuationCleanupMocks.removeCronRunContinuationSessionIfIdle.mockClear();
   sessionMocks.loadSessionEntry.mockReset().mockReturnValue(undefined);
+  billableOperationHookMocks.runner.hasHooks.mockClear();
+  billableOperationHookMocks.runner.runBillableOperationCompleted.mockClear();
 });
 
 function createImageMediaLifecycle() {
@@ -327,6 +338,71 @@ describe("scheduleMediaGenerationTaskCompletion", () => {
       expect.objectContaining({
         count: 1,
         terminalResult: undefined,
+      }),
+    );
+  });
+
+  it("publishes one generic billable terminal event after detached media completion", async () => {
+    const scheduled: Array<() => Promise<void>> = [];
+    const lifecycle = {
+      createTaskRun: vi.fn(),
+      recordTaskProgress: vi.fn(),
+      completeTaskRun: vi.fn(),
+      failTaskRun: vi.fn(),
+      wakeTaskCompletion: vi.fn(async () => ({ status: "delivered" as const })),
+    };
+
+    scheduleMediaGenerationTaskCompletion({
+      lifecycle,
+      handle: {
+        taskId: "task-billable-image",
+        runId: "tool:image_generate:billable-image",
+        toolCallId: "call-billable-image",
+        requesterSessionKey: "agent:main:telegram:direct:123",
+        requesterAgentId: "main",
+        taskLabel: "billing proof image",
+      },
+      scheduleBackgroundWork: (work) => {
+        scheduled.push(work);
+      },
+      progressSummary: "Generating image",
+      toolName: "Image generation",
+      onWakeFailure: vi.fn(),
+      run: async () => ({
+        provider: "openai",
+        model: "gpt-image-1.5",
+        count: 1,
+        wakeResult: "generated",
+        billableOperation: {
+          category: "image_generation",
+          quantity: 1,
+          unit: "images",
+          dimensions: { size: "1024x1024", quality: "high" },
+          providerRequestId: "request-image-1",
+        },
+      }),
+    });
+
+    await scheduled[0]?.();
+
+    expect(billableOperationHookMocks.runner.runBillableOperationCompleted).toHaveBeenCalledOnce();
+    expect(billableOperationHookMocks.runner.runBillableOperationCompleted).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runId: "tool:image_generate:billable-image",
+        toolCallId: "call-billable-image",
+        provider: "openai",
+        model: "gpt-image-1.5",
+        category: "image_generation",
+        outcome: "completed",
+        quantity: 1,
+        unit: "images",
+        dimensions: { size: "1024x1024", quality: "high" },
+        providerRequestId: "request-image-1",
+      }),
+      expect.objectContaining({
+        runId: "tool:image_generate:billable-image",
+        sessionKey: "agent:main:telegram:direct:123",
+        agentId: "main",
       }),
     );
   });
@@ -826,7 +902,9 @@ describe("scheduleMediaGenerationTaskCompletion", () => {
       handle: {
         taskId: "task-image-generation-error",
         runId: "tool:image_generate:generation-error",
+        toolCallId: "call-image-generation-error",
         requesterSessionKey: "agent:main:discord:channel:123",
+        requesterAgentId: "main",
         taskLabel: "proof image",
       },
       scheduleBackgroundWork: (work) => {
@@ -834,6 +912,7 @@ describe("scheduleMediaGenerationTaskCompletion", () => {
       },
       progressSummary: "Generating image",
       toolName: "Image generation",
+      billableCategory: "image_generation",
       onWakeFailure: vi.fn(),
       run: async () => {
         throw generationError;
@@ -858,6 +937,20 @@ describe("scheduleMediaGenerationTaskCompletion", () => {
       }),
     );
     expect(lifecycle.completeTaskRun).not.toHaveBeenCalled();
+    expect(billableOperationHookMocks.runner.runBillableOperationCompleted).toHaveBeenCalledOnce();
+    expect(billableOperationHookMocks.runner.runBillableOperationCompleted).toHaveBeenCalledWith(
+      {
+        runId: "tool:image_generate:generation-error",
+        toolCallId: "call-image-generation-error",
+        category: "image_generation",
+        outcome: "error",
+      },
+      {
+        runId: "tool:image_generate:generation-error",
+        sessionKey: "agent:main:discord:channel:123",
+        agentId: "main",
+      },
+    );
   });
 });
 

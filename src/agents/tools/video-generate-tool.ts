@@ -55,6 +55,7 @@ import {
   videoGenerationTaskLifecycle,
   type VideoGenerationTaskHandle,
 } from "./media-generate-background.js";
+import type { MediaGenerationExecutionResult } from "./media-generate-billable-hook.js";
 import {
   applyVideoGenerationModelConfigDefaults,
   buildMediaReferenceDetails,
@@ -570,18 +571,13 @@ async function loadReferenceAssets(params: {
 
 type LoadedReferenceAsset = Awaited<ReturnType<typeof loadReferenceAssets>>[number];
 
-type ExecutedVideoGeneration = {
-  provider: string;
-  model: string;
+type ExecutedVideoGeneration = MediaGenerationExecutionResult & {
   /** URLs of url-only assets that were not saved locally. */
   urlOnlyUrls: string[];
-  /** Total generated video count, including url-only assets. */
-  count: number;
   mediaUrls: string[];
   attachments: AgentGeneratedAttachment[];
   contentText: string;
   details: Record<string, unknown>;
-  wakeResult: string;
 };
 
 function isGeneratedMediaSizeLimitError(error: unknown): boolean {
@@ -813,6 +809,29 @@ async function executeVideoGenerationJob(params: {
     model: result.model,
     urlOnlyUrls: urlOnlyVideos.map((video) => video.url),
     count: totalCount,
+    billableOperation: {
+      category: "video_generation",
+      quantity: totalCount,
+      unit: "videos",
+      dimensions: {
+        ...(normalizedSize ||
+        (!ignoredOverrideKeys.has("size") && params.size && !sizeTranslatedToAspectRatio)
+          ? { size: normalizedSize ?? params.size }
+          : {}),
+        ...(normalizedAspectRatio || (!ignoredOverrideKeys.has("aspectRatio") && params.aspectRatio)
+          ? { aspectRatio: normalizedAspectRatio ?? params.aspectRatio }
+          : {}),
+        ...(normalizedResolution || (!ignoredOverrideKeys.has("resolution") && params.resolution)
+          ? { resolution: normalizedResolution ?? params.resolution }
+          : {}),
+        ...(typeof normalizedDurationSeconds === "number"
+          ? { durationSeconds: normalizedDurationSeconds }
+          : {}),
+        ...(!ignoredOverrideKeys.has("audio") && typeof params.audio === "boolean"
+          ? { audio: params.audio }
+          : {}),
+      },
+    },
     mediaUrls: allMediaUrls,
     attachments,
     contentText: lines.join("\n"),
@@ -937,7 +956,7 @@ export function createVideoGenerateTool(options?: {
       (includeAudioReferences ? "; audio refs condition sound" : "") +
       ". resolution up to 4K; audio/watermark toggles. action=list discovers providers/models. Session chat background: call once/request, await, then visible reply + structured media. status checks active task. Duration may round to provider value.",
     parameters: createVideoGenerateToolSchema({ includeAudioReferences }),
-    execute: async (_toolCallId, rawArgs, signal) => {
+    execute: async (toolCallId, rawArgs, signal) => {
       const args = rawArgs as Record<string, unknown>;
       const action = resolveAction(args);
 
@@ -1139,6 +1158,7 @@ export function createVideoGenerateTool(options?: {
       return runMediaGenerationTask({
         lifecycle: videoGenerationTaskLifecycle,
         generationLabel: "video",
+        toolCallId,
         sessionKey: options?.agentSessionKey,
         requesterAgentId: options?.requesterAgentId,
         requesterOrigin: options?.requesterOrigin,

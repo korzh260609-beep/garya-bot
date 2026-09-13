@@ -40,6 +40,11 @@ import {
   loadRequesterSessionEntry,
 } from "../subagents/announce/subagent-announce-delivery.js";
 import { resolveAnnounceOrigin } from "../subagents/announce/subagent-announce-origin.js";
+import {
+  runMediaGenerationBillableCompletionHook,
+  runMediaGenerationBillableFailureHook,
+} from "./media-generate-billable-hook.js";
+import type { MediaGenerationExecutionResult } from "./media-generate-billable-hook.js";
 
 const log = createSubsystemLogger("agents/tools/media-generate-background-shared");
 const MEDIA_GENERATION_TASK_KEEPALIVE_INTERVAL_MS = 60_000;
@@ -50,6 +55,7 @@ const MEDIA_GENERATION_COMPLETION_HANDOFF_TIMEOUT_MS = 120_000;
 export type MediaGenerationTaskHandle = {
   taskId: string;
   runId: string;
+  toolCallId?: string;
   requesterSessionKey: string;
   requesterAgentId?: string;
   requesterOrigin?: DeliveryContext;
@@ -97,18 +103,9 @@ export function shouldDetachMediaGenerationTask(
   }
 }
 
-/** Successful media generation output used to complete and wake detached tasks. */
-export type MediaGenerationExecutionResult = {
-  provider: string;
-  model: string;
-  count: number;
-  wakeResult: string;
-  attachments?: AgentGeneratedAttachment[];
-  mediaUrls?: string[];
-};
-
 type CreateMediaGenerationTaskRunParams = {
   sessionKey?: string;
+  toolCallId?: string;
   requesterAgentId?: string;
   requesterOrigin?: DeliveryContext;
   prompt: string;
@@ -204,6 +201,7 @@ function touchMediaGenerationTaskRunContext(handle: MediaGenerationTaskHandle) {
 
 function createMediaGenerationTaskRun(params: {
   sessionKey?: string;
+  toolCallId?: string;
   requesterAgentId?: string;
   requesterOrigin?: DeliveryContext;
   prompt: string;
@@ -250,6 +248,7 @@ function createMediaGenerationTaskRun(params: {
     const handle = {
       taskId: task.taskId,
       runId,
+      toolCallId: params.toolCallId,
       requesterSessionKey: sessionKey,
       requesterAgentId: params.requesterAgentId,
       requesterOrigin,
@@ -416,45 +415,6 @@ export function createDefaultMediaGenerateBackgroundScheduler(params: {
   };
 }
 
-/** Builds the immediate tool result returned after a background media task starts. */
-export function buildMediaGenerationStartedToolResult(params: {
-  toolName: string;
-  generationLabel: string;
-  completionLabel: string;
-  taskHandle: MediaGenerationTaskHandle | null;
-  detailExtras?: Record<string, unknown>;
-  messages?: Array<string | undefined>;
-}) {
-  return {
-    content: [
-      {
-        type: "text" as const,
-        text: [
-          `Background task started for ${params.generationLabel} generation (${params.taskHandle?.taskId ?? "unknown"}). Do not call ${params.toolName} again for this request. Wait for the completion event; the completion agent will send the finished ${params.completionLabel} here when it's ready.`,
-          ...(params.messages ?? []),
-        ]
-          .filter((entry): entry is string => Boolean(entry))
-          .join("\n"),
-      },
-    ],
-    details: {
-      async: true,
-      status: "started",
-      ...(params.taskHandle
-        ? {
-            taskId: params.taskHandle.taskId,
-            runId: params.taskHandle.runId,
-            task: {
-              taskId: params.taskHandle.taskId,
-              runId: params.taskHandle.runId,
-            },
-          }
-        : {}),
-      ...params.detailExtras,
-    },
-  };
-}
-
 /** Notifies an optional async-start observer and logs callback failures. */
 export async function notifyMediaGenerationAsyncTaskStarted(params: {
   callback?: MediaGenerateAsyncStartCallback;
@@ -488,6 +448,7 @@ export function scheduleMediaGenerationTaskCompletion<
   progressSummary: string;
   config?: OpenClawConfig;
   toolName: string;
+  billableCategory?: string;
   run: () => Promise<T>;
   onWakeFailure: (message: string, meta?: Record<string, unknown>) => void;
 }) {
@@ -500,6 +461,10 @@ export function scheduleMediaGenerationTaskCompletion<
         run: params.run,
       });
     } catch (error) {
+      await runMediaGenerationBillableFailureHook({
+        category: params.billableCategory,
+        handle: params.handle,
+      });
       try {
         const wakeOutcome = await wakeMediaGenerationTaskCompletionWithRetry({
           wake: async () =>
@@ -527,6 +492,12 @@ export function scheduleMediaGenerationTaskCompletion<
       params.lifecycle.failTaskRun({ handle: params.handle, error });
       return;
     }
+
+    await runMediaGenerationBillableCompletionHook({
+      result: executed,
+      handle: params.handle,
+      toolName: params.toolName,
+    });
 
     const recordCompletionDeliveryProgress = () => {
       try {

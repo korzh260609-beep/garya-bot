@@ -73,6 +73,7 @@ type ModelCallEndedHookFields = Pick<
   | "timeToFirstByteMs"
   | "failureKind"
   | "upstreamRequestIdHash"
+  | "usage"
 >;
 export type ModelCallSizeTimingFields = Pick<
   Extract<DiagnosticEventInput, { type: "model.call.completed" }>,
@@ -314,6 +315,7 @@ function emitModelCallCompleted(
       durationMs,
       outcome: "completed",
       ...sizeTimingFields,
+      ...observer.usageField(),
     });
   }
 }
@@ -361,6 +363,7 @@ function emitModelCallError(
       outcome: "error",
       ...sizeTimingFields,
       ...fields,
+      ...observer.usageField(),
     });
   }
 }

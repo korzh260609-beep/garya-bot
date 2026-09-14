@@ -28,6 +28,18 @@ export type SgBillingEntry = {
   createdAt: number;
 };
 
+export type SgBillingDiagnostics = {
+  integrityOk: boolean;
+  integrityMessage: string;
+  foreignKeyViolationCount: number;
+  accountCount: number;
+  reservedOperationCount: number;
+  blockedOperationCount: number;
+  unpricedPartCount: number;
+  reservedBalanceMismatchCount: number;
+  oldestReservedAt?: number;
+};
+
 type BillingAccountRow = {
   balance_nano_usd: number;
   reserved_nano_usd: number;
@@ -973,6 +985,98 @@ export class SgBillingLedger {
       }
       return entry;
     });
+  }
+
+  async recentEntries(globalIdInput: string, limitInput = 20): Promise<SgBillingEntry[]> {
+    const globalId = requireIdentifier(globalIdInput, "global-id");
+    const limit = requireNanoUsd(limitInput, "entry-limit");
+    const rows = this.database
+      .prepare(
+        `SELECT entry_id, global_id, operation_id, entry_type, amount_nano_usd,
+                outcome, actual_cost_nano_usd, charged_nano_usd, created_at
+         FROM sg_billing_entries
+         WHERE global_id = ?
+         ORDER BY entry_id DESC
+         LIMIT ?`,
+      )
+      .all(globalId, limit) as BillingEntryRow[];
+    return rows.map((row) => {
+      const entry: SgBillingEntry = {
+        entryId: row.entry_id,
+        globalId: row.global_id,
+        operationId: row.operation_id,
+        type: row.entry_type,
+        createdAt: row.created_at,
+      };
+      if (row.amount_nano_usd !== null) {
+        entry.amountNanoUsd = row.amount_nano_usd;
+      }
+      if (row.outcome !== null) {
+        entry.outcome = row.outcome;
+      }
+      if (row.actual_cost_nano_usd !== null) {
+        entry.actualCostNanoUsd = row.actual_cost_nano_usd;
+      }
+      if (row.charged_nano_usd !== null) {
+        entry.chargedNanoUsd = row.charged_nano_usd;
+      }
+      return entry;
+    });
+  }
+
+  async diagnostics(): Promise<SgBillingDiagnostics> {
+    const integrityRows = this.database.prepare("PRAGMA quick_check").all() as Array<{
+      quick_check: string;
+    }>;
+    const integrityMessage = integrityRows.map((row) => row.quick_check).join("; ") || "unknown";
+    const foreignKeyViolationCount = this.database.prepare("PRAGMA foreign_key_check").all().length;
+    const accountCount = (
+      this.database.prepare("SELECT COUNT(*) AS count FROM sg_billing_accounts").get() as {
+        count: number;
+      }
+    ).count;
+    const reserved = this.database
+      .prepare(
+        `SELECT COUNT(*) AS count, MIN(created_at) AS oldest
+         FROM sg_billing_operations
+         WHERE operation_type = 'usage' AND state = 'reserved'`,
+      )
+      .get() as { count: number; oldest: number | null };
+    const unresolved = this.database
+      .prepare(
+        `SELECT COUNT(*) AS parts, COUNT(DISTINCT global_id || char(0) || operation_id) AS operations
+         FROM sg_billing_operation_parts
+         WHERE actual_cost_nano_usd IS NULL
+           AND (authorized_nano_usd IS NULL OR outcome != 'pending')`,
+      )
+      .get() as { parts: number; operations: number };
+    const reservedBalanceMismatchCount = (
+      this.database
+        .prepare(
+          `SELECT COUNT(*) AS count
+           FROM sg_billing_accounts AS accounts
+           LEFT JOIN (
+             SELECT global_id,
+                    SUM(amount_nano_usd - COALESCE(charged_nano_usd, 0)) AS expected_reserved
+             FROM sg_billing_operations
+             WHERE operation_type = 'usage' AND state = 'reserved'
+             GROUP BY global_id
+           ) AS operations ON operations.global_id = accounts.global_id
+           WHERE accounts.reserved_nano_usd != COALESCE(operations.expected_reserved, 0)`,
+        )
+        .get() as { count: number }
+    ).count;
+    return {
+      integrityOk: integrityMessage === "ok",
+      integrityMessage,
+      foreignKeyViolationCount,
+      accountCount,
+      reservedOperationCount: reserved.count,
+      blockedOperationCount: unresolved.operations,
+      unpricedPartCount: unresolved.parts,
+      reservedBalanceMismatchCount,
+      ...(reserved.oldest !== null ? { oldestReservedAt: reserved.oldest } : {}),
+    };
   }
 
   close(): void {

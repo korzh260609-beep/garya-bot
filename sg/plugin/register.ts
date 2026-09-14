@@ -1,4 +1,5 @@
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
+import { registerSgBillingCommands } from "./billing-commands.js";
 import { registerSgBillingHooks } from "./billing-hooks.js";
 import { SgContentRegistry } from "./content-registry.js";
 import { SgContextDiagnostics, type SgContextDiagnosticCommand } from "./context-diagnostics.js";
@@ -167,6 +168,7 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
   wsp5Lifecycle.register(api);
   wsp6Lifecycle.register(api);
   registerSgBillingHooks({ api, stateDir });
+  registerSgBillingCommands({ api, stateDir });
 
   api.on("before_prompt_build", async (_event, ctx) => {
     let projectMemoryGuidance = "";

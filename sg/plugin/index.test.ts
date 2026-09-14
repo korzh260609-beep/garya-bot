@@ -172,6 +172,8 @@ describe("SG Workspace Manager", () => {
     });
 
     expect(registerCommand.mock.calls.map((call) => call[0]?.name)).toEqual([
+      "sg_balance",
+      "sg_billing",
       "sg_context",
       "sg_workspace",
       "sg_wsp5_diag",
@@ -308,16 +310,20 @@ describe("SG Workspace Manager", () => {
 
   it("returns an explicit missing scope without creating storage", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "sg-resource-command-"));
-    const registerCommand = vi.fn();
+    const commands: Array<{
+      name: string;
+      handler: (ctx: Record<string, unknown>) => Promise<{ text: string }>;
+    }> = [];
     registerWorkspaceManager({
-      registerCommand,
+      registerCommand: vi.fn((command) => commands.push(command)),
       registerTool: vi.fn(),
       on: vi.fn(),
       runtime: { state: { resolveStateDir: () => root } },
     });
-    const command = registerCommand.mock.calls[1]?.[0];
+    const command = commands.find((candidate) => candidate.name === "sg_workspace");
+    expect(command).toBeDefined();
     await expect(
-      command.handler({
+      command?.handler({
         channel: "telegram",
         accountId: "default",
         to: "telegram:-100500",

@@ -194,6 +194,9 @@ describe("SG Workspace Manager", () => {
       "sg_memory_remember",
       "sg_memory_search",
       "sg_memory_get",
+      "sg_resource_memory_remember",
+      "sg_resource_memory_search",
+      "sg_resource_memory_get",
       "sg_project_memory_record",
       "sg_project_memory_search",
       "sg_project_memory_get",
@@ -223,9 +226,42 @@ describe("SG Workspace Manager", () => {
     )) as { prependSystemContext?: string };
     expect(result.prependSystemContext).toContain("Роль SG: monarch");
     expect(result.prependSystemContext).toContain("sg_memory_search");
+    expect(result.prependSystemContext).not.toContain("sg_resource_memory_search");
     expect(result.prependSystemContext).toContain("штатным automations");
     expect(result.prependSystemContext).toContain("обычные опросы отправляй штатным message");
     expect(result.prependSystemContext).not.toMatch(/sg_workspace_(?:onboard|pending|decide)/u);
+  });
+
+  it("injects resource memory guidance only after native group admission", async () => {
+    const { root } = await stateDirWithProfiles();
+    const hooks = new Map<string, (...args: unknown[]) => unknown>();
+    registerWorkspaceManager({
+      registerCommand: vi.fn(),
+      registerTool: vi.fn(),
+      on: vi.fn((name, handler) => hooks.set(name, handler)),
+      runtime: { state: { resolveStateDir: () => root } },
+    });
+    await hooks.get("before_dispatch")?.(
+      { content: "СГ, привет", isGroup: true, channel: "telegram", senderId: "200" },
+      {
+        sessionKey: "agent:main:telegram:group:-100500",
+        channelId: "telegram",
+        accountId: "default",
+        conversationId: "telegram:-100500",
+      },
+    );
+
+    const result = (await hooks.get("before_prompt_build")?.(
+      {},
+      {
+        channel: "telegram",
+        accountId: "default",
+        conversationId: "telegram:-100500",
+        senderId: "200",
+      },
+    )) as { prependSystemContext?: string };
+    expect(result.prependSystemContext).toContain("sg_resource_memory_search");
+    expect(result.prependSystemContext).toContain("текущей группы");
   });
 
   it("creates and attaches the citizen identity before an ordinary model call", async () => {

@@ -15,7 +15,16 @@ import {
   PROJECT_MEMORY_TOOL_NAMES,
 } from "./project-memory-tools.js";
 import { createSgRenderTool } from "./render-tools.js";
-import { formatWorkspaceResolution, SgWorkspaceRegistry } from "./workspace-registry.js";
+import {
+  createResourceMemoryTools,
+  RESOURCE_MEMORY_AGENT_GUIDANCE,
+  RESOURCE_MEMORY_TOOL_NAMES,
+} from "./resource-memory-tools.js";
+import {
+  canonicalWorkspaceResourceId,
+  formatWorkspaceResolution,
+  SgWorkspaceRegistry,
+} from "./workspace-registry.js";
 import { buildWsp5Diagnostic } from "./wsp5-diagnostics.js";
 import { Wsp5NativeLifecycle } from "./wsp5-lifecycle.js";
 import { createWsp5Tools, WSP5_AGENT_GUIDANCE } from "./wsp5-tools.js";
@@ -81,14 +90,6 @@ const PERSONAL_MEMORY_TOOL_NAMES = [
 ] as const;
 const RENDER_TOOL_NAMES = ["sg_render"] as const;
 
-function canonicalResourceId(channel: string, conversationId: string): string {
-  const normalizedChannel = channel.trim().toLowerCase();
-  const normalizedConversationId = conversationId.trim();
-  return normalizedConversationId.toLowerCase().startsWith(`${normalizedChannel}:`)
-    ? normalizedConversationId
-    : `${normalizedChannel}:${normalizedConversationId}`;
-}
-
 export function registerWorkspaceManager(api: WorkspacePluginApi): void {
   api.logger?.info("[sg-workspace] stage=register-workspace-manager");
   const stateDir =
@@ -140,7 +141,7 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
       ? await registry.resolve({
           platform: ctx.channel,
           accountId: ctx.accountId,
-          resourceId: canonicalResourceId(ctx.channel, routeResourceId),
+          resourceId: canonicalWorkspaceResourceId(ctx.channel, routeResourceId),
           ...(ctx.messageThreadId !== undefined ? { topicId: String(ctx.messageThreadId) } : {}),
         })
       : undefined;
@@ -161,6 +162,9 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
   api.registerTool((ctx) => createPersonalMemoryTools(ctx, stateDir), {
     names: [...PERSONAL_MEMORY_TOOL_NAMES],
   });
+  api.registerTool((ctx) => createResourceMemoryTools(ctx, stateDir), {
+    names: [...RESOURCE_MEMORY_TOOL_NAMES],
+  });
   api.registerTool((ctx) => createProjectMemoryTools(ctx, stateDir), {
     names: [...PROJECT_MEMORY_TOOL_NAMES],
   });
@@ -172,6 +176,7 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
 
   api.on("before_prompt_build", async (_event, ctx) => {
     let projectMemoryGuidance = "";
+    let resourceMemoryGuidance = "";
     let identityContext = [
       "SG — identity and scope",
       "Global ID: не найден",
@@ -192,13 +197,23 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
       if (identity.projectRole === "monarch" && identity.globalId) {
         projectMemoryGuidance = `\n${PROJECT_MEMORY_AGENT_GUIDANCE}`;
       }
+      if (ctx.channel && ctx.conversationId) {
+        const scope = await registry.resolve({
+          platform: ctx.channel,
+          accountId: ctx.accountId,
+          resourceId: canonicalWorkspaceResourceId(ctx.channel, ctx.conversationId),
+        });
+        if (scope) {
+          resourceMemoryGuidance = `\n${RESOURCE_MEMORY_AGENT_GUIDANCE}`;
+        }
+      }
     } catch (error) {
       api.logger?.warn(
         `[sg-workspace] identity resolution failed safely: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
     return {
-      prependSystemContext: `${identityContext}\n\n${PERSONAL_MEMORY_AGENT_GUIDANCE}${projectMemoryGuidance}\n${WSP5_AGENT_GUIDANCE}\n${WSP6_AGENT_GUIDANCE}`,
+      prependSystemContext: `${identityContext}\n\n${PERSONAL_MEMORY_AGENT_GUIDANCE}${resourceMemoryGuidance}${projectMemoryGuidance}\n${WSP5_AGENT_GUIDANCE}\n${WSP6_AGENT_GUIDANCE}`,
     };
   });
 
@@ -220,7 +235,7 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
       await registry.register({
         platform: channel,
         ...(ctx.accountId ? { accountId: ctx.accountId } : {}),
-        resourceId: canonicalResourceId(channel, conversationId),
+        resourceId: canonicalWorkspaceResourceId(channel, conversationId),
         resourceKind: "group",
       });
     } catch (error) {

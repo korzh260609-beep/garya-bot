@@ -23,6 +23,9 @@ const currentPluginTools = [
   "sg_memory_remember",
   "sg_memory_search",
   "sg_memory_get",
+  "sg_resource_memory_remember",
+  "sg_resource_memory_search",
+  "sg_resource_memory_get",
   "sg_project_memory_record",
   "sg_project_memory_search",
   "sg_project_memory_get",
@@ -105,6 +108,8 @@ describe("SG 2.2 Phase 12 verification matrix", () => {
 
     expect(nativeAdmin).toEqual(citizen);
     expect(Object.keys(policies)).toEqual(["*", "channel:telegram:100"]);
+    expect(citizen?.deny).not.toContain("sg_resource_memory_search");
+    expect(citizen?.deny).not.toContain("sg_resource_memory_get");
     for (const denied of [
       "read",
       "write",

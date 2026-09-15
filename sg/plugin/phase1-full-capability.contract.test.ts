@@ -48,6 +48,9 @@ const toolCatalog = [
   "sg_memory_remember",
   "sg_memory_search",
   "sg_memory_get",
+  "sg_resource_memory_remember",
+  "sg_resource_memory_search",
+  "sg_resource_memory_get",
   "sg_project_memory_record",
   "sg_project_memory_search",
   "sg_project_memory_get",
@@ -102,6 +105,7 @@ async function createEntrypointHarness() {
     "index.ts",
     "register.ts",
     "personal-memory-tools.ts",
+    "resource-memory-tools.ts",
     "project-memory-tools.ts",
     "cost-diagnostics.ts",
     "render-tools.ts",
@@ -308,6 +312,9 @@ describe("SG 2.2 Phase 1 full capability contracts", () => {
       "sg_memory_remember",
       "sg_memory_search",
       "sg_memory_get",
+      "sg_resource_memory_remember",
+      "sg_resource_memory_search",
+      "sg_resource_memory_get",
       "message",
       "file_fetch",
       "file_write",
@@ -364,6 +371,8 @@ describe("SG 2.2 Phase 1 full capability contracts", () => {
     expect(names).not.toContain("memory_get");
     expect(names).toContain("sg_memory_search");
     expect(names).toContain("sg_memory_get");
+    expect(names).toContain("sg_resource_memory_search");
+    expect(names).toContain("sg_resource_memory_get");
   });
 
   it("keeps cross-session send available only to the Monarch", async () => {

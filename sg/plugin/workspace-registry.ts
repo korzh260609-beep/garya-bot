@@ -73,6 +73,14 @@ export function normalizeWorkspaceResource(resource: SgWorkspaceResource): SgWor
   };
 }
 
+export function canonicalWorkspaceResourceId(channel: string, conversationId: string): string {
+  const normalizedChannel = normalizeRequired(channel, "platform", true);
+  const normalizedConversationId = normalizeRequired(conversationId, "resource-id");
+  return normalizedConversationId.toLowerCase().startsWith(`${normalizedChannel}:`)
+    ? normalizedConversationId
+    : `${normalizedChannel}:${normalizedConversationId}`;
+}
+
 export function workspaceResourceKey(resource: SgWorkspaceResource): string {
   const normalized = normalizeWorkspaceResource(resource);
   return createHash("sha256")

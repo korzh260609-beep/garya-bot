@@ -26,11 +26,9 @@ export const RESOURCE_MEMORY_TOOL_NAMES = [
 
 export const RESOURCE_MEMORY_AGENT_GUIDANCE = [
   "SG — долговременная память текущего ресурса",
-  "Используй sg_resource_memory_search для знаний, общих только для текущей группы или workspace.",
-  "Используй sg_resource_memory_remember, когда нужно явно сохранить общий факт текущего ресурса.",
-  "Используй sg_resource_memory_correct только для выбранной записи текущего ресурса по entryId.",
-  "Используй sg_resource_memory_export и sg_resource_memory_reindex только для текущего ресурса.",
-  "Используй sg_resource_memory_get только для чтения найденного файла resource memory.",
+  "Если пользователь явно говорит «для этой группы», «в памяти этой группы», «память текущей группы» или «текущего ресурса», ОБЯЗАТЕЛЬНО вызови соответствующий sg_resource_memory_* инструмент; история чата и сессии не доказывает запись в долговременную память.",
+  "Маршрутизация: запомни → sg_resource_memory_remember; найди/вспомни → sg_resource_memory_search; исправь → sg_resource_memory_search для entryId, затем sg_resource_memory_correct; экспортируй → sg_resource_memory_export; переиндексируй → sg_resource_memory_reindex; прочитай найденный файл → sg_resource_memory_get.",
+  "Не подтверждай сохранение, исправление, экспорт или переиндексацию, пока соответствующий инструмент не вернул успешный структурированный результат. При ошибке сообщи об ошибке и не имитируй успех.",
   "Не сохраняй сюда личные данные участников, секреты или проектные полномочия монарха.",
 ].join("\n");
 
@@ -242,7 +240,8 @@ export function createResourceMemoryTools(
     {
       name: "sg_resource_memory_remember",
       label: "SG Resource Memory Remember",
-      description: "Persist one durable fact only in the current registered resource scope.",
+      description:
+        "Persist one durable fact in the current registered resource whenever the user asks to remember it for this group/resource. Do not claim success without a successful tool result.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -273,7 +272,8 @@ export function createResourceMemoryTools(
     {
       name: "sg_resource_memory_correct",
       label: "SG Resource Memory Correct",
-      description: "Correct one active entry only in the current registered resource scope.",
+      description:
+        "Correct one active entry in the current registered resource after resolving its entryId. Do not claim success without a successful tool result.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -303,7 +303,8 @@ export function createResourceMemoryTools(
     {
       name: "sg_resource_memory_export",
       label: "SG Resource Memory Export",
-      description: "Export active Markdown memory only from the current registered resource.",
+      description:
+        "Export active Markdown memory from the current registered resource whenever the user asks to export this group's memory. Do not claim success without a successful tool result.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -328,7 +329,8 @@ export function createResourceMemoryTools(
     {
       name: "sg_resource_memory_reindex",
       label: "SG Resource Memory Reindex",
-      description: "Force Memory Core to rebuild only the current registered resource index.",
+      description:
+        "Force Memory Core to rebuild the current registered resource index whenever the user asks to reindex this group's memory. Do not claim success without a successful tool result.",
       parameters: { type: "object", additionalProperties: false, properties: {} },
       execute: async () => {
         const actor = await resolveActor(ctx, stateDir);

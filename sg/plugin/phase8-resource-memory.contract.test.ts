@@ -10,6 +10,7 @@ import type { OpenClawConfig } from "openclaw/plugin-sdk/plugin-entry";
 import { describe, expect, it } from "vitest";
 import {
   createResourceMemoryTools,
+  RESOURCE_MEMORY_AGENT_GUIDANCE,
   type ResourceMemoryManagerLoader,
 } from "./resource-memory-tools.js";
 import { SgWorkspaceRegistry } from "./workspace-registry.js";
@@ -153,6 +154,35 @@ function details(result: unknown): Record<string, unknown> {
 }
 
 describe("Phase 8 resource-scoped memory", () => {
+  it("requires explicit group-memory requests to use resource tools before confirming success", async () => {
+    expect(RESOURCE_MEMORY_AGENT_GUIDANCE).toContain(
+      "ОБЯЗАТЕЛЬНО вызови соответствующий sg_resource_memory_* инструмент",
+    );
+    expect(RESOURCE_MEMORY_AGENT_GUIDANCE).toContain("запомни → sg_resource_memory_remember");
+    expect(RESOURCE_MEMORY_AGENT_GUIDANCE).toContain("исправь → sg_resource_memory_search");
+    expect(RESOURCE_MEMORY_AGENT_GUIDANCE).toContain("затем sg_resource_memory_correct");
+    expect(RESOURCE_MEMORY_AGENT_GUIDANCE).toContain("экспортируй → sg_resource_memory_export");
+    expect(RESOURCE_MEMORY_AGENT_GUIDANCE).toContain("переиндексируй → sg_resource_memory_reindex");
+    expect(RESOURCE_MEMORY_AGENT_GUIDANCE).toContain(
+      "Не подтверждай сохранение, исправление, экспорт или переиндексацию",
+    );
+
+    const { root, workspaceDir, loadManager } = await fixture();
+    const tools = createResourceMemoryTools(
+      context("20", workspaceDir, "telegram:-100500"),
+      root,
+      loadManager,
+    );
+    for (const name of [
+      "sg_resource_memory_remember",
+      "sg_resource_memory_correct",
+      "sg_resource_memory_export",
+      "sg_resource_memory_reindex",
+    ]) {
+      expect(findTool(tools, name).description).toContain("Do not claim success");
+    }
+  });
+
   it("returns a stable entry id and exact resource scope for a saved fact", async () => {
     const { root, workspaceDir, groupA, loadManager } = await fixture();
     const tools = createResourceMemoryTools(

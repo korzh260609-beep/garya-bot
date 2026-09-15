@@ -116,7 +116,7 @@ const agentContext = (runId: string) => ({
   sessionKey: "agent:main:telegram:direct:200",
   channel: "telegram",
   chatId: "telegram:200",
-  channelId: "telegram",
+  channelId: "200",
   senderId: "200",
   modelProviderId: "openai",
   modelId: "gpt-5.6-terra",
@@ -126,7 +126,7 @@ const agentContext = (runId: string) => ({
 const beforeRunEvent = {
   prompt: "Привет",
   messages: [],
-  channelId: "telegram",
+  channelId: "200",
   senderId: "200",
 };
 
@@ -151,6 +151,28 @@ describe("SG billing hook integration contract", () => {
     expect(hooks.has("billable_operation_completed")).toBe(true);
     expect(hooks.has("agent_end")).toBe(true);
     expect(hooks.has("gateway_stop")).toBe(true);
+  });
+
+  it("passes the monarch when OpenClaw exposes the conversation id as channelId", async () => {
+    const root = await createStateDir();
+    const { hooks } = register(root);
+    const ctx = {
+      ...agentContext("run-monarch"),
+      sessionId: "session-monarch",
+      sessionKey: "agent:main:telegram:direct:100",
+      chatId: "telegram:100",
+      channelId: "100",
+      senderId: "100",
+    };
+
+    const results = await runHooks(
+      hooks,
+      "before_agent_run",
+      { ...beforeRunEvent, channelId: "100", senderId: "100" },
+      ctx,
+    );
+
+    expect(results).toContainEqual({ outcome: "pass" });
   });
 
   it("blocks a citizen before inference when prepaid funds are insufficient", async () => {

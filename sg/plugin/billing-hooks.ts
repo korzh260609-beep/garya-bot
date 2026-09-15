@@ -31,7 +31,7 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
 
   api.on("before_agent_run", async (event, ctx) => {
     const profile = await resolveProfile(
-      event.channelId ?? ctx.channel ?? ctx.messageProvider,
+      ctx.channel ?? ctx.messageProvider,
       event.senderId ?? ctx.senderId,
     );
     if (profile?.role === "monarch") {

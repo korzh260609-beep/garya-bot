@@ -553,7 +553,7 @@ describe("SG billing hook integration contract", () => {
     expect(results).toContainEqual({
       outcome: "block",
       reason: "SG cannot prove the payer Global ID",
-      message: "Не удалось подтвердить доступ к СГ. Запрос не выполнен. Попробуйте ещё раз позже.",
+      message: "Недостаточно средств. Сначала пополните баланс.",
       category: "cost_identity_unresolved",
     });
   });

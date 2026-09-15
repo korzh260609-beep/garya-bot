@@ -41,8 +41,7 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
       return {
         outcome: "block",
         reason: "SG cannot prove the payer Global ID",
-        message:
-          "Не удалось подтвердить доступ к СГ. Запрос не выполнен. Попробуйте ещё раз позже.",
+        message: "Недостаточно средств. Сначала пополните баланс.",
         category: "cost_identity_unresolved",
       };
     }

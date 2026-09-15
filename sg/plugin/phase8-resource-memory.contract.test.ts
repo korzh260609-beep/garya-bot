@@ -82,7 +82,9 @@ function nativeManager(params: {
     },
     status: () => ({ backend: "builtin", provider: "none", workspaceDir: params.workspaceDir }),
     async sync(options) {
-      params.calls.push(`sync:${options?.reason ?? "unspecified"}`);
+      params.calls.push(
+        `sync:${options?.reason ?? "unspecified"}:force=${options?.force === true ? "true" : "false"}`,
+      );
     },
     async probeEmbeddingAvailability() {
       return { ok: true };
@@ -151,6 +153,101 @@ function details(result: unknown): Record<string, unknown> {
 }
 
 describe("Phase 8 resource-scoped memory", () => {
+  it("returns a stable entry id and exact resource scope for a saved fact", async () => {
+    const { root, workspaceDir, groupA, loadManager } = await fixture();
+    const tools = createResourceMemoryTools(
+      context("20", workspaceDir, "telegram:-100500"),
+      root,
+      loadManager,
+    );
+
+    expect(
+      details(
+        await findTool(tools, "sg_resource_memory_remember").execute("remember", {
+          text: "Контракт Phase 9 — память ресурса",
+        }),
+      ),
+    ).toMatchObject({
+      saved: true,
+      resourceScopeId: groupA.resourceScopeId,
+      path: "MEMORY.md",
+      entryId: expect.stringMatching(/^rmem-/u),
+    });
+  });
+
+  it("corrects a resource entry through supersession", async () => {
+    const { root, workspaceDir, groupA, loadManager } = await fixture();
+    const tools = createResourceMemoryTools(
+      context("20", workspaceDir, "telegram:-100500"),
+      root,
+      loadManager,
+    );
+    const saved = details(
+      await findTool(tools, "sg_resource_memory_remember").execute("remember", {
+        text: "Групповой статус — закрыт",
+      }),
+    );
+
+    expect(
+      details(
+        await findTool(tools, "sg_resource_memory_correct").execute("correct", {
+          entryId: saved.entryId,
+          text: "Групповой статус — открыт",
+        }),
+      ),
+    ).toMatchObject({
+      status: "corrected",
+      resourceScopeId: groupA.resourceScopeId,
+      supersedesId: saved.entryId,
+    });
+  });
+
+  it("does not let another resource correct an entry by id", async () => {
+    const { root, workspaceDir, loadManager } = await fixture();
+    const groupA = createResourceMemoryTools(
+      context("20", workspaceDir, "telegram:-100500"),
+      root,
+      loadManager,
+    );
+    const groupB = createResourceMemoryTools(
+      context("20", workspaceDir, "telegram:-100600"),
+      root,
+      loadManager,
+    );
+    const saved = details(
+      await findTool(groupA, "sg_resource_memory_remember").execute("remember", {
+        text: "PHASE9-GROUP-A-MUTATION",
+      }),
+    );
+
+    await expect(
+      findTool(groupB, "sg_resource_memory_correct").execute("correct", {
+        entryId: saved.entryId,
+        text: "unauthorized correction",
+      }),
+    ).rejects.toThrow(/not-found/iu);
+  });
+
+  it("exports and reindexes only the current resource scope", async () => {
+    const { root, workspaceDir, groupA, calls, loadManager } = await fixture();
+    const tools = createResourceMemoryTools(
+      context("20", workspaceDir, "telegram:-100500"),
+      root,
+      loadManager,
+    );
+    await findTool(tools, "sg_resource_memory_remember").execute("remember", {
+      text: "PHASE9-RESOURCE-EXPORT",
+    });
+
+    const exported = details(
+      await findTool(tools, "sg_resource_memory_export").execute("export", {}),
+    );
+    expect(exported).toMatchObject({ status: "ok", resourceScopeId: groupA.resourceScopeId });
+    expect(JSON.stringify(exported)).toContain("PHASE9-RESOURCE-EXPORT");
+    await findTool(tools, "sg_resource_memory_reindex").execute("reindex", {});
+    expect(calls).toContain("sync:sg-resource-memory-reindex:force=true");
+  });
+
   it("shares one resource memory between admitted participants in the same group", async () => {
     const { root, workspaceDir, groupA, loadManager } = await fixture();
     const firstParticipant = createResourceMemoryTools(

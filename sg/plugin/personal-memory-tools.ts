@@ -1,22 +1,27 @@
 import { createHash } from "node:crypto";
-import { appendFile, mkdir } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import path from "node:path";
-import { getActiveMemorySearchManager } from "openclaw/plugin-sdk/memory-host-search";
 import type {
   MemorySearchManager,
   MemorySearchResult,
 } from "openclaw/plugin-sdk/memory-core-host-engine-storage";
-import type {
-  OpenClawConfig,
-  OpenClawPluginToolContext,
-} from "openclaw/plugin-sdk/plugin-entry";
+import { getActiveMemorySearchManager } from "openclaw/plugin-sdk/memory-host-search";
+import type { OpenClawConfig, OpenClawPluginToolContext } from "openclaw/plugin-sdk/plugin-entry";
 import { jsonResult } from "openclaw/plugin-sdk/tool-results";
 import { resolveWorkspaceContext } from "./context.js";
+import {
+  appendScopedMemoryEntry,
+  correctScopedMemoryEntry,
+  exportScopedMemory,
+  forgetScopedMemoryEntry,
+} from "./scoped-memory-entries.js";
 
 export const PERSONAL_MEMORY_AGENT_GUIDANCE = [
   "SG — личная долговременная память",
   "Используй sg_memory_search для поиска устойчивых фактов и незавершённых задач пользователя.",
   "Используй sg_memory_remember, когда пользователь явно просит запомнить факт или предпочтение.",
+  "Используй sg_memory_correct и sg_memory_forget только для выбранной записи по entryId.",
+  "Используй sg_memory_export и sg_memory_reindex только для текущей личной области.",
   "Используй sg_memory_get только для чтения найденного файла личной памяти.",
   "Не используй штатные memory_search и memory_get: личная память SG изолируется по Global ID.",
 ].join("\n");
@@ -78,6 +83,22 @@ function positiveIntegerParam(
   return value;
 }
 
+function nonNegativeIntegerParam(
+  params: Record<string, unknown>,
+  key: string,
+  fallback: number,
+  max: number,
+): number {
+  const value = params[key];
+  if (value === undefined) {
+    return fallback;
+  }
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 0 || value > max) {
+    throw new Error(`sg-personal-memory-${key}-invalid`);
+  }
+  return value;
+}
+
 function inside(root: string, target: string): boolean {
   const relative = path.relative(root, target);
   return (
@@ -130,8 +151,8 @@ async function resolveActor(
       accountId: ctx.agentAccountId,
       to: ctx.nativeChannelId,
       senderId,
-      identityLinks:
-        (ctx.getRuntimeConfig?.() ?? ctx.runtimeConfig ?? ctx.config)?.session?.identityLinks,
+      identityLinks: (ctx.getRuntimeConfig?.() ?? ctx.runtimeConfig ?? ctx.config)?.session
+        ?.identityLinks,
     },
     stateDir,
   );
@@ -198,6 +219,10 @@ function safePersonalFile(actor: PersonalActor, requestedPath: string): string {
   return target;
 }
 
+function memoryFile(actor: PersonalActor): string {
+  return path.join(actor.workspaceRoot, MEMORY_FILE);
+}
+
 export function createPersonalMemoryTools(
   ctx: PersonalMemoryToolContext,
   stateDir: string,
@@ -218,15 +243,102 @@ export function createPersonalMemoryTools(
       },
       execute: async (_toolCallId: string, params: Record<string, unknown>) => {
         const actor = await resolveActor(ctx, stateDir);
-        const text = stringParam(params, "text", { maxLength: 12000 }).replace(/\s*\r?\n\s*/gu, " ");
+        const text = stringParam(params, "text", { maxLength: 12000 }).replace(
+          /\s*\r?\n\s*/gu,
+          " ",
+        );
         await mkdir(actor.workspaceRoot, { recursive: true });
-        await appendFile(path.join(actor.workspaceRoot, MEMORY_FILE), `- ${text}\n`, {
-          encoding: "utf8",
-          flag: "a",
+        const entryId = await appendScopedMemoryEntry({
+          filePath: memoryFile(actor),
+          idPrefix: "mem",
+          text,
         });
         const manager = await managerFor(ctx, actor, loadManager);
         await manager.sync?.({ reason: "sg-personal-memory-write", force: true });
-        return jsonResult({ saved: true, globalId: actor.globalId, path: MEMORY_FILE });
+        return jsonResult({ saved: true, globalId: actor.globalId, path: MEMORY_FILE, entryId });
+      },
+    },
+    {
+      name: "sg_memory_correct",
+      label: "SG Personal Memory Correct",
+      description:
+        "Replace one active personal memory entry while retaining supersession metadata.",
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          entryId: { type: "string", minLength: 1, maxLength: 200 },
+          text: { type: "string", minLength: 1, maxLength: 12000 },
+        },
+        required: ["entryId", "text"],
+      },
+      execute: async (_toolCallId: string, params: Record<string, unknown>) => {
+        const actor = await resolveActor(ctx, stateDir);
+        const result = await correctScopedMemoryEntry({
+          filePath: memoryFile(actor),
+          entryId: stringParam(params, "entryId", { maxLength: 200 }),
+          idPrefix: "mem",
+          text: stringParam(params, "text", { maxLength: 12000 }).replace(/\s*\r?\n\s*/gu, " "),
+        });
+        const manager = await managerFor(ctx, actor, loadManager);
+        await manager.sync?.({ reason: "sg-personal-memory-correct", force: true });
+        return jsonResult({ status: "corrected", globalId: actor.globalId, ...result });
+      },
+    },
+    {
+      name: "sg_memory_forget",
+      label: "SG Personal Memory Forget",
+      description: "Forget one selected active entry only in the current Global-ID memory.",
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        properties: { entryId: { type: "string", minLength: 1, maxLength: 200 } },
+        required: ["entryId"],
+      },
+      execute: async (_toolCallId: string, params: Record<string, unknown>) => {
+        const actor = await resolveActor(ctx, stateDir);
+        const entryId = stringParam(params, "entryId", { maxLength: 200 });
+        await forgetScopedMemoryEntry({ filePath: memoryFile(actor), entryId });
+        const manager = await managerFor(ctx, actor, loadManager);
+        await manager.sync?.({ reason: "sg-personal-memory-forget", force: true });
+        return jsonResult({ status: "forgotten", globalId: actor.globalId, entryId });
+      },
+    },
+    {
+      name: "sg_memory_export",
+      label: "SG Personal Memory Export",
+      description: "Export active Markdown memory only for the requesting Global ID.",
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          from: { type: "integer", minimum: 0 },
+          maxChars: { type: "integer", minimum: 1, maximum: 32000 },
+        },
+      },
+      execute: async (_toolCallId: string, params: Record<string, unknown>) => {
+        const actor = await resolveActor(ctx, stateDir);
+        return jsonResult({
+          status: "ok",
+          globalId: actor.globalId,
+          path: MEMORY_FILE,
+          ...(await exportScopedMemory(memoryFile(actor), {
+            from: nonNegativeIntegerParam(params, "from", 0, Number.MAX_SAFE_INTEGER),
+            maxChars: positiveIntegerParam(params, "maxChars", 32_000, 32_000),
+          })),
+        });
+      },
+    },
+    {
+      name: "sg_memory_reindex",
+      label: "SG Personal Memory Reindex",
+      description: "Force Memory Core to rebuild only the requesting Global-ID memory index.",
+      parameters: { type: "object", additionalProperties: false, properties: {} },
+      execute: async () => {
+        const actor = await resolveActor(ctx, stateDir);
+        const manager = await managerFor(ctx, actor, loadManager);
+        await manager.sync?.({ reason: "sg-personal-memory-reindex", force: true });
+        return jsonResult({ status: "ok", globalId: actor.globalId });
       },
     },
     {

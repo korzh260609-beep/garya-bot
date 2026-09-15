@@ -1,12 +1,12 @@
 import { mkdir, mkdtemp, readFile, readdir, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
 import type {
   MemoryReadResult,
   MemorySearchManager,
   MemorySearchResult,
 } from "openclaw/plugin-sdk/memory-core-host-engine-storage";
+import { describe, expect, it } from "vitest";
 import {
   createProjectMemoryTools,
   type ProjectMemoryManagerLoader,
@@ -129,10 +129,7 @@ function context(senderId: string, workspaceDir: string, group = false) {
   };
 }
 
-function findTool(
-  tools: ReturnType<typeof createProjectMemoryTools>,
-  name: string,
-) {
+function findTool(tools: ReturnType<typeof createProjectMemoryTools>, name: string) {
   const tool = tools.find((candidate) => candidate.name === name);
   if (!tool) {
     throw new Error(`missing tool ${name}`);
@@ -145,6 +142,43 @@ function details(result: unknown): Record<string, any> {
 }
 
 describe("SG Project Memory 3.0 over OpenClaw Memory Core", () => {
+  it("exports project memory only for the Monarch", async () => {
+    const { root, workspaceDir } = await fixture();
+    const manager = nativeManager(workspaceDir);
+    const monarch = createProjectMemoryTools(context("10", workspaceDir), root, loader(manager));
+    await findTool(monarch, "sg_project_memory_record").execute("record", {
+      recordType: "task",
+      title: "Phase 9 export",
+      summary: "PHASE9-PROJECT-EXPORT",
+    });
+
+    const exported = details(
+      await findTool(monarch, "sg_project_memory_export").execute("export", {}),
+    );
+    expect(exported).toMatchObject({ status: "ok", actorGlobalId: "usr_monarch" });
+    expect(JSON.stringify(exported)).toContain("PHASE9-PROJECT-EXPORT");
+
+    const citizen = createProjectMemoryTools(context("20", workspaceDir), root, loader(manager));
+    expect(
+      details(await findTool(citizen, "sg_project_memory_export").execute("export", {})),
+    ).toMatchObject({ status: "denied", reason: expect.stringContaining("monarch") });
+  });
+
+  it("forces a Monarch-only rebuild of the native project index", async () => {
+    const { root, workspaceDir } = await fixture();
+    const manager = nativeManager(workspaceDir);
+    let forced = false;
+    manager.sync = async (options) => {
+      forced = options?.force === true;
+    };
+    const tools = createProjectMemoryTools(context("10", workspaceDir), root, loader(manager));
+
+    expect(
+      details(await findTool(tools, "sg_project_memory_reindex").execute("reindex", {})),
+    ).toMatchObject({ status: "ok", actorGlobalId: "usr_monarch" });
+    expect(forced).toBe(true);
+  });
+
   it("stores a reasoned decision and finds it across Monarch DM and group turns", async () => {
     const { root, workspaceDir } = await fixture();
     const manager = nativeManager(workspaceDir);
@@ -213,11 +247,7 @@ describe("SG Project Memory 3.0 over OpenClaw Memory Core", () => {
   it("preserves immutable history and resolves the current superseding record", async () => {
     const { root, workspaceDir } = await fixture();
     const manager = nativeManager(workspaceDir);
-    const tools = createProjectMemoryTools(
-      context("10", workspaceDir),
-      root,
-      loader(manager),
-    );
+    const tools = createProjectMemoryTools(context("10", workspaceDir), root, loader(manager));
     const record = findTool(tools, "sg_project_memory_record");
     const first = details(
       await record.execute("first", {

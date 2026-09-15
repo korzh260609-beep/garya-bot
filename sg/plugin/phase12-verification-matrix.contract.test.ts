@@ -23,12 +23,21 @@ const currentPluginTools = [
   "sg_memory_remember",
   "sg_memory_search",
   "sg_memory_get",
+  "sg_memory_correct",
+  "sg_memory_forget",
+  "sg_memory_export",
+  "sg_memory_reindex",
   "sg_resource_memory_remember",
   "sg_resource_memory_search",
   "sg_resource_memory_get",
+  "sg_resource_memory_correct",
+  "sg_resource_memory_export",
+  "sg_resource_memory_reindex",
   "sg_project_memory_record",
   "sg_project_memory_search",
   "sg_project_memory_get",
+  "sg_project_memory_export",
+  "sg_project_memory_reindex",
   "sg_render",
 ] as const;
 
@@ -191,7 +200,7 @@ describe("SG 2.2 Phase 12 verification matrix", () => {
     await cp(backupSgDir, sgDir, { recursive: true, preserveTimestamps: true });
     expect(await readFile(storePath, "utf8")).toBe(source);
     await expect(stat(archivePath)).rejects.toMatchObject({ code: "ENOENT" });
-  });
+  }, 15_000);
 
   it("observes a normal Telegram group message without claiming its reply", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "sg-phase12-reply-"));

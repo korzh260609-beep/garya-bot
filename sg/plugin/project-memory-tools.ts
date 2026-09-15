@@ -1,15 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { getActiveMemorySearchManager } from "openclaw/plugin-sdk/memory-host-search";
 import type {
   MemorySearchManager,
   MemorySearchResult,
 } from "openclaw/plugin-sdk/memory-core-host-engine-storage";
-import type {
-  OpenClawConfig,
-  OpenClawPluginToolContext,
-} from "openclaw/plugin-sdk/plugin-entry";
+import { getActiveMemorySearchManager } from "openclaw/plugin-sdk/memory-host-search";
+import type { OpenClawConfig, OpenClawPluginToolContext } from "openclaw/plugin-sdk/plugin-entry";
 import { jsonResult } from "openclaw/plugin-sdk/tool-results";
 import { resolveWorkspaceContext } from "./context.js";
 
@@ -17,6 +14,8 @@ export const PROJECT_MEMORY_TOOL_NAMES = [
   "sg_project_memory_record",
   "sg_project_memory_search",
   "sg_project_memory_get",
+  "sg_project_memory_export",
+  "sg_project_memory_reindex",
 ] as const;
 
 export const PROJECT_MEMORY_AGENT_GUIDANCE = [
@@ -24,6 +23,7 @@ export const PROJECT_MEMORY_AGENT_GUIDANCE = [
   "Используй sg_project_memory_search для поиска решений, инцидентов и проектных задач.",
   "Используй sg_project_memory_get для чтения найденной записи.",
   "Используй sg_project_memory_record для новой записи или новой версии через supersedesId.",
+  "Используй sg_project_memory_export и sg_project_memory_reindex только по запросу монарха.",
   "Не изменяй старую запись: supersession сохраняет историю.",
   "OpenClaw Memory Core остаётся единственным индексом и поисковым движком.",
 ].join("\n");
@@ -113,11 +113,7 @@ function portable(value: string): string {
   return value.split(path.sep).join("/");
 }
 
-function requiredText(
-  params: Record<string, unknown>,
-  key: string,
-  maxLength: number,
-): string {
+function requiredText(params: Record<string, unknown>, key: string, maxLength: number): string {
   const value = params[key];
   if (typeof value !== "string" || !value.trim()) {
     throw new Error(`sg-project-memory-${key}-required`);
@@ -372,10 +368,7 @@ function normalizeHitPath(hit: MemorySearchResult): string {
   return hit.path.replaceAll("\\", "/");
 }
 
-function publicRecord(
-  record: StoredProjectRecord,
-  supersededBy: Map<string, string>,
-) {
+function publicRecord(record: StoredProjectRecord, supersededBy: Map<string, string>) {
   const replacement = supersededBy.get(record.metadata.id);
   return {
     ...record.metadata,
@@ -391,6 +384,76 @@ export function createProjectMemoryTools(
   loadManager: ProjectMemoryManagerLoader = getActiveMemorySearchManager,
 ) {
   return [
+    {
+      name: "sg_project_memory_export",
+      label: "SG Project Memory Export",
+      description: "Exports the Monarch-authorized current Project SG Markdown records.",
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          fromRecord: { type: "integer", minimum: 0 },
+          maxRecords: { type: "integer", minimum: 1, maximum: 4 },
+        },
+      },
+      execute: async (_toolCallId: string, params: Record<string, unknown>) => {
+        try {
+          const actor = await resolveActor(ctx, stateDir);
+          const records = await readRecords(actor.workspaceRoot);
+          const supersededBy = recordLinks(records);
+          const fromRecord =
+            params.fromRecord === undefined
+              ? 0
+              : typeof params.fromRecord === "number" &&
+                  Number.isInteger(params.fromRecord) &&
+                  params.fromRecord >= 0
+                ? params.fromRecord
+                : -1;
+          if (fromRecord < 0) {
+            throw new Error("sg-project-memory-fromRecord-invalid");
+          }
+          const maxRecords = positiveInteger(params, "maxRecords", 4, 4);
+          const selected = records.slice(fromRecord, fromRecord + maxRecords);
+          const nextFromRecord = fromRecord + selected.length;
+          const truncated = nextFromRecord < records.length;
+          return jsonResult({
+            status: "ok",
+            actorGlobalId: actor.globalId,
+            records: selected.map((record) => ({
+              ...publicRecord(record, supersededBy),
+              text: record.content.slice(0, 24_000),
+              contentTruncated: record.content.length > 24_000,
+            })),
+            truncated,
+            ...(truncated ? { nextFromRecord } : {}),
+          });
+        } catch (error) {
+          return jsonResult({
+            status: "denied",
+            reason: error instanceof Error ? error.message : String(error),
+          });
+        }
+      },
+    },
+    {
+      name: "sg_project_memory_reindex",
+      label: "SG Project Memory Reindex",
+      description: "Forces the native Memory Core index rebuild for the Monarch workspace.",
+      parameters: { type: "object", additionalProperties: false, properties: {} },
+      execute: async () => {
+        try {
+          const actor = await resolveActor(ctx, stateDir);
+          const manager = await managerFor(ctx, loadManager);
+          await manager.sync?.({ reason: "sg-project-memory-reindex", force: true });
+          return jsonResult({ status: "ok", actorGlobalId: actor.globalId });
+        } catch (error) {
+          return jsonResult({
+            status: "denied",
+            reason: error instanceof Error ? error.message : String(error),
+          });
+        }
+      },
+    },
     {
       name: "sg_project_memory_record",
       label: "SG Project Memory Record",

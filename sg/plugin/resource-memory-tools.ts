@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { appendFile, mkdir } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import type {
   MemorySearchManager,
@@ -8,18 +8,28 @@ import type {
 import { getActiveMemorySearchManager } from "openclaw/plugin-sdk/memory-host-search";
 import type { OpenClawConfig, OpenClawPluginToolContext } from "openclaw/plugin-sdk/plugin-entry";
 import { jsonResult } from "openclaw/plugin-sdk/tool-results";
+import {
+  appendScopedMemoryEntry,
+  correctScopedMemoryEntry,
+  exportScopedMemory,
+} from "./scoped-memory-entries.js";
 import { canonicalWorkspaceResourceId, SgWorkspaceRegistry } from "./workspace-registry.js";
 
 export const RESOURCE_MEMORY_TOOL_NAMES = [
   "sg_resource_memory_remember",
   "sg_resource_memory_search",
   "sg_resource_memory_get",
+  "sg_resource_memory_correct",
+  "sg_resource_memory_export",
+  "sg_resource_memory_reindex",
 ] as const;
 
 export const RESOURCE_MEMORY_AGENT_GUIDANCE = [
   "SG — долговременная память текущего ресурса",
   "Используй sg_resource_memory_search для знаний, общих только для текущей группы или workspace.",
   "Используй sg_resource_memory_remember, когда нужно явно сохранить общий факт текущего ресурса.",
+  "Используй sg_resource_memory_correct только для выбранной записи текущего ресурса по entryId.",
+  "Используй sg_resource_memory_export и sg_resource_memory_reindex только для текущего ресурса.",
   "Используй sg_resource_memory_get только для чтения найденного файла resource memory.",
   "Не сохраняй сюда личные данные участников, секреты или проектные полномочия монарха.",
 ].join("\n");
@@ -73,6 +83,22 @@ function positiveIntegerParam(
     return fallback;
   }
   if (typeof value !== "number" || !Number.isInteger(value) || value < 1 || value > max) {
+    throw new Error(`sg-resource-memory-${key}-invalid`);
+  }
+  return value;
+}
+
+function nonNegativeIntegerParam(
+  params: Record<string, unknown>,
+  key: string,
+  fallback: number,
+  max: number,
+): number {
+  const value = params[key];
+  if (value === undefined) {
+    return fallback;
+  }
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 0 || value > max) {
     throw new Error(`sg-resource-memory-${key}-invalid`);
   }
   return value;
@@ -203,6 +229,10 @@ function safeResourceFile(actor: ResourceActor, requestedPath: string): string {
   return target;
 }
 
+function memoryFile(actor: ResourceActor): string {
+  return path.join(actor.workspaceRoot, MEMORY_FILE);
+}
+
 export function createResourceMemoryTools(
   ctx: ResourceMemoryToolContext,
   stateDir: string,
@@ -225,10 +255,10 @@ export function createResourceMemoryTools(
         const actor = await resolveActor(ctx, stateDir);
         const text = stringParam(params, "text", 12000).replace(/\s*\r?\n\s*/gu, " ");
         await mkdir(actor.workspaceRoot, { recursive: true });
-        await appendFile(path.join(actor.workspaceRoot, MEMORY_FILE), `- ${text}\n`, {
-          encoding: "utf8",
-          flag: "a",
-          mode: 0o600,
+        const entryId = await appendScopedMemoryEntry({
+          filePath: memoryFile(actor),
+          idPrefix: "rmem",
+          text,
         });
         const manager = await managerFor(ctx, actor, loadManager);
         await manager.sync?.({ reason: "sg-resource-memory-write", force: true });
@@ -236,7 +266,75 @@ export function createResourceMemoryTools(
           saved: true,
           resourceScopeId: actor.resourceScopeId,
           path: MEMORY_FILE,
+          entryId,
         });
+      },
+    },
+    {
+      name: "sg_resource_memory_correct",
+      label: "SG Resource Memory Correct",
+      description: "Correct one active entry only in the current registered resource scope.",
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          entryId: { type: "string", minLength: 1, maxLength: 200 },
+          text: { type: "string", minLength: 1, maxLength: 12000 },
+        },
+        required: ["entryId", "text"],
+      },
+      execute: async (_toolCallId: string, params: Record<string, unknown>) => {
+        const actor = await resolveActor(ctx, stateDir);
+        const result = await correctScopedMemoryEntry({
+          filePath: memoryFile(actor),
+          entryId: stringParam(params, "entryId", 200),
+          idPrefix: "rmem",
+          text: stringParam(params, "text", 12000).replace(/\s*\r?\n\s*/gu, " "),
+        });
+        const manager = await managerFor(ctx, actor, loadManager);
+        await manager.sync?.({ reason: "sg-resource-memory-correct", force: true });
+        return jsonResult({
+          status: "corrected",
+          resourceScopeId: actor.resourceScopeId,
+          ...result,
+        });
+      },
+    },
+    {
+      name: "sg_resource_memory_export",
+      label: "SG Resource Memory Export",
+      description: "Export active Markdown memory only from the current registered resource.",
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          from: { type: "integer", minimum: 0 },
+          maxChars: { type: "integer", minimum: 1, maximum: 32000 },
+        },
+      },
+      execute: async (_toolCallId: string, params: Record<string, unknown>) => {
+        const actor = await resolveActor(ctx, stateDir);
+        return jsonResult({
+          status: "ok",
+          resourceScopeId: actor.resourceScopeId,
+          path: MEMORY_FILE,
+          ...(await exportScopedMemory(memoryFile(actor), {
+            from: nonNegativeIntegerParam(params, "from", 0, Number.MAX_SAFE_INTEGER),
+            maxChars: positiveIntegerParam(params, "maxChars", 32_000, 32_000),
+          })),
+        });
+      },
+    },
+    {
+      name: "sg_resource_memory_reindex",
+      label: "SG Resource Memory Reindex",
+      description: "Force Memory Core to rebuild only the current registered resource index.",
+      parameters: { type: "object", additionalProperties: false, properties: {} },
+      execute: async () => {
+        const actor = await resolveActor(ctx, stateDir);
+        const manager = await managerFor(ctx, actor, loadManager);
+        await manager.sync?.({ reason: "sg-resource-memory-reindex", force: true });
+        return jsonResult({ status: "ok", resourceScopeId: actor.resourceScopeId });
       },
     },
     {

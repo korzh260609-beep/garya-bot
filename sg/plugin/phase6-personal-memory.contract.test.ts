@@ -1,12 +1,12 @@
 import { mkdir, mkdtemp, readFile, readdir, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
 import type {
   MemoryReadResult,
   MemorySearchManager,
   MemorySearchResult,
 } from "openclaw/plugin-sdk/memory-core-host-engine-storage";
+import { describe, expect, it } from "vitest";
 import {
   createPersonalMemoryTools,
   type PersonalMemoryManagerLoader,
@@ -110,7 +110,9 @@ function context(senderId: string, workspaceDir: string, nativeChannelId: string
     requesterSenderId: senderId,
     workspaceDir,
     agentId: "main",
-    sessionKey: nativeChannelId.includes("-100") ? "agent:main:telegram:group:-100" : `agent:main:telegram:direct:${senderId}`,
+    sessionKey: nativeChannelId.includes("-100")
+      ? "agent:main:telegram:group:-100"
+      : `agent:main:telegram:direct:${senderId}`,
   };
 }
 
@@ -127,6 +129,193 @@ function details(result: unknown): Record<string, unknown> {
 }
 
 describe("SG Global-ID personal memory", () => {
+  it("returns a stable entry id and the exact personal scope for a saved fact", async () => {
+    const { root, workspaceDir } = await fixture();
+    const tools = createPersonalMemoryTools(
+      context("20", workspaceDir, "telegram:20"),
+      root,
+      loader(nativeManager(workspaceDir, path.join(root, "sg", "users"))),
+    );
+
+    expect(
+      details(
+        await findTool(tools, "sg_memory_remember").execute("remember", {
+          text: "Контракт Phase 9 — стабильный идентификатор",
+        }),
+      ),
+    ).toMatchObject({
+      saved: true,
+      globalId: "usr_a",
+      path: "MEMORY.md",
+      entryId: expect.stringMatching(/^mem-/u),
+    });
+  });
+
+  it("corrects one inaccurate personal entry without returning the superseded text", async () => {
+    const { root, workspaceDir } = await fixture();
+    const tools = createPersonalMemoryTools(
+      context("20", workspaceDir, "telegram:20"),
+      root,
+      loader(nativeManager(workspaceDir, path.join(root, "sg", "users"))),
+    );
+    const saved = details(
+      await findTool(tools, "sg_memory_remember").execute("remember", {
+        text: "Предпочитаемый цвет — красный",
+      }),
+    );
+
+    expect(
+      details(
+        await findTool(tools, "sg_memory_correct").execute("correct", {
+          entryId: saved.entryId,
+          text: "Предпочитаемый цвет — зелёный",
+        }),
+      ),
+    ).toMatchObject({ status: "corrected", globalId: "usr_a", supersedesId: saved.entryId });
+    expect(
+      details(
+        await findTool(tools, "sg_memory_search").execute("search", {
+          query: "Предпочитаемый цвет",
+        }),
+      ),
+    ).toMatchObject({
+      globalId: "usr_a",
+      results: [expect.objectContaining({ snippet: expect.stringContaining("зелёный") })],
+    });
+    expect(
+      JSON.stringify(
+        details(
+          await findTool(tools, "sg_memory_search").execute("search-old", {
+            query: "Предпочитаемый цвет",
+          }),
+        ),
+      ),
+    ).not.toContain("красный");
+  });
+
+  it("does not let another Global ID correct or forget a personal entry", async () => {
+    const { root, workspaceDir } = await fixture();
+    const manager = nativeManager(workspaceDir, path.join(root, "sg", "users"));
+    const owner = createPersonalMemoryTools(
+      context("20", workspaceDir, "telegram:20"),
+      root,
+      loader(manager),
+    );
+    const other = createPersonalMemoryTools(
+      context("30", workspaceDir, "telegram:30"),
+      root,
+      loader(manager),
+    );
+    const saved = details(
+      await findTool(owner, "sg_memory_remember").execute("remember", {
+        text: "PHASE9-OWNER-ONLY-MUTATION",
+      }),
+    );
+
+    await expect(
+      findTool(other, "sg_memory_correct").execute("correct", {
+        entryId: saved.entryId,
+        text: "unauthorized correction",
+      }),
+    ).rejects.toThrow(/not-found/iu);
+    await expect(
+      findTool(other, "sg_memory_forget").execute("forget", { entryId: saved.entryId }),
+    ).rejects.toThrow(/not-found/iu);
+    expect(
+      JSON.stringify(
+        details(
+          await findTool(owner, "sg_memory_search").execute("search", {
+            query: "PHASE9-OWNER-ONLY-MUTATION",
+          }),
+        ),
+      ),
+    ).toContain("PHASE9-OWNER-ONLY-MUTATION");
+  });
+
+  it("forgets only the selected personal entry", async () => {
+    const { root, workspaceDir } = await fixture();
+    const tools = createPersonalMemoryTools(
+      context("20", workspaceDir, "telegram:20"),
+      root,
+      loader(nativeManager(workspaceDir, path.join(root, "sg", "users"))),
+    );
+    const selected = details(
+      await findTool(tools, "sg_memory_remember").execute("remember-selected", {
+        text: "Удаляемый маркер PHASE9-FORGET-SELECTED",
+      }),
+    );
+    await findTool(tools, "sg_memory_remember").execute("remember-kept", {
+      text: "Сохраняемый маркер PHASE9-KEEP",
+    });
+
+    expect(
+      details(
+        await findTool(tools, "sg_memory_forget").execute("forget", {
+          entryId: selected.entryId,
+        }),
+      ),
+    ).toMatchObject({ status: "forgotten", globalId: "usr_a", entryId: selected.entryId });
+    expect(
+      details(
+        await findTool(tools, "sg_memory_search").execute("search-forgotten", {
+          query: "PHASE9-FORGET-SELECTED",
+        }),
+      ),
+    ).toMatchObject({ results: [] });
+    expect(
+      details(
+        await findTool(tools, "sg_memory_search").execute("search-kept", {
+          query: "PHASE9-KEEP",
+        }),
+      ).results,
+    ).not.toEqual([]);
+  });
+
+  it("exports only the requesting Global ID personal memory", async () => {
+    const { root, workspaceDir } = await fixture();
+    const manager = nativeManager(workspaceDir, path.join(root, "sg", "users"));
+    const first = createPersonalMemoryTools(
+      context("20", workspaceDir, "telegram:20"),
+      root,
+      loader(manager),
+    );
+    const second = createPersonalMemoryTools(
+      context("30", workspaceDir, "telegram:30"),
+      root,
+      loader(manager),
+    );
+    await findTool(first, "sg_memory_remember").execute("first", {
+      text: "PHASE9-EXPORT-OWNER",
+    });
+    await findTool(second, "sg_memory_remember").execute("second", {
+      text: "PHASE9-EXPORT-OTHER-PRIVATE",
+    });
+
+    const exported = details(await findTool(first, "sg_memory_export").execute("export", {}));
+    expect(exported).toMatchObject({ status: "ok", globalId: "usr_a" });
+    expect(JSON.stringify(exported)).toContain("PHASE9-EXPORT-OWNER");
+    expect(JSON.stringify(exported)).not.toContain("PHASE9-EXPORT-OTHER-PRIVATE");
+  });
+
+  it("forces Memory Core to rebuild only the current personal scope", async () => {
+    const { root, workspaceDir } = await fixture();
+    const manager = nativeManager(workspaceDir, path.join(root, "sg", "users"));
+    let forced = false;
+    manager.sync = async (options) => {
+      forced = options?.force === true;
+    };
+    const tools = createPersonalMemoryTools(
+      context("20", workspaceDir, "telegram:20"),
+      root,
+      loader(manager),
+    );
+
+    expect(
+      details(await findTool(tools, "sg_memory_reindex").execute("reindex", {})),
+    ).toMatchObject({ status: "ok", globalId: "usr_a" });
+    expect(forced).toBe(true);
+  });
+
   it("shares one citizen memory between direct and group turns", async () => {
     const { root, workspaceDir } = await fixture();
     const manager = nativeManager(workspaceDir, path.join(root, "sg", "users"));

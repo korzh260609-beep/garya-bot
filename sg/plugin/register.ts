@@ -87,6 +87,10 @@ const PERSONAL_MEMORY_TOOL_NAMES = [
   "sg_memory_remember",
   "sg_memory_search",
   "sg_memory_get",
+  "sg_memory_correct",
+  "sg_memory_forget",
+  "sg_memory_export",
+  "sg_memory_reindex",
 ] as const;
 const RENDER_TOOL_NAMES = ["sg_render"] as const;
 

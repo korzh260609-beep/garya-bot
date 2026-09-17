@@ -273,6 +273,61 @@ Use the existing OpenClaw Telegram channel and external SG plugin seams. Do not 
 
 ## Priority 3 — full durable memory
 
+### Mandatory Project Memory 3.0 development contract
+
+Project Memory is automatic project knowledge, not a manual notebook and not a tool that works
+only when the Monarch says "remember". Explicit record/search commands remain available for
+inspection and correction, but normal project development must not depend on them.
+
+The following rules are mandatory for every Project Memory implementation and later change:
+
+1. **Automatic capture.** Approved project decisions, rationale, tasks and task-state changes,
+   verified commits, CI results, deployments, incidents, fixes, rollbacks and roadmap progress are
+   captured without a separate memory command from the Monarch.
+2. **Automatic recall.** Before answering or acting on a project-related request, SG searches the
+   relevant active project records. It verifies changeable live facts against their authoritative
+   source instead of treating remembered state as current proof.
+3. **External-development bridge.** Development may occur outside SG, including in a Codex/ChatGPT
+   conversation that SG cannot read. The approved outcome must therefore cross a trusted
+   development bridge into SG through repository, CI and deployment evidence plus a structured
+   handoff containing the decision, rationale, result, remaining work and source references. This
+   handoff is part of the development workflow and must not require the Monarch to repeat
+   "remember" after every task.
+4. **Authoritative evidence.** Monarch-approved decisions, repository state, exact commit SHAs,
+   GitHub Actions results, Render deploy state and canonical project documents are authoritative
+   within their real scope. Model summaries and ordinary chat text are candidates only and never
+   become confirmed project facts by themselves.
+5. **One memory system.** Capture, storage, indexing and retrieval reuse the deployed OpenClaw
+   Memory Core and the existing SG project-memory records. Do not create a parallel database,
+   sidecar memory, competing index or second source of truth.
+6. **Validated ingestion.** Every candidate follows:
+   `event -> normalize -> trust check -> secret filtering -> conflict/deduplication check ->
+   confirm/reject -> active project record`.
+7. **Immutable history.** Confirmed records are not silently rewritten. Corrections and state
+   changes create a new version linked with `supersedesId`; current answers use the effective
+   record while history remains auditable.
+8. **Idempotency.** Replayed hooks, restarts and repeated synchronization must not duplicate a
+   record. Stable evidence such as commit SHA, workflow run ID, deploy ID and source event identity
+   is used for deduplication.
+9. **Scope and safety.** Project Memory is Monarch-only. Citizen activity, personal memory,
+   casual conversation, unapproved proposals, unsupported inferences, credentials, tokens and
+   secrets must not enter it.
+10. **Meaningful knowledge, not noise.** Do not ingest every message or diff. Preserve the verified
+    project meaning: what was decided, why, what changed, what was proven, what failed and what
+    remains unfinished.
+11. **Lifecycle synchronization.** Project ingestion runs after relevant push/CI/deploy outcomes,
+    on SG startup or recovery, and before a project-related response when newer authoritative
+    events may exist.
+12. **Historical bootstrap.** An empty or incomplete Project Memory is repaired from canonical
+    roadmaps, repository history, CI, deployments and other verified project artifacts. Historical
+    chat is not bulk-imported as truth.
+
+Development agents working on SG must preserve this contract. Before implementation they must
+audit native OpenClaw hooks and existing SG tools, add failing contracts for the missing behavior,
+and stop for the required authorization checkpoint. They must not claim Project Memory complete
+when automatic capture, automatic recall, the external-development bridge, deduplication,
+isolation, persistence or live proof is missing.
+
 ### Phase 7 — define authoritative memory scopes
 
 Treat these as separate scopes:

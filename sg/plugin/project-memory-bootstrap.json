@@ -1,0 +1,153 @@
+{
+  "schemaVersion": 1,
+  "handoffId": "sg22-history-bootstrap-2026-09-17-v1",
+  "projectKey": "project-sg",
+  "authority": {
+    "kind": "canonical-project-artifact"
+  },
+  "repository": {
+    "fullName": "korzh260609-beep/garya-bot",
+    "branch": "dev/sg2.2-openclaw"
+  },
+  "events": [
+    {
+      "eventId": "bootstrap:github:commit:dba947316cc1f093d39e7e42ae1fc832649f2a9e",
+      "eventType": "task.completed",
+      "recordType": "task",
+      "title": "Full Monarch tool profile activated",
+      "summary": "The SG 2.2 branch activated the full Monarch tool profile through the external SG integration.",
+      "status": "done",
+      "sourceRefs": ["github:commit:dba947316cc1f093d39e7e42ae1fc832649f2a9e"]
+    },
+    {
+      "eventId": "bootstrap:github:commit:c54e87c32ebbba9df2d817caf92a4e4cc7ae3086",
+      "eventType": "task.completed",
+      "recordType": "task",
+      "title": "Persistent GitHub authentication added",
+      "summary": "GitHub CLI authentication persistence was added for project development operations.",
+      "status": "done",
+      "sourceRefs": ["github:commit:c54e87c32ebbba9df2d817caf92a4e4cc7ae3086"]
+    },
+    {
+      "eventId": "bootstrap:github:commit:0d09d2a21ef63214e1829aff595b66fe37ef2083",
+      "eventType": "task.completed",
+      "recordType": "task",
+      "title": "Render API tools activated",
+      "summary": "Read-only and controlled Render API tooling was activated for SG project operations.",
+      "status": "done",
+      "sourceRefs": ["github:commit:0d09d2a21ef63214e1829aff595b66fe37ef2083"]
+    },
+    {
+      "eventId": "bootstrap:github:commit:b5e2e1619d4e75745ee245a147eedd45f0833e21",
+      "eventType": "task.completed",
+      "recordType": "task",
+      "title": "Canonical project entity identity restored",
+      "summary": "The canonical SG project entity identity was restored as a project-level invariant.",
+      "status": "done",
+      "sourceRefs": ["github:commit:b5e2e1619d4e75745ee245a147eedd45f0833e21"]
+    },
+    {
+      "eventId": "bootstrap:decision:project-memory-3-semantics",
+      "eventType": "decision.approved",
+      "recordType": "decision",
+      "title": "Project Memory 3.0 is the single project memory system",
+      "summary": "Project history must use the existing Markdown Project Memory through OpenClaw Memory Core; a parallel project-memory database is forbidden.",
+      "rationale": "The canonical roadmap requires one searchable, source-backed memory with automatic capture, recall, deduplication and secret filtering.",
+      "status": "active",
+      "sourceRefs": [
+        "roadmap:SG22_FULL_OPENCLAW_CAPABILITY_INHERITANCE.md#project-memory-3.0",
+        "github:commit:dc20993b623a6f44087f2a257c51cff787dcb7bd"
+      ]
+    },
+    {
+      "eventId": "bootstrap:task:automatic-project-memory",
+      "eventType": "task.created",
+      "recordType": "task",
+      "title": "Implement automatic Project Memory 3.0",
+      "summary": "Automatic capture, source-backed recall, historical bootstrap and recovery remain required work until the implementation is committed, CI-verified, deployed and live-verified.",
+      "status": "planned",
+      "sourceRefs": [
+        "roadmap:SG22_FULL_OPENCLAW_CAPABILITY_INHERITANCE.md#automatic-project-memory",
+        "github:commit:00710bc64c59fda67b1ad388f5e14bc3cb3ecee6"
+      ]
+    },
+    {
+      "eventId": "bootstrap:github:commit:89145d55f60a9dd8444fd3cdfb87ec4ea4760c1c",
+      "eventType": "task.completed",
+      "recordType": "task",
+      "title": "Project development workflow documented",
+      "summary": "The controlled project development workflow was added to the SG branch.",
+      "status": "done",
+      "sourceRefs": ["github:commit:89145d55f60a9dd8444fd3cdfb87ec4ea4760c1c"]
+    },
+    {
+      "eventId": "bootstrap:github:commit:60546ad06a64439ef70dd4c25c856623bc111b79",
+      "eventType": "task.completed",
+      "recordType": "task",
+      "title": "Persistent project checkout prepared",
+      "summary": "A persistent project checkout beneath the configured OpenClaw workspace was prepared.",
+      "status": "done",
+      "sourceRefs": ["github:commit:60546ad06a64439ef70dd4c25c856623bc111b79"]
+    },
+    {
+      "eventId": "bootstrap:github:commit:67b9dcc9c602787a4094fa0a7628e4eb5b67a694",
+      "eventType": "task.completed",
+      "recordType": "task",
+      "title": "Authorized GitHub repositories and branches enabled",
+      "summary": "Project tooling was corrected to work with repositories and existing branches authorized by the connected GitHub identity.",
+      "status": "done",
+      "sourceRefs": ["github:commit:67b9dcc9c602787a4094fa0a7628e4eb5b67a694"]
+    },
+    {
+      "eventId": "bootstrap:github:commit:d4d17ad3427280ff01b842affde4e0bf0f33a4e6",
+      "eventType": "task.completed",
+      "recordType": "task",
+      "title": "Resource-scoped memory tools added",
+      "summary": "SG added memory tools that preserve resource scope instead of mixing unrelated contexts.",
+      "status": "done",
+      "sourceRefs": ["github:commit:d4d17ad3427280ff01b842affde4e0bf0f33a4e6"]
+    },
+    {
+      "eventId": "bootstrap:github:commit:d74f483108cae977b39232b1aa4d95c9f3cedb2b",
+      "eventType": "incident.fixed",
+      "recordType": "incident",
+      "title": "Personal memory index synchronization repaired",
+      "summary": "The personal memory index was corrected so persisted memory remains searchable after writes.",
+      "status": "resolved",
+      "sourceRefs": ["github:commit:d74f483108cae977b39232b1aa4d95c9f3cedb2b"]
+    },
+    {
+      "eventId": "bootstrap:github:commit:7cadd0e0487334d23903783581f6ba9f652f5c18",
+      "eventType": "incident.fixed",
+      "recordType": "incident",
+      "title": "Long memory snippets centered on matches",
+      "summary": "Memory result snippets were fixed to center on the relevant match instead of returning only the beginning of long records.",
+      "status": "resolved",
+      "sourceRefs": ["github:commit:7cadd0e0487334d23903783581f6ba9f652f5c18"]
+    },
+    {
+      "eventId": "bootstrap:github:actions:35256153799",
+      "eventType": "actions.completed",
+      "recordType": "task",
+      "title": "Automatic Project Memory roadmap contract passed CI",
+      "summary": "GitHub Actions run 298 completed successfully for commit 00710bc64c59fda67b1ad388f5e14bc3cb3ecee6.",
+      "status": "done",
+      "sourceRefs": [
+        "github:commit:00710bc64c59fda67b1ad388f5e14bc3cb3ecee6",
+        "github:actions:35256153799:success"
+      ]
+    },
+    {
+      "eventId": "bootstrap:render:deploy:dep-dam269gu01pc73b78n3g",
+      "eventType": "deploy.live",
+      "recordType": "task",
+      "title": "Memory snippet image deployed live",
+      "summary": "Render deploy dep-dam269gu01pc73b78n3g reached live for commit 8c7fec3785c1fc61761773bcd926f8c1307dccf2 and the pinned SG image based on 7cadd0e0487334d23903783581f6ba9f652f5c18.",
+      "status": "done",
+      "sourceRefs": [
+        "github:commit:8c7fec3785c1fc61761773bcd926f8c1307dccf2",
+        "render:deploy:dep-dam269gu01pc73b78n3g:live"
+      ]
+    }
+  ]
+}

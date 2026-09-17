@@ -9,6 +9,7 @@ import {
   createPersonalMemoryTools,
   PERSONAL_MEMORY_AGENT_GUIDANCE,
 } from "./personal-memory-tools.js";
+import { registerAutomaticProjectMemory } from "./project-memory-automatic.js";
 import {
   createProjectMemoryTools,
   PROJECT_MEMORY_AGENT_GUIDANCE,
@@ -177,6 +178,7 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
   wsp6Lifecycle.register(api);
   registerSgBillingHooks({ api, stateDir });
   registerSgBillingCommands({ api, stateDir });
+  registerAutomaticProjectMemory(api, stateDir);
 
   api.on("before_prompt_build", async (_event, ctx) => {
     let projectMemoryGuidance = "";

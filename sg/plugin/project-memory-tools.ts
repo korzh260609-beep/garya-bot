@@ -33,7 +33,7 @@ export type ProjectMemoryManagerLoader = (params: {
   agentId: string;
 }) => Promise<{ manager: MemorySearchManager | null; error?: string }>;
 
-type ProjectMemoryToolContext = Pick<
+export type ProjectMemoryToolContext = Pick<
   OpenClawPluginToolContext,
   | "config"
   | "runtimeConfig"
@@ -63,6 +63,9 @@ type ProjectRecordMetadata = {
   senderId: string;
   projectKeys: string[];
   sourceRefs: string[];
+  sourceEventId?: string;
+  sourceEventType?: string;
+  sourceHandoffId?: string;
   supersedesId?: string;
   runtimeTaskId?: string;
   runtimeFlowId?: string;
@@ -275,7 +278,10 @@ function parseMetadata(content: string): ProjectRecordMetadata | undefined {
       !Array.isArray(value.projectKeys) ||
       !value.projectKeys.every((entry) => typeof entry === "string") ||
       !Array.isArray(value.sourceRefs) ||
-      !value.sourceRefs.every((entry) => typeof entry === "string")
+      !value.sourceRefs.every((entry) => typeof entry === "string") ||
+      (value.sourceEventId !== undefined && typeof value.sourceEventId !== "string") ||
+      (value.sourceEventType !== undefined && typeof value.sourceEventType !== "string") ||
+      (value.sourceHandoffId !== undefined && typeof value.sourceHandoffId !== "string")
     ) {
       return undefined;
     }
@@ -419,11 +425,12 @@ export function createProjectMemoryTools(
           return jsonResult({
             status: "ok",
             actorGlobalId: actor.globalId,
-            records: selected.map((record) => ({
-              ...publicRecord(record, supersededBy),
-              text: record.content.slice(0, 24_000),
-              contentTruncated: record.content.length > 24_000,
-            })),
+            records: selected.map((record) =>
+              Object.assign(publicRecord(record, supersededBy), {
+                text: record.content.slice(0, 24_000),
+                contentTruncated: record.content.length > 24_000,
+              }),
+            ),
             truncated,
             ...(truncated ? { nextFromRecord } : {}),
           });
@@ -487,6 +494,10 @@ export function createProjectMemoryTools(
             maxItems: 20,
             items: { type: "string", minLength: 1, maxLength: 1000 },
           },
+          sourceEventId: { type: "string", minLength: 1, maxLength: 200 },
+          sourceEventType: { type: "string", minLength: 1, maxLength: 100 },
+          sourceHandoffId: { type: "string", minLength: 1, maxLength: 200 },
+          supersedesEventId: { type: "string", minLength: 1, maxLength: 200 },
           supersedesId: { type: "string", minLength: 1, maxLength: 200 },
           runtimeTaskId: { type: "string", minLength: 1, maxLength: 200 },
           runtimeFlowId: { type: "string", minLength: 1, maxLength: 200 },
@@ -511,7 +522,34 @@ export function createProjectMemoryTools(
 
           const records = await readRecords(actor.workspaceRoot);
           const supersededBy = recordLinks(records);
-          const supersedesId = optionalText(params, "supersedesId", 200);
+          const sourceEventId = optionalText(params, "sourceEventId", 200);
+          const sourceEventType = optionalText(params, "sourceEventType", 100);
+          const sourceHandoffId = optionalText(params, "sourceHandoffId", 200);
+          if (sourceEventId) {
+            const duplicate = records.find(
+              (record) => record.metadata.sourceEventId === sourceEventId,
+            );
+            if (duplicate) {
+              return jsonResult({
+                status: "duplicate",
+                record: publicRecord(duplicate, supersededBy),
+              });
+            }
+          }
+          const supersedesEventId = optionalText(params, "supersedesEventId", 200);
+          const explicitSupersedesId = optionalText(params, "supersedesId", 200);
+          if (explicitSupersedesId && supersedesEventId) {
+            throw new Error("sg-project-memory-supersession-reference-conflict");
+          }
+          const supersedesId =
+            explicitSupersedesId ??
+            (supersedesEventId
+              ? records.find((record) => record.metadata.sourceEventId === supersedesEventId)
+                  ?.metadata.id
+              : undefined);
+          if (supersedesEventId && !supersedesId) {
+            throw new Error("sg-project-memory-superseded-event-not-found");
+          }
           const previous = supersedesId
             ? records.find((record) => record.metadata.id === supersedesId)
             : undefined;
@@ -543,6 +581,9 @@ export function createProjectMemoryTools(
             senderId: actor.senderId,
             projectKeys,
             sourceRefs: optionalStringArray(params, "sourceRefs", 20, 1000),
+            ...(sourceEventId ? { sourceEventId } : {}),
+            ...(sourceEventType ? { sourceEventType } : {}),
+            ...(sourceHandoffId ? { sourceHandoffId } : {}),
             ...(supersedesId ? { supersedesId } : {}),
             ...(runtimeTaskId ? { runtimeTaskId } : {}),
             ...(runtimeFlowId ? { runtimeFlowId } : {}),

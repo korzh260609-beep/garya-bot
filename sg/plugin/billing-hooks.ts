@@ -30,6 +30,11 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
   };
 
   api.on("before_agent_run", async (event, ctx) => {
+    // OpenClaw resolves this bit from trusted ingress identity before plugin hooks run.
+    // The monarch must not be blocked when the secondary SG profile store is unavailable.
+    if (event.senderIsOwner === true) {
+      return { outcome: "pass" };
+    }
     const profile = await resolveProfile(
       ctx.channel ?? ctx.messageProvider,
       event.senderId ?? ctx.senderId,

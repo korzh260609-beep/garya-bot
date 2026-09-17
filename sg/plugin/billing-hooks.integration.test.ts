@@ -175,6 +175,33 @@ describe("SG billing hook integration contract", () => {
     expect(results).toContainEqual({ outcome: "pass" });
   });
 
+  it("passes a trusted OpenClaw owner even when the SG profile lookup is unavailable", async () => {
+    const root = await createStateDir();
+    await rm(path.join(root, "sg", "global-profiles.json"));
+    const { hooks } = register(root);
+
+    const results = await runHooks(
+      hooks,
+      "before_agent_run",
+      {
+        ...beforeRunEvent,
+        channelId: "100",
+        senderId: "100",
+        senderIsOwner: true,
+      },
+      {
+        ...agentContext("run-trusted-owner"),
+        sessionId: "session-monarch",
+        sessionKey: "agent:main:telegram:direct:100",
+        chatId: "telegram:100",
+        channelId: "100",
+        senderId: "100",
+      },
+    );
+
+    expect(results).toContainEqual({ outcome: "pass" });
+  });
+
   it("blocks a citizen before inference when prepaid funds are insufficient", async () => {
     const root = await createStateDir();
     const { hooks } = register(root);

@@ -181,31 +181,59 @@ function managerWorkspace(manager: MemorySearchManager, fallback: string): strin
   return path.resolve(configured || fallback);
 }
 
-function isolatedHits(
+function snippetAroundQuery(text: string, query: string, fallback: string): string {
+  const match = text.toLocaleLowerCase().indexOf(query.toLocaleLowerCase());
+  if (match < 0) {
+    return fallback;
+  }
+  const maxLength = Math.max(fallback.length, query.length);
+  if (text.length <= maxLength) {
+    return text;
+  }
+  const leadingContext = Math.floor((maxLength - query.length) / 2);
+  const start = Math.max(0, Math.min(match - leadingContext, text.length - maxLength));
+  return text.slice(start, start + maxLength).trim();
+}
+
+async function isolatedHits(
   manager: MemorySearchManager,
   actor: PersonalActor,
   hits: MemorySearchResult[],
+  query: string,
   limit: number,
 ) {
   const managerRoot = managerWorkspace(manager, actor.workspaceRoot);
-  return hits
+  const isolated = hits
     .flatMap((hit) => {
       const absolutePath = path.resolve(managerRoot, hit.path);
       if (!inside(actor.workspaceRoot, absolutePath)) {
         return [];
       }
-      return [
-        {
-          path: portable(path.relative(actor.workspaceRoot, absolutePath)),
-          startLine: hit.startLine,
-          endLine: hit.endLine,
-          score: hit.score,
-          snippet: hit.snippet,
-          source: hit.source,
-        },
-      ];
+      return [{ hit, absolutePath }];
     })
     .slice(0, limit);
+  return await Promise.all(
+    isolated.map(async ({ hit, absolutePath }) => {
+      const source = await manager
+        .readFile({
+          relPath: hit.path,
+          from: hit.startLine,
+          lines: Math.max(1, hit.endLine - hit.startLine + 1),
+        })
+        .catch(() => null);
+      return {
+        path: portable(path.relative(actor.workspaceRoot, absolutePath)),
+        startLine: hit.startLine,
+        endLine: hit.endLine,
+        score: hit.score,
+        snippet:
+          source?.status === "ok"
+            ? snippetAroundQuery(source.text, query, hit.snippet)
+            : hit.snippet,
+        source: hit.source,
+      };
+    }),
+  );
 }
 
 function safePersonalFile(actor: PersonalActor, requestedPath: string): string {
@@ -378,7 +406,7 @@ export function createPersonalMemoryTools(
         });
         return jsonResult({
           globalId: actor.globalId,
-          results: isolatedHits(manager, actor, hits, maxResults),
+          results: await isolatedHits(manager, actor, hits, query, maxResults),
         });
       },
     },

@@ -19,6 +19,10 @@ function findTool(tools: ReturnType<typeof createPersonalMemoryTools>, name: str
   return tool;
 }
 
+function details(result: unknown): Record<string, unknown> {
+  return (result as { details: Record<string, unknown> }).details;
+}
+
 describe("Phase 9 personal memory with the real Memory Core index", () => {
   const indexFixture: ManagerIndexFixture = createManagerIndexFixture({
     getMemorySearchManager,
@@ -143,5 +147,84 @@ describe("Phase 9 personal memory with the real Memory Core index", () => {
         snippet: expect.stringContaining("зелёный маяк возле северных ворот"),
       }),
     ]);
+  });
+
+  it("surfaces a matching memory stored after the first 700 characters in a later session", async () => {
+    const stateDir = indexFixture.paths.root;
+    const globalId = "usr_phase9_snippet_tail";
+    const senderId = "21";
+    const config = indexFixture.createConfig({
+      provider: "openai",
+      sources: ["memory"],
+      vectorEnabled: true,
+      minScore: 0.35,
+    }) as OpenClawConfig;
+    const baseContext = {
+      config,
+      messageChannel: "telegram",
+      nativeChannelId: `telegram:${senderId}`,
+      requesterSenderId: senderId,
+      workspaceDir: indexFixture.paths.workspace,
+      agentId: "main",
+    };
+
+    await mkdir(`${stateDir}/sg`, { recursive: true });
+    await writeFile(
+      `${stateDir}/sg/global-profiles.json`,
+      JSON.stringify({
+        version: 5,
+        profiles: [
+          {
+            globalId,
+            canonicalIdentity: `channel:telegram:${senderId}`,
+            role: "citizen",
+            status: "active",
+            createdAt: "2026-09-17T00:00:00.000Z",
+            updatedAt: "2026-09-17T00:00:00.000Z",
+          },
+        ],
+        identities: [
+          {
+            canonicalIdentity: `channel:telegram:${senderId}`,
+            globalId,
+            createdAt: "2026-09-17T00:00:00.000Z",
+            updatedAt: "2026-09-17T00:00:00.000Z",
+          },
+        ],
+      }),
+    );
+
+    const managerLoader = async (params: { cfg: OpenClawConfig; agentId: string }) =>
+      getMemorySearchManager(params);
+    const firstSession = createPersonalMemoryTools(
+      { ...baseContext, sessionKey: "agent:main:telegram:direct:21:first" },
+      stateDir,
+      managerLoader,
+    );
+    const padding = "Стабильный вводный контекст без целевого совпадения. ".repeat(18);
+    expect(padding.length).toBeGreaterThan(700);
+    await findTool(firstSession, "sg_memory_remember").execute("remember-long", {
+      text: `${padding} После перехода в новый сеанс найти янтарный компас у северной башни.`,
+    });
+
+    const secondSession = createPersonalMemoryTools(
+      { ...baseContext, sessionKey: "agent:main:telegram:direct:21:second" },
+      stateDir,
+      managerLoader,
+    );
+    const result = details(
+      await findTool(secondSession, "sg_memory_search").execute("search-tail", {
+        query: "янтарный компас у северной башни",
+      }),
+    );
+
+    expect(result).toMatchObject({
+      globalId,
+      results: [
+        expect.objectContaining({
+          snippet: expect.stringContaining("янтарный компас у северной башни"),
+        }),
+      ],
+    });
   });
 });

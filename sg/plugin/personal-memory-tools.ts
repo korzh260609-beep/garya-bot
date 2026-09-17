@@ -223,6 +223,17 @@ function memoryFile(actor: PersonalActor): string {
   return path.join(actor.workspaceRoot, MEMORY_FILE);
 }
 
+async function forcePersonalMemorySync(
+  manager: MemorySearchManager,
+  reason: string,
+): Promise<void> {
+  // Memory Core coalesces a force request into an already-running sync. The
+  // second pass starts after that sync has settled, so a just-written file is
+  // guaranteed to be included before the mutation tool reports success.
+  await manager.sync?.({ reason, force: true });
+  await manager.sync?.({ reason, force: true });
+}
+
 export function createPersonalMemoryTools(
   ctx: PersonalMemoryToolContext,
   stateDir: string,
@@ -254,7 +265,7 @@ export function createPersonalMemoryTools(
           text,
         });
         const manager = await managerFor(ctx, actor, loadManager);
-        await manager.sync?.({ reason: "sg-personal-memory-write", force: true });
+        await forcePersonalMemorySync(manager, "sg-personal-memory-write");
         return jsonResult({ saved: true, globalId: actor.globalId, path: MEMORY_FILE, entryId });
       },
     },
@@ -281,7 +292,7 @@ export function createPersonalMemoryTools(
           text: stringParam(params, "text", { maxLength: 12000 }).replace(/\s*\r?\n\s*/gu, " "),
         });
         const manager = await managerFor(ctx, actor, loadManager);
-        await manager.sync?.({ reason: "sg-personal-memory-correct", force: true });
+        await forcePersonalMemorySync(manager, "sg-personal-memory-correct");
         return jsonResult({ status: "corrected", globalId: actor.globalId, ...result });
       },
     },
@@ -300,7 +311,7 @@ export function createPersonalMemoryTools(
         const entryId = stringParam(params, "entryId", { maxLength: 200 });
         await forgetScopedMemoryEntry({ filePath: memoryFile(actor), entryId });
         const manager = await managerFor(ctx, actor, loadManager);
-        await manager.sync?.({ reason: "sg-personal-memory-forget", force: true });
+        await forcePersonalMemorySync(manager, "sg-personal-memory-forget");
         return jsonResult({ status: "forgotten", globalId: actor.globalId, entryId });
       },
     },
@@ -337,7 +348,7 @@ export function createPersonalMemoryTools(
       execute: async () => {
         const actor = await resolveActor(ctx, stateDir);
         const manager = await managerFor(ctx, actor, loadManager);
-        await manager.sync?.({ reason: "sg-personal-memory-reindex", force: true });
+        await forcePersonalMemorySync(manager, "sg-personal-memory-reindex");
         return jsonResult({ status: "ok", globalId: actor.globalId });
       },
     },

@@ -47,6 +47,15 @@ describe("SG project and entity bootstrap contract", () => {
     );
   });
 
+  it("defines SG masculine self-reference in Russian", async () => {
+    const identity = await read("sg/workspace/IDENTITY.md");
+
+    expect(identity).toContain("masculine grammatical forms");
+    expect(identity).toContain("проверил");
+    expect(identity).toContain("создал");
+    expect(identity).toContain("выполнил");
+  });
+
   it("keeps the current SG 2.2 role and memory model", async () => {
     const [entity, soul, agents] = await Promise.all([
       read("pillars/entity/SG_ENTITY.md"),

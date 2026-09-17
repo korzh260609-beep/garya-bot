@@ -6,7 +6,7 @@ import type { SgCostDiagnosticConfig } from "./cost-diagnostics.js";
 
 const MAX_EVENTS = 500;
 const MAX_INSTANCE_FILES = 20;
-const DIAGNOSTIC_VERSION = "sg-context-e2e-v1";
+const DIAGNOSTIC_VERSION = "sg-context-e2e-v2";
 const CLEARED_TOOL_RESULT = "[Old tool result content cleared]";
 
 type DiagnosticApi = Pick<OpenClawPluginApi, "on"> & {
@@ -133,10 +133,77 @@ function toolFacts(tools: unknown[] | undefined): Facts {
   const largest = entries.toSorted((left, right) => right.size - left.size)[0];
   return {
     tools: entries.length,
+    toolNames:
+      entries
+        .map((entry) => entry.name)
+        .toSorted((left, right) => left.localeCompare(right))
+        .join(",") || "none",
     toolSchemaBytes: entries.reduce((sum, entry) => sum + entry.size, 0),
     largestTool: largest?.name ?? "none",
     largestToolBytes: largest?.size ?? 0,
   };
+}
+
+function classifyToolOutcome(result: unknown, error: unknown): string {
+  if (typeof error === "string" && error.trim()) {
+    return "error";
+  }
+  const serialized = jsonText(result);
+  if (/"status"\s*:\s*"blocked"|"deniedReason"|blocked by/iu.test(serialized)) {
+    return "blocked";
+  }
+  if (/"status"\s*:\s*"error"/iu.test(serialized)) {
+    return "error";
+  }
+  return "success";
+}
+
+function expectedToolFrom(args: string | undefined): string | undefined {
+  const match = args?.trim().match(/^expect-tool\s+([a-z0-9_.:-]+)$/iu);
+  return match?.[1];
+}
+
+function eventsForRun(events: ContextEvent[], stage: string, runHash: string | undefined) {
+  return events.filter((event) => event.stage === stage && (!runHash || event.runHash === runHash));
+}
+
+function actionBreakpoint(params: {
+  expectedTool?: string;
+  input?: ContextEvent;
+  output?: ContextEvent;
+  toolStarts: ContextEvent[];
+  toolEnds: ContextEvent[];
+}): string {
+  if (!params.expectedTool) {
+    return "NOT_REQUESTED";
+  }
+  if (!params.input) {
+    return "LLM_INPUT_NOT_OBSERVED";
+  }
+  const visibleTools = String(fact(params.input, "toolNames") ?? "")
+    .split(",")
+    .filter(Boolean);
+  if (!visibleTools.includes(params.expectedTool)) {
+    return "REQUIRED_TOOL_NOT_VISIBLE";
+  }
+  const starts = params.toolStarts.filter((event) => fact(event, "tool") === params.expectedTool);
+  const ends = params.toolEnds.filter((event) => fact(event, "tool") === params.expectedTool);
+  if (ends.some((event) => fact(event, "outcome") === "blocked")) {
+    return "TOOL_CALL_BLOCKED";
+  }
+  if (ends.some((event) => fact(event, "outcome") === "error")) {
+    return "TOOL_EXECUTION_FAILED";
+  }
+  if (ends.some((event) => fact(event, "outcome") === "success")) {
+    return "TOOL_EXECUTED";
+  }
+  if (starts.length > 0) {
+    return "TOOL_CALL_NOT_COMPLETED";
+  }
+  if (Number(fact(params.output, "assistantTextBytes") ?? 0) > 0) {
+    return "MODEL_RETURNED_TEXT_WITHOUT_TOOL";
+  }
+  return "REQUIRED_TOOL_NOT_CALLED";
 }
 
 function classifyError(error: unknown): string {
@@ -397,6 +464,33 @@ export class SgContextDiagnostics {
           inputTokens: event.usage?.input ?? 0,
           outputTokens: event.usage?.output ?? 0,
           cacheReadTokens: event.usage?.cacheRead ?? 0,
+          assistantTexts: event.assistantTexts.length,
+          assistantTextBytes: bytes(event.assistantTexts),
+          lastAssistantBytes: bytes(event.lastAssistant),
+        },
+      );
+    });
+    this.api.on("before_tool_call", (event, ctx) => {
+      this.record(
+        "tool-call-start",
+        { ...ctx, runId: event.runId ?? ctx.runId },
+        {
+          tool: event.toolName,
+          toolCall: hash(event.toolCallId),
+          paramsBytes: bytes(event.params),
+        },
+      );
+    });
+    this.api.on("after_tool_call", (event, ctx) => {
+      this.record(
+        "tool-call-end",
+        { ...ctx, runId: event.runId ?? ctx.runId },
+        {
+          tool: event.toolName,
+          toolCall: hash(event.toolCallId),
+          outcome: classifyToolOutcome(event.result, event.error),
+          resultBytes: bytes(event.result),
+          durationMs: event.durationMs ?? 0,
         },
       );
     });
@@ -448,7 +542,7 @@ export class SgContextDiagnostics {
 
   private async readEvents(sessionKey?: string): Promise<ContextEvent[]> {
     await this.writeQueue;
-    let files: string[] = [];
+    let files: string[];
     try {
       const candidates = (await readdir(this.directory)).filter(
         (file) => file.startsWith("context-") && file.endsWith(".json"),
@@ -494,6 +588,7 @@ export class SgContextDiagnostics {
 
   async report(command: SgContextDiagnosticCommand): Promise<string> {
     const compactRequested = command.args?.trim().toLowerCase() === "compact";
+    const expectedTool = expectedToolFrom(command.args);
     let transcriptMessages: unknown[] = [];
     let transcriptError = "none";
     if (command.sessionTarget) {
@@ -525,6 +620,8 @@ export class SgContextDiagnostics {
     const beforeCompaction = latest(events, "before-compaction");
     const afterCompaction = compactionAfter(events, beforeCompaction);
     const ended = latestForRun(events, "agent-end", runHash);
+    const toolStarts = eventsForRun(events, "tool-call-start", runHash);
+    const toolEnds = eventsForRun(events, "tool-call-end", runHash);
     const pruning = command.config.agents?.defaults?.contextPruning;
     const historyBytes = Number(fact(input, "historyBytes") ?? 0);
     const promptBuildHistoryBytes = Number(fact(promptBuild, "historyBytes") ?? 0);
@@ -542,12 +639,34 @@ export class SgContextDiagnostics {
       transcriptBytes,
       compactionProbe,
     });
-    const status =
+    const contextStatus =
       breakpoint === "NO_FAILURE_CAPTURED"
         ? "PASS"
         : breakpoint === "FIXED_CONTEXT_DOMINATES" || breakpoint === "TOOL_RESULTS_DOMINATE"
           ? "WARN"
           : "FAIL";
+    const actionResult = actionBreakpoint({
+      expectedTool,
+      input,
+      output,
+      toolStarts,
+      toolEnds,
+    });
+    const status =
+      contextStatus === "FAIL" || (expectedTool && actionResult !== "TOOL_EXECUTED")
+        ? "FAIL"
+        : contextStatus;
+    const actionStatus = expectedTool
+      ? actionResult === "TOOL_EXECUTED"
+        ? "PASS"
+        : "FAIL"
+      : "NOT_RUN";
+    const calledTools = [
+      ...new Set(toolStarts.map((event) => String(fact(event, "tool") ?? "unknown"))),
+    ].join(",");
+    const completedTools = [
+      ...new Set(toolEnds.map((event) => String(fact(event, "tool") ?? "unknown"))),
+    ].join(",");
     const probeReason = compactionProbe?.reason?.replace(/\s+/gu, " ").slice(0, 200) ?? "none";
     const probeText = !compactRequested
       ? "NOT_RUN (use /sg_context_diag compact)"
@@ -566,6 +685,13 @@ export class SgContextDiagnostics {
       `actual_context: ${contextUsed ?? "unknown"}/${contextBudget ?? "unknown"} (${pct(contextUsed, contextBudget)})`,
       `system_prompt: ${fact(input, "systemPromptBytes") ?? "unknown"} bytes`,
       `tool_schemas: ${fact(input, "toolSchemaBytes") ?? "unknown"} bytes (${fact(input, "tools") ?? "?"} tools; largest=${fact(input, "largestTool") ?? "?"}:${fact(input, "largestToolBytes") ?? "?"})`,
+      `visible_tools: ${fact(input, "toolNames") ?? "unknown"}`,
+      `called_tools: ${calledTools || "none"}`,
+      `completed_tools: ${completedTools || "none"}`,
+      `tool_activity: started=${toolStarts.length}, completed=${toolEnds.length}, blocked=${toolEnds.filter((event) => fact(event, "outcome") === "blocked").length}, failed=${toolEnds.filter((event) => fact(event, "outcome") === "error").length}`,
+      `action_expectation: ${expectedTool ?? "NOT_SET (use /sg_context_diag expect-tool <name>)"}`,
+      `action_status: ${actionStatus}`,
+      `action_breakpoint: ${actionResult}`,
       `prompt_build: ${fact(promptBuild, "promptBytes") ?? "unknown"} bytes; history=${fact(promptBuild, "historyBytes") ?? "unknown"}`,
       `history: ${historyBytes || "unknown"} bytes (${fact(input, "messages") ?? "?"} messages)`,
       `transcript: ${transcriptError === "none" ? `${transcriptBytes} bytes (${transcript.messages} messages)` : `UNKNOWN (${transcriptError})`}`,

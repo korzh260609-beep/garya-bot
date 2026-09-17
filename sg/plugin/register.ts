@@ -336,7 +336,7 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
   });
   api.registerCommand({
     name: "sg_context_diag",
-    description: "Проверить полную цепочку контекста и compaction SG",
+    description: "Проверить контекст, инструменты и compaction SG",
     acceptsArgs: true,
     requireAuth: false,
     handler: async (ctx) => {

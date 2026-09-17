@@ -208,4 +208,145 @@ describe("SG context end-to-end diagnostics", () => {
     expect(active).toContain("compaction_probe: FAIL (128001 -> 128001");
     expect(active).toContain("breakpoint: COMPACTION_QUALITY_GUARD");
   });
+
+  it("reports when an expected tool is not visible to the model", async () => {
+    const { diagnostics, hooks, identity } = await fixture();
+    await hooks.get("llm_input")?.(
+      {
+        ...identity,
+        provider: "openai",
+        model: "gpt-5.6-terra",
+        prompt: "check Render",
+        historyMessages: [],
+        tools: [{ name: "browser" }],
+      },
+      identity,
+    );
+
+    const result = await diagnostics.report({
+      ...identity,
+      args: "expect-tool sg_render",
+      config,
+    });
+    expect(result).toContain("SG CONTEXT DIAG — FAIL");
+    expect(result).toContain("action_status: FAIL");
+    expect(result).toContain("visible_tools: browser");
+    expect(result).toContain("action_breakpoint: REQUIRED_TOOL_NOT_VISIBLE");
+  });
+
+  it("reports when the model returns text without calling a visible expected tool", async () => {
+    const { diagnostics, hooks, identity } = await fixture();
+    await hooks.get("llm_input")?.(
+      {
+        ...identity,
+        provider: "openai",
+        model: "gpt-5.6-terra",
+        prompt: "check Render",
+        historyMessages: [],
+        tools: [{ name: "sg_render" }, { name: "browser" }],
+      },
+      identity,
+    );
+    await hooks.get("llm_output")?.(
+      {
+        ...identity,
+        provider: "openai",
+        model: "gpt-5.6-terra",
+        assistantTexts: ["Render should be healthy."],
+      },
+      identity,
+    );
+
+    const result = await diagnostics.report({
+      ...identity,
+      args: "expect-tool sg_render",
+      config,
+    });
+    expect(result).toContain("SG CONTEXT DIAG — FAIL");
+    expect(result).toContain("action_status: FAIL");
+    expect(result).toContain("visible_tools: browser,sg_render");
+    expect(result).toContain("action_breakpoint: MODEL_RETURNED_TEXT_WITHOUT_TOOL");
+  });
+
+  it("reports a blocked expected tool call from its terminal result", async () => {
+    const { diagnostics, hooks, identity } = await fixture();
+    await hooks.get("llm_input")?.(
+      {
+        ...identity,
+        provider: "openai",
+        model: "gpt-5.6-terra",
+        prompt: "check Render",
+        historyMessages: [],
+        tools: [{ name: "sg_render" }],
+      },
+      identity,
+    );
+    await hooks.get("before_tool_call")?.(
+      { ...identity, toolCallId: "call-1", toolName: "sg_render", params: {} },
+      identity,
+    );
+    await hooks.get("after_tool_call")?.(
+      {
+        ...identity,
+        toolCallId: "call-1",
+        toolName: "sg_render",
+        params: {},
+        result: { status: "blocked", deniedReason: "plugin-before-tool-call" },
+      },
+      identity,
+    );
+
+    const result = await diagnostics.report({
+      ...identity,
+      args: "expect-tool sg_render",
+      config,
+    });
+    expect(result).toContain("SG CONTEXT DIAG — FAIL");
+    expect(result).toContain("action_status: FAIL");
+    expect(result).toContain("called_tools: sg_render");
+    expect(result).toContain("completed_tools: sg_render");
+    expect(result).toContain("tool_activity: started=1, completed=1, blocked=1, failed=0");
+    expect(result).toContain("action_breakpoint: TOOL_CALL_BLOCKED");
+  });
+
+  it("reports a successfully executed expected tool", async () => {
+    const { diagnostics, hooks, identity } = await fixture();
+    await hooks.get("llm_input")?.(
+      {
+        ...identity,
+        provider: "openai",
+        model: "gpt-5.6-terra",
+        prompt: "check Render",
+        historyMessages: [],
+        tools: [{ name: "sg_render" }],
+      },
+      identity,
+    );
+    await hooks.get("before_tool_call")?.(
+      { ...identity, toolCallId: "call-1", toolName: "sg_render", params: {} },
+      identity,
+    );
+    await hooks.get("after_tool_call")?.(
+      {
+        ...identity,
+        toolCallId: "call-1",
+        toolName: "sg_render",
+        params: {},
+        result: { status: "ok" },
+        durationMs: 25,
+      },
+      identity,
+    );
+
+    const result = await diagnostics.report({
+      ...identity,
+      args: "expect-tool sg_render",
+      config,
+    });
+    expect(result).toContain("action_status: PASS");
+    expect(result).toContain("called_tools: sg_render");
+    expect(result).toContain("completed_tools: sg_render");
+    expect(result).toContain("tool_activity: started=1, completed=1, blocked=0, failed=0");
+    expect(result).toContain("action_breakpoint: TOOL_EXECUTED");
+  });
 });

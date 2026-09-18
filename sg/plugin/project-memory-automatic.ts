@@ -9,6 +9,7 @@ import type {
 import { jsonResult } from "openclaw/plugin-sdk/tool-results";
 import { resolveWorkspaceContext } from "./context.js";
 import { createProjectMemoryTools, type ProjectMemoryToolContext } from "./project-memory-tools.js";
+import { listConfiguredRenderDeploys } from "./render-tools.js";
 
 type AutomaticProjectMemoryApi = {
   config?: OpenClawPluginApi["config"];
@@ -27,6 +28,9 @@ type CachedAgentContext = {
   runId?: string;
   senderId?: string;
   sessionKey?: string;
+  projectPrompt?: boolean;
+  projectMutationObserved?: boolean;
+  semanticHandoffRecorded?: boolean;
   liveRequirements?: Set<LiveEvidenceSource>;
   verifiedLiveSources?: Set<LiveEvidenceSource>;
   workspaceDir?: string;
@@ -84,6 +88,14 @@ const UNVERIFIED_ANSWER_PATTERN =
   /(?:не (?:проверено|подтверждено|удалось проверить)|нет актуальной проверки|текущий статус неизвестен|not verified|unverified|could not verify)/iu;
 const GITHUB_MUTATION_PATTERN =
   /(?:\bgit\s+(?:push|commit|merge|rebase|reset|checkout|switch|clean)\b|\bgh\s+(?:pr\s+(?:merge|create)|repo\s+(?:create|delete)|workflow\s+run)\b)/iu;
+const PROJECT_EDIT_TOOL_PATTERN = /(?:^|__)(?:apply_patch|edit|write|write_file|replace)(?:__|$)/iu;
+const PROJECT_RENDER_MUTATIONS = new Set([
+  "deploy_commit",
+  "cancel_deploy",
+  "restart_service",
+  "rollback_service",
+  "set_env",
+]);
 const GITHUB_REPOSITORY_READ_PATTERN =
   /(?:\bgit\s+(?:rev-parse|status|branch|log|show|ls-remote)\b|\bgh\s+(?:repo\s+view|api\s+repos\/))/iu;
 const GITHUB_ACTIONS_READ_PATTERN =
@@ -98,6 +110,11 @@ const MAX_BOOTSTRAP_BYTES = 256 * 1024;
 const MAX_REPOSITORY_HANDOFF_BYTES = 512 * 1024;
 const REPOSITORY_HANDOFF_URL =
   "https://api.github.com/repos/korzh260609-beep/garya-bot/contents/pillars/project-memory/SG22_PROJECT_MEMORY_HANDOFFS.json?ref=dev%2Fsg2.2-openclaw";
+const GITHUB_COMMITS_URL =
+  "https://api.github.com/repos/korzh260609-beep/garya-bot/commits?sha=dev%2Fsg2.2-openclaw&per_page=20";
+const GITHUB_ACTIONS_URL =
+  "https://api.github.com/repos/korzh260609-beep/garya-bot/actions/runs?branch=dev%2Fsg2.2-openclaw&per_page=20";
+const LIFECYCLE_HANDOFF_ID = "automatic-authoritative-lifecycle-v1";
 
 export const PROJECT_HANDOFF_TOOL_NAMES = ["sg_project_handoff"] as const;
 
@@ -121,7 +138,9 @@ const EVENT_CONTRACT: Record<
   "task.cancelled": { recordType: "task", statuses: ["cancelled"] },
   "commit.verified": { recordType: "task", statuses: ["in_progress", "done"] },
   "actions.completed": { recordType: "task", statuses: ["in_progress", "done"] },
+  "actions.failed": { recordType: "incident", statuses: ["open"] },
   "deploy.live": { recordType: "task", statuses: ["done"] },
+  "deploy.failed": { recordType: "incident", statuses: ["open"] },
   "incident.opened": { recordType: "incident", statuses: ["open"] },
   "incident.mitigated": { recordType: "incident", statuses: ["mitigated"] },
   "incident.fixed": { recordType: "incident", statuses: ["resolved"] },
@@ -170,8 +189,18 @@ function hasRequiredEvidence(
       return event.sourceRefs.some((sourceRef) =>
         /^github:actions:[^:]+:success$/u.test(sourceRef),
       );
+    case "actions.failed":
+      return event.sourceRefs.some((sourceRef) =>
+        /^github:actions:[^:]+:(?!success$)[a-z_]+$/u.test(sourceRef),
+      );
     case "deploy.live":
       return event.sourceRefs.some((sourceRef) => /^render:deploy:[^:]+:live$/u.test(sourceRef));
+    case "deploy.failed":
+      return event.sourceRefs.some((sourceRef) =>
+        /^render:deploy:[^:]+:(?:build_failed|canceled|deactivated|update_failed)$/u.test(
+          sourceRef,
+        ),
+      );
     default:
       return true;
   }
@@ -438,6 +467,131 @@ async function loadRepositoryHandoffs(): Promise<RepositoryProjectHandoff[]> {
   }
 }
 
+async function loadGithubJson(url: string): Promise<unknown> {
+  try {
+    const response = await fetch(url, {
+      headers: {
+        accept: "application/vnd.github+json",
+        "user-agent": "sg-project-memory-lifecycle",
+        "x-github-api-version": "2022-11-28",
+      },
+      signal: AbortSignal.timeout(5_000),
+    });
+    return response.ok ? ((await response.json()) as unknown) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function firstLine(value: unknown, fallback: string): string {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+  return value.split(/\r?\n/u, 1)[0]?.trim().slice(0, 240) || fallback;
+}
+
+function deployPayload(value: unknown): Record<string, unknown> | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+  return isRecord(value.deploy) ? value.deploy : value;
+}
+
+async function loadAuthoritativeLifecycleHandoff(
+  existingSourceRefs: ReadonlySet<string>,
+): Promise<Pick<ProjectHandoff, "handoffId" | "events">> {
+  const [commitsPayload, actionsPayload, renderPayload] = await Promise.all([
+    loadGithubJson(GITHUB_COMMITS_URL),
+    loadGithubJson(GITHUB_ACTIONS_URL),
+    listConfiguredRenderDeploys(20),
+  ]);
+  const events: ProjectHandoffEvent[] = [];
+
+  if (Array.isArray(commitsPayload)) {
+    for (const value of commitsPayload) {
+      if (!isRecord(value) || typeof value.sha !== "string" || !/^[0-9a-f]{40}$/u.test(value.sha)) {
+        continue;
+      }
+      const sourceRef = `github:commit:${value.sha}`;
+      if (existingSourceRefs.has(sourceRef)) {
+        continue;
+      }
+      const commit = isRecord(value.commit) ? value.commit : undefined;
+      const message = firstLine(commit?.message, "Verified repository commit");
+      events.push({
+        eventId: `lifecycle:github:commit:${value.sha}`,
+        eventType: "commit.verified",
+        recordType: "task",
+        title: `Commit ${value.sha.slice(0, 12)} verified`,
+        summary: `GitHub reports the canonical branch commit: ${message}`,
+        status: "in_progress",
+        sourceRefs: [sourceRef],
+      });
+    }
+  }
+
+  const workflowRuns =
+    isRecord(actionsPayload) && Array.isArray(actionsPayload.workflow_runs)
+      ? actionsPayload.workflow_runs
+      : [];
+  for (const value of workflowRuns) {
+    if (!isRecord(value) || (typeof value.id !== "number" && typeof value.id !== "string")) {
+      continue;
+    }
+    if (value.status !== "completed" || typeof value.conclusion !== "string") {
+      continue;
+    }
+    const conclusion = value.conclusion.toLowerCase();
+    if (!/^[a-z_]+$/u.test(conclusion)) {
+      continue;
+    }
+    const sourceRef = `github:actions:${String(value.id)}:${conclusion}`;
+    if (existingSourceRefs.has(sourceRef)) {
+      continue;
+    }
+    const success = conclusion === "success";
+    const name = firstLine(value.name, "GitHub Actions workflow");
+    events.push({
+      eventId: `lifecycle:github:actions:${String(value.id)}:${conclusion}`,
+      eventType: success ? "actions.completed" : "actions.failed",
+      recordType: success ? "task" : "incident",
+      title: `${name} ${success ? "passed" : "failed"}`,
+      summary: `GitHub Actions completed with conclusion ${conclusion}${typeof value.head_sha === "string" ? ` for commit ${value.head_sha}` : ""}.`,
+      status: success ? "in_progress" : "open",
+      sourceRefs: [sourceRef],
+    });
+  }
+
+  for (const row of renderPayload) {
+    const deploy = deployPayload(row);
+    if (!deploy || typeof deploy.id !== "string" || typeof deploy.status !== "string") {
+      continue;
+    }
+    const status = deploy.status.toLowerCase();
+    const live = status === "live";
+    const failed = ["build_failed", "canceled", "deactivated", "update_failed"].includes(status);
+    if (!live && !failed) {
+      continue;
+    }
+    const sourceRef = `render:deploy:${deploy.id}:${status}`;
+    if (existingSourceRefs.has(sourceRef)) {
+      continue;
+    }
+    const commit = isRecord(deploy.commit) ? deploy.commit : undefined;
+    events.push({
+      eventId: `lifecycle:render:deploy:${deploy.id}:${status}`,
+      eventType: live ? "deploy.live" : "deploy.failed",
+      recordType: live ? "task" : "incident",
+      title: `Render deploy ${deploy.id} ${status}`,
+      summary: `Render reports deploy ${deploy.id} as ${status}${typeof commit?.id === "string" ? ` for commit ${commit.id}` : ""}.`,
+      status: live ? "done" : "open",
+      sourceRefs: [sourceRef],
+    });
+  }
+
+  return { handoffId: LIFECYCLE_HANDOFF_ID, events };
+}
+
 function resultDetails(result: unknown): Record<string, unknown> | undefined {
   if (!isRecord(result)) {
     return undefined;
@@ -612,6 +766,38 @@ function markVerifiedLiveSources(
   }
 }
 
+function markProjectMutation(
+  cached: CachedAgentContext | undefined,
+  event: { toolName: string; params: Record<string, unknown>; error?: string; result?: unknown },
+): void {
+  if (!cached?.projectPrompt || !toolResultSucceeded(event)) {
+    return;
+  }
+  if (PROJECT_EDIT_TOOL_PATTERN.test(event.toolName)) {
+    cached.projectMutationObserved = true;
+    return;
+  }
+  if (event.toolName === "exec") {
+    const command =
+      typeof event.params.command === "string"
+        ? event.params.command
+        : typeof event.params.cmd === "string"
+          ? event.params.cmd
+          : "";
+    if (GITHUB_MUTATION_PATTERN.test(command)) {
+      cached.projectMutationObserved = true;
+    }
+    return;
+  }
+  if (
+    event.toolName === "sg_render" &&
+    typeof event.params.action === "string" &&
+    PROJECT_RENDER_MUTATIONS.has(event.params.action)
+  ) {
+    cached.projectMutationObserved = true;
+  }
+}
+
 function formatRecall(
   records: Record<string, unknown>[],
   requiredLiveSources: ReadonlySet<LiveEvidenceSource>,
@@ -675,6 +861,34 @@ export function registerAutomaticProjectMemory(
 ): void {
   const runContexts = new Map<string, CachedAgentContext>();
   const bootstrappedActors = new Set<string>();
+  let authoritativeSnapshotStartedAt = 0;
+  let authoritativeSnapshot:
+    | Promise<{
+        repositoryHandoffs: RepositoryProjectHandoff[];
+        lifecycle: Pick<ProjectHandoff, "handoffId" | "events">;
+      }>
+    | undefined;
+
+  const loadAuthoritativeSnapshot = (bootstrapSourceRefs: ReadonlySet<string>) => {
+    const now = Date.now();
+    if (!authoritativeSnapshot || now - authoritativeSnapshotStartedAt >= 60_000) {
+      authoritativeSnapshotStartedAt = now;
+      authoritativeSnapshot = (async () => {
+        const repositoryHandoffs = await loadRepositoryHandoffs();
+        const knownSourceRefs = new Set(bootstrapSourceRefs);
+        for (const handoff of repositoryHandoffs) {
+          for (const projectEvent of handoff.events) {
+            for (const sourceRef of projectEvent.sourceRefs) {
+              knownSourceRefs.add(sourceRef);
+            }
+          }
+        }
+        const lifecycle = await loadAuthoritativeLifecycleHandoff(knownSourceRefs);
+        return { repositoryHandoffs, lifecycle };
+      })();
+    }
+    return authoritativeSnapshot;
+  };
 
   api.on(
     "before_prompt_build",
@@ -688,6 +902,9 @@ export function registerAutomaticProjectMemory(
         runId: ctx.runId,
         senderId: ctx.senderId,
         sessionKey: ctx.sessionKey,
+        projectPrompt: PROJECT_PROMPT_PATTERN.test(event.prompt),
+        projectMutationObserved: false,
+        semanticHandoffRecorded: false,
         liveRequirements: liveRequirements(event.prompt),
         verifiedLiveSources: new Set<LiveEvidenceSource>(),
         workspaceDir: ctx.workspaceDir,
@@ -722,12 +939,18 @@ export function registerAutomaticProjectMemory(
           },
           stateDir,
         ).catch(() => undefined);
+        const knownSourceRefs = new Set<string>();
+        const bootstrap = await loadCanonicalBootstrap();
+        for (const projectEvent of bootstrap?.events ?? []) {
+          for (const sourceRef of projectEvent.sourceRefs) {
+            knownSourceRefs.add(sourceRef);
+          }
+        }
         if (
           actor?.projectRole === "monarch" &&
           actor.globalId &&
           !bootstrappedActors.has(actor.globalId)
         ) {
-          const bootstrap = await loadCanonicalBootstrap();
           if (
             bootstrap &&
             (await recordHandoffEvents(
@@ -742,8 +965,13 @@ export function registerAutomaticProjectMemory(
           }
         }
         if (actor?.projectRole === "monarch" && actor.globalId) {
-          for (const handoff of await loadRepositoryHandoffs()) {
+          const { repositoryHandoffs, lifecycle } =
+            await loadAuthoritativeSnapshot(knownSourceRefs);
+          for (const handoff of repositoryHandoffs) {
             await recordHandoffEvents(api, stateDir, toolContext, handoff, "live-handoff");
+          }
+          if (lifecycle.events.length > 0) {
+            await recordHandoffEvents(api, stateDir, toolContext, lifecycle, "live-handoff");
           }
         }
         const search = await executeProjectTool(toolContext, stateDir, "sg_project_memory_search", {
@@ -782,6 +1010,7 @@ export function registerAutomaticProjectMemory(
     const key = event.runId?.trim() || ctx.runId?.trim() || ctx.sessionKey?.trim();
     const cached = key ? runContexts.get(key) : undefined;
     markVerifiedLiveSources(cached, event);
+    markProjectMutation(cached, event);
     if (event.toolName !== "sg_project_handoff" || ctx.requester?.senderIsOwner !== true) {
       return;
     }
@@ -824,12 +1053,26 @@ export function registerAutomaticProjectMemory(
     if (!toolContext) {
       return;
     }
-    await recordHandoffEvents(api, stateDir, toolContext, handoff, "live-handoff");
+    if (await recordHandoffEvents(api, stateDir, toolContext, handoff, "live-handoff")) {
+      cached.semanticHandoffRecorded = true;
+    }
   });
 
   api.on("before_agent_finalize", (event, ctx) => {
     const key = event.runId?.trim() || ctx.runId?.trim() || event.sessionKey?.trim();
     const cached = key ? runContexts.get(key) : undefined;
+    if (cached?.projectMutationObserved && !cached.semanticHandoffRecorded) {
+      return {
+        action: "revise" as const,
+        reason: "Project-changing run is missing the required semantic handoff.",
+        retry: {
+          instruction:
+            "Перед завершением автоматически вызови sg_project_handoff и зафиксируй подтверждённые решения, изменения задач, инциденты и исправления с проверяемыми источниками. Не проси монарха отдельно говорить «запомни».",
+          idempotencyKey: `sg-project-memory-semantic-handoff:${key ?? "unknown"}`,
+          maxAttempts: 1,
+        },
+      };
+    }
     const required = cached?.liveRequirements;
     if (!required || required.size === 0) {
       return undefined;
@@ -858,6 +1101,15 @@ export function registerAutomaticProjectMemory(
 
   api.on("gateway_start", async (_event, ctx) => {
     try {
+      const bootstrap = await loadCanonicalBootstrap();
+      const bootstrapSourceRefs = new Set(
+        (bootstrap?.events ?? []).flatMap((projectEvent) => projectEvent.sourceRefs),
+      );
+      void loadAuthoritativeSnapshot(bootstrapSourceRefs).catch((error: unknown) => {
+        api.logger?.warn(
+          `[sg-project-memory] startup evidence refresh failed safely: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      });
       const loaded = await getActiveMemorySearchManager({
         cfg: ctx.config ?? api.config ?? {},
         agentId: "main",

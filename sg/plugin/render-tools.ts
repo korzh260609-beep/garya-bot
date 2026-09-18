@@ -189,6 +189,20 @@ async function renderRequest(apiKey: string, path: string, request: RenderReques
   return { ok: true as const, data: safeData };
 }
 
+export async function listConfiguredRenderDeploys(limit = 20): Promise<unknown[]> {
+  const apiKey = configured("RENDER_API_KEY");
+  const serviceId = configured("RENDER_SERVICE_ID");
+  if (!apiKey || !serviceId) {
+    return [];
+  }
+  const boundedLimit = clampInteger(limit, 20, 1, MAX_PAGE_SIZE);
+  const response = await renderRequest(
+    apiKey,
+    `/services/${pathId(serviceId)}/deploys?limit=${boundedLimit}`,
+  );
+  return response.ok && Array.isArray(response.data) ? response.data : [];
+}
+
 async function performAction(action: RenderAction, params: RenderParameters, apiKey: string) {
   const workspaceId = resourceId(params.workspaceId, "RENDER_WORKSPACE_ID");
   const serviceId = resourceId(params.serviceId, "RENDER_SERVICE_ID");

@@ -313,6 +313,7 @@ async function deliverHandoff(
 }
 
 beforeEach(() => {
+  vi.unstubAllEnvs();
   memoryHost.manager = undefined;
   vi.stubGlobal(
     "fetch",
@@ -425,6 +426,153 @@ describe("automatic SG Project Memory 3.0 contract", () => {
     const records = await projectRecords(plugin.workspaceDir);
     expect(records).toHaveLength(bootstrapRecordCount + 7);
     expect(records.join("\n")).toContain("repository-handoff:deploy");
+  });
+
+  it("discovers commit, Actions and Render lifecycle without a handoff tool call", async () => {
+    const commitSha = "1234567890abcdef1234567890abcdef12345678";
+    const manifest = {
+      schemaVersion: 1,
+      repository: {
+        fullName: "korzh260609-beep/garya-bot",
+        branch: "dev/sg2.2-openclaw",
+      },
+      handoffs: [],
+    };
+    vi.stubEnv("RENDER_API_KEY", "test-render-key");
+    vi.stubEnv("RENDER_SERVICE_ID", "srv-sg22");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request) => {
+        const url = String(input);
+        if (url.includes("/contents/pillars/project-memory/")) {
+          return Response.json({
+            encoding: "base64",
+            content: Buffer.from(JSON.stringify(manifest), "utf8").toString("base64"),
+          });
+        }
+        if (url.includes("/commits?")) {
+          return Response.json([
+            {
+              sha: commitSha,
+              html_url: `https://github.com/korzh260609-beep/garya-bot/commit/${commitSha}`,
+              commit: { message: "Complete automatic Project Memory lifecycle" },
+            },
+          ]);
+        }
+        if (url.includes("/actions/runs?")) {
+          return Response.json({
+            workflow_runs: [
+              {
+                id: 305,
+                name: "SG verification",
+                status: "completed",
+                conclusion: "success",
+                head_sha: commitSha,
+                html_url: "https://github.com/korzh260609-beep/garya-bot/actions/runs/305",
+              },
+            ],
+          });
+        }
+        if (url === "https://api.render.com/v1/services/srv-sg22/deploys?limit=20") {
+          return Response.json([
+            {
+              deploy: {
+                id: "dep-automatic",
+                status: "live",
+                commit: { id: commitSha, message: "Complete automatic Project Memory lifecycle" },
+              },
+            },
+          ]);
+        }
+        return new Response("not found", { status: 404 });
+      }),
+    );
+    const plugin = await registerPlugin();
+
+    await runHooks(
+      plugin,
+      "before_prompt_build",
+      { prompt: "Что сделано в проекте SG?", messages: [] },
+      monarchAgentContext(plugin, "run-automatic-lifecycle"),
+    );
+
+    const records = await projectRecords(plugin.workspaceDir);
+    const corpus = records.join("\n");
+    expect(records).toHaveLength(bootstrapRecordCount + 3);
+    expect(corpus).toContain(`github:commit:${commitSha}`);
+    expect(corpus).toContain("github:actions:305:success");
+    expect(corpus).toContain("render:deploy:dep-automatic:live");
+
+    const restarted = await registerPlugin(plugin.stateDir);
+    await runHooks(
+      restarted,
+      "before_prompt_build",
+      { prompt: "Покажи актуальное состояние проекта SG", messages: [] },
+      monarchAgentContext(restarted, "run-automatic-lifecycle-restart"),
+    );
+    expect(await projectRecords(restarted.workspaceDir)).toHaveLength(bootstrapRecordCount + 3);
+  });
+
+  it("records failed Actions and Render deploys as automatic incidents", async () => {
+    const commitSha = "abcdefabcdefabcdefabcdefabcdefabcdefabcd";
+    vi.stubEnv("RENDER_API_KEY", "test-render-key");
+    vi.stubEnv("RENDER_SERVICE_ID", "srv-sg22");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request) => {
+        const url = String(input);
+        if (url.includes("/contents/pillars/project-memory/")) {
+          return new Response("not found", { status: 404 });
+        }
+        if (url.includes("/commits?")) {
+          return Response.json([]);
+        }
+        if (url.includes("/actions/runs?")) {
+          return Response.json({
+            workflow_runs: [
+              {
+                id: 306,
+                name: "SG verification",
+                status: "completed",
+                conclusion: "failure",
+                head_sha: commitSha,
+              },
+            ],
+          });
+        }
+        if (url === "https://api.render.com/v1/services/srv-sg22/deploys?limit=20") {
+          return Response.json([
+            {
+              deploy: {
+                id: "dep-failed",
+                status: "build_failed",
+                commit: { id: commitSha },
+              },
+            },
+          ]);
+        }
+        return new Response("not found", { status: 404 });
+      }),
+    );
+    const plugin = await registerPlugin();
+
+    await runHooks(
+      plugin,
+      "before_prompt_build",
+      { prompt: "Что происходит с проектом SG?", messages: [] },
+      monarchAgentContext(plugin, "run-automatic-failures"),
+    );
+
+    const records = await projectRecords(plugin.workspaceDir);
+    const corpus = records.join("\n");
+    expect(records).toHaveLength(bootstrapRecordCount + 2);
+    expect(corpus).toContain("github:actions:306:failure");
+    expect(corpus).toContain("render:deploy:dep-failed:build_failed");
+    const failureRecords = records.filter((record) =>
+      /github:actions:306:failure|render:deploy:dep-failed:build_failed/u.test(record),
+    );
+    expect(failureRecords).toHaveLength(2);
+    expect(failureRecords.every((record) => record.includes('"recordType":"incident"'))).toBe(true);
   });
 
   it("accepts the canonical repository handoff artifact shipped with SG", async () => {
@@ -558,6 +706,43 @@ describe("automatic SG Project Memory 3.0 contract", () => {
     expect(corpus.match(/"supersedesId"/gu)).toHaveLength(4);
   });
 
+  it("does not let a project-changing run finish without its semantic handoff", async () => {
+    const plugin = await registerPlugin();
+    const runId = "run-semantic-handoff-required";
+    const ctx = monarchAgentContext(plugin, runId);
+    await runHooks(
+      plugin,
+      "before_prompt_build",
+      { prompt: "Реализуй утвержденную задачу проекта SG", messages: [] },
+      ctx,
+    );
+    await runHooks(
+      plugin,
+      "after_tool_call",
+      {
+        toolName: "apply_patch",
+        params: { patch: "test patch" },
+        result: { status: "ok" },
+        runId,
+      },
+      { runId, sessionKey: ctx.sessionKey, toolName: "apply_patch" },
+    );
+
+    const finalizeEvent = {
+      runId,
+      sessionId: `session-${runId}`,
+      sessionKey: ctx.sessionKey,
+      stopHookActive: false,
+      lastAssistantMessage: "Задача реализована.",
+    };
+    expect(await runHooks(plugin, "before_agent_finalize", finalizeEvent, ctx)).toEqual([
+      expect.objectContaining({
+        action: "revise",
+        reason: expect.stringContaining("handoff"),
+      }),
+    ]);
+  });
+
   it("deduplicates replayed evidence and rejects citizens, unapproved proposals and secrets", async () => {
     const plugin = await registerPlugin();
     const accepted = trustedHandoff("stable-handoff");
@@ -680,7 +865,7 @@ describe("automatic SG Project Memory 3.0 contract", () => {
       "after_tool_call",
       {
         toolName: "exec",
-        params: { command: "git push origin dev/sg2.2-openclaw" },
+        params: { command: "echo not-a-project-proof" },
         result: { exitCode: 0, output: "not valid read-only proof" },
         runId: "run-live-proof",
       },

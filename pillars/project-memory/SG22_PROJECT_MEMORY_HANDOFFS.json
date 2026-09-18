@@ -134,6 +134,77 @@
           ]
         }
       ]
+    },
+    {
+      "schemaVersion": 1,
+      "handoffId": "sg22-project-memory-automatic-producer-2026-09-18",
+      "projectKey": "project-sg",
+      "authority": {
+        "kind": "canonical-project-artifact"
+      },
+      "events": [
+        {
+          "eventId": "sg22-pm-automatic-producer:decision",
+          "eventType": "decision.approved",
+          "recordType": "decision",
+          "title": "Project Memory lifecycle must be fully automatic",
+          "summary": "Project decisions, task changes and incidents must be handed off during the project-changing run, while commits, Actions and Render deploy outcomes must be reconciled directly from authoritative services without a later memory-only commit.",
+          "rationale": "The Monarch explicitly requires Project Memory to remain complete without a separate remember request or manual post-deploy closeout.",
+          "status": "active",
+          "sourceRefs": [
+            "owner-approved:2026-09-18",
+            "roadmap:SG22_FULL_OPENCLAW_CAPABILITY_INHERITANCE.md"
+          ]
+        },
+        {
+          "eventId": "sg22-pm-automatic-producer:incident",
+          "eventType": "incident.opened",
+          "recordType": "incident",
+          "title": "Project lifecycle closeout still required a manual handoff",
+          "summary": "The repository handoff consumer worked, but commit, Actions and deploy outcomes were appended later by a separate manual metadata change.",
+          "status": "open",
+          "sourceRefs": [
+            "owner-approved:2026-09-18"
+          ]
+        },
+        {
+          "eventId": "sg22-pm-automatic-producer:task",
+          "eventType": "task.started",
+          "recordType": "task",
+          "title": "Implement the automatic Project Memory producer",
+          "summary": "Add authoritative lifecycle reconciliation, semantic handoff enforcement for SG and Codex, failure incident capture, startup recovery and replay-safe deduplication.",
+          "status": "in_progress",
+          "sourceRefs": [
+            "roadmap:SG22_FULL_OPENCLAW_CAPABILITY_INHERITANCE.md"
+          ]
+        },
+        {
+          "eventId": "sg22-pm-automatic-producer:task-completed",
+          "eventType": "task.completed",
+          "recordType": "task",
+          "title": "Automatic Project Memory producer implemented",
+          "summary": "SG now reconciles GitHub commits, completed or failed Actions and live or failed Render deploys automatically; project-changing SG and Codex runs cannot finish without a new semantic handoff; repeat ingestion remains idempotent.",
+          "status": "done",
+          "supersedesEventId": "sg22-pm-automatic-producer:task",
+          "sourceRefs": [
+            "test:sg-plugin:265-passed",
+            "roadmap:SG22_FULL_OPENCLAW_CAPABILITY_INHERITANCE.md"
+          ]
+        },
+        {
+          "eventId": "sg22-pm-automatic-producer:incident-fixed",
+          "eventType": "incident.fixed",
+          "recordType": "incident",
+          "title": "Manual Project Memory lifecycle closeout removed",
+          "summary": "The functional change contains its semantic handoff, and subsequent commit, CI and deploy evidence will be discovered automatically without another handoff-only commit.",
+          "status": "resolved",
+          "supersedesEventId": "sg22-pm-automatic-producer:incident",
+          "sourceRefs": [
+            "test:sg-plugin:265-passed",
+            "owner-approved:2026-09-18"
+          ]
+        }
+      ]
     }
   ]
 }

@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "repository": {
+    "fullName": "korzh260609-beep/garya-bot",
+    "branch": "dev/sg2.2-openclaw"
+  },
+  "handoffs": [
+    {
+      "schemaVersion": 1,
+      "handoffId": "sg22-project-memory-live-bridge-repair-2026-09-18",
+      "projectKey": "project-sg",
+      "authority": {
+        "kind": "canonical-project-artifact"
+      },
+      "events": [
+        {
+          "eventId": "sg22-pm-live-bridge:decision",
+          "eventType": "decision.approved",
+          "recordType": "decision",
+          "title": "External Project Memory bridge must work without manual repetition",
+          "summary": "Project outcomes produced outside SG must cross a trusted repository-backed structured handoff into the existing Project Memory automatically.",
+          "rationale": "The Monarch requires automatic project memory and must not repeat a separate remember command after development work.",
+          "status": "active",
+          "sourceRefs": [
+            "owner-approved:2026-09-18",
+            "roadmap:SG22_FULL_OPENCLAW_CAPABILITY_INHERITANCE.md"
+          ]
+        },
+        {
+          "eventId": "sg22-pm-live-bridge:incident",
+          "eventType": "incident.opened",
+          "recordType": "incident",
+          "title": "Automatic Project Memory handoff had no live ingress",
+          "summary": "The deployed hook listened for sg_project_handoff, but the tool was not registered and the green contract test injected a synthetic tool result.",
+          "status": "open",
+          "sourceRefs": [
+            "repository:audit:missing-sg-project-handoff-tool"
+          ]
+        },
+        {
+          "eventId": "sg22-pm-live-bridge:task",
+          "eventType": "task.started",
+          "recordType": "task",
+          "title": "Repair the automatic external Project Memory bridge",
+          "summary": "Register and validate the live handoff tool, ingest canonical repository handoffs before project answers, and prove the real tool-to-hook-to-Memory-Core chain.",
+          "status": "in_progress",
+          "sourceRefs": [
+            "roadmap:SG22_FULL_OPENCLAW_CAPABILITY_INHERITANCE.md"
+          ]
+        }
+      ]
+    }
+  ]
+}

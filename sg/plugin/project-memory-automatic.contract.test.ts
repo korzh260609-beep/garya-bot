@@ -19,7 +19,10 @@ vi.mock("openclaw/plugin-sdk/memory-host-search", () => ({
   }),
 }));
 
-import { validateCanonicalProjectMemoryBootstrap } from "./project-memory-automatic.js";
+import {
+  createProjectHandoffTool,
+  validateCanonicalProjectMemoryBootstrap,
+} from "./project-memory-automatic.js";
 import { registerWorkspaceManager } from "./register.js";
 
 const timestamp = "2026-09-17T00:00:00.000Z";
@@ -29,6 +32,7 @@ type HookHandler = (event: Record<string, unknown>, ctx: Record<string, unknown>
 
 type RegisteredPlugin = {
   hooks: Map<string, HookHandler[]>;
+  registeredToolNames: string[];
   stateDir: string;
   workspaceDir: string;
 };
@@ -139,17 +143,20 @@ async function registerPlugin(existingStateDir?: string): Promise<RegisteredPlug
   );
   memoryHost.manager = nativeManager(workspaceDir);
   const hooks = new Map<string, HookHandler[]>();
+  const registeredToolNames: string[] = [];
   registerWorkspaceManager({
     config: {},
     registerCommand: vi.fn(),
-    registerTool: vi.fn(),
+    registerTool: vi.fn((_factory, options?: { names?: string[] }) => {
+      registeredToolNames.push(...(options?.names ?? []));
+    }),
     on: vi.fn((name: string, handler: HookHandler) => {
       hooks.set(name, [...(hooks.get(name) ?? []), handler]);
     }),
     logger: { info: vi.fn(), warn: vi.fn() },
     runtime: { state: { resolveStateDir: () => stateDir } },
   });
-  return { hooks, stateDir, workspaceDir };
+  return { hooks, registeredToolNames, stateDir, workspaceDir };
 }
 
 async function runHooks(
@@ -307,9 +314,147 @@ async function deliverHandoff(
 
 beforeEach(() => {
   memoryHost.manager = undefined;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => new Response("not found", { status: 404 })),
+  );
 });
 
 describe("automatic SG Project Memory 3.0 contract", () => {
+  it("registers the trusted project handoff tool used by the live bridge", async () => {
+    const plugin = await registerPlugin();
+
+    expect(plugin.registeredToolNames).toContain("sg_project_handoff");
+  });
+
+  it("executes the registered bridge contract before the automatic recording hook", async () => {
+    const plugin = await registerPlugin();
+    const handoff = trustedHandoff("real-tool-handoff");
+    const runId = "run-real-tool-handoff";
+    const agentContext = monarchAgentContext(plugin, runId);
+    const tool = createProjectHandoffTool(
+      {
+        config: {},
+        runtimeConfig: {},
+        messageChannel: "telegram",
+        agentAccountId: "default",
+        nativeChannelId: "telegram:100",
+        requesterSenderId: "100",
+        senderIsOwner: true,
+        workspaceDir: plugin.workspaceDir,
+        agentId: "main",
+        sessionKey: agentContext.sessionKey,
+        activeProjectKeys: ["project-sg"],
+      } as never,
+      plugin.stateDir,
+    );
+
+    const toolResult = await tool.execute("tool-real-handoff", handoff);
+    expect(toolResult).toEqual(
+      expect.objectContaining({
+        details: expect.objectContaining({ status: "verified" }),
+      }),
+    );
+
+    await runHooks(
+      plugin,
+      "before_prompt_build",
+      { prompt: "Continue SG project development", messages: [] },
+      agentContext,
+    );
+    await runHooks(
+      plugin,
+      "after_tool_call",
+      {
+        toolName: "sg_project_handoff",
+        params: handoff,
+        result: toolResult,
+        runId,
+        toolCallId: "tool-real-handoff",
+      },
+      {
+        runId,
+        agentId: "main",
+        sessionKey: agentContext.sessionKey,
+        toolName: "sg_project_handoff",
+        requester: {
+          channel: "telegram",
+          accountId: "default",
+          senderId: "100",
+          senderIsOwner: true,
+        },
+      },
+    );
+
+    const records = await projectRecords(plugin.workspaceDir);
+    expect(records).toHaveLength(bootstrapRecordCount + 7);
+    expect(records.join("\n")).toContain("real-tool-handoff:deploy");
+  });
+
+  it("ingests a trusted external Codex handoff from the canonical repository before answering", async () => {
+    const handoff = {
+      ...trustedHandoff("repository-handoff"),
+      authority: { kind: "canonical-project-artifact" },
+    };
+    const manifest = {
+      schemaVersion: 1,
+      repository: {
+        fullName: "korzh260609-beep/garya-bot",
+        branch: "dev/sg2.2-openclaw",
+      },
+      handoffs: [handoff],
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json({
+          encoding: "base64",
+          content: Buffer.from(JSON.stringify(manifest), "utf8").toString("base64"),
+        }),
+      ),
+    );
+    const plugin = await registerPlugin();
+
+    await runHooks(
+      plugin,
+      "before_prompt_build",
+      { prompt: "Что сделано в проекте SG?", messages: [] },
+      monarchAgentContext(plugin, "run-repository-handoff"),
+    );
+
+    const records = await projectRecords(plugin.workspaceDir);
+    expect(records).toHaveLength(bootstrapRecordCount + 7);
+    expect(records.join("\n")).toContain("repository-handoff:deploy");
+  });
+
+  it("accepts the canonical repository handoff artifact shipped with SG", async () => {
+    const content = await readFile(
+      path.join(process.cwd(), "pillars/project-memory/SG22_PROJECT_MEMORY_HANDOFFS.json"),
+      "utf8",
+    );
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json({
+          encoding: "base64",
+          content: Buffer.from(content, "utf8").toString("base64"),
+        }),
+      ),
+    );
+    const plugin = await registerPlugin();
+
+    await runHooks(
+      plugin,
+      "before_prompt_build",
+      { prompt: "Покажи состояние Project Memory", messages: [] },
+      monarchAgentContext(plugin, "run-canonical-repository-handoff"),
+    );
+
+    const records = await projectRecords(plugin.workspaceDir);
+    expect(records).toHaveLength(bootstrapRecordCount + 3);
+    expect(records.join("\n")).toContain("Automatic Project Memory handoff had no live ingress");
+  });
+
   it("fails closed for a wrong repository branch, chat evidence or secrets", async () => {
     const bootstrap = JSON.parse(
       await readFile(new URL("./project-memory-bootstrap.json", import.meta.url), "utf8"),

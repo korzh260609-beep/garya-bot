@@ -40,7 +40,7 @@ describe("SG 2.2 Render entrypoint", () => {
       '{"path":"plugins.entries.sg-workspace-manager.hooks.allowConversationAccess","value":true}',
     );
     expect(script).toContain(
-      'workspace_plugin_tools=\'["sg_content_draft","sg_content_review","sg_content_publish","sg_content_schedule","sg_content_dispatch","sg_test_manage","sg_test_attempt","sg_test_stats","sg_memory_remember","sg_memory_search","sg_memory_get","sg_memory_correct","sg_memory_forget","sg_memory_export","sg_memory_reindex","sg_resource_memory_remember","sg_resource_memory_search","sg_resource_memory_get","sg_resource_memory_correct","sg_resource_memory_export","sg_resource_memory_reindex","sg_project_memory_record","sg_project_memory_search","sg_project_memory_get","sg_project_memory_export","sg_project_memory_reindex","sg_render"]\'',
+      'workspace_plugin_tools=\'["sg_content_draft","sg_content_review","sg_content_publish","sg_content_schedule","sg_content_dispatch","sg_test_manage","sg_test_attempt","sg_test_stats","sg_memory_remember","sg_memory_search","sg_memory_get","sg_memory_correct","sg_memory_forget","sg_memory_export","sg_memory_reindex","sg_resource_memory_remember","sg_resource_memory_search","sg_resource_memory_get","sg_resource_memory_correct","sg_resource_memory_export","sg_resource_memory_reindex","sg_project_memory_record","sg_project_memory_search","sg_project_memory_get","sg_project_memory_export","sg_project_memory_reindex","sg_project_handoff","sg_render"]\'',
     );
     expect(script).toContain("node /app/scripts/sg22-migrate-workspace-memberships.mjs");
     expect(script).toContain("node /app/scripts/sg22-migrate-workspace-requests.mjs");

@@ -38,6 +38,7 @@ const currentPluginTools = [
   "sg_project_memory_get",
   "sg_project_memory_export",
   "sg_project_memory_reindex",
+  "sg_project_handoff",
   "sg_render",
 ] as const;
 

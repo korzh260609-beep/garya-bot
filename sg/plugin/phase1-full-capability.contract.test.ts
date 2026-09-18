@@ -63,6 +63,7 @@ const toolCatalog = [
   "sg_project_memory_get",
   "sg_project_memory_export",
   "sg_project_memory_reindex",
+  "sg_project_handoff",
   "message",
   "file_fetch",
   "file_write",
@@ -274,6 +275,7 @@ describe("SG 2.2 Phase 1 full capability contracts", () => {
       "sg_project_memory_get",
       "sg_project_memory_export",
       "sg_project_memory_reindex",
+      "sg_project_handoff",
       "gateway",
     ]) {
       expect(names, required).toContain(required);
@@ -301,6 +303,7 @@ describe("SG 2.2 Phase 1 full capability contracts", () => {
       "sg_project_memory_get",
       "sg_project_memory_export",
       "sg_project_memory_reindex",
+      "sg_project_handoff",
       "gateway",
       "nodes",
       "openclaw",

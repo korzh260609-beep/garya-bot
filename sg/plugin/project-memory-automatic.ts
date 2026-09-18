@@ -1,7 +1,12 @@
 import { readFile } from "node:fs/promises";
 import type { OpenClawConfig } from "openclaw/plugin-sdk/config-contracts";
 import { getActiveMemorySearchManager } from "openclaw/plugin-sdk/memory-host-search";
-import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
+import type {
+  AnyAgentTool,
+  OpenClawPluginApi,
+  OpenClawPluginToolContext,
+} from "openclaw/plugin-sdk/plugin-entry";
+import { jsonResult } from "openclaw/plugin-sdk/tool-results";
 import { resolveWorkspaceContext } from "./context.js";
 import { createProjectMemoryTools, type ProjectMemoryToolContext } from "./project-memory-tools.js";
 
@@ -54,6 +59,16 @@ type ProjectBootstrap = Omit<ProjectHandoff, "authority"> & {
   repository: { fullName: string; branch: string };
 };
 
+type RepositoryProjectHandoff = Omit<ProjectHandoff, "authority"> & {
+  authority: { kind: "canonical-project-artifact" };
+};
+
+type RepositoryHandoffManifest = {
+  schemaVersion: 1;
+  repository: { fullName: string; branch: string };
+  handoffs: RepositoryProjectHandoff[];
+};
+
 type ToolResult = { details?: unknown };
 
 const PROJECT_PROMPT_PATTERN =
@@ -80,6 +95,18 @@ const BOOTSTRAP_SOURCE_PATTERN =
 const CANONICAL_REPOSITORY = "korzh260609-beep/garya-bot";
 const CANONICAL_BRANCH = "dev/sg2.2-openclaw";
 const MAX_BOOTSTRAP_BYTES = 256 * 1024;
+const MAX_REPOSITORY_HANDOFF_BYTES = 512 * 1024;
+const REPOSITORY_HANDOFF_URL =
+  "https://api.github.com/repos/korzh260609-beep/garya-bot/contents/pillars/project-memory/SG22_PROJECT_MEMORY_HANDOFFS.json?ref=dev%2Fsg2.2-openclaw";
+
+export const PROJECT_HANDOFF_TOOL_NAMES = ["sg_project_handoff"] as const;
+
+export const PROJECT_HANDOFF_AGENT_GUIDANCE = [
+  "SG — автоматический мост проектной памяти",
+  "После подтверждённого результата разработки передай структурированный handoff через sg_project_handoff.",
+  "Не вызывай инструмент для обычного разговора, неподтверждённых предложений или данных без источников.",
+  "Не проси монарха отдельно говорить «запомни».",
+].join("\n");
 
 const EVENT_CONTRACT: Record<
   string,
@@ -226,8 +253,142 @@ function parseBootstrap(value: unknown): ProjectBootstrap | undefined {
   return value as ProjectBootstrap;
 }
 
+function parseRepositoryHandoff(value: unknown): RepositoryProjectHandoff | undefined {
+  if (
+    !isRecord(value) ||
+    value.schemaVersion !== 1 ||
+    !boundedText(value.handoffId, 200) ||
+    value.projectKey !== "project-sg" ||
+    !isRecord(value.authority) ||
+    value.authority.kind !== "canonical-project-artifact" ||
+    !Array.isArray(value.events) ||
+    value.events.length === 0 ||
+    value.events.length > 100 ||
+    containsSecret(value) ||
+    !value.events.every((event) => parseHandoffEvent(event, "live-handoff"))
+  ) {
+    return undefined;
+  }
+  return value as RepositoryProjectHandoff;
+}
+
+function parseRepositoryHandoffManifest(value: unknown): RepositoryHandoffManifest | undefined {
+  if (
+    !isRecord(value) ||
+    value.schemaVersion !== 1 ||
+    !isRecord(value.repository) ||
+    value.repository.fullName !== CANONICAL_REPOSITORY ||
+    value.repository.branch !== CANONICAL_BRANCH ||
+    !Array.isArray(value.handoffs) ||
+    value.handoffs.length > 100 ||
+    !value.handoffs.every((handoff) => parseRepositoryHandoff(handoff))
+  ) {
+    return undefined;
+  }
+  return value as RepositoryHandoffManifest;
+}
+
 export function validateCanonicalProjectMemoryBootstrap(value: unknown): boolean {
   return parseBootstrap(value) !== undefined;
+}
+
+export function createProjectHandoffTool(
+  ctx: OpenClawPluginToolContext,
+  stateDir: string,
+): AnyAgentTool {
+  return {
+    name: "sg_project_handoff",
+    label: "SG Project Handoff",
+    description:
+      "Validates a trusted Monarch-approved structured project-development handoff so the native Project Memory hook can record verified decisions, tasks, commits, CI, deploys, and incidents automatically.",
+    parameters: {
+      type: "object",
+      additionalProperties: false,
+      required: ["schemaVersion", "handoffId", "projectKey", "authority", "events"],
+      properties: {
+        schemaVersion: { type: "integer", enum: [1] },
+        handoffId: { type: "string", minLength: 1, maxLength: 200 },
+        projectKey: { type: "string", enum: ["project-sg"] },
+        authority: {
+          type: "object",
+          additionalProperties: false,
+          required: ["kind", "globalId"],
+          properties: {
+            kind: { type: "string", enum: ["monarch-approved"] },
+            globalId: { type: "string", minLength: 1, maxLength: 200 },
+          },
+        },
+        events: {
+          type: "array",
+          minItems: 1,
+          maxItems: 100,
+          items: {
+            type: "object",
+            additionalProperties: false,
+            required: [
+              "eventId",
+              "eventType",
+              "recordType",
+              "title",
+              "summary",
+              "status",
+              "sourceRefs",
+            ],
+            properties: {
+              eventId: { type: "string", minLength: 1, maxLength: 200 },
+              eventType: { type: "string", enum: Object.keys(EVENT_CONTRACT) },
+              recordType: { type: "string", enum: ["decision", "incident", "task"] },
+              title: { type: "string", minLength: 1, maxLength: 300 },
+              summary: { type: "string", minLength: 1, maxLength: 12000 },
+              rationale: { type: "string", minLength: 1, maxLength: 12000 },
+              status: { type: "string", minLength: 1, maxLength: 100 },
+              sourceRefs: {
+                type: "array",
+                minItems: 1,
+                maxItems: 20,
+                items: { type: "string", minLength: 1, maxLength: 1000 },
+              },
+              supersedesEventId: { type: "string", minLength: 1, maxLength: 200 },
+              runtimeTaskId: { type: "string", minLength: 1, maxLength: 200 },
+              runtimeFlowId: { type: "string", minLength: 1, maxLength: 200 },
+            },
+          },
+        },
+      },
+    },
+    execute: async (_toolCallId: string, params: Record<string, unknown>) => {
+      try {
+        const handoff = parseHandoff(params);
+        if (!handoff || ctx.senderIsOwner !== true) {
+          return jsonResult({ status: "denied", reason: "sg-project-handoff-untrusted" });
+        }
+        const runtimeConfig = (ctx.runtimeConfig ?? ctx.config ?? {}) as OpenClawConfig;
+        const actor = await resolveWorkspaceContext(
+          {
+            channel: ctx.messageChannel ?? "",
+            accountId: ctx.agentAccountId,
+            to: ctx.nativeChannelId,
+            senderId: ctx.requesterSenderId,
+            identityLinks: runtimeConfig.session?.identityLinks,
+          },
+          stateDir,
+        );
+        if (
+          actor.projectRole !== "monarch" ||
+          !actor.globalId ||
+          actor.globalId !== handoff.authority.globalId
+        ) {
+          return jsonResult({ status: "denied", reason: "sg-project-memory-monarch-required" });
+        }
+        return jsonResult({ status: "verified", sgProjectMemoryHandoff: handoff });
+      } catch (error) {
+        return jsonResult({
+          status: "denied",
+          reason: error instanceof Error ? error.message : String(error),
+        });
+      }
+    },
+  };
 }
 
 let canonicalBootstrapPromise: Promise<ProjectBootstrap | undefined> | undefined;
@@ -245,6 +406,36 @@ function loadCanonicalBootstrap(): Promise<ProjectBootstrap | undefined> {
     })
     .catch(() => undefined);
   return canonicalBootstrapPromise;
+}
+
+async function loadRepositoryHandoffs(): Promise<RepositoryProjectHandoff[]> {
+  try {
+    const response = await fetch(REPOSITORY_HANDOFF_URL, {
+      headers: {
+        accept: "application/vnd.github+json",
+        "user-agent": "sg-project-memory-bridge",
+      },
+      signal: AbortSignal.timeout(5_000),
+    });
+    if (!response.ok) {
+      return [];
+    }
+    const payload = (await response.json()) as unknown;
+    if (
+      !isRecord(payload) ||
+      payload.encoding !== "base64" ||
+      typeof payload.content !== "string"
+    ) {
+      return [];
+    }
+    const content = Buffer.from(payload.content.replace(/\s/gu, ""), "base64").toString("utf8");
+    if (Buffer.byteLength(content, "utf8") > MAX_REPOSITORY_HANDOFF_BYTES) {
+      return [];
+    }
+    return parseRepositoryHandoffManifest(JSON.parse(content) as unknown)?.handoffs ?? [];
+  } catch {
+    return [];
+  }
 }
 
 function resultDetails(result: unknown): Record<string, unknown> | undefined {
@@ -548,6 +739,11 @@ export function registerAutomaticProjectMemory(
             ))
           ) {
             bootstrappedActors.add(actor.globalId);
+          }
+        }
+        if (actor?.projectRole === "monarch" && actor.globalId) {
+          for (const handoff of await loadRepositoryHandoffs()) {
+            await recordHandoffEvents(api, stateDir, toolContext, handoff, "live-handoff");
           }
         }
         const search = await executeProjectTool(toolContext, stateDir, "sg_project_memory_search", {

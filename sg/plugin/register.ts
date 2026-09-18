@@ -9,7 +9,12 @@ import {
   createPersonalMemoryTools,
   PERSONAL_MEMORY_AGENT_GUIDANCE,
 } from "./personal-memory-tools.js";
-import { registerAutomaticProjectMemory } from "./project-memory-automatic.js";
+import {
+  createProjectHandoffTool,
+  PROJECT_HANDOFF_AGENT_GUIDANCE,
+  PROJECT_HANDOFF_TOOL_NAMES,
+  registerAutomaticProjectMemory,
+} from "./project-memory-automatic.js";
 import {
   createProjectMemoryTools,
   PROJECT_MEMORY_AGENT_GUIDANCE,
@@ -173,6 +178,9 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
   api.registerTool((ctx) => createProjectMemoryTools(ctx, stateDir), {
     names: [...PROJECT_MEMORY_TOOL_NAMES],
   });
+  api.registerTool((ctx) => createProjectHandoffTool(ctx, stateDir), {
+    names: [...PROJECT_HANDOFF_TOOL_NAMES],
+  });
   api.registerTool((ctx) => createSgRenderTool(ctx), { names: [...RENDER_TOOL_NAMES] });
   wsp5Lifecycle.register(api);
   wsp6Lifecycle.register(api);
@@ -201,7 +209,7 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
       );
       identityContext = formatWorkspaceContext(identity);
       if (identity.projectRole === "monarch" && identity.globalId) {
-        projectMemoryGuidance = `\n${PROJECT_MEMORY_AGENT_GUIDANCE}`;
+        projectMemoryGuidance = `\n${PROJECT_MEMORY_AGENT_GUIDANCE}\n${PROJECT_HANDOFF_AGENT_GUIDANCE}`;
       }
       if (ctx.channel && ctx.conversationId) {
         const scope = await registry.resolve({

@@ -44,6 +44,7 @@ const workspaceToolGrant = [
   "sg_test_manage",
   "sg_test_attempt",
   "sg_test_stats",
+  "sg_project_handoff",
   "sg_render",
 ];
 const withoutWorkspaceGrant = resolveEmbeddedAttemptToolConstructionPlan({
@@ -186,6 +187,9 @@ console.log(
     ].every((name) => pluginTools.some((tool) => tool.name === name)),
     wsp6ToolsInModelSurface: ["sg_test_manage", "sg_test_attempt", "sg_test_stats"].every((name) =>
       pluginTools.some((tool) => tool.name === name),
+    ),
+    projectHandoffToolInModelSurface: pluginTools.some(
+      (tool) => tool.name === "sg_project_handoff",
     ),
     citizenshipToolsAbsentWithoutGrant: !pluginToolsWithoutGrant.some((tool) =>
       tool.name.startsWith("sg_citizen_"),

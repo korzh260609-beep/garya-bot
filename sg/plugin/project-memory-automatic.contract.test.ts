@@ -432,6 +432,13 @@ describe("automatic SG Project Memory 3.0 contract", () => {
       path.join(process.cwd(), "pillars/project-memory/SG22_PROJECT_MEMORY_HANDOFFS.json"),
       "utf8",
     );
+    const manifest = JSON.parse(content) as {
+      handoffs: Array<{ events: unknown[] }>;
+    };
+    const manifestEventCount = manifest.handoffs.reduce(
+      (count, handoff) => count + handoff.events.length,
+      0,
+    );
     vi.stubGlobal(
       "fetch",
       vi.fn(async () =>
@@ -451,7 +458,7 @@ describe("automatic SG Project Memory 3.0 contract", () => {
     );
 
     const records = await projectRecords(plugin.workspaceDir);
-    expect(records).toHaveLength(bootstrapRecordCount + 3);
+    expect(records).toHaveLength(bootstrapRecordCount + manifestEventCount);
     expect(records.join("\n")).toContain("Automatic Project Memory handoff had no live ingress");
   });
 

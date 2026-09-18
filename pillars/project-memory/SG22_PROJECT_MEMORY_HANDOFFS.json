@@ -47,6 +47,91 @@
           "sourceRefs": [
             "roadmap:SG22_FULL_OPENCLAW_CAPABILITY_INHERITANCE.md"
           ]
+        },
+        {
+          "eventId": "sg22-pm-live-bridge:commit-functional",
+          "eventType": "commit.verified",
+          "recordType": "task",
+          "title": "Automatic Project Memory bridge committed",
+          "summary": "The registered handoff tool, canonical GitHub bridge, automatic pre-answer synchronization, source validation, deduplication and secret filtering were committed.",
+          "status": "in_progress",
+          "supersedesEventId": "sg22-pm-live-bridge:task",
+          "sourceRefs": [
+            "github:commit:4d3c2fba6d336d413eccc8dff8f14733fb9c6382"
+          ]
+        },
+        {
+          "eventId": "sg22-pm-live-bridge:actions-functional",
+          "eventType": "actions.completed",
+          "recordType": "task",
+          "title": "Automatic Project Memory implementation passed CI",
+          "summary": "GitHub Actions run 301 completed successfully for the functional implementation commit.",
+          "status": "in_progress",
+          "supersedesEventId": "sg22-pm-live-bridge:commit-functional",
+          "sourceRefs": [
+            "github:actions:301:success"
+          ]
+        },
+        {
+          "eventId": "sg22-pm-live-bridge:commit-pin",
+          "eventType": "commit.verified",
+          "recordType": "task",
+          "title": "Automatic Project Memory image pinned",
+          "summary": "Dockerfile.render was pinned to the verified functional image and the branch remote HEAD advanced to the pin commit.",
+          "status": "in_progress",
+          "supersedesEventId": "sg22-pm-live-bridge:actions-functional",
+          "sourceRefs": [
+            "github:commit:86a6b7289362abb7eeaa87df667fa07e3fe05453"
+          ]
+        },
+        {
+          "eventId": "sg22-pm-live-bridge:actions-pin",
+          "eventType": "actions.completed",
+          "recordType": "task",
+          "title": "Automatic Project Memory pin passed CI",
+          "summary": "GitHub Actions run 302 completed successfully for the image pin commit.",
+          "status": "in_progress",
+          "supersedesEventId": "sg22-pm-live-bridge:commit-pin",
+          "sourceRefs": [
+            "github:actions:302:success"
+          ]
+        },
+        {
+          "eventId": "sg22-pm-live-bridge:deploy",
+          "eventType": "deploy.live",
+          "recordType": "task",
+          "title": "Automatic Project Memory bridge deployed live",
+          "summary": "Render deploy dep-damd252d0e5s73evhlng became live with image 4d3c2fba6d336d413eccc8dff8f14733fb9c6382; health returned 200, gateway became ready, Telegram polling started and no post-deploy errors were present.",
+          "status": "done",
+          "supersedesEventId": "sg22-pm-live-bridge:actions-pin",
+          "sourceRefs": [
+            "render:deploy:dep-damd252d0e5s73evhlng:live"
+          ]
+        },
+        {
+          "eventId": "sg22-pm-live-bridge:task-completed",
+          "eventType": "task.completed",
+          "recordType": "task",
+          "title": "Automatic external Project Memory bridge completed",
+          "summary": "The implementation, CI, image pin and verified live deployment are complete.",
+          "status": "done",
+          "supersedesEventId": "sg22-pm-live-bridge:deploy",
+          "sourceRefs": [
+            "render:deploy:dep-damd252d0e5s73evhlng:live"
+          ]
+        },
+        {
+          "eventId": "sg22-pm-live-bridge:incident-fixed",
+          "eventType": "incident.fixed",
+          "recordType": "incident",
+          "title": "Automatic Project Memory ingress repaired",
+          "summary": "The missing live ingress was repaired and verified through commit, CI, deployment health, gateway readiness and Telegram polling.",
+          "status": "resolved",
+          "supersedesEventId": "sg22-pm-live-bridge:incident",
+          "sourceRefs": [
+            "github:commit:4d3c2fba6d336d413eccc8dff8f14733fb9c6382",
+            "render:deploy:dep-damd252d0e5s73evhlng:live"
+          ]
         }
       ]
     }

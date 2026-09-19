@@ -13,10 +13,55 @@ const PAID_MEDIA_TOOL_NAMES = new Set(["image_generate", "video_generate", "musi
 const NANO_USD_PER_TOKEN_PER_MILLION_RATE = 1_000;
 const CUSTOMER_PRICE_MULTIPLIER = 2;
 
+type BillingIdentity = { globalId: string; role: "monarch" | "citizen" };
+
+function record(value: unknown): Record<string, unknown> | undefined {
+  return value && typeof value === "object" ? (value as Record<string, unknown>) : undefined;
+}
+
+function automationResultJobId(result: unknown): string | undefined {
+  const details = record(record(result)?.details);
+  const job = record(details?.job);
+  for (const value of [details?.id, details?.jobId, job?.id]) {
+    if ((typeof value === "string" || typeof value === "number") && String(value).trim()) {
+      return String(value).trim();
+    }
+  }
+  return undefined;
+}
+
+function automationResultSucceeded(result: unknown, error: string | undefined): boolean {
+  if (error) {
+    return false;
+  }
+  const details = record(record(result)?.details);
+  if (!details) {
+    return true;
+  }
+  if (details.ok === false || details.success === false) {
+    return false;
+  }
+  const status = typeof details.status === "string" ? details.status.toLowerCase() : "";
+  return !["error", "failed", "denied"].includes(status);
+}
+
+function automationParamJobId(params: Record<string, unknown>): string | undefined {
+  for (const value of [params.jobId, params.id]) {
+    if ((typeof value === "string" || typeof value === "number") && String(value).trim()) {
+      return String(value).trim();
+    }
+  }
+  return undefined;
+}
+
 export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir: string }): void {
   const { api, stateDir } = params;
   const ledger = new SgBillingLedger(stateDir);
   const profiles = new SgGlobalProfileRegistry(stateDir);
+  const pendingAutomationOwners = new Map<
+    string,
+    { action: "add" | "update" | "remove"; identity: BillingIdentity; jobId?: string }
+  >();
   const resolveProfile = async (channel?: string, senderId?: string) => {
     if (!channel || !senderId) {
       return undefined;
@@ -30,23 +75,37 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
   };
 
   api.on("before_agent_run", async (event, ctx) => {
-    // OpenClaw resolves this bit from trusted ingress identity before plugin hooks run.
-    // The monarch must not be blocked when the secondary SG profile store is unavailable.
-    if (event.senderIsOwner === true) {
-      return { outcome: "pass" };
-    }
     const profile = await resolveProfile(
       ctx.channel ?? ctx.messageProvider,
       event.senderId ?? ctx.senderId,
     );
-    if (profile?.role === "monarch") {
+    const storedAutomationOwner =
+      !profile && ctx.jobId ? await ledger.resolveAutomationOwner(ctx.jobId) : undefined;
+    const automationProfile = storedAutomationOwner
+      ? await profiles.findByGlobalId(storedAutomationOwner.globalId)
+      : undefined;
+    const automationOwner =
+      automationProfile?.role === storedAutomationOwner?.role ? storedAutomationOwner : undefined;
+    const identity: BillingIdentity | undefined =
+      profile?.role === "monarch" || profile?.role === "citizen"
+        ? { globalId: profile.globalId, role: profile.role }
+        : automationOwner;
+    // OpenClaw resolves this bit from trusted ingress identity before plugin hooks run.
+    // Preserve owner availability if the secondary SG profile store itself is unavailable;
+    // there is no safe Global ID to which cost can be attributed in that degraded case.
+    if (!identity && event.senderIsOwner === true) {
       return { outcome: "pass" };
     }
-    if (profile?.role !== "citizen") {
+    if (!identity) {
+      const automationUnbound = Boolean(ctx.jobId);
       return {
         outcome: "block",
-        reason: "SG cannot prove the payer Global ID",
-        message: "Недостаточно средств. Сначала пополните баланс.",
+        reason: automationUnbound
+          ? "SG automation has no active trusted billing owner"
+          : "SG cannot prove the payer Global ID",
+        message: automationUnbound
+          ? "Задача не привязана к активному владельцу биллинга. Выполнение остановлено."
+          : "Недостаточно средств. Сначала пополните баланс.",
         category: "cost_identity_unresolved",
       };
     }
@@ -61,10 +120,18 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
     }
     const operationId = `run:${runId}`;
     try {
-      await ledger.reserveAvailable({ globalId: profile.globalId, operationId });
+      if (identity.role === "monarch") {
+        await ledger.startTrackedOperation({
+          globalId: identity.globalId,
+          operationId,
+          role: "monarch",
+        });
+      } else {
+        await ledger.reserveAvailable({ globalId: identity.globalId, operationId });
+      }
       await ledger.bindCorrelation({
         correlationId: `run:${runId}`,
-        globalId: profile.globalId,
+        globalId: identity.globalId,
         operationId,
       });
       return { outcome: "pass" };
@@ -124,6 +191,10 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
       return;
     }
     try {
+      const billing = await ledger.operationBilling(correlation);
+      if (billing.chargeMultiplier === 0) {
+        return;
+      }
       const capacity = await ledger.prepaidCapacity(correlation);
       if (capacity.hasUnpricedParts) {
         return {
@@ -182,15 +253,30 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
   });
 
   api.on("before_tool_call", async (event, ctx) => {
+    if (event.toolName === "automations" || event.toolName === "cron") {
+      const action = event.params.action;
+      const requester = ctx.requester;
+      const profile = await resolveProfile(requester?.channel, requester?.senderId);
+      if (
+        (action === "add" || action === "update" || action === "remove") &&
+        (profile?.role === "monarch" || profile?.role === "citizen") &&
+        event.toolCallId
+      ) {
+        pendingAutomationOwners.set(event.toolCallId, {
+          action,
+          identity: { globalId: profile.globalId, role: profile.role },
+          ...((action === "update" || action === "remove") && automationParamJobId(event.params)
+            ? { jobId: automationParamJobId(event.params) }
+            : {}),
+        });
+      }
+    }
     if (!PAID_MEDIA_TOOL_NAMES.has(event.toolName)) {
       return;
     }
     const requester = ctx.requester;
     const profile = await resolveProfile(requester?.channel, requester?.senderId);
-    if (profile?.role === "monarch") {
-      return;
-    }
-    if (profile?.role !== "citizen" || !event.toolCallId) {
+    if ((profile?.role !== "monarch" && profile?.role !== "citizen") || !event.toolCallId) {
       return {
         block: true,
         blockReason: "SG cannot prove the payer or paid-operation correlation",
@@ -201,7 +287,15 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
       let correlation = runId ? await ledger.resolveCorrelation(`run:${runId}`) : undefined;
       if (!correlation) {
         const operationId = `tool:${event.toolCallId}`;
-        await ledger.reserveAvailable({ globalId: profile.globalId, operationId });
+        if (profile.role === "monarch") {
+          await ledger.startTrackedOperation({
+            globalId: profile.globalId,
+            operationId,
+            role: "monarch",
+          });
+        } else {
+          await ledger.reserveAvailable({ globalId: profile.globalId, operationId });
+        }
         correlation = { globalId: profile.globalId, operationId };
         if (runId) {
           await ledger.bindCorrelation({ correlationId: `run:${runId}`, ...correlation });
@@ -223,6 +317,36 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
     }
   });
 
+  api.on("after_tool_call", async (event) => {
+    if (!event.toolCallId) {
+      return;
+    }
+    const pending = pendingAutomationOwners.get(event.toolCallId);
+    if (!pending) {
+      return;
+    }
+    pendingAutomationOwners.delete(event.toolCallId);
+    if (!automationResultSucceeded(event.result, event.error)) {
+      return;
+    }
+    const jobId = pending.action === "add" ? automationResultJobId(event.result) : pending.jobId;
+    if (!jobId) {
+      api.logger?.warn("[sg-billing] automation ownership result has no job id");
+      return;
+    }
+    try {
+      if (pending.action === "remove") {
+        await ledger.unbindAutomationOwner(jobId);
+        return;
+      }
+      await ledger.bindAutomationOwner({ jobId, ...pending.identity });
+    } catch (error) {
+      api.logger?.warn(
+        `[sg-billing] automation ownership binding failed safely: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  });
+
   api.on("before_billable_operation", async (event) => {
     if (!event.toolCallId) {
       return {
@@ -232,21 +356,24 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
     }
     const correlation = await ledger.resolveCorrelation(`tool:${event.toolCallId}`);
     if (!correlation) {
-      // Monarch operations never create a citizen reservation and remain unrestricted.
       return;
     }
-    const upperBound = event.costUpperBound;
-    if (
-      upperBound?.evidence !== "catalog-upper-bound" ||
-      !Number.isFinite(upperBound.totalUsd) ||
-      upperBound.totalUsd <= 0
-    ) {
-      return {
-        block: true,
-        blockReason: "SG cannot prove this provider's maximum media cost",
-      };
-    }
     try {
+      const billing = await ledger.operationBilling(correlation);
+      if (billing.chargeMultiplier === 0) {
+        return { block: false };
+      }
+      const upperBound = event.costUpperBound;
+      if (
+        upperBound?.evidence !== "catalog-upper-bound" ||
+        !Number.isFinite(upperBound.totalUsd) ||
+        upperBound.totalUsd <= 0
+      ) {
+        return {
+          block: true,
+          blockReason: "SG cannot prove this provider's maximum media cost",
+        };
+      }
       const providerUpperBoundNanoUsd = usdToNanoUsd(upperBound.totalUsd);
       await ledger.authorizePart({
         ...correlation,

@@ -1,6 +1,7 @@
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
 import { registerSgBillingCommands } from "./billing-commands.js";
 import { registerSgBillingHooks } from "./billing-hooks.js";
+import { registerSgBillingReconciliation } from "./billing-reconciliation-lifecycle.js";
 import { SgContentRegistry } from "./content-registry.js";
 import { SgContextDiagnostics, type SgContextDiagnosticCommand } from "./context-diagnostics.js";
 import { formatWorkspaceContext, resolveWorkspaceContext } from "./context.js";
@@ -186,6 +187,7 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
   wsp6Lifecycle.register(api);
   registerSgBillingHooks({ api, stateDir });
   registerSgBillingCommands({ api, stateDir });
+  registerSgBillingReconciliation({ api, stateDir });
   registerAutomaticProjectMemory(api, stateDir);
 
   api.on("before_prompt_build", async (_event, ctx) => {

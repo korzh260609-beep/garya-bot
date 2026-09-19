@@ -79,6 +79,15 @@ async function snapshot(root: string) {
   }
 }
 
+async function entries(root: string, globalId: string) {
+  const ledger = new SgBillingLedger(root);
+  try {
+    return await ledger.entries(globalId);
+  } finally {
+    ledger.close();
+  }
+}
+
 function register(root: string) {
   const hooks = new Map<string, RegisteredHook[]>();
   const warn = vi.fn();
@@ -200,6 +209,243 @@ describe("SG billing hook integration contract", () => {
     );
 
     expect(results).toContainEqual({ outcome: "pass" });
+  });
+
+  it("records an interactive Monarch run as expense with zero customer charge", async () => {
+    const root = await createStateDir();
+    const { hooks } = register(root);
+    const ctx = {
+      ...agentContext("run-monarch-cost"),
+      sessionKey: "agent:main:telegram:direct:100",
+      channelId: "100",
+      chatId: "telegram:100",
+      senderId: "100",
+    };
+
+    await runHooks(
+      hooks,
+      "before_agent_run",
+      { ...beforeRunEvent, channelId: "100", senderId: "100", senderIsOwner: true },
+      ctx,
+    );
+    await runHooks(
+      hooks,
+      "model_call_ended",
+      {
+        runId: "run-monarch-cost",
+        callId: "call-monarch-cost",
+        provider: "openai",
+        model: "gpt-5.6-terra",
+        durationMs: 10,
+        outcome: "completed",
+        usage: { cost: { total: 0.0002, totalOrigin: "provider-billed" } },
+      },
+      ctx,
+    );
+    await runHooks(hooks, "agent_end", { messages: [], success: true }, ctx);
+
+    await expect(entries(root, "usr_monarch")).resolves.toEqual([
+      expect.objectContaining({
+        type: "complete",
+        actualCostNanoUsd: usdToNanoUsd(0.0002),
+        chargedNanoUsd: 0,
+      }),
+    ]);
+  });
+
+  it("binds a native automation to its proven Monarch creator and admits its cron run", async () => {
+    const root = await createStateDir();
+    const { hooks } = register(root);
+    const toolCtx = {
+      ...agentContext("run-create-automation"),
+      toolName: "automations",
+      toolCallId: "tool-add-automation",
+      requester: { channel: "telegram", accountId: "default", senderId: "100" },
+    };
+    const toolEvent = {
+      toolName: "automations",
+      toolCallId: "tool-add-automation",
+      params: { action: "add", job: { name: "Daily" } },
+    };
+    await runHooks(hooks, "before_tool_call", toolEvent, toolCtx);
+    await runHooks(
+      hooks,
+      "after_tool_call",
+      { ...toolEvent, result: { details: { id: "job-daily" } } },
+      toolCtx,
+    );
+
+    const cronCtx = {
+      runId: "cron:job-daily:1",
+      jobId: "job-daily",
+      trigger: "cron",
+      agentId: "main",
+      sessionKey: "agent:main:cron:job-daily:run:1",
+      modelProviderId: "openai",
+      modelId: "gpt-5.6-terra",
+    };
+    const admitted = await runHooks(
+      hooks,
+      "before_agent_run",
+      { prompt: "Daily", messages: [] },
+      cronCtx,
+    );
+
+    expect(admitted).toContainEqual({ outcome: "pass" });
+    await runHooks(
+      hooks,
+      "model_call_ended",
+      {
+        runId: "cron:job-daily:1",
+        callId: "call-cron",
+        provider: "openai",
+        model: "gpt-5.6-terra",
+        durationMs: 10,
+        outcome: "completed",
+        usage: { cost: { total: 0.0001, totalOrigin: "provider-billed" } },
+      },
+      cronCtx,
+    );
+    await runHooks(hooks, "agent_end", { messages: [], success: true }, cronCtx);
+    await expect(entries(root, "usr_monarch")).resolves.toEqual([
+      expect.objectContaining({ actualCostNanoUsd: usdToNanoUsd(0.0001), chargedNanoUsd: 0 }),
+    ]);
+  });
+
+  it("keeps an unknown cron job blocked before provider I/O", async () => {
+    const root = await createStateDir();
+    const { hooks } = register(root);
+
+    const results = await runHooks(
+      hooks,
+      "before_agent_run",
+      { prompt: "Unknown", messages: [] },
+      {
+        runId: "cron:unknown:1",
+        jobId: "unknown",
+        trigger: "cron",
+        agentId: "main",
+        sessionKey: "agent:main:cron:unknown:run:1",
+      },
+    );
+
+    expect(results).toContainEqual(
+      expect.objectContaining({
+        outcome: "block",
+        reason: "SG automation has no active trusted billing owner",
+        category: "cost_identity_unresolved",
+      }),
+    );
+  });
+
+  it("enforces the existing prepaid charge for a citizen-owned cron job", async () => {
+    const root = await createStateDir();
+    const openingBalance = usdToNanoUsd(1);
+    await credit(root, openingBalance);
+    const setup = new SgBillingLedger(root);
+    await setup.bindAutomationOwner({
+      jobId: "job-citizen",
+      globalId: "usr_citizen",
+      role: "citizen",
+    });
+    setup.close();
+    const { hooks } = register(root);
+    const ctx = {
+      runId: "cron:job-citizen:1",
+      jobId: "job-citizen",
+      trigger: "cron",
+      agentId: "main",
+      sessionKey: "agent:main:cron:job-citizen:run:1",
+      modelProviderId: "openai",
+      modelId: "gpt-5.6-terra",
+    };
+
+    const admitted = await runHooks(
+      hooks,
+      "before_agent_run",
+      { prompt: "Citizen daily", messages: [] },
+      ctx,
+    );
+    expect(admitted).toContainEqual({ outcome: "pass" });
+    await runHooks(
+      hooks,
+      "model_call_ended",
+      {
+        runId: "cron:job-citizen:1",
+        callId: "call-citizen-cron",
+        provider: "openai",
+        model: "gpt-5.6-terra",
+        durationMs: 10,
+        outcome: "completed",
+        usage: { cost: { total: 0.0001, totalOrigin: "provider-billed" } },
+      },
+      ctx,
+    );
+    await runHooks(hooks, "agent_end", { messages: [], success: true }, ctx);
+
+    expect((await snapshot(root)).balanceNanoUsd).toBe(openingBalance - usdToNanoUsd(0.0001) * 2);
+  });
+
+  it("tracks Monarch media without requiring a prepaid upper bound", async () => {
+    const root = await createStateDir();
+    const { hooks } = register(root);
+    const ctx = {
+      ...agentContext("run-monarch-media"),
+      sessionKey: "agent:main:telegram:direct:100",
+      channelId: "100",
+      senderId: "100",
+      requester: { channel: "telegram", accountId: "default", senderId: "100" },
+    };
+    await runHooks(
+      hooks,
+      "before_agent_run",
+      { ...beforeRunEvent, channelId: "100", senderId: "100", senderIsOwner: true },
+      ctx,
+    );
+    await runHooks(
+      hooks,
+      "before_tool_call",
+      {
+        toolName: "image_generate",
+        params: {},
+        runId: "run-monarch-media",
+        toolCallId: "tool-monarch-image",
+      },
+      ctx,
+    );
+    const authorized = await runHooks(
+      hooks,
+      "before_billable_operation",
+      {
+        runId: "run-monarch-media",
+        toolCallId: "tool-monarch-image",
+        provider: "openai",
+        model: "gpt-image-1.5",
+        category: "image_generation",
+      },
+      ctx,
+    );
+    expect(authorized).toContainEqual({ block: false });
+    await runHooks(
+      hooks,
+      "billable_operation_completed",
+      {
+        runId: "run-monarch-media",
+        toolCallId: "tool-monarch-image",
+        provider: "openai",
+        model: "gpt-image-1.5",
+        category: "image_generation",
+        outcome: "completed",
+        quantity: 1,
+        unit: "images",
+        cost: { totalUsd: 0.01, evidence: "provider-billed" },
+      },
+      ctx,
+    );
+    await runHooks(hooks, "agent_end", { messages: [], success: true }, ctx);
+    await expect(entries(root, "usr_monarch")).resolves.toEqual([
+      expect.objectContaining({ actualCostNanoUsd: usdToNanoUsd(0.01), chargedNanoUsd: 0 }),
+    ]);
   });
 
   it("blocks a citizen before inference when prepaid funds are insufficient", async () => {

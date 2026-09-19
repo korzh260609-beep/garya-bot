@@ -40,6 +40,40 @@ export type SgBillingDiagnostics = {
   oldestReservedAt?: number;
 };
 
+export type SgBillingFinancialUser = {
+  globalId: string;
+  role: "monarch" | "citizen";
+  providerCostNanoUsd: number;
+  chargedNanoUsd: number;
+  profitNanoUsd: number;
+  pendingOperationCount: number;
+};
+
+export type SgBillingFinancialReport = {
+  attributedProviderCostNanoUsd: number;
+  reconciliationAdjustmentNanoUsd: number;
+  projectProviderCostNanoUsd: number;
+  revenueNanoUsd: number;
+  profitNanoUsd: number;
+  monarchProviderCostNanoUsd: number;
+  citizenProviderCostNanoUsd: number;
+  pendingOperationCount: number;
+  reconciliationWindowCount: number;
+  lastReconciledAt?: number;
+  users: SgBillingFinancialUser[];
+};
+
+export type SgBillingReconciliationWindow = {
+  provider: "openai";
+  projectId: string;
+  windowStartMs: number;
+  windowEndMs: number;
+  providerCostNanoUsd: number;
+  attributedCostNanoUsd: number;
+  differenceNanoUsd: number;
+  sourceDigest: string;
+};
+
 type BillingAccountRow = {
   balance_nano_usd: number;
   reserved_nano_usd: number;
@@ -49,6 +83,8 @@ type BillingOperationRow = {
   operation_type: "credit" | "usage";
   state: "credited" | "reserved" | "terminal";
   amount_nano_usd: number;
+  billing_role: "monarch" | "citizen";
+  charge_multiplier: 0 | 2;
   outcome: "completed" | "error" | null;
   actual_cost_nano_usd: number | null;
   charged_nano_usd: number | null;
@@ -78,6 +114,11 @@ type BillingPartRow = {
   charged_nano_usd: number | null;
 };
 
+type BillingAutomationOwnerRow = {
+  global_id: string;
+  role: "monarch" | "citizen";
+};
+
 function requireIdentifier(value: string, field: string): string {
   if (!value || value !== value.trim()) {
     throw new Error(`sg-billing-${field}-invalid`);
@@ -93,6 +134,13 @@ function requireNanoUsd(value: number, field: string, allowZero = false): number
   return value;
 }
 
+function requireSignedNanoUsd(value: number, field: string): number {
+  if (!Number.isSafeInteger(value)) {
+    throw new Error(`sg-billing-${field}-invalid`);
+  }
+  return value;
+}
+
 function checkedAdd(left: number, right: number): number {
   const sum = left + right;
   if (!Number.isSafeInteger(sum)) {
@@ -101,8 +149,8 @@ function checkedAdd(left: number, right: number): number {
   return sum;
 }
 
-function checkedCharge(actualCostNanoUsd: number): number {
-  const charge = actualCostNanoUsd * CUSTOMER_PRICE_MULTIPLIER;
+function checkedCharge(actualCostNanoUsd: number, multiplier = CUSTOMER_PRICE_MULTIPLIER): number {
+  const charge = actualCostNanoUsd * multiplier;
   if (!Number.isSafeInteger(charge)) {
     throw new Error("sg-billing-amount-overflow");
   }
@@ -152,6 +200,9 @@ export class SgBillingLedger {
         operation_type TEXT NOT NULL CHECK (operation_type IN ('credit', 'usage')),
         state TEXT NOT NULL CHECK (state IN ('credited', 'reserved', 'terminal')),
         amount_nano_usd INTEGER NOT NULL CHECK (amount_nano_usd >= 0),
+        billing_role TEXT NOT NULL DEFAULT 'citizen'
+          CHECK (billing_role IN ('monarch', 'citizen')),
+        charge_multiplier INTEGER NOT NULL DEFAULT 2 CHECK (charge_multiplier IN (0, 2)),
         outcome TEXT CHECK (outcome IN ('completed', 'error')),
         actual_cost_nano_usd INTEGER CHECK (actual_cost_nano_usd >= 0),
         charged_nano_usd INTEGER CHECK (charged_nano_usd >= 0),
@@ -201,7 +252,46 @@ export class SgBillingLedger {
         FOREIGN KEY (global_id, operation_id)
           REFERENCES sg_billing_operations(global_id, operation_id)
       ) STRICT;
+
+      CREATE TABLE IF NOT EXISTS sg_billing_automation_owners (
+        job_id TEXT PRIMARY KEY,
+        global_id TEXT NOT NULL,
+        role TEXT NOT NULL CHECK (role IN ('monarch', 'citizen')),
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      ) STRICT;
+
+      CREATE TABLE IF NOT EXISTS sg_billing_reconciliation_windows (
+        reconciliation_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        source_key TEXT NOT NULL,
+        source_digest TEXT NOT NULL UNIQUE,
+        provider TEXT NOT NULL CHECK (provider IN ('openai')),
+        project_id TEXT NOT NULL,
+        window_start_ms INTEGER NOT NULL,
+        window_end_ms INTEGER NOT NULL,
+        provider_cost_nano_usd INTEGER NOT NULL,
+        attributed_cost_nano_usd INTEGER NOT NULL CHECK (attributed_cost_nano_usd >= 0),
+        difference_nano_usd INTEGER NOT NULL,
+        synced_at INTEGER NOT NULL,
+        CHECK (window_end_ms > window_start_ms)
+      ) STRICT;
+
+      CREATE INDEX IF NOT EXISTS sg_billing_reconciliation_source_key_id
+        ON sg_billing_reconciliation_windows(source_key, reconciliation_id);
     `);
+    const operationColumns = this.database
+      .prepare("PRAGMA table_info(sg_billing_operations)")
+      .all() as Array<{ name: string }>;
+    if (!operationColumns.some((column) => column.name === "billing_role")) {
+      this.database.exec(
+        "ALTER TABLE sg_billing_operations ADD COLUMN billing_role TEXT NOT NULL DEFAULT 'citizen' CHECK (billing_role IN ('monarch', 'citizen'))",
+      );
+    }
+    if (!operationColumns.some((column) => column.name === "charge_multiplier")) {
+      this.database.exec(
+        "ALTER TABLE sg_billing_operations ADD COLUMN charge_multiplier INTEGER NOT NULL DEFAULT 2 CHECK (charge_multiplier IN (0, 2))",
+      );
+    }
     const partColumns = this.database
       .prepare("PRAGMA table_info(sg_billing_operation_parts)")
       .all() as Array<{ name: string }>;
@@ -236,12 +326,276 @@ export class SgBillingLedger {
   private operation(globalId: string, operationId: string): BillingOperationRow | undefined {
     return this.database
       .prepare(
-        `SELECT operation_type, state, amount_nano_usd, outcome,
+        `SELECT operation_type, state, amount_nano_usd, billing_role, charge_multiplier, outcome,
                 actual_cost_nano_usd, charged_nano_usd
          FROM sg_billing_operations
          WHERE global_id = ? AND operation_id = ?`,
       )
       .get(globalId, operationId) as BillingOperationRow | undefined;
+  }
+
+  async startTrackedOperation(params: {
+    globalId: string;
+    operationId: string;
+    role: "monarch";
+  }): Promise<void> {
+    const globalId = requireIdentifier(params.globalId, "global-id");
+    const operationId = requireIdentifier(params.operationId, "operation-id");
+    runSqliteImmediateTransactionSync(
+      this.database,
+      () => {
+        const now = Date.now();
+        this.ensureAccount(globalId, now);
+        const existing = this.operation(globalId, operationId);
+        if (existing) {
+          if (
+            existing.operation_type === "usage" &&
+            existing.state === "reserved" &&
+            existing.amount_nano_usd === 0 &&
+            existing.billing_role === params.role &&
+            existing.charge_multiplier === 0
+          ) {
+            return;
+          }
+          throw new Error("sg-billing-idempotency-conflict");
+        }
+        this.database
+          .prepare(
+            `INSERT INTO sg_billing_operations
+              (global_id, operation_id, operation_type, state, amount_nano_usd,
+               billing_role, charge_multiplier, created_at, updated_at)
+             VALUES (?, ?, 'usage', 'reserved', 0, ?, 0, ?, ?)`,
+          )
+          .run(globalId, operationId, params.role, now, now);
+      },
+      {
+        busyTimeoutMs: 5_000,
+        databaseLabel: "sg-billing-ledger",
+        operationLabel: "start-tracked-operation",
+      },
+    );
+  }
+
+  async operationBilling(params: {
+    globalId: string;
+    operationId: string;
+  }): Promise<{ role: "monarch" | "citizen"; chargeMultiplier: 0 | 2 }> {
+    const globalId = requireIdentifier(params.globalId, "global-id");
+    const operationId = requireIdentifier(params.operationId, "operation-id");
+    const operation = this.operation(globalId, operationId);
+    if (!operation || operation.operation_type !== "usage") {
+      throw new Error("sg-billing-reservation-not-found");
+    }
+    return {
+      role: operation.billing_role,
+      chargeMultiplier: operation.charge_multiplier,
+    };
+  }
+
+  async bindAutomationOwner(params: {
+    jobId: string;
+    globalId: string;
+    role: "monarch" | "citizen";
+  }): Promise<void> {
+    const jobId = requireIdentifier(params.jobId, "job-id");
+    const globalId = requireIdentifier(params.globalId, "global-id");
+    runSqliteImmediateTransactionSync(
+      this.database,
+      () => {
+        const existing = this.database
+          .prepare(`SELECT global_id, role FROM sg_billing_automation_owners WHERE job_id = ?`)
+          .get(jobId) as BillingAutomationOwnerRow | undefined;
+        if (existing) {
+          if (existing.global_id === globalId && existing.role === params.role) {
+            return;
+          }
+          throw new Error("sg-billing-idempotency-conflict");
+        }
+        const now = Date.now();
+        this.database
+          .prepare(
+            `INSERT INTO sg_billing_automation_owners
+              (job_id, global_id, role, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?)`,
+          )
+          .run(jobId, globalId, params.role, now, now);
+      },
+      {
+        busyTimeoutMs: 5_000,
+        databaseLabel: "sg-billing-ledger",
+        operationLabel: "bind-automation-owner",
+      },
+    );
+  }
+
+  async resolveAutomationOwner(
+    jobIdInput: string,
+  ): Promise<{ globalId: string; role: "monarch" | "citizen" } | undefined> {
+    const jobId = requireIdentifier(jobIdInput, "job-id");
+    const row = this.database
+      .prepare(`SELECT global_id, role FROM sg_billing_automation_owners WHERE job_id = ?`)
+      .get(jobId) as BillingAutomationOwnerRow | undefined;
+    return row ? { globalId: row.global_id, role: row.role } : undefined;
+  }
+
+  async unbindAutomationOwner(jobIdInput: string): Promise<void> {
+    const jobId = requireIdentifier(jobIdInput, "job-id");
+    this.database.prepare(`DELETE FROM sg_billing_automation_owners WHERE job_id = ?`).run(jobId);
+  }
+
+  async actualCostForWindow(params: { startMs: number; endMs: number }): Promise<number> {
+    const startMs = requireNanoUsd(params.startMs, "window-start", true);
+    const endMs = requireNanoUsd(params.endMs, "window-end");
+    if (endMs <= startMs) {
+      throw new Error("sg-billing-window-invalid");
+    }
+    const row = this.database
+      .prepare(
+        `SELECT COALESCE(SUM(actual_cost_nano_usd), 0) AS total
+         FROM sg_billing_operations
+         WHERE operation_type = 'usage'
+           AND created_at >= ? AND created_at < ?`,
+      )
+      .get(startMs, endMs) as { total: number };
+    return row.total;
+  }
+
+  async recordReconciliationWindow(params: SgBillingReconciliationWindow): Promise<void> {
+    const projectId = requireIdentifier(params.projectId, "project-id");
+    const sourceDigest = requireIdentifier(params.sourceDigest, "source-digest");
+    const windowStartMs = requireNanoUsd(params.windowStartMs, "window-start", true);
+    const windowEndMs = requireNanoUsd(params.windowEndMs, "window-end");
+    const providerCostNanoUsd = requireSignedNanoUsd(params.providerCostNanoUsd, "provider-cost");
+    const attributedCostNanoUsd = requireNanoUsd(
+      params.attributedCostNanoUsd,
+      "attributed-cost",
+      true,
+    );
+    const differenceNanoUsd = requireSignedNanoUsd(params.differenceNanoUsd, "difference");
+    if (
+      windowEndMs <= windowStartMs ||
+      differenceNanoUsd !== providerCostNanoUsd - attributedCostNanoUsd
+    ) {
+      throw new Error("sg-billing-reconciliation-invalid");
+    }
+    const sourceKey = `${params.provider}:${projectId}:${windowStartMs}:${windowEndMs}`;
+    runSqliteImmediateTransactionSync(
+      this.database,
+      () => {
+        const existing = this.database
+          .prepare(
+            `SELECT source_key FROM sg_billing_reconciliation_windows WHERE source_digest = ?`,
+          )
+          .get(sourceDigest) as { source_key: string } | undefined;
+        if (existing) {
+          if (existing.source_key === sourceKey) {
+            return;
+          }
+          throw new Error("sg-billing-idempotency-conflict");
+        }
+        this.database
+          .prepare(
+            `INSERT INTO sg_billing_reconciliation_windows
+              (source_key, source_digest, provider, project_id, window_start_ms, window_end_ms,
+               provider_cost_nano_usd, attributed_cost_nano_usd, difference_nano_usd, synced_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          )
+          .run(
+            sourceKey,
+            sourceDigest,
+            params.provider,
+            projectId,
+            windowStartMs,
+            windowEndMs,
+            providerCostNanoUsd,
+            attributedCostNanoUsd,
+            differenceNanoUsd,
+            Date.now(),
+          );
+      },
+      {
+        busyTimeoutMs: 5_000,
+        databaseLabel: "sg-billing-ledger",
+        operationLabel: "record-reconciliation-window",
+      },
+    );
+  }
+
+  async financialReport(): Promise<SgBillingFinancialReport> {
+    const usageRows = this.database
+      .prepare(
+        `SELECT global_id, billing_role,
+                COALESCE(SUM(actual_cost_nano_usd), 0) AS provider_cost,
+                COALESCE(SUM(charged_nano_usd), 0) AS charged,
+                SUM(CASE WHEN state = 'reserved' THEN 1 ELSE 0 END) AS pending
+         FROM sg_billing_operations
+         WHERE operation_type = 'usage'
+         GROUP BY global_id, billing_role
+         ORDER BY global_id, billing_role`,
+      )
+      .all() as Array<{
+      global_id: string;
+      billing_role: "monarch" | "citizen";
+      provider_cost: number;
+      charged: number;
+      pending: number;
+    }>;
+    const reconciliation = this.database
+      .prepare(
+        `SELECT COALESCE(SUM(current.difference_nano_usd), 0) AS adjustment,
+                COUNT(*) AS windows,
+                MAX(current.synced_at) AS last_synced
+         FROM sg_billing_reconciliation_windows AS current
+         WHERE current.reconciliation_id = (
+           SELECT MAX(latest.reconciliation_id)
+           FROM sg_billing_reconciliation_windows AS latest
+           WHERE latest.source_key = current.source_key
+         )`,
+      )
+      .get() as { adjustment: number; windows: number; last_synced: number | null };
+    const users = usageRows.map(
+      (row): SgBillingFinancialUser => ({
+        globalId: row.global_id,
+        role: row.billing_role,
+        providerCostNanoUsd: row.provider_cost,
+        chargedNanoUsd: row.charged,
+        profitNanoUsd: row.charged - row.provider_cost,
+        pendingOperationCount: row.pending,
+      }),
+    );
+    const attributedProviderCostNanoUsd = users.reduce(
+      (total, user) => checkedAdd(total, user.providerCostNanoUsd),
+      0,
+    );
+    const revenueNanoUsd = users
+      .filter((user) => user.role === "citizen")
+      .reduce((total, user) => checkedAdd(total, user.chargedNanoUsd), 0);
+    const projectProviderCostNanoUsd = checkedAdd(
+      attributedProviderCostNanoUsd,
+      reconciliation.adjustment,
+    );
+    return {
+      attributedProviderCostNanoUsd,
+      reconciliationAdjustmentNanoUsd: reconciliation.adjustment,
+      projectProviderCostNanoUsd,
+      revenueNanoUsd,
+      profitNanoUsd: revenueNanoUsd - projectProviderCostNanoUsd,
+      monarchProviderCostNanoUsd: users
+        .filter((user) => user.role === "monarch")
+        .reduce((total, user) => checkedAdd(total, user.providerCostNanoUsd), 0),
+      citizenProviderCostNanoUsd: users
+        .filter((user) => user.role === "citizen")
+        .reduce((total, user) => checkedAdd(total, user.providerCostNanoUsd), 0),
+      pendingOperationCount: users.reduce(
+        (total, user) => checkedAdd(total, user.pendingOperationCount),
+        0,
+      ),
+      reconciliationWindowCount: reconciliation.windows,
+      ...(reconciliation.last_synced === null
+        ? {}
+        : { lastReconciledAt: reconciliation.last_synced }),
+      users,
+    };
   }
 
   async credit(params: {
@@ -600,8 +954,6 @@ export class SgBillingLedger {
       params.actualCostNanoUsd === undefined
         ? undefined
         : requireNanoUsd(params.actualCostNanoUsd, "actual-cost", true);
-    const chargedNanoUsd =
-      actualCostNanoUsd === undefined ? undefined : checkedCharge(actualCostNanoUsd);
     runSqliteImmediateTransactionSync(
       this.database,
       () => {
@@ -612,6 +964,10 @@ export class SgBillingLedger {
         if (operation.state !== "reserved") {
           throw new Error("sg-billing-reservation-invalid");
         }
+        const chargedNanoUsd =
+          actualCostNanoUsd === undefined
+            ? undefined
+            : checkedCharge(actualCostNanoUsd, operation.charge_multiplier);
         const existing = this.database
           .prepare(
             `SELECT outcome, authorized_nano_usd, actual_cost_nano_usd, charged_nano_usd
@@ -884,7 +1240,6 @@ export class SgBillingLedger {
     const globalId = requireIdentifier(params.globalId, "global-id");
     const operationId = requireIdentifier(params.operationId, "operation-id");
     const actualCostNanoUsd = requireNanoUsd(params.actualCostNanoUsd ?? 0, "actual-cost", true);
-    const chargedNanoUsd = checkedCharge(actualCostNanoUsd);
     runSqliteImmediateTransactionSync(
       this.database,
       () => {
@@ -892,6 +1247,7 @@ export class SgBillingLedger {
         if (!operation || operation.operation_type !== "usage") {
           throw new Error("sg-billing-reservation-not-found");
         }
+        const chargedNanoUsd = checkedCharge(actualCostNanoUsd, operation.charge_multiplier);
         if (operation.state === "terminal") {
           if (
             operation.outcome === params.outcome &&

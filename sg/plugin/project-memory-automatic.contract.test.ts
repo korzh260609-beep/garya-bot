@@ -917,7 +917,9 @@ describe("automatic SG Project Memory 3.0 contract", () => {
   it("registers startup synchronization for missed authoritative project events", async () => {
     const plugin = await registerPlugin();
 
-    expect(plugin.hooks.get("gateway_start")).toEqual([expect.any(Function)]);
+    expect(plugin.hooks.get("gateway_start")).toEqual(
+      expect.arrayContaining([expect.any(Function)]),
+    );
     await runHooks(plugin, "gateway_start", { port: 18_789 }, { config: {} });
     expect(memoryHost.manager?.sync).toHaveBeenCalledWith({
       reason: "sg-project-memory-startup",

@@ -2,7 +2,7 @@
 
 ## Status
 
-**OWNER APPROVED — PLANNED; IMPLEMENTATION NOT STARTED**
+**LOCAL IMPLEMENTATION VERIFIED — AWAITING COMMIT APPROVAL**
 
 Approved business model date: 2026-09-13.
 
@@ -13,6 +13,93 @@ cheap/medium/expensive model routing.
 Recording this plan does not mean that billing, balance enforcement, routing, OpenAI
 reconciliation, environment variables or production charging are implemented or
 enabled.
+
+## Approved billing completion tranche — 2026-09-19
+
+The owner approved continuation of the existing SG billing implementation on
+`dev/sg2.2-openclaw`. This tranche extends the existing external plugin and the same
+`<OPENCLAW_STATE_DIR>/sg/billing.sqlite`; it must not create a second ledger, change
+OpenClaw core, or change the standard Telegram adapter.
+
+### Verified starting point
+
+- repository baseline: `4728889481fb5eeac2fcf5b838ffe0f7b82d87e5`;
+- existing citizen prepaid flow reserves before provider I/O and settles exact
+  provider-billed cost at `cost × 2`;
+- existing Monarch requests bypass prepaid admission and therefore are not yet
+  represented in the cost ledger;
+- no SG model-routing policy is active in this tranche;
+- a scheduled run at `2026-09-19 04:00 UTC` was blocked before provider execution
+  because the cron context had `jobId` but no message sender identity;
+- the resulting Telegram message was a failure notification, not a Telegram send
+  failure or an OpenAI insufficient-funds response.
+
+### Accounting model
+
+| Subject      |                Provider expense | Customer charge | SG revenue |        SG profit |
+| ------------ | ------------------------------: | --------------: | ---------: | ---------------: |
+| Citizen      | actual attributable OpenAI cost |     expense × 2 |     charge | charge − expense |
+| Monarch      | actual attributable OpenAI cost |               0 |          0 |         −expense |
+| Unattributed |    reconciled organization cost |               0 |          0 |         −expense |
+
+Project totals use:
+
+```text
+project revenue = sum(citizen customer charges)
+project cost = citizen expense + Monarch expense + unattributed expense
+project profit = project revenue - project cost
+```
+
+Top-ups and balance adjustments are funding movements, not revenue. Revenue is
+recognized only when a citizen charge settles.
+
+### Ordered implementation plan
+
+1. Preserve the exact branch/deploy baseline and run the existing billing tests.
+2. Add red contracts for Monarch interactive accounting, trusted cron ownership,
+   unknown jobs, replay/idempotency and citizen behavior preservation.
+3. Extend existing billing operations with an explicit subject role and charge
+   policy so Monarch expense is recorded without reserve or balance deduction.
+4. Persist a trusted `automation job ID -> SG Global ID + role` binding in the same
+   billing database when the native `automations`/legacy `cron` tool successfully
+   creates or updates a job from a request with proven requester identity.
+5. Resolve scheduled runs only through that persisted binding. Never grant a blanket
+   cron bypass; an unknown job remains blocked before provider I/O.
+6. Preserve the citizen prepaid contract, `cost × 2`, atomic reservation boundaries,
+   replay safety and cross-channel Global ID isolation.
+7. Add Monarch-only migration/diagnostic controls for already-existing jobs without
+   embedding Telegram IDs or job IDs in source.
+8. Add OpenAI Admin API synchronization using separately approved secrets, closed
+   windows, complete pagination, an overlap window and idempotent source records.
+   Synchronization failure must not interrupt Telegram or erase local accounting.
+9. Reconcile organization totals against request-level records. Matched differences
+   become reconciled evidence; unmatched cost remains explicitly unattributed and is
+   never assigned to a user by guesswork.
+10. Add Monarch reports for the whole project, Monarch-only spend, each citizen,
+    revenue, provider cost, profit, pending work, unattributed cost and reconciliation
+    freshness.
+11. Prove restart/migration safety, duplicate delivery safety, Admin API outage
+    behavior, secret redaction and exact project/user formulas locally.
+12. After separate approval, commit and push only to `dev/sg2.2-openclaw`, then wait
+    for the full GitHub Actions run to complete successfully.
+13. Only after another separate approval and green Actions, configure secrets and
+    deploy to Render; verify `live`, `/health` 200, clean logs and real Telegram
+    acceptance for both an interactive Monarch run and a scheduled run.
+
+Stage 8 code is locally implemented, but use of real Admin credentials remains
+approval-gated. Stages 12 and 13 also remain approval-gated. No secret, environment,
+commit, push or production mutation is authorized merely by this plan.
+
+### Local implementation evidence — 2026-09-19
+
+- trusted automation ownership and unknown-job fail-closed behavior implemented;
+- Monarch, citizen and project accounting implemented in the existing ledger;
+- closed-window OpenAI Costs API reconciliation implemented with pagination,
+  overlap-safe revisions and dedicated Admin credentials;
+- Monarch project/per-user reports and explicit reconciliation controls implemented;
+- SG plugin suite: `41` files and `283` tests passed;
+- changed SG TypeScript files pass `oxlint`, formatting and `git diff --check`;
+- no commit, push, environment change or deploy has been performed.
 
 ## Owner-approved business rules
 
@@ -264,12 +351,12 @@ architecture change.
 
 ### Initial tiers
 
-| SG mode | Initial model | Purpose |
-| --- | --- | --- |
-| `cheap` | `openai/gpt-5.6-luna` | Simple answers and short operations |
-| `medium` | `openai/gpt-5.6-terra` | Normal SG work |
-| `expensive` | `openai/gpt-5.6-sol` | Complex analysis, development and large tasks |
-| `auto` | Minimum sufficient available tier | SG policy selects the tier |
+| SG mode     | Initial model                     | Purpose                                       |
+| ----------- | --------------------------------- | --------------------------------------------- |
+| `cheap`     | `openai/gpt-5.6-luna`             | Simple answers and short operations           |
+| `medium`    | `openai/gpt-5.6-terra`            | Normal SG work                                |
+| `expensive` | `openai/gpt-5.6-sol`              | Complex analysis, development and large tasks |
+| `auto`      | Minimum sufficient available tier | SG policy selects the tier                    |
 
 The exact model IDs must be confirmed against the deployed provider catalog and owner
 account before activation. A missing model must fail clearly or use an explicitly

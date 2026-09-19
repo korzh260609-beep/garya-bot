@@ -1,6 +1,7 @@
-import { mkdtemp, realpath, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { afterEach, describe, expect, it } from "vitest";
 import { SgBillingLedger, usdToNanoUsd } from "./billing-ledger.js";
 import { resolveWorkspaceContext } from "./context.js";
@@ -352,5 +353,213 @@ describe("SG prepaid billing ledger", () => {
       (entry) => entry.operationId === "call:persisted" && entry.type === "complete",
     );
     expect(terminalEntries).toHaveLength(1);
+  });
+
+  it("records Monarch provider expense without reserving or charging a prepaid balance", async () => {
+    const { ledger } = await openLedger();
+
+    await ledger.startTrackedOperation({
+      globalId: "usr_monarch",
+      operationId: "run:monarch",
+      role: "monarch",
+    });
+    await ledger.recordPart({
+      globalId: "usr_monarch",
+      operationId: "run:monarch",
+      partId: "model:one",
+      outcome: "completed",
+      actualCostNanoUsd: 125_000,
+    });
+    await ledger.finalizeParts({
+      globalId: "usr_monarch",
+      operationId: "run:monarch",
+      outcome: "completed",
+    });
+
+    await expect(ledger.snapshot("usr_monarch")).resolves.toEqual({
+      balanceNanoUsd: 0,
+      reservedNanoUsd: 0,
+      availableNanoUsd: 0,
+    });
+    await expect(ledger.entries("usr_monarch")).resolves.toEqual([
+      expect.objectContaining({
+        operationId: "run:monarch",
+        type: "complete",
+        actualCostNanoUsd: 125_000,
+        chargedNanoUsd: 0,
+      }),
+    ]);
+  });
+
+  it("persists trusted automation ownership idempotently and rejects reassignment", async () => {
+    const { ledger, root } = await openLedger();
+    const binding = { jobId: "job-daily", globalId: "usr_monarch", role: "monarch" as const };
+
+    await ledger.bindAutomationOwner(binding);
+    await ledger.bindAutomationOwner(binding);
+    await expect(ledger.resolveAutomationOwner("job-daily")).resolves.toEqual({
+      globalId: "usr_monarch",
+      role: "monarch",
+    });
+    await expect(
+      ledger.bindAutomationOwner({
+        jobId: "job-daily",
+        globalId: "usr_other",
+        role: "citizen",
+      }),
+    ).rejects.toThrow("sg-billing-idempotency-conflict");
+
+    ledger.close();
+    openedLedgers.splice(openedLedgers.indexOf(ledger), 1);
+    const reopened = new SgBillingLedger(root);
+    openedLedgers.push(reopened);
+    await expect(reopened.resolveAutomationOwner("job-daily")).resolves.toEqual({
+      globalId: "usr_monarch",
+      role: "monarch",
+    });
+  });
+
+  it("migrates a legacy billing database to the role-aware operation schema", async () => {
+    const root = await realpath(await mkdtemp(path.join(os.tmpdir(), "sg-billing-legacy-")));
+    temporaryRoots.push(root);
+    const directory = path.join(root, "sg");
+    await mkdir(directory, { recursive: true });
+    const legacy = new DatabaseSync(path.join(directory, "billing.sqlite"));
+    legacy.exec(`
+      CREATE TABLE sg_billing_operations (
+        global_id TEXT NOT NULL,
+        operation_id TEXT NOT NULL,
+        operation_type TEXT NOT NULL CHECK (operation_type IN ('credit', 'usage')),
+        state TEXT NOT NULL CHECK (state IN ('credited', 'reserved', 'terminal')),
+        amount_nano_usd INTEGER NOT NULL CHECK (amount_nano_usd >= 0),
+        outcome TEXT CHECK (outcome IN ('completed', 'error')),
+        actual_cost_nano_usd INTEGER CHECK (actual_cost_nano_usd >= 0),
+        charged_nano_usd INTEGER CHECK (charged_nano_usd >= 0),
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        PRIMARY KEY (global_id, operation_id)
+      ) STRICT;
+    `);
+    legacy.close();
+
+    const ledger = new SgBillingLedger(root);
+    openedLedgers.push(ledger);
+    await credit(ledger, "usr_legacy", 1_000);
+    await ledger.reserve({ globalId: "usr_legacy", operationId: "run:legacy", amountNanoUsd: 500 });
+    await expect(
+      ledger.operationBilling({ globalId: "usr_legacy", operationId: "run:legacy" }),
+    ).resolves.toEqual({ role: "citizen", chargeMultiplier: 2 });
+  });
+
+  it("reports project, Monarch and per-user cost, revenue and profit without treating topups as revenue", async () => {
+    const { ledger } = await openLedger();
+    await credit(ledger, "usr_citizen", 10_000, "topup:not-revenue");
+    await ledger.reserve({
+      globalId: "usr_citizen",
+      operationId: "run:citizen-report",
+      amountNanoUsd: 1_000,
+    });
+    await ledger.complete({
+      globalId: "usr_citizen",
+      operationId: "run:citizen-report",
+      outcome: "completed",
+      actualCostNanoUsd: 100,
+    });
+    await ledger.startTrackedOperation({
+      globalId: "usr_monarch",
+      operationId: "run:monarch-report",
+      role: "monarch",
+    });
+    await ledger.recordPart({
+      globalId: "usr_monarch",
+      operationId: "run:monarch-report",
+      partId: "model:report",
+      outcome: "completed",
+      actualCostNanoUsd: 50,
+    });
+    await ledger.finalizeParts({
+      globalId: "usr_monarch",
+      operationId: "run:monarch-report",
+      outcome: "completed",
+    });
+    await ledger.recordReconciliationWindow({
+      provider: "openai",
+      projectId: "proj_sg",
+      windowStartMs: 1,
+      windowEndMs: 2,
+      providerCostNanoUsd: 200,
+      attributedCostNanoUsd: 150,
+      differenceNanoUsd: 50,
+      sourceDigest: "digest:one",
+    });
+    await ledger.recordReconciliationWindow({
+      provider: "openai",
+      projectId: "proj_sg",
+      windowStartMs: 1,
+      windowEndMs: 2,
+      providerCostNanoUsd: 200,
+      attributedCostNanoUsd: 150,
+      differenceNanoUsd: 50,
+      sourceDigest: "digest:one",
+    });
+
+    await expect(ledger.financialReport()).resolves.toMatchObject({
+      attributedProviderCostNanoUsd: 150,
+      reconciliationAdjustmentNanoUsd: 50,
+      projectProviderCostNanoUsd: 200,
+      revenueNanoUsd: 200,
+      profitNanoUsd: 0,
+      monarchProviderCostNanoUsd: 50,
+      citizenProviderCostNanoUsd: 100,
+      reconciliationWindowCount: 1,
+      users: [
+        {
+          globalId: "usr_citizen",
+          role: "citizen",
+          providerCostNanoUsd: 100,
+          chargedNanoUsd: 200,
+          profitNanoUsd: 100,
+          pendingOperationCount: 0,
+        },
+        {
+          globalId: "usr_monarch",
+          role: "monarch",
+          providerCostNanoUsd: 50,
+          chargedNanoUsd: 0,
+          profitNanoUsd: -50,
+          pendingOperationCount: 0,
+        },
+      ],
+    });
+  });
+
+  it("uses only the newest reconciliation revision for an overlapping provider window", async () => {
+    const { ledger } = await openLedger();
+    await ledger.recordReconciliationWindow({
+      provider: "openai",
+      projectId: "proj_sg",
+      windowStartMs: 10,
+      windowEndMs: 20,
+      providerCostNanoUsd: 100,
+      attributedCostNanoUsd: 0,
+      differenceNanoUsd: 100,
+      sourceDigest: "digest:old",
+    });
+    await ledger.recordReconciliationWindow({
+      provider: "openai",
+      projectId: "proj_sg",
+      windowStartMs: 10,
+      windowEndMs: 20,
+      providerCostNanoUsd: 125,
+      attributedCostNanoUsd: 0,
+      differenceNanoUsd: 125,
+      sourceDigest: "digest:new",
+    });
+
+    await expect(ledger.financialReport()).resolves.toMatchObject({
+      reconciliationAdjustmentNanoUsd: 125,
+      projectProviderCostNanoUsd: 125,
+      reconciliationWindowCount: 1,
+    });
   });
 });

@@ -205,6 +205,66 @@
           ]
         }
       ]
+    },
+    {
+      "schemaVersion": 1,
+      "handoffId": "sg22-billing-completion-2026-09-19",
+      "projectKey": "project-sg",
+      "authority": {
+        "kind": "canonical-project-artifact"
+      },
+      "events": [
+        {
+          "eventId": "sg22-billing-completion:decision",
+          "eventType": "decision.approved",
+          "recordType": "decision",
+          "title": "Complete the existing SG billing system",
+          "summary": "Extend the existing external-plugin billing ledger with trusted automation ownership, Monarch and per-user expense accounting, OpenAI organization reconciliation, and project/user revenue and profit reports.",
+          "rationale": "The Monarch requires scheduled jobs to execute under a proven payer identity and requires complete project, Monarch and per-user financial visibility without a parallel billing architecture.",
+          "status": "active",
+          "sourceRefs": [
+            "owner-approved:2026-09-19",
+            "roadmap:SG22_PREPAID_BILLING_AND_MODEL_ROUTING_PLAN.md"
+          ]
+        },
+        {
+          "eventId": "sg22-billing-completion:incident",
+          "eventType": "incident.opened",
+          "recordType": "incident",
+          "title": "Scheduled Monarch run was blocked by billing identity resolution",
+          "summary": "A cron execution carried a trusted job ID but no message sender identity, so the existing before_agent_run billing gate could not prove a payer and blocked the task before OpenAI execution.",
+          "status": "open",
+          "sourceRefs": [
+            "render:logs:2026-09-19T04:00:00Z",
+            "roadmap:SG22_PREPAID_BILLING_AND_MODEL_ROUTING_PLAN.md"
+          ]
+        },
+        {
+          "eventId": "sg22-billing-completion:task",
+          "eventType": "task.started",
+          "recordType": "task",
+          "title": "Implement the approved billing completion plan",
+          "summary": "Begin with baseline contracts, then add trusted automation ownership and Monarch cost tracking inside the existing billing database before implementing Admin API reconciliation and financial reports.",
+          "status": "in_progress",
+          "sourceRefs": [
+            "owner-approved:2026-09-19",
+            "roadmap:SG22_PREPAID_BILLING_AND_MODEL_ROUTING_PLAN.md"
+          ]
+        },
+        {
+          "eventId": "sg22-billing-completion:task-local-verified",
+          "eventType": "task.completed",
+          "recordType": "task",
+          "title": "Billing completion implementation verified locally",
+          "summary": "The existing SG ledger now tracks Monarch and citizen provider expense, binds native automation jobs to proven SG owners, reconciles closed OpenAI organization cost windows, and reports project and per-user cost, revenue and profit. Production incident closure still awaits approved commit, CI, deploy and live verification.",
+          "status": "done",
+          "supersedesEventId": "sg22-billing-completion:task",
+          "sourceRefs": [
+            "test:sg-plugin:283-passed",
+            "roadmap:SG22_PREPAID_BILLING_AND_MODEL_ROUTING_PLAN.md"
+          ]
+        }
+      ]
     }
   ]
 }

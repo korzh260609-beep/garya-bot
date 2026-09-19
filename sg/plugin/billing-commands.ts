@@ -1,4 +1,10 @@
-import { SgBillingLedger, type SgBillingEntry } from "./billing-ledger.js";
+import {
+  SgBillingLedger,
+  type SgBillingEntry,
+  type SgBillingFinancialReport,
+  type SgBillingFinancialUser,
+} from "./billing-ledger.js";
+import { reconcileOpenAiBilling } from "./billing-openai-reconciliation.js";
 import { resolveWorkspaceContext } from "./context.js";
 import { SgGlobalProfileRegistry } from "./global-profile-registry.js";
 
@@ -29,15 +35,58 @@ const BILLING_USAGE = [
   "/sg_billing balance <Global ID>",
   "/sg_billing credit <Global ID> <USD> <ID операции>",
   "/sg_billing history <Global ID>",
+  "/sg_billing report",
+  "/sg_billing user <Global ID>",
+  "/sg_billing reconcile [1-31 дней]",
+  "/sg_billing job-bind <Automation Job ID> <Global ID>",
   "/sg_billing diag",
 ].join("\n");
 
 function formatNanoUsd(value: number): string {
-  const whole = Math.floor(value / 1_000_000_000);
-  const fraction = String(value % 1_000_000_000)
+  const sign = value < 0 ? "-" : "";
+  const absolute = Math.abs(value);
+  const whole = Math.floor(absolute / 1_000_000_000);
+  const fraction = String(absolute % 1_000_000_000)
     .padStart(9, "0")
     .replace(/0+$/u, "");
-  return `$${whole}${fraction ? `.${fraction}` : ""}`;
+  return `${sign}$${whole}${fraction ? `.${fraction}` : ""}`;
+}
+
+function reconciliationStatus(report: SgBillingFinancialReport): string {
+  if (report.lastReconciledAt === undefined) {
+    return "нет успешной сверки";
+  }
+  const ageMs = Date.now() - report.lastReconciledAt;
+  const freshness = ageMs <= 24 * 60 * 60 * 1_000 ? "актуальна" : "устарела";
+  return `${freshness}, ${new Date(report.lastReconciledAt).toISOString()}`;
+}
+
+function formatFinancialUser(user: SgBillingFinancialUser): string {
+  return [
+    `${user.globalId} (${user.role})`,
+    `затраты=${formatNanoUsd(user.providerCostNanoUsd)}`,
+    `выручка=${formatNanoUsd(user.chargedNanoUsd)}`,
+    `результат=${formatNanoUsd(user.profitNanoUsd)}`,
+    `в обработке=${user.pendingOperationCount}`,
+  ].join(" | ");
+}
+
+function formatFinancialReport(report: SgBillingFinancialReport): string {
+  return [
+    "SG BILLING REPORT — проект",
+    `Затраты провайдера: ${formatNanoUsd(report.projectProviderCostNanoUsd)}`,
+    `Локально атрибутировано: ${formatNanoUsd(report.attributedProviderCostNanoUsd)}`,
+    `Корректировка Admin API: ${formatNanoUsd(report.reconciliationAdjustmentNanoUsd)}`,
+    `Выручка пользователей: ${formatNanoUsd(report.revenueNanoUsd)}`,
+    `Прибыль проекта: ${formatNanoUsd(report.profitNanoUsd)}`,
+    `Затраты монарха: ${formatNanoUsd(report.monarchProviderCostNanoUsd)}`,
+    `Затраты граждан: ${formatNanoUsd(report.citizenProviderCostNanoUsd)}`,
+    `Операций в обработке: ${report.pendingOperationCount}`,
+    `Окон сверки: ${report.reconciliationWindowCount}`,
+    `Сверка: ${reconciliationStatus(report)}`,
+    "По пользователям:",
+    ...(report.users.length ? report.users.map(formatFinancialUser) : ["операций нет"]),
+  ].join("\n");
 }
 
 function parsePositiveUsd(value: string): number | undefined {
@@ -108,6 +157,9 @@ async function withLedger<T>(stateDir: string, run: (ledger: SgBillingLedger) =>
 export function registerSgBillingCommands(params: {
   api: BillingCommandApi;
   stateDir: string;
+  env?: NodeJS.ProcessEnv;
+  fetchFn?: typeof fetch;
+  now?: () => number;
 }): void {
   const { api, stateDir } = params;
   const profiles = new SgGlobalProfileRegistry(stateDir);
@@ -147,6 +199,48 @@ export function registerSgBillingCommands(params: {
 
         const args = ctx.args?.trim().split(/\s+/u).filter(Boolean) ?? [];
         const [action, globalId, value, operationId, ...extra] = args;
+        if (action === "report" && !globalId) {
+          const report = await withLedger(stateDir, (ledger) => ledger.financialReport());
+          return { text: formatFinancialReport(report) };
+        }
+        if (action === "user" && globalId && !value) {
+          if (!(await profiles.findByGlobalId(globalId))) {
+            return { text: "SG BILLING — Global ID не найден или неактивен" };
+          }
+          const report = await withLedger(stateDir, (ledger) => ledger.financialReport());
+          const users = report.users.filter((user) => user.globalId === globalId);
+          return {
+            text: users.length
+              ? [`SG BILLING USER — ${globalId}`, ...users.map(formatFinancialUser)].join("\n")
+              : `SG BILLING USER — ${globalId}\nОпераций нет`,
+          };
+        }
+        if (action === "reconcile" && !value && !operationId && extra.length === 0) {
+          const days = globalId === undefined ? undefined : Number(globalId);
+          if (
+            days !== undefined &&
+            (!Number.isInteger(days) || days < 1 || days > 31 || String(days) !== globalId)
+          ) {
+            return { text: BILLING_USAGE };
+          }
+          const result = await reconcileOpenAiBilling({
+            stateDir,
+            env: params.env ?? process.env,
+            ...(params.fetchFn ? { fetchFn: params.fetchFn } : {}),
+            ...(params.now ? { now: params.now() } : {}),
+            ...(days === undefined ? {} : { days }),
+          });
+          return {
+            text: [
+              "SG BILLING — сверка завершена",
+              `Проект OpenAI: ${result.projectId}`,
+              `Окон: ${result.windowCount}`,
+              `Затраты Admin API: ${formatNanoUsd(result.providerCostNanoUsd)}`,
+              `Локально атрибутировано: ${formatNanoUsd(result.attributedCostNanoUsd)}`,
+              `Корректировка: ${formatNanoUsd(result.differenceNanoUsd)}`,
+            ].join("\n"),
+          };
+        }
         if (action === "diag" && !globalId) {
           const diagnostic = await withLedger(stateDir, (ledger) => ledger.diagnostics());
           const structurallySound =
@@ -173,6 +267,32 @@ export function registerSgBillingCommands(params: {
                   ? "нет"
                   : new Date(diagnostic.oldestReservedAt).toISOString()
               }`,
+            ].join("\n"),
+          };
+        }
+
+        if (action === "job-bind") {
+          if (!globalId || !value || operationId || extra.length > 0) {
+            return { text: BILLING_USAGE };
+          }
+          const profile = await profiles.findByGlobalId(value);
+          if (!profile || (profile.role !== "monarch" && profile.role !== "citizen")) {
+            return { text: "SG BILLING — Global ID не найден или неактивен" };
+          }
+          const billingRole = profile.role;
+          await withLedger(stateDir, (ledger) =>
+            ledger.bindAutomationOwner({
+              jobId: globalId,
+              globalId: profile.globalId,
+              role: billingRole,
+            }),
+          );
+          return {
+            text: [
+              "SG BILLING — automation привязана",
+              `Job ID: ${globalId}`,
+              `Global ID: ${profile.globalId}`,
+              `Роль: ${billingRole}`,
             ].join("\n"),
           };
         }
@@ -227,6 +347,16 @@ export function registerSgBillingCommands(params: {
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         api.logger?.warn(`[sg-billing] command failed safely: ${message}`);
+        if (message.startsWith("sg-billing-admin-")) {
+          return {
+            text:
+              message === "sg-billing-admin-key-missing"
+                ? "SG BILLING — OPENAI_ADMIN_KEY не настроен"
+                : message === "sg-billing-openai-project-id-missing"
+                  ? "SG BILLING — OPENAI_PROJECT_ID не настроен"
+                  : "SG BILLING — сверка Admin API временно недоступна; локальный учёт продолжает работать",
+          };
+        }
         return {
           text:
             message === "sg-billing-idempotency-conflict"

@@ -1,1 +1,1 @@
-FROM ghcr.io/korzh260609-beep/garya-bot-sg22:8dc03b8de304ab036515fb1e03b5fcc81c51ec47
+FROM ghcr.io/korzh260609-beep/garya-bot-sg22:b10cad19c5b4d85b880bd9855f0a42613dcd6f19

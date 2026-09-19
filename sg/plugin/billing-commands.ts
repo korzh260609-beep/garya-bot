@@ -38,6 +38,7 @@ const BILLING_USAGE = [
   "/sg_billing report",
   "/sg_billing user <Global ID>",
   "/sg_billing reconcile [1-31 дней]",
+  "/sg_billing resolve-stale-monarch <30-10080 минут>",
   "/sg_billing job-bind <Automation Job ID> <Global ID>",
   "/sg_billing diag",
 ].join("\n");
@@ -52,6 +53,14 @@ function formatNanoUsd(value: number): string {
   return `${sign}$${whole}${fraction ? `.${fraction}` : ""}`;
 }
 
+function formatDisplayUsd(value: number): string {
+  const sign = value < 0 ? "−" : "";
+  const roundedMicroUsd = Math.floor((Math.abs(value) + 500) / 1_000);
+  const whole = Math.floor(roundedMicroUsd / 1_000_000);
+  const fraction = String(roundedMicroUsd % 1_000_000).padStart(6, "0");
+  return `${sign}$${whole}.${fraction}`;
+}
+
 function reconciliationStatus(report: SgBillingFinancialReport): string {
   if (report.lastReconciledAt === undefined) {
     return "нет успешной сверки";
@@ -63,29 +72,50 @@ function reconciliationStatus(report: SgBillingFinancialReport): string {
 
 function formatFinancialUser(user: SgBillingFinancialUser): string {
   return [
-    `${user.globalId} (${user.role})`,
-    `затраты=${formatNanoUsd(user.providerCostNanoUsd)}`,
-    `выручка=${formatNanoUsd(user.chargedNanoUsd)}`,
-    `результат=${formatNanoUsd(user.profitNanoUsd)}`,
-    `в обработке=${user.pendingOperationCount}`,
-  ].join(" | ");
+    "Global ID:",
+    user.globalId,
+    `Роль: ${user.role === "monarch" ? "монарх" : "гражданин"}`,
+    "",
+    "РАСХОДЫ",
+    `OpenAI: ${formatDisplayUsd(user.providerCostNanoUsd)}`,
+    "",
+    "ДОХОД",
+    `Выручка: ${formatDisplayUsd(user.chargedNanoUsd)}`,
+    `Финансовый результат: ${formatDisplayUsd(user.profitNanoUsd)}`,
+    "",
+    "СТАТУС",
+    `Операций в обработке: ${user.pendingOperationCount}`,
+  ].join("\n");
 }
 
 function formatFinancialReport(report: SgBillingFinancialReport): string {
   return [
-    "SG BILLING REPORT — проект",
-    `Затраты провайдера: ${formatNanoUsd(report.projectProviderCostNanoUsd)}`,
-    `Локально атрибутировано: ${formatNanoUsd(report.attributedProviderCostNanoUsd)}`,
-    `Корректировка Admin API: ${formatNanoUsd(report.reconciliationAdjustmentNanoUsd)}`,
-    `Выручка пользователей: ${formatNanoUsd(report.revenueNanoUsd)}`,
-    `Прибыль проекта: ${formatNanoUsd(report.profitNanoUsd)}`,
-    `Затраты монарха: ${formatNanoUsd(report.monarchProviderCostNanoUsd)}`,
-    `Затраты граждан: ${formatNanoUsd(report.citizenProviderCostNanoUsd)}`,
+    "SG BILLING — ПРОЕКТ",
+    "",
+    "РАСХОДЫ",
+    `OpenAI всего: ${formatDisplayUsd(report.projectProviderCostNanoUsd)}`,
+    `Локально распределено: ${formatDisplayUsd(report.attributedProviderCostNanoUsd)}`,
+    `Корректировка Admin API: ${formatDisplayUsd(report.reconciliationAdjustmentNanoUsd)}`,
+    `Монарх: ${formatDisplayUsd(report.monarchProviderCostNanoUsd)}`,
+    `Граждане: ${formatDisplayUsd(report.citizenProviderCostNanoUsd)}`,
+    "",
+    "ДОХОД",
+    `Выручка пользователей: ${formatDisplayUsd(report.revenueNanoUsd)}`,
+    `Прибыль проекта: ${formatDisplayUsd(report.profitNanoUsd)}`,
+    "",
+    "СТАТУС",
     `Операций в обработке: ${report.pendingOperationCount}`,
     `Окон сверки: ${report.reconciliationWindowCount}`,
     `Сверка: ${reconciliationStatus(report)}`,
-    "По пользователям:",
-    ...(report.users.length ? report.users.map(formatFinancialUser) : ["операций нет"]),
+    "",
+    "ПО ПОЛЬЗОВАТЕЛЯМ",
+    ...(report.users.length
+      ? report.users.flatMap((user, index) => [
+          ...(index === 0 ? [] : [""]),
+          `ПОЛЬЗОВАТЕЛЬ ${index + 1}`,
+          formatFinancialUser(user),
+        ])
+      : ["Операций нет"]),
   ].join("\n");
 }
 
@@ -211,8 +241,8 @@ export function registerSgBillingCommands(params: {
           const users = report.users.filter((user) => user.globalId === globalId);
           return {
             text: users.length
-              ? [`SG BILLING USER — ${globalId}`, ...users.map(formatFinancialUser)].join("\n")
-              : `SG BILLING USER — ${globalId}\nОпераций нет`,
+              ? ["SG BILLING — ПОЛЬЗОВАТЕЛЬ", "", ...users.map(formatFinancialUser)].join("\n")
+              : `SG BILLING — ПОЛЬЗОВАТЕЛЬ\n\nGlobal ID:\n${globalId}\n\nОпераций нет`,
           };
         }
         if (action === "reconcile" && !value && !operationId && extra.length === 0) {
@@ -267,6 +297,38 @@ export function registerSgBillingCommands(params: {
                   ? "нет"
                   : new Date(diagnostic.oldestReservedAt).toISOString()
               }`,
+            ].join("\n"),
+          };
+        }
+
+        if (
+          action === "resolve-stale-monarch" &&
+          globalId &&
+          !value &&
+          !operationId &&
+          extra.length === 0
+        ) {
+          const staleMinutes = Number(globalId);
+          if (
+            !Number.isInteger(staleMinutes) ||
+            staleMinutes < 30 ||
+            staleMinutes > 10_080 ||
+            String(staleMinutes) !== globalId
+          ) {
+            return { text: BILLING_USAGE };
+          }
+          const now = params.now?.() ?? Date.now();
+          const result = await withLedger(stateDir, (ledger) =>
+            ledger.resolveStaleMonarchOperations(now - staleMinutes * 60_000),
+          );
+          return {
+            text: [
+              "SG BILLING — старые операции монарха закрыты",
+              `Порог возраста: ${staleMinutes} мин`,
+              `Закрыто операций: ${result.operationCount}`,
+              `Закрыто частей без цены: ${result.unpricedPartCount}`,
+              "Списание с монарха: $0.000000",
+              "Общие расходы сохранены сверкой Admin API",
             ].join("\n"),
           };
         }
@@ -355,6 +417,11 @@ export function registerSgBillingCommands(params: {
                 : message === "sg-billing-openai-project-id-missing"
                   ? "SG BILLING — OPENAI_PROJECT_ID не настроен"
                   : "SG BILLING — сверка Admin API временно недоступна; локальный учёт продолжает работать",
+          };
+        }
+        if (message === "sg-billing-reconciliation-required") {
+          return {
+            text: "SG BILLING — сначала выполните /sg_billing reconcile 1",
           };
         }
         return {

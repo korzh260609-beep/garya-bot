@@ -176,6 +176,93 @@ describe("SG billing commands", () => {
     after.close();
   });
 
+  it("closes only stale unpriced Monarch operations after Admin API reconciliation", async () => {
+    const createdAt = Date.now();
+    const { stateDir, invoke } = await fixture({ now: () => createdAt + 31 * 60_000 });
+    const ledger = new SgBillingLedger(stateDir);
+    await ledger.startTrackedOperation({
+      globalId: "usr_monarch",
+      operationId: "usage:stale-monarch",
+      role: "monarch",
+    });
+    await ledger.recordUnpricedPart({
+      globalId: "usr_monarch",
+      operationId: "usage:stale-monarch",
+      partId: "model:unknown",
+    });
+    await ledger.credit({
+      globalId: "usr_citizen",
+      creditId: "credit:stale-citizen",
+      amountNanoUsd: 1_000_000_000,
+    });
+    await ledger.reserve({
+      globalId: "usr_citizen",
+      operationId: "usage:stale-citizen",
+      amountNanoUsd: 500_000_000,
+    });
+    await ledger.recordUnpricedPart({
+      globalId: "usr_citizen",
+      operationId: "usage:stale-citizen",
+      partId: "model:unknown",
+    });
+    await ledger.recordReconciliationWindow({
+      provider: "openai",
+      projectId: "proj_sg",
+      windowStartMs: createdAt - 60_000,
+      windowEndMs: createdAt,
+      providerCostNanoUsd: 100_000,
+      attributedCostNanoUsd: 0,
+      differenceNanoUsd: 100_000,
+      sourceDigest: "digest:stale-repair",
+    });
+    ledger.close();
+
+    await expect(invoke("sg_billing", "100", "resolve-stale-monarch 30")).resolves.toEqual({
+      text: expect.stringMatching(/Закрыто операций: 1[\s\S]*Закрыто частей без цены: 1/u),
+    });
+    await expect(invoke("sg_billing", "100", "resolve-stale-monarch 30")).resolves.toEqual({
+      text: expect.stringMatching(/Закрыто операций: 0[\s\S]*Закрыто частей без цены: 0/u),
+    });
+    const after = new SgBillingLedger(stateDir);
+    await expect(after.financialReport()).resolves.toMatchObject({ pendingOperationCount: 1 });
+    await expect(after.diagnostics()).resolves.toMatchObject({
+      reservedOperationCount: 1,
+      blockedOperationCount: 1,
+      unpricedPartCount: 1,
+      reservedBalanceMismatchCount: 0,
+    });
+    await expect(after.entries("usr_monarch")).resolves.toEqual([
+      expect.objectContaining({
+        operationId: "usage:stale-monarch",
+        type: "complete",
+        outcome: "error",
+        actualCostNanoUsd: 0,
+        chargedNanoUsd: 0,
+      }),
+    ]);
+    after.close();
+  });
+
+  it("refuses stale cleanup until an Admin API reconciliation exists", async () => {
+    const { stateDir, invoke } = await fixture({ now: () => Date.now() + 31 * 60_000 });
+    const ledger = new SgBillingLedger(stateDir);
+    await ledger.startTrackedOperation({
+      globalId: "usr_monarch",
+      operationId: "usage:no-reconciliation",
+      role: "monarch",
+    });
+    await ledger.recordUnpricedPart({
+      globalId: "usr_monarch",
+      operationId: "usage:no-reconciliation",
+      partId: "model:unknown",
+    });
+    ledger.close();
+
+    await expect(invoke("sg_billing", "100", "resolve-stale-monarch 30")).resolves.toEqual({
+      text: "SG BILLING — сначала выполните /sg_billing reconcile 1",
+    });
+  });
+
   it("lets only the Monarch bind an existing automation to a verified Global ID", async () => {
     const { stateDir, invoke } = await fixture();
 
@@ -235,15 +322,21 @@ describe("SG billing commands", () => {
       text: "SG BILLING — доступ разрешён только монарху",
     });
     const report = await invoke("sg_billing", "100", "report");
-    expect(report.text).toMatch(/Затраты провайдера: \$0\.75/u);
-    expect(report.text).toMatch(/Выручка пользователей: \$1/u);
-    expect(report.text).toMatch(/Прибыль проекта: \$0\.25/u);
-    expect(report.text).toMatch(/Затраты монарха: \$0\.25/u);
-    expect(report.text).toMatch(/usr_citizen \(citizen\).*выручка=\$1/u);
-    expect(report.text).toMatch(/usr_monarch \(monarch\).*выручка=\$0/u);
+    expect(report.text).toMatch(/РАСХОДЫ[\s\S]*OpenAI всего: \$0\.750000/u);
+    expect(report.text).toMatch(/ДОХОД[\s\S]*Выручка пользователей: \$1\.000000/u);
+    expect(report.text).toMatch(/Прибыль проекта: \$0\.250000/u);
+    expect(report.text).toMatch(/Монарх: \$0\.250000/u);
+    expect(report.text).toMatch(
+      /Global ID:\nusr_citizen\nРоль: гражданин[\s\S]*Выручка: \$1\.000000/u,
+    );
+    expect(report.text).toMatch(
+      /Global ID:\nusr_monarch\nРоль: монарх[\s\S]*Выручка: \$0\.000000/u,
+    );
 
     const user = await invoke("sg_billing", "100", "user usr_citizen");
-    expect(user.text).toContain("SG BILLING USER — usr_citizen");
+    expect(user.text).toMatch(
+      /SG BILLING — ПОЛЬЗОВАТЕЛЬ[\s\S]*Global ID:\nusr_citizen[\s\S]*РАСХОДЫ[\s\S]*ДОХОД[\s\S]*СТАТУС/u,
+    );
     expect(user.text).not.toContain("usr_monarch");
   });
 

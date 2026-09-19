@@ -74,6 +74,11 @@ export type SgBillingReconciliationWindow = {
   sourceDigest: string;
 };
 
+export type SgBillingStaleMonarchResolution = {
+  operationCount: number;
+  unpricedPartCount: number;
+};
+
 type BillingAccountRow = {
   balance_nano_usd: number;
   reserved_nano_usd: number;
@@ -596,6 +601,105 @@ export class SgBillingLedger {
         : { lastReconciledAt: reconciliation.last_synced }),
       users,
     };
+  }
+
+  async resolveStaleMonarchOperations(
+    staleBeforeMsInput: number,
+  ): Promise<SgBillingStaleMonarchResolution> {
+    const staleBeforeMs = requireNanoUsd(staleBeforeMsInput, "stale-before", true);
+    let operationCount = 0;
+    let unpricedPartCount = 0;
+    runSqliteImmediateTransactionSync(
+      this.database,
+      () => {
+        const reconciliationWindowCount = (
+          this.database
+            .prepare("SELECT COUNT(*) AS count FROM sg_billing_reconciliation_windows")
+            .get() as { count: number }
+        ).count;
+        if (reconciliationWindowCount === 0) {
+          throw new Error("sg-billing-reconciliation-required");
+        }
+        const operations = this.database
+          .prepare(
+            `SELECT global_id, operation_id
+             FROM sg_billing_operations
+             WHERE operation_type = 'usage'
+               AND state = 'reserved'
+               AND billing_role = 'monarch'
+               AND charge_multiplier = 0
+               AND updated_at <= ?
+               AND EXISTS (
+                 SELECT 1
+                 FROM sg_billing_operation_parts AS parts
+                 WHERE parts.global_id = sg_billing_operations.global_id
+                   AND parts.operation_id = sg_billing_operations.operation_id
+                   AND parts.actual_cost_nano_usd IS NULL
+               )
+             ORDER BY created_at, global_id, operation_id`,
+          )
+          .all(staleBeforeMs) as Array<{ global_id: string; operation_id: string }>;
+        const now = Date.now();
+        for (const item of operations) {
+          const operation = this.operation(item.global_id, item.operation_id);
+          if (!operation || operation.state !== "reserved" || operation.charge_multiplier !== 0) {
+            throw new Error("sg-billing-stale-operation-invalid");
+          }
+          const resolvedParts = this.database
+            .prepare(
+              `UPDATE sg_billing_operation_parts
+               SET outcome = 'error', actual_cost_nano_usd = 0, charged_nano_usd = 0,
+                   updated_at = ?
+               WHERE global_id = ? AND operation_id = ? AND actual_cost_nano_usd IS NULL`,
+            )
+            .run(now, item.global_id, item.operation_id).changes;
+          const totals = this.database
+            .prepare(
+              `SELECT COALESCE(SUM(actual_cost_nano_usd), 0) AS actual_cost,
+                      COALESCE(SUM(charged_nano_usd), 0) AS charged
+               FROM sg_billing_operation_parts
+               WHERE global_id = ? AND operation_id = ?`,
+            )
+            .get(item.global_id, item.operation_id) as { actual_cost: number; charged: number };
+          const account = this.account(item.global_id);
+          const remainingReserve = operation.amount_nano_usd - totals.charged;
+          if (remainingReserve < 0 || account.reserved_nano_usd < remainingReserve) {
+            throw new Error("sg-billing-stale-reserve-invalid");
+          }
+          this.database
+            .prepare(
+              `UPDATE sg_billing_operations
+               SET state = 'terminal', outcome = 'error', actual_cost_nano_usd = ?,
+                   charged_nano_usd = ?, updated_at = ?
+               WHERE global_id = ? AND operation_id = ?`,
+            )
+            .run(totals.actual_cost, totals.charged, now, item.global_id, item.operation_id);
+          this.database
+            .prepare(
+              `UPDATE sg_billing_accounts
+               SET reserved_nano_usd = ?, updated_at = ?
+               WHERE global_id = ?`,
+            )
+            .run(account.reserved_nano_usd - remainingReserve, now, item.global_id);
+          this.database
+            .prepare(
+              `INSERT INTO sg_billing_entries
+                (global_id, operation_id, entry_type, outcome,
+                 actual_cost_nano_usd, charged_nano_usd, created_at)
+               VALUES (?, ?, 'complete', 'error', ?, ?, ?)`,
+            )
+            .run(item.global_id, item.operation_id, totals.actual_cost, totals.charged, now);
+          operationCount += 1;
+          unpricedPartCount += resolvedParts;
+        }
+      },
+      {
+        busyTimeoutMs: 5_000,
+        databaseLabel: "sg-billing-ledger",
+        operationLabel: "resolve-stale-monarch-operations",
+      },
+    );
+    return { operationCount, unpricedPartCount };
   }
 
   async credit(params: {

@@ -29,6 +29,14 @@ export default defineConfig({
         replacement: path.join(repoRoot, "src/plugin-sdk/session-transcript-runtime.ts"),
       },
       {
+        find: "openclaw/plugin-sdk/session-store-runtime",
+        replacement: path.join(repoRoot, "src/plugin-sdk/session-store-runtime.ts"),
+      },
+      {
+        find: "openclaw/plugin-sdk/session-key-runtime",
+        replacement: path.join(repoRoot, "src/plugin-sdk/session-key-runtime.ts"),
+      },
+      {
         find: "openclaw/plugin-sdk/tool-results",
         replacement: path.join(repoRoot, "src/plugin-sdk/tool-results.ts"),
       },

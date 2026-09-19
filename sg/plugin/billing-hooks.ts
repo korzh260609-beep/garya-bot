@@ -1,5 +1,5 @@
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
-import { SgBillingLedger, usdToNanoUsd } from "./billing-ledger.js";
+import { SgBillingLedger, type SgBillingOperationSource, usdToNanoUsd } from "./billing-ledger.js";
 import { resolveSgCanonicalIdentity } from "./context.js";
 import { SgGlobalProfileRegistry } from "./global-profile-registry.js";
 
@@ -14,6 +14,7 @@ const NANO_USD_PER_TOKEN_PER_MILLION_RATE = 1_000;
 const CUSTOMER_PRICE_MULTIPLIER = 2;
 
 type BillingIdentity = { globalId: string; role: "monarch" | "citizen" };
+type BillingOwner = BillingIdentity & { source: SgBillingOperationSource };
 type ModelRates = { input: number; output: number; cacheRead: number; cacheWrite: number };
 
 function automationJobId(ctx: { jobId?: string; sessionKey?: string }): string | undefined {
@@ -123,6 +124,44 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
     });
     return canonicalIdentity ? profiles.findByCanonicalIdentity(canonicalIdentity) : undefined;
   };
+  const activeOwner = async <T extends BillingOwner>(owner: T | undefined) => {
+    if (!owner) {
+      return undefined;
+    }
+    const profile = await profiles.findByGlobalId(owner.globalId);
+    return profile?.role === owner.role ? owner : undefined;
+  };
+  const resolveSessionOwner = async (sessionKey?: string) => {
+    const normalizedSessionKey = sessionKey?.trim();
+    if (!normalizedSessionKey) {
+      return undefined;
+    }
+    try {
+      const [{ resolveAgentIdFromSessionKey }, { getSessionEntry }] = await Promise.all([
+        import("openclaw/plugin-sdk/session-key-runtime"),
+        import("openclaw/plugin-sdk/session-store-runtime"),
+      ]);
+      const entry = getSessionEntry({
+        agentId: resolveAgentIdFromSessionKey(normalizedSessionKey),
+        env: { ...process.env, OPENCLAW_STATE_DIR: stateDir },
+        readConsistency: "latest",
+        sessionKey: normalizedSessionKey,
+      });
+      const parentSessionKey = entry?.spawnedBy?.trim();
+      if (!parentSessionKey) {
+        return undefined;
+      }
+      return (
+        (await activeOwner(await ledger.resolveSessionOwner(normalizedSessionKey))) ??
+        activeOwner(await ledger.resolveSessionOwner(parentSessionKey))
+      );
+    } catch (error) {
+      api.logger?.warn(
+        `[sg-billing] session owner lookup failed safely: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return undefined;
+    }
+  };
 
   api.on("before_agent_run", async (event, ctx) => {
     const jobId = automationJobId(ctx);
@@ -137,17 +176,26 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
       : undefined;
     const automationOwner =
       automationProfile?.role === storedAutomationOwner?.role ? storedAutomationOwner : undefined;
-    const identity: BillingIdentity | undefined =
+    const directOwner: BillingOwner | undefined =
       profile?.role === "monarch" || profile?.role === "citizen"
-        ? { globalId: profile.globalId, role: profile.role }
-        : automationOwner;
+        ? {
+            globalId: profile.globalId,
+            role: profile.role,
+            source: jobId ? { kind: "automation", id: jobId } : { kind: "request" },
+          }
+        : undefined;
+    const owner: BillingOwner | undefined =
+      directOwner ??
+      (automationOwner && jobId
+        ? { ...automationOwner, source: { kind: "automation", id: jobId } }
+        : await resolveSessionOwner(ctx.sessionKey));
     // OpenClaw resolves this bit from trusted ingress identity before plugin hooks run.
     // Preserve owner availability if the secondary SG profile store itself is unavailable;
     // there is no safe Global ID to which cost can be attributed in that degraded case.
-    if (!identity && event.senderIsOwner === true) {
+    if (!owner && event.senderIsOwner === true) {
       return { outcome: "pass" };
     }
-    if (!identity) {
+    if (!owner) {
       const automationUnbound = Boolean(jobId);
       return {
         outcome: "block",
@@ -170,23 +218,24 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
       };
     }
     const operationId = `run:${runId}`;
-    const source = jobId
-      ? ({ kind: "automation", id: jobId } as const)
-      : ({ kind: "request" } as const);
+    const source = owner.source;
     try {
-      if (identity.role === "monarch") {
+      if (owner.role === "monarch") {
         await ledger.startTrackedOperation({
-          globalId: identity.globalId,
+          globalId: owner.globalId,
           operationId,
           role: "monarch",
           source,
         });
       } else {
-        await ledger.reserveAvailable({ globalId: identity.globalId, operationId, source });
+        await ledger.reserveAvailable({ globalId: owner.globalId, operationId, source });
+      }
+      if (ctx.sessionKey) {
+        await ledger.bindSessionOwner({ sessionKey: ctx.sessionKey, ...owner });
       }
       await ledger.bindCorrelation({
         correlationId: `run:${runId}`,
-        globalId: identity.globalId,
+        globalId: owner.globalId,
         operationId,
       });
       return { outcome: "pass" };

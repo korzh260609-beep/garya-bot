@@ -182,6 +182,11 @@ type BillingAutomationOwnerRow = {
   role: "monarch" | "citizen";
 };
 
+type BillingSessionOwnerRow = BillingAutomationOwnerRow & {
+  source_kind: "request" | "automation";
+  source_id: string | null;
+};
+
 function requireIdentifier(value: string, field: string): string {
   if (!value || value !== value.trim()) {
     throw new Error(`sg-billing-${field}-invalid`);
@@ -370,6 +375,20 @@ export class SgBillingLedger {
         role TEXT NOT NULL CHECK (role IN ('monarch', 'citizen')),
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL
+      ) STRICT;
+
+      CREATE TABLE IF NOT EXISTS sg_billing_session_owners (
+        session_key TEXT PRIMARY KEY,
+        global_id TEXT NOT NULL,
+        role TEXT NOT NULL CHECK (role IN ('monarch', 'citizen')),
+        source_kind TEXT NOT NULL CHECK (source_kind IN ('request', 'automation')),
+        source_id TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        CHECK (
+          (source_kind = 'request' AND source_id IS NULL) OR
+          (source_kind = 'automation' AND source_id IS NOT NULL)
+        )
       ) STRICT;
 
       CREATE TABLE IF NOT EXISTS sg_billing_reconciliation_windows (
@@ -663,6 +682,66 @@ export class SgBillingLedger {
     this.database.prepare(`DELETE FROM sg_billing_automation_owners WHERE job_id = ?`).run(jobId);
   }
 
+  async bindSessionOwner(params: {
+    sessionKey: string;
+    globalId: string;
+    role: "monarch" | "citizen";
+    source: SgBillingOperationSource;
+  }): Promise<void> {
+    const sessionKey = requireIdentifier(params.sessionKey, "session-key");
+    const globalId = requireIdentifier(params.globalId, "global-id");
+    const sourceId =
+      params.source.kind === "automation"
+        ? requireIdentifier(params.source.id ?? "", "source-id")
+        : null;
+    const now = Date.now();
+    this.database
+      .prepare(
+        `INSERT INTO sg_billing_session_owners
+          (session_key, global_id, role, source_kind, source_id, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(session_key) DO UPDATE SET
+           global_id = excluded.global_id,
+           role = excluded.role,
+           source_kind = excluded.source_kind,
+           source_id = excluded.source_id,
+           updated_at = excluded.updated_at`,
+      )
+      .run(sessionKey, globalId, params.role, params.source.kind, sourceId, now, now);
+  }
+
+  async resolveSessionOwner(sessionKeyInput: string): Promise<
+    | {
+        globalId: string;
+        role: "monarch" | "citizen";
+        source: SgBillingOperationSource;
+      }
+    | undefined
+  > {
+    const sessionKey = requireIdentifier(sessionKeyInput, "session-key");
+    const row = this.database
+      .prepare(
+        `SELECT global_id, role, source_kind, source_id
+         FROM sg_billing_session_owners WHERE session_key = ?`,
+      )
+      .get(sessionKey) as BillingSessionOwnerRow | undefined;
+    if (!row) {
+      return undefined;
+    }
+    const source: SgBillingOperationSource =
+      row.source_kind === "automation"
+        ? {
+            kind: "automation",
+            id: requireIdentifier(row.source_id ?? "", "session-owner-source"),
+          }
+        : { kind: "request" };
+    return {
+      globalId: row.global_id,
+      role: row.role,
+      source,
+    };
+  }
+
   async actualCostForWindow(params: { startMs: number; endMs: number }): Promise<number> {
     const startMs = requireNanoUsd(params.startMs, "window-start", true);
     const endMs = requireNanoUsd(params.endMs, "window-end");
@@ -797,16 +876,18 @@ export class SgBillingLedger {
          )`,
       )
       .get() as { adjustment: number; windows: number; last_synced: number | null };
-    const users = usageRows.map((row): SgBillingFinancialUser => ({
-      globalId: row.global_id,
-      role: row.billing_role,
-      providerCostNanoUsd: row.provider_cost,
-      chargedNanoUsd: row.charged,
-      profitNanoUsd: row.charged - row.provider_cost,
-      pendingOperationCount: row.pending,
-      completedOperationCount: row.completed,
-      lastOperationAt: row.last_operation,
-    }));
+    const users = usageRows.map(
+      (row): SgBillingFinancialUser => ({
+        globalId: row.global_id,
+        role: row.billing_role,
+        providerCostNanoUsd: row.provider_cost,
+        chargedNanoUsd: row.charged,
+        profitNanoUsd: row.charged - row.provider_cost,
+        pendingOperationCount: row.pending,
+        completedOperationCount: row.completed,
+        lastOperationAt: row.last_operation,
+      }),
+    );
     const attributedProviderCostNanoUsd = users.reduce(
       (total, user) => checkedAdd(total, user.providerCostNanoUsd),
       0,

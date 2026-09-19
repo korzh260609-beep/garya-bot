@@ -1,6 +1,7 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { upsertSessionEntry } from "openclaw/plugin-sdk/session-store-runtime";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { SgBillingLedger, usdToNanoUsd } from "./billing-ledger.js";
 import { registerWorkspaceManager } from "./register.js";
@@ -86,6 +87,25 @@ async function entries(root: string, globalId: string) {
   } finally {
     ledger.close();
   }
+}
+
+async function createSpawnedSession(params: {
+  root: string;
+  agentId: string;
+  sessionKey: string;
+  sessionId: string;
+  spawnedBy: string;
+}) {
+  await upsertSessionEntry({
+    agentId: params.agentId,
+    env: { ...process.env, OPENCLAW_STATE_DIR: params.root },
+    sessionKey: params.sessionKey,
+    entry: {
+      sessionId: params.sessionId,
+      updatedAt: Date.now(),
+      spawnedBy: params.spawnedBy,
+    },
+  });
 }
 
 function register(root: string) {
@@ -386,6 +406,177 @@ describe("SG billing hook integration contract", () => {
         chargedNanoUsd: 0,
         sourceKind: "automation",
         sourceId: "job-daily",
+      }),
+    ]);
+  });
+
+  it("inherits the verified Monarch billing identity through native subagent lineage", async () => {
+    const root = await createStateDir();
+    const { hooks } = register(root);
+    const parentSessionKey = "agent:main:telegram:direct:100";
+    const childSessionKey = "agent:research:subagent:billing-check";
+
+    const parent = await runHooks(
+      hooks,
+      "before_agent_run",
+      { ...beforeRunEvent, channelId: "100", senderId: "100", senderIsOwner: true },
+      {
+        ...agentContext("run-parent"),
+        sessionId: "session-parent",
+        sessionKey: parentSessionKey,
+        channelId: "100",
+        senderId: "100",
+      },
+    );
+    await createSpawnedSession({
+      root,
+      agentId: "research",
+      sessionKey: childSessionKey,
+      sessionId: "session-child",
+      spawnedBy: parentSessionKey,
+    });
+
+    const child = await runHooks(
+      hooks,
+      "before_agent_run",
+      { prompt: "Check billing", messages: [] },
+      {
+        runId: "run-child",
+        agentId: "research",
+        sessionId: "session-child",
+        sessionKey: childSessionKey,
+        modelProviderId: "openai",
+        modelId: "gpt-5.6-terra",
+      },
+    );
+
+    expect(parent).toContainEqual({ outcome: "pass" });
+    expect(child).toContainEqual({ outcome: "pass" });
+  });
+
+  it("preserves native subagent ownership across nested delegation", async () => {
+    const root = await createStateDir();
+    const { hooks } = register(root);
+    const parentSessionKey = "agent:main:telegram:direct:100";
+    const childSessionKey = "agent:research:subagent:billing-child";
+    const grandchildSessionKey = "agent:reviewer:subagent:billing-grandchild";
+
+    await runHooks(
+      hooks,
+      "before_agent_run",
+      { ...beforeRunEvent, channelId: "100", senderId: "100", senderIsOwner: true },
+      {
+        ...agentContext("run-nested-parent"),
+        sessionKey: parentSessionKey,
+        channelId: "100",
+        senderId: "100",
+      },
+    );
+    await createSpawnedSession({
+      root,
+      agentId: "research",
+      sessionKey: childSessionKey,
+      sessionId: "session-nested-child",
+      spawnedBy: parentSessionKey,
+    });
+    await runHooks(
+      hooks,
+      "before_agent_run",
+      { prompt: "First delegation", messages: [] },
+      { runId: "run-nested-child", agentId: "research", sessionKey: childSessionKey },
+    );
+    await createSpawnedSession({
+      root,
+      agentId: "reviewer",
+      sessionKey: grandchildSessionKey,
+      sessionId: "session-nested-grandchild",
+      spawnedBy: childSessionKey,
+    });
+
+    const grandchild = await runHooks(
+      hooks,
+      "before_agent_run",
+      { prompt: "Second delegation", messages: [] },
+      { runId: "run-nested-grandchild", agentId: "reviewer", sessionKey: grandchildSessionKey },
+    );
+
+    expect(grandchild).toContainEqual({ outcome: "pass" });
+  });
+
+  it("keeps an unowned native subagent blocked", async () => {
+    const root = await createStateDir();
+    const { hooks } = register(root);
+    const childSessionKey = "agent:research:subagent:unowned";
+    await createSpawnedSession({
+      root,
+      agentId: "research",
+      sessionKey: childSessionKey,
+      sessionId: "session-unowned",
+      spawnedBy: "agent:main:telegram:direct:unknown",
+    });
+
+    const result = await runHooks(
+      hooks,
+      "before_agent_run",
+      { prompt: "Unowned", messages: [] },
+      { runId: "run-unowned-child", agentId: "research", sessionKey: childSessionKey },
+    );
+
+    expect(result).toContainEqual(
+      expect.objectContaining({ outcome: "block", category: "cost_identity_unresolved" }),
+    );
+  });
+
+  it("preserves the automation source when its bound Monarch run delegates", async () => {
+    const root = await createStateDir();
+    const setup = new SgBillingLedger(root);
+    await setup.bindAutomationOwner({
+      jobId: "job-delegating",
+      globalId: "usr_monarch",
+      role: "monarch",
+    });
+    setup.close();
+    const { hooks } = register(root);
+    const parentSessionKey = "agent:main:cron:job-delegating:run:1";
+    const childSessionKey = "agent:research:subagent:automation-child";
+
+    await runHooks(
+      hooks,
+      "before_agent_run",
+      { prompt: "Scheduled check", messages: [] },
+      {
+        runId: "run-automation-parent",
+        jobId: "job-delegating",
+        agentId: "main",
+        sessionKey: parentSessionKey,
+      },
+    );
+    await createSpawnedSession({
+      root,
+      agentId: "research",
+      sessionKey: childSessionKey,
+      sessionId: "session-automation-child",
+      spawnedBy: parentSessionKey,
+    });
+    const childContext = {
+      runId: "run-automation-child",
+      agentId: "research",
+      sessionKey: childSessionKey,
+    };
+    const admitted = await runHooks(
+      hooks,
+      "before_agent_run",
+      { prompt: "Delegated scheduled check", messages: [] },
+      childContext,
+    );
+    await runHooks(hooks, "agent_end", { messages: [], success: true }, childContext);
+
+    expect(admitted).toContainEqual({ outcome: "pass" });
+    await expect(entries(root, "usr_monarch")).resolves.toEqual([
+      expect.objectContaining({
+        operationId: "run:run-automation-child",
+        sourceKind: "automation",
+        sourceId: "job-delegating",
       }),
     ]);
   });

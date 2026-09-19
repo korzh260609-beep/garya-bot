@@ -419,6 +419,72 @@ describe("SG prepaid billing ledger", () => {
     });
   });
 
+  it("persists the verified owner and source for native session delegation", async () => {
+    const { ledger, root } = await openLedger();
+    await ledger.bindSessionOwner({
+      sessionKey: "agent:main:telegram:group:1",
+      globalId: "usr_monarch",
+      role: "monarch",
+      source: { kind: "request" },
+    });
+    await ledger.bindSessionOwner({
+      sessionKey: "agent:main:cron:job-daily:run:1",
+      globalId: "usr_monarch",
+      role: "monarch",
+      source: { kind: "automation", id: "job-daily" },
+    });
+
+    ledger.close();
+    openedLedgers.splice(openedLedgers.indexOf(ledger), 1);
+    const reopened = new SgBillingLedger(root);
+    openedLedgers.push(reopened);
+
+    await expect(reopened.resolveSessionOwner("agent:main:telegram:group:1")).resolves.toEqual({
+      globalId: "usr_monarch",
+      role: "monarch",
+      source: { kind: "request" },
+    });
+    await expect(reopened.resolveSessionOwner("agent:main:cron:job-daily:run:1")).resolves.toEqual({
+      globalId: "usr_monarch",
+      role: "monarch",
+      source: { kind: "automation", id: "job-daily" },
+    });
+  });
+
+  it("updates a shared parent session owner without changing an already bound child", async () => {
+    const { ledger } = await openLedger();
+    const source = { kind: "request" as const };
+    await ledger.bindSessionOwner({
+      sessionKey: "agent:main:telegram:group:1",
+      globalId: "usr_monarch",
+      role: "monarch",
+      source,
+    });
+    await ledger.bindSessionOwner({
+      sessionKey: "agent:research:subagent:child",
+      globalId: "usr_monarch",
+      role: "monarch",
+      source,
+    });
+    await ledger.bindSessionOwner({
+      sessionKey: "agent:main:telegram:group:1",
+      globalId: "usr_citizen",
+      role: "citizen",
+      source,
+    });
+
+    await expect(ledger.resolveSessionOwner("agent:main:telegram:group:1")).resolves.toEqual({
+      globalId: "usr_citizen",
+      role: "citizen",
+      source,
+    });
+    await expect(ledger.resolveSessionOwner("agent:research:subagent:child")).resolves.toEqual({
+      globalId: "usr_monarch",
+      role: "monarch",
+      source,
+    });
+  });
+
   it("migrates a legacy billing database to the role-aware operation schema", async () => {
     const root = await realpath(await mkdtemp(path.join(os.tmpdir(), "sg-billing-legacy-")));
     temporaryRoots.push(root);

@@ -14,6 +14,52 @@ const NANO_USD_PER_TOKEN_PER_MILLION_RATE = 1_000;
 const CUSTOMER_PRICE_MULTIPLIER = 2;
 
 type BillingIdentity = { globalId: string; role: "monarch" | "citizen" };
+type ModelRates = { input: number; output: number; cacheRead: number; cacheWrite: number };
+
+function automationJobId(ctx: { jobId?: string; sessionKey?: string }): string | undefined {
+  const explicit = ctx.jobId?.trim();
+  if (explicit) {
+    return explicit;
+  }
+  return /^agent:[^:]+:cron:([^:]+):run:[^:]+$/u.exec(ctx.sessionKey ?? "")?.[1];
+}
+
+function modelRates(value: ModelRates): ModelRates | undefined {
+  const rates = [value.input, value.output, value.cacheRead, value.cacheWrite];
+  return rates.every((rate) => Number.isFinite(rate) && rate >= 0) && rates.some((rate) => rate > 0)
+    ? { ...value }
+    : undefined;
+}
+
+function estimatedModelCostUsd(
+  usage:
+    | {
+        input?: number;
+        output?: number;
+        cacheRead?: number;
+        cacheWrite?: number;
+      }
+    | undefined,
+  rates: ModelRates | undefined,
+): number | undefined {
+  if (!usage || !rates) {
+    return undefined;
+  }
+  const tokens = [usage.input, usage.output, usage.cacheRead, usage.cacheWrite];
+  if (
+    !tokens.some((value) => value !== undefined) ||
+    tokens.some((value) => value !== undefined && (!Number.isFinite(value) || value < 0))
+  ) {
+    return undefined;
+  }
+  return (
+    ((usage.input ?? 0) * rates.input +
+      (usage.output ?? 0) * rates.output +
+      (usage.cacheRead ?? 0) * rates.cacheRead +
+      (usage.cacheWrite ?? 0) * rates.cacheWrite) /
+    1_000_000
+  );
+}
 
 function record(value: unknown): Record<string, unknown> | undefined {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : undefined;
@@ -62,6 +108,10 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
     string,
     { action: "add" | "update" | "remove"; identity: BillingIdentity; jobId?: string }
   >();
+  const pendingModelRates = new Map<
+    string,
+    { provider: string; model: string; rates: ModelRates }
+  >();
   const resolveProfile = async (channel?: string, senderId?: string) => {
     if (!channel || !senderId) {
       return undefined;
@@ -75,12 +125,13 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
   };
 
   api.on("before_agent_run", async (event, ctx) => {
+    const jobId = automationJobId(ctx);
     const profile = await resolveProfile(
       ctx.channel ?? ctx.messageProvider,
       event.senderId ?? ctx.senderId,
     );
     const storedAutomationOwner =
-      !profile && ctx.jobId ? await ledger.resolveAutomationOwner(ctx.jobId) : undefined;
+      !profile && jobId ? await ledger.resolveAutomationOwner(jobId) : undefined;
     const automationProfile = storedAutomationOwner
       ? await profiles.findByGlobalId(storedAutomationOwner.globalId)
       : undefined;
@@ -97,7 +148,7 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
       return { outcome: "pass" };
     }
     if (!identity) {
-      const automationUnbound = Boolean(ctx.jobId);
+      const automationUnbound = Boolean(jobId);
       return {
         outcome: "block",
         reason: automationUnbound
@@ -162,18 +213,29 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
       return;
     }
     const providerCost = event.usage?.cost;
-    const exactCost =
-      providerCost?.totalOrigin === "provider-billed" && providerCost.total !== undefined
+    const providerBilledCost =
+      providerCost?.totalOrigin === "provider-billed" &&
+      providerCost.total !== undefined &&
+      Number.isFinite(providerCost.total) &&
+      providerCost.total >= 0
         ? providerCost.total
         : undefined;
+    const pricingKey = `${event.runId}\0${event.callId}`;
+    const pricing = pendingModelRates.get(pricingKey);
+    pendingModelRates.delete(pricingKey);
+    const actualCost =
+      providerBilledCost ??
+      (pricing?.provider === event.provider && pricing.model === event.model
+        ? estimatedModelCostUsd(event.usage, pricing.rates)
+        : undefined);
     try {
       await ledger.recordPart({
         ...correlation,
         partId: `model:${event.callId}`,
         outcome: event.outcome,
-        ...(exactCost === undefined ? {} : { actualCostNanoUsd: usdToNanoUsd(exactCost) }),
+        ...(actualCost === undefined ? {} : { actualCostNanoUsd: usdToNanoUsd(actualCost) }),
       });
-      if (exactCost === undefined) {
+      if (actualCost === undefined) {
         api.logger?.warn(
           `[sg-billing] provider cost unavailable; reserve retained for model call ${event.callId}`,
         );
@@ -191,8 +253,17 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
       return;
     }
     try {
+      const rates = modelRates(event.cost);
+      if (!rates) {
+        return { block: true, blockReason: "SG model pricing is unavailable" };
+      }
       const billing = await ledger.operationBilling(correlation);
       if (billing.chargeMultiplier === 0) {
+        pendingModelRates.set(`${event.runId}\0${event.callId}`, {
+          provider: event.provider,
+          model: event.model,
+          rates,
+        });
         return;
       }
       const capacity = await ledger.prepaidCapacity(correlation);
@@ -202,22 +273,8 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
           blockReason: "SG cannot authorize new spend while prior provider cost is unknown",
         };
       }
-      const inputRate = Math.max(
-        event.cost.input,
-        event.cost.cacheRead,
-        event.cost.cacheWrite,
-        event.cost.input * 2,
-      );
-      const outputRate = event.cost.output;
-      if (
-        !Number.isFinite(inputRate) ||
-        inputRate < 0 ||
-        !Number.isFinite(outputRate) ||
-        outputRate < 0 ||
-        (inputRate === 0 && outputRate === 0)
-      ) {
-        return { block: true, blockReason: "SG model pricing is unavailable" };
-      }
+      const inputRate = Math.max(rates.input, rates.cacheRead, rates.cacheWrite, rates.input * 2);
+      const outputRate = rates.output;
       const providerBudgetNanoUsd = Math.floor(
         capacity.remainingNanoUsd / CUSTOMER_PRICE_MULTIPLIER,
       );
@@ -242,6 +299,11 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
         ...correlation,
         partId: `model:${event.callId}`,
         authorizedNanoUsd: providerAuthorizedNanoUsd * CUSTOMER_PRICE_MULTIPLIER,
+      });
+      pendingModelRates.set(`${event.runId}\0${event.callId}`, {
+        provider: event.provider,
+        model: event.model,
+        rates,
       });
       return { maxOutputTokens, maxRetries: 0 };
     } catch (error) {
@@ -454,6 +516,7 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
   });
 
   api.on("gateway_stop", () => {
+    pendingModelRates.clear();
     ledger.close();
   });
 }

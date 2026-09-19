@@ -253,6 +253,61 @@ describe("SG billing hook integration contract", () => {
     ]);
   });
 
+  it("attributes token-priced model usage to the Monarch without charging him", async () => {
+    const root = await createStateDir();
+    const { hooks } = register(root);
+    const ctx = {
+      ...agentContext("run-monarch-token-cost"),
+      sessionKey: "agent:main:telegram:direct:100",
+      channelId: "100",
+      chatId: "telegram:100",
+      senderId: "100",
+    };
+
+    await runHooks(
+      hooks,
+      "before_agent_run",
+      { ...beforeRunEvent, channelId: "100", senderId: "100", senderIsOwner: true },
+      ctx,
+    );
+    await runHooks(
+      hooks,
+      "before_model_call",
+      {
+        runId: "run-monarch-token-cost",
+        callId: "call-monarch-token-cost",
+        provider: "openai",
+        model: "gpt-5.6-terra",
+        maxOutputTokens: 1_000,
+        inputUpperBoundTokens: 1_000,
+        cost: { input: 2, output: 12, cacheRead: 0.2, cacheWrite: 2.5 },
+      },
+      ctx,
+    );
+    await runHooks(
+      hooks,
+      "model_call_ended",
+      {
+        runId: "run-monarch-token-cost",
+        callId: "call-monarch-token-cost",
+        provider: "openai",
+        model: "gpt-5.6-terra",
+        durationMs: 10,
+        outcome: "completed",
+        usage: { input: 100, output: 20, cacheRead: 10, cacheWrite: 5 },
+      },
+      ctx,
+    );
+    await runHooks(hooks, "agent_end", { messages: [], success: true }, ctx);
+
+    await expect(entries(root, "usr_monarch")).resolves.toEqual([
+      expect.objectContaining({
+        actualCostNanoUsd: usdToNanoUsd(0.0004545),
+        chargedNanoUsd: 0,
+      }),
+    ]);
+  });
+
   it("binds a native automation to its proven Monarch creator and admits its cron run", async () => {
     const root = await createStateDir();
     const { hooks } = register(root);
@@ -277,7 +332,6 @@ describe("SG billing hook integration contract", () => {
 
     const cronCtx = {
       runId: "cron:job-daily:1",
-      jobId: "job-daily",
       trigger: "cron",
       agentId: "main",
       sessionKey: "agent:main:cron:job-daily:run:1",
@@ -322,7 +376,6 @@ describe("SG billing hook integration contract", () => {
       { prompt: "Unknown", messages: [] },
       {
         runId: "cron:unknown:1",
-        jobId: "unknown",
         trigger: "cron",
         agentId: "main",
         sessionKey: "agent:main:cron:unknown:run:1",
@@ -597,12 +650,27 @@ describe("SG billing hook integration contract", () => {
     expect((await snapshot(root)).balanceNanoUsd).toBe(openingBalance - usdToNanoUsd(0.0001) * 2);
   });
 
-  it("keeps the run reserved when exact provider cost is missing", async () => {
+  it("settles token usage with the authorized catalog rates when provider cost is missing", async () => {
     const root = await createStateDir();
-    await credit(root, usdToNanoUsd(1));
+    const openingBalance = usdToNanoUsd(1);
+    await credit(root, openingBalance);
     const { hooks, warn } = register(root);
     const ctx = agentContext("run-cost-missing");
     await runHooks(hooks, "before_agent_run", beforeRunEvent, ctx);
+    await runHooks(
+      hooks,
+      "before_model_call",
+      {
+        runId: "run-cost-missing",
+        callId: "call-cost-missing",
+        provider: "openai",
+        model: "gpt-5.6-terra",
+        maxOutputTokens: 1_000,
+        inputUpperBoundTokens: 1_000,
+        cost: { input: 2, output: 12, cacheRead: 0.2, cacheWrite: 2.5 },
+      },
+      ctx,
+    );
 
     await runHooks(
       hooks,
@@ -620,8 +688,12 @@ describe("SG billing hook integration contract", () => {
     );
     await runHooks(hooks, "agent_end", { messages: [], success: true, durationMs: 30 }, ctx);
 
-    expect((await snapshot(root)).reservedNanoUsd).toBeGreaterThan(0);
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining("provider cost unavailable"));
+    await expect(snapshot(root)).resolves.toEqual({
+      balanceNanoUsd: openingBalance - usdToNanoUsd(0.00044) * 2,
+      reservedNanoUsd: 0,
+      availableNanoUsd: openingBalance - usdToNanoUsd(0.00044) * 2,
+    });
+    expect(warn).not.toHaveBeenCalledWith(expect.stringContaining("provider cost unavailable"));
   });
 
   it("reserves media before the tool call and never treats an unpriced terminal as free", async () => {

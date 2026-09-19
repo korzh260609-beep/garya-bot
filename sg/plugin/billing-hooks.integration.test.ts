@@ -249,6 +249,16 @@ describe("SG billing hook integration contract", () => {
         type: "complete",
         actualCostNanoUsd: usdToNanoUsd(0.0002),
         chargedNanoUsd: 0,
+        sourceKind: "request",
+        parts: [
+          expect.objectContaining({
+            kind: "model",
+            provider: "openai",
+            model: "gpt-5.6-terra",
+            costEvidence: "provider-billed",
+            actualCostNanoUsd: usdToNanoUsd(0.0002),
+          }),
+        ],
       }),
     ]);
   });
@@ -304,6 +314,15 @@ describe("SG billing hook integration contract", () => {
       expect.objectContaining({
         actualCostNanoUsd: usdToNanoUsd(0.0004545),
         chargedNanoUsd: 0,
+        parts: [
+          expect.objectContaining({
+            inputTokens: 100,
+            outputTokens: 20,
+            cacheReadTokens: 10,
+            cacheWriteTokens: 5,
+            costEvidence: "catalog-estimate",
+          }),
+        ],
       }),
     ]);
   });
@@ -362,7 +381,12 @@ describe("SG billing hook integration contract", () => {
     );
     await runHooks(hooks, "agent_end", { messages: [], success: true }, cronCtx);
     await expect(entries(root, "usr_monarch")).resolves.toEqual([
-      expect.objectContaining({ actualCostNanoUsd: usdToNanoUsd(0.0001), chargedNanoUsd: 0 }),
+      expect.objectContaining({
+        actualCostNanoUsd: usdToNanoUsd(0.0001),
+        chargedNanoUsd: 0,
+        sourceKind: "automation",
+        sourceId: "job-daily",
+      }),
     ]);
   });
 
@@ -497,7 +521,19 @@ describe("SG billing hook integration contract", () => {
     );
     await runHooks(hooks, "agent_end", { messages: [], success: true }, ctx);
     await expect(entries(root, "usr_monarch")).resolves.toEqual([
-      expect.objectContaining({ actualCostNanoUsd: usdToNanoUsd(0.01), chargedNanoUsd: 0 }),
+      expect.objectContaining({
+        actualCostNanoUsd: usdToNanoUsd(0.01),
+        chargedNanoUsd: 0,
+        parts: [
+          expect.objectContaining({
+            kind: "tool",
+            toolName: "image_generate",
+            provider: "openai",
+            model: "gpt-image-1.5",
+            costEvidence: "provider-billed",
+          }),
+        ],
+      }),
     ]);
   });
 

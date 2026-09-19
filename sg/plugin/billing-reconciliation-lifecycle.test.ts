@@ -18,21 +18,30 @@ async function fixture(env: NodeJS.ProcessEnv) {
   const hooks = new Map<string, Array<() => void | Promise<void>>>();
   const info = vi.fn();
   const warn = vi.fn();
-  const fetchFn = vi.fn(
-    async () =>
-      new Response(
-        JSON.stringify({
-          data: [
-            {
-              start_time: 1_789_171_200,
-              end_time: 1_789_257_600,
-              results: [{ amount: { value: "0.75", currency: "usd" } }],
-            },
-          ],
-          has_more: false,
-        }),
-        { status: 200 },
-      ),
+  const fetchFn = vi.fn(async (input: string | URL | Request) =>
+    new URL(input instanceof Request ? input.url : input).pathname.endsWith("/spend_limit")
+      ? new Response(
+          JSON.stringify({
+            threshold_amount: 2_000,
+            currency: "usd",
+            interval: "month",
+            enforcement: { status: "inactive" },
+          }),
+          { status: 200 },
+        )
+      : new Response(
+          JSON.stringify({
+            data: [
+              {
+                start_time: 1_789_171_200,
+                end_time: 1_789_257_600,
+                results: [{ amount: { value: "0.75", currency: "usd" } }],
+              },
+            ],
+            has_more: false,
+          }),
+          { status: 200 },
+        ),
   ) as typeof fetch;
   registerSgBillingReconciliation({
     stateDir,
@@ -57,11 +66,13 @@ describe("SG billing reconciliation lifecycle", () => {
       await hook();
     }
     await vi.waitFor(() => expect(test.info).toHaveBeenCalledOnce());
-    expect(test.fetchFn).toHaveBeenCalledOnce();
+    expect(test.fetchFn).toHaveBeenCalledTimes(2);
     const ledger = new SgBillingLedger(test.stateDir);
     await expect(ledger.financialReport()).resolves.toMatchObject({
       reconciliationWindowCount: 7,
       reconciliationAdjustmentNanoUsd: 750_000_000,
+      openAiSpendLimitNanoUsd: 20_000_000_000,
+      openAiSpendLimitEnforcement: "inactive",
     });
     ledger.close();
     for (const hook of test.hooks.get("gateway_stop") ?? []) {

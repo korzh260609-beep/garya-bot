@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { readProviderJsonObjectResponse } from "openclaw/plugin-sdk/provider-http";
 import {
   asProviderUsageObject,
   cleanProviderUsageCredential,
@@ -7,6 +8,7 @@ import {
 import { SgBillingLedger } from "./billing-ledger.js";
 
 const OPENAI_COSTS_URL = "https://api.openai.com/v1/organization/costs";
+const OPENAI_SPEND_LIMIT_URL = "https://api.openai.com/v1/organization/spend_limit";
 const RESPONSE_MAX_BYTES = 4 * 1024 * 1024;
 const DAY_MS = 86_400_000;
 const DEFAULT_DAYS = 7;
@@ -20,7 +22,52 @@ export type SgOpenAiReconciliationResult = {
   providerCostNanoUsd: number;
   attributedCostNanoUsd: number;
   differenceNanoUsd: number;
+  spendLimitNanoUsd?: number;
+  spendLimitEnforcement?: "inactive" | "enforcing";
 };
+
+async function fetchOpenAiSpendLimit(params: {
+  adminKey: string;
+  fetchFn: typeof fetch;
+  timeoutMs: number;
+}): Promise<{ spendLimitNanoUsd: number; enforcement: "inactive" | "enforcing" } | undefined> {
+  let response: Response;
+  try {
+    response = await params.fetchFn(OPENAI_SPEND_LIMIT_URL, {
+      headers: { Accept: "application/json", Authorization: `Bearer ${params.adminKey}` },
+      signal: AbortSignal.timeout(params.timeoutMs),
+    });
+  } catch {
+    return undefined;
+  }
+  if (!response.ok) {
+    return undefined;
+  }
+  try {
+    const payload = await readProviderJsonObjectResponse(response, "OpenAI spend limit", {
+      maxBytes: RESPONSE_MAX_BYTES,
+      timeoutMs: params.timeoutMs,
+    });
+    const enforcement = asProviderUsageObject(payload.enforcement);
+    const thresholdAmount = payload.threshold_amount;
+    const status = enforcement?.status;
+    if (
+      payload.currency !== "usd" ||
+      payload.interval !== "month" ||
+      !Number.isSafeInteger(thresholdAmount) ||
+      (thresholdAmount as number) < 0 ||
+      (status !== "inactive" && status !== "enforcing")
+    ) {
+      return undefined;
+    }
+    const spendLimitNanoUsd = (thresholdAmount as number) * 10_000_000;
+    return Number.isSafeInteger(spendLimitNanoUsd)
+      ? { spendLimitNanoUsd, enforcement: status }
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 function exactDecimalUsdToNanoUsd(value: unknown): number {
   const text =
@@ -116,6 +163,11 @@ export async function reconcileOpenAiBilling(params: {
     }
     throw new Error("sg-billing-admin-usage-unavailable");
   }
+  const spendLimit = await fetchOpenAiSpendLimit({
+    adminKey,
+    fetchFn: params.fetchFn ?? fetch,
+    timeoutMs: params.timeoutMs ?? 15_000,
+  });
 
   const providerByStart = new Map<number, { total: number; evidence: unknown[] }>();
   for (const rawBucket of response.data) {
@@ -192,6 +244,15 @@ export async function reconcileOpenAiBilling(params: {
       attributedCostNanoUsd = checkedAddSigned(attributedCostNanoUsd, attributed);
       differenceNanoUsd = checkedAddSigned(differenceNanoUsd, difference);
     }
+    if (spendLimit) {
+      await ledger.recordProviderFinancialSnapshot({
+        provider: "openai",
+        spendLimitNanoUsd: spendLimit.spendLimitNanoUsd,
+        enforcement: spendLimit.enforcement,
+        interval: "month",
+        syncedAt: params.now ?? Date.now(),
+      });
+    }
   } finally {
     ledger.close();
   }
@@ -203,5 +264,11 @@ export async function reconcileOpenAiBilling(params: {
     providerCostNanoUsd,
     attributedCostNanoUsd,
     differenceNanoUsd,
+    ...(spendLimit
+      ? {
+          spendLimitNanoUsd: spendLimit.spendLimitNanoUsd,
+          spendLimitEnforcement: spendLimit.enforcement,
+        }
+      : {}),
   };
 }

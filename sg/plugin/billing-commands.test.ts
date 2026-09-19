@@ -118,11 +118,50 @@ describe("SG billing commands", () => {
       text: expect.stringContaining("Баланс: $1.250000001"),
     });
     await expect(invoke("sg_billing", "100", "history usr_citizen")).resolves.toEqual({
-      text: expect.stringMatching(/payment-001 \| credit \| \+\$1\.250000001/u),
+      text: expect.stringMatching(/ПОПОЛНЕНИЕ[\s\S]*ID: payment-001[\s\S]*\+\$1\.250000001/u),
     });
     const ledger = new SgBillingLedger(stateDir);
     await expect(ledger.entries("usr_citizen")).resolves.toHaveLength(1);
     ledger.close();
+  });
+
+  it("shows structured model, token, source and price evidence in billing history", async () => {
+    const { stateDir, invoke } = await fixture();
+    const ledger = new SgBillingLedger(stateDir);
+    await ledger.startTrackedOperation({
+      globalId: "usr_monarch",
+      operationId: "run:history-details",
+      role: "monarch",
+      source: { kind: "automation", id: "job-daily" },
+    });
+    await ledger.recordPart({
+      globalId: "usr_monarch",
+      operationId: "run:history-details",
+      partId: "model:history-details",
+      outcome: "completed",
+      actualCostNanoUsd: 123_456,
+      metadata: {
+        kind: "model",
+        provider: "openai",
+        model: "gpt-5.6-terra",
+        inputTokens: 100,
+        outputTokens: 20,
+        cacheReadTokens: 10,
+        cacheWriteTokens: 5,
+        costEvidence: "provider-billed",
+      },
+    });
+    await ledger.finalizeParts({
+      globalId: "usr_monarch",
+      operationId: "run:history-details",
+      outcome: "completed",
+    });
+    ledger.close();
+
+    const history = await invoke("sg_billing", "100", "history usr_monarch");
+    expect(history.text).toMatch(
+      /ЗАПУСК — завершён[\s\S]*Источник: automation \(job-daily\)[\s\S]*Модель: openai\/gpt-5\.6-terra[\s\S]*Токены: вход 100, выход 20, cache read 10, cache write 5[\s\S]*источник цены: provider-billed/u,
+    );
   });
 
   it("rejects invalid amounts, unknown profiles and conflicting operation IDs", async () => {
@@ -322,7 +361,9 @@ describe("SG billing commands", () => {
       text: "SG BILLING — доступ разрешён только монарху",
     });
     const report = await invoke("sg_billing", "100", "report");
-    expect(report.text).toMatch(/РАСХОДЫ[\s\S]*OpenAI всего: \$0\.750000/u);
+    expect(report.text).toMatch(
+      /OPENAI \/ ПРОЕКТ SG[\s\S]*Расходы всего: \$0\.750000[\s\S]*Остаток предоплаты: OpenAI API не предоставляет/u,
+    );
     expect(report.text).toMatch(/ДОХОД[\s\S]*Выручка пользователей: \$1\.000000/u);
     expect(report.text).toMatch(/Прибыль проекта: \$0\.250000/u);
     expect(report.text).toMatch(/Монарх: \$0\.250000/u);
@@ -341,21 +382,30 @@ describe("SG billing commands", () => {
   });
 
   it("runs an explicit Admin API reconciliation and reports safe configuration errors", async () => {
-    const fetchFn = vi.fn(
-      async () =>
-        new Response(
-          JSON.stringify({
-            data: [
-              {
-                start_time: 1_789_689_600,
-                end_time: 1_789_776_000,
-                results: [{ amount: { value: "2.5", currency: "usd" } }],
-              },
-            ],
-            has_more: false,
-          }),
-          { status: 200 },
-        ),
+    const fetchFn = vi.fn(async (input: string | URL | Request) =>
+      new URL(input instanceof Request ? input.url : input).pathname.endsWith("/spend_limit")
+        ? new Response(
+            JSON.stringify({
+              threshold_amount: 5_000,
+              currency: "usd",
+              interval: "month",
+              enforcement: { status: "enforcing" },
+            }),
+            { status: 200 },
+          )
+        : new Response(
+            JSON.stringify({
+              data: [
+                {
+                  start_time: 1_789_689_600,
+                  end_time: 1_789_776_000,
+                  results: [{ amount: { value: "2.5", currency: "usd" } }],
+                },
+              ],
+              has_more: false,
+            }),
+            { status: 200 },
+          ),
     ) as typeof fetch;
     const configured = await fixture({
       env: { OPENAI_ADMIN_KEY: "sk-admin-test", OPENAI_PROJECT_ID: "proj_sg" },
@@ -363,8 +413,10 @@ describe("SG billing commands", () => {
       now: () => Date.parse("2026-09-19T08:00:00.000Z"),
     });
     const result = await configured.invoke("sg_billing", "100", "reconcile 1");
-    expect(result.text).toMatch(/сверка завершена[\s\S]*Затраты Admin API: \$2\.5/u);
-    expect(fetchFn).toHaveBeenCalledOnce();
+    expect(result.text).toMatch(
+      /сверка завершена[\s\S]*Затраты Admin API: \$2\.5[\s\S]*Лимит OpenAI: \$50/u,
+    );
+    expect(fetchFn).toHaveBeenCalledTimes(2);
 
     const unconfigured = await fixture({ env: {} });
     await expect(unconfigured.invoke("sg_billing", "100", "reconcile")).resolves.toEqual({

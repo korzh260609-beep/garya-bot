@@ -25,6 +25,18 @@ describe("SG OpenAI billing reconciliation", () => {
       const url = new URL(input instanceof Request ? input.url : input);
       calls.push(url);
       expect(init?.headers).toMatchObject({ Authorization: "Bearer sk-admin-test" });
+      if (url.pathname.endsWith("/spend_limit")) {
+        return new Response(
+          JSON.stringify({
+            object: "organization.spend_limit",
+            threshold_amount: 1_000,
+            currency: "usd",
+            interval: "month",
+            enforcement: { status: "enforcing" },
+          }),
+          { status: 200 },
+        );
+      }
       if (!url.searchParams.has("page")) {
         return new Response(
           JSON.stringify({
@@ -71,10 +83,12 @@ describe("SG OpenAI billing reconciliation", () => {
       providerCostNanoUsd: 1_750_000_000,
       attributedCostNanoUsd: 0,
       differenceNanoUsd: 1_750_000_000,
+      spendLimitNanoUsd: 10_000_000_000,
+      spendLimitEnforcement: "enforcing",
     });
     await reconcileOpenAiBilling(options);
 
-    expect(calls).toHaveLength(4);
+    expect(calls).toHaveLength(6);
     expect(calls[0]?.searchParams.get("project_ids[]")).toBe("proj_sg");
     expect(calls[0]?.searchParams.get("group_by[]")).toBe("line_item");
     expect(calls[0]?.searchParams.get("bucket_width")).toBe("1d");
@@ -84,6 +98,10 @@ describe("SG OpenAI billing reconciliation", () => {
       reconciliationAdjustmentNanoUsd: 1_750_000_000,
       projectProviderCostNanoUsd: 1_750_000_000,
       reconciliationWindowCount: 2,
+      currentMonthProviderCostNanoUsd: 1_750_000_000,
+      openAiSpendLimitNanoUsd: 10_000_000_000,
+      openAiAvailableToLimitNanoUsd: 8_250_000_000,
+      openAiSpendLimitEnforcement: "enforcing",
     });
     ledger.close();
   });

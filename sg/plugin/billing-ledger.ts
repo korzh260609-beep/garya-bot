@@ -26,6 +26,35 @@ export type SgBillingEntry = {
   actualCostNanoUsd?: number;
   chargedNanoUsd?: number;
   createdAt: number;
+  sourceKind?: "request" | "automation";
+  sourceId?: string;
+  parts?: SgBillingPartDetail[];
+};
+
+export type SgBillingPartDetail = {
+  partId: string;
+  kind: "model" | "tool" | "unknown";
+  outcome: "pending" | "completed" | "error";
+  provider?: string;
+  model?: string;
+  toolName?: string;
+  inputTokens?: number;
+  outputTokens?: number;
+  cacheReadTokens?: number;
+  cacheWriteTokens?: number;
+  costEvidence?: "provider-billed" | "catalog-estimate" | "reconciled";
+  actualCostNanoUsd?: number;
+  chargedNanoUsd?: number;
+};
+
+export type SgBillingPartMetadata = Omit<
+  SgBillingPartDetail,
+  "partId" | "outcome" | "actualCostNanoUsd" | "chargedNanoUsd"
+>;
+
+export type SgBillingOperationSource = {
+  kind: "request" | "automation";
+  id?: string;
 };
 
 export type SgBillingDiagnostics = {
@@ -47,6 +76,8 @@ export type SgBillingFinancialUser = {
   chargedNanoUsd: number;
   profitNanoUsd: number;
   pendingOperationCount: number;
+  completedOperationCount: number;
+  lastOperationAt?: number;
 };
 
 export type SgBillingFinancialReport = {
@@ -60,7 +91,20 @@ export type SgBillingFinancialReport = {
   pendingOperationCount: number;
   reconciliationWindowCount: number;
   lastReconciledAt?: number;
+  currentMonthProviderCostNanoUsd: number;
+  openAiSpendLimitNanoUsd?: number;
+  openAiAvailableToLimitNanoUsd?: number;
+  openAiSpendLimitEnforcement?: "inactive" | "enforcing";
+  openAiFinancialSyncedAt?: number;
   users: SgBillingFinancialUser[];
+};
+
+export type SgBillingProviderFinancialSnapshot = {
+  provider: "openai";
+  spendLimitNanoUsd: number;
+  enforcement: "inactive" | "enforcing";
+  interval: "month";
+  syncedAt?: number;
 };
 
 export type SgBillingReconciliationWindow = {
@@ -93,6 +137,8 @@ type BillingOperationRow = {
   outcome: "completed" | "error" | null;
   actual_cost_nano_usd: number | null;
   charged_nano_usd: number | null;
+  source_kind: "request" | "automation" | null;
+  source_id: string | null;
 };
 
 type BillingEntryRow = {
@@ -105,6 +151,8 @@ type BillingEntryRow = {
   actual_cost_nano_usd: number | null;
   charged_nano_usd: number | null;
   created_at: number;
+  source_kind: "request" | "automation" | null;
+  source_id: string | null;
 };
 
 type BillingCorrelationRow = {
@@ -113,10 +161,20 @@ type BillingCorrelationRow = {
 };
 
 type BillingPartRow = {
+  part_id: string;
   outcome: "pending" | "completed" | "error";
   authorized_nano_usd: number | null;
   actual_cost_nano_usd: number | null;
   charged_nano_usd: number | null;
+  part_kind: "model" | "tool" | "unknown";
+  provider: string | null;
+  model: string | null;
+  tool_name: string | null;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  cache_read_tokens: number | null;
+  cache_write_tokens: number | null;
+  cost_evidence: "provider-billed" | "catalog-estimate" | "reconciled" | null;
 };
 
 type BillingAutomationOwnerRow = {
@@ -144,6 +202,17 @@ function requireSignedNanoUsd(value: number, field: string): number {
     throw new Error(`sg-billing-${field}-invalid`);
   }
   return value;
+}
+
+function optionalCount(value: number | undefined, field: string): number | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  return requireNanoUsd(value, field, true);
+}
+
+function optionalIdentifier(value: string | undefined, field: string): string | undefined {
+  return value === undefined ? undefined : requireIdentifier(value, field);
 }
 
 function checkedAdd(left: number, right: number): number {
@@ -189,6 +258,30 @@ export class SgBillingLedger {
     this.ensureSchema();
   }
 
+  private normalizePartMetadata(metadata: SgBillingPartMetadata | undefined): {
+    kind: "model" | "tool" | "unknown";
+    provider: string | null;
+    model: string | null;
+    toolName: string | null;
+    inputTokens: number | null;
+    outputTokens: number | null;
+    cacheReadTokens: number | null;
+    cacheWriteTokens: number | null;
+    costEvidence: "provider-billed" | "catalog-estimate" | "reconciled" | null;
+  } {
+    return {
+      kind: metadata?.kind ?? "unknown",
+      provider: optionalIdentifier(metadata?.provider, "part-provider") ?? null,
+      model: optionalIdentifier(metadata?.model, "part-model") ?? null,
+      toolName: optionalIdentifier(metadata?.toolName, "part-tool") ?? null,
+      inputTokens: optionalCount(metadata?.inputTokens, "input-tokens") ?? null,
+      outputTokens: optionalCount(metadata?.outputTokens, "output-tokens") ?? null,
+      cacheReadTokens: optionalCount(metadata?.cacheReadTokens, "cache-read-tokens") ?? null,
+      cacheWriteTokens: optionalCount(metadata?.cacheWriteTokens, "cache-write-tokens") ?? null,
+      costEvidence: metadata?.costEvidence ?? null,
+    };
+  }
+
   private ensureSchema(): void {
     this.database.exec(`
       CREATE TABLE IF NOT EXISTS sg_billing_accounts (
@@ -211,6 +304,8 @@ export class SgBillingLedger {
         outcome TEXT CHECK (outcome IN ('completed', 'error')),
         actual_cost_nano_usd INTEGER CHECK (actual_cost_nano_usd >= 0),
         charged_nano_usd INTEGER CHECK (charged_nano_usd >= 0),
+        source_kind TEXT CHECK (source_kind IN ('request', 'automation')),
+        source_id TEXT,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL,
         PRIMARY KEY (global_id, operation_id),
@@ -251,6 +346,17 @@ export class SgBillingLedger {
         authorized_nano_usd INTEGER CHECK (authorized_nano_usd >= 0),
         actual_cost_nano_usd INTEGER CHECK (actual_cost_nano_usd >= 0),
         charged_nano_usd INTEGER CHECK (charged_nano_usd >= 0),
+        part_kind TEXT NOT NULL DEFAULT 'unknown'
+          CHECK (part_kind IN ('model', 'tool', 'unknown')),
+        provider TEXT,
+        model TEXT,
+        tool_name TEXT,
+        input_tokens INTEGER CHECK (input_tokens >= 0),
+        output_tokens INTEGER CHECK (output_tokens >= 0),
+        cache_read_tokens INTEGER CHECK (cache_read_tokens >= 0),
+        cache_write_tokens INTEGER CHECK (cache_write_tokens >= 0),
+        cost_evidence TEXT
+          CHECK (cost_evidence IN ('provider-billed', 'catalog-estimate', 'reconciled')),
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL,
         PRIMARY KEY (global_id, operation_id, part_id),
@@ -283,6 +389,14 @@ export class SgBillingLedger {
 
       CREATE INDEX IF NOT EXISTS sg_billing_reconciliation_source_key_id
         ON sg_billing_reconciliation_windows(source_key, reconciliation_id);
+
+      CREATE TABLE IF NOT EXISTS sg_billing_provider_financial_snapshots (
+        provider TEXT PRIMARY KEY CHECK (provider IN ('openai')),
+        spend_limit_nano_usd INTEGER NOT NULL CHECK (spend_limit_nano_usd >= 0),
+        enforcement TEXT NOT NULL CHECK (enforcement IN ('inactive', 'enforcing')),
+        interval TEXT NOT NULL CHECK (interval IN ('month')),
+        synced_at INTEGER NOT NULL
+      ) STRICT;
     `);
     const operationColumns = this.database
       .prepare("PRAGMA table_info(sg_billing_operations)")
@@ -297,6 +411,14 @@ export class SgBillingLedger {
         "ALTER TABLE sg_billing_operations ADD COLUMN charge_multiplier INTEGER NOT NULL DEFAULT 2 CHECK (charge_multiplier IN (0, 2))",
       );
     }
+    if (!operationColumns.some((column) => column.name === "source_kind")) {
+      this.database.exec(
+        "ALTER TABLE sg_billing_operations ADD COLUMN source_kind TEXT CHECK (source_kind IN ('request', 'automation'))",
+      );
+    }
+    if (!operationColumns.some((column) => column.name === "source_id")) {
+      this.database.exec("ALTER TABLE sg_billing_operations ADD COLUMN source_id TEXT");
+    }
     const partColumns = this.database
       .prepare("PRAGMA table_info(sg_billing_operation_parts)")
       .all() as Array<{ name: string }>;
@@ -304,6 +426,40 @@ export class SgBillingLedger {
       this.database.exec(
         "ALTER TABLE sg_billing_operation_parts ADD COLUMN authorized_nano_usd INTEGER CHECK (authorized_nano_usd >= 0)",
       );
+    }
+    const partMigrations = [
+      [
+        "part_kind",
+        "ALTER TABLE sg_billing_operation_parts ADD COLUMN part_kind TEXT NOT NULL DEFAULT 'unknown' CHECK (part_kind IN ('model', 'tool', 'unknown'))",
+      ],
+      ["provider", "ALTER TABLE sg_billing_operation_parts ADD COLUMN provider TEXT"],
+      ["model", "ALTER TABLE sg_billing_operation_parts ADD COLUMN model TEXT"],
+      ["tool_name", "ALTER TABLE sg_billing_operation_parts ADD COLUMN tool_name TEXT"],
+      [
+        "input_tokens",
+        "ALTER TABLE sg_billing_operation_parts ADD COLUMN input_tokens INTEGER CHECK (input_tokens >= 0)",
+      ],
+      [
+        "output_tokens",
+        "ALTER TABLE sg_billing_operation_parts ADD COLUMN output_tokens INTEGER CHECK (output_tokens >= 0)",
+      ],
+      [
+        "cache_read_tokens",
+        "ALTER TABLE sg_billing_operation_parts ADD COLUMN cache_read_tokens INTEGER CHECK (cache_read_tokens >= 0)",
+      ],
+      [
+        "cache_write_tokens",
+        "ALTER TABLE sg_billing_operation_parts ADD COLUMN cache_write_tokens INTEGER CHECK (cache_write_tokens >= 0)",
+      ],
+      [
+        "cost_evidence",
+        "ALTER TABLE sg_billing_operation_parts ADD COLUMN cost_evidence TEXT CHECK (cost_evidence IN ('provider-billed', 'catalog-estimate', 'reconciled'))",
+      ],
+    ] as const;
+    for (const [columnName, statement] of partMigrations) {
+      if (!partColumns.some((column) => column.name === columnName)) {
+        this.database.exec(statement);
+      }
     }
   }
 
@@ -332,20 +488,69 @@ export class SgBillingLedger {
     return this.database
       .prepare(
         `SELECT operation_type, state, amount_nano_usd, billing_role, charge_multiplier, outcome,
-                actual_cost_nano_usd, charged_nano_usd
+                actual_cost_nano_usd, charged_nano_usd, source_kind, source_id
          FROM sg_billing_operations
          WHERE global_id = ? AND operation_id = ?`,
       )
       .get(globalId, operationId) as BillingOperationRow | undefined;
   }
 
+  private partsForOperation(globalId: string, operationId: string): SgBillingPartDetail[] {
+    const rows = this.database
+      .prepare(
+        `SELECT part_id, outcome, authorized_nano_usd, actual_cost_nano_usd, charged_nano_usd,
+                part_kind, provider, model, tool_name, input_tokens, output_tokens,
+                cache_read_tokens, cache_write_tokens, cost_evidence
+         FROM sg_billing_operation_parts
+         WHERE global_id = ? AND operation_id = ?
+         ORDER BY created_at, part_id`,
+      )
+      .all(globalId, operationId) as BillingPartRow[];
+    return rows.map((row) => ({
+      partId: row.part_id,
+      kind: row.part_kind,
+      outcome: row.outcome,
+      ...(row.provider === null ? {} : { provider: row.provider }),
+      ...(row.model === null ? {} : { model: row.model }),
+      ...(row.tool_name === null ? {} : { toolName: row.tool_name }),
+      ...(row.input_tokens === null ? {} : { inputTokens: row.input_tokens }),
+      ...(row.output_tokens === null ? {} : { outputTokens: row.output_tokens }),
+      ...(row.cache_read_tokens === null ? {} : { cacheReadTokens: row.cache_read_tokens }),
+      ...(row.cache_write_tokens === null ? {} : { cacheWriteTokens: row.cache_write_tokens }),
+      ...(row.cost_evidence === null ? {} : { costEvidence: row.cost_evidence }),
+      ...(row.actual_cost_nano_usd === null ? {} : { actualCostNanoUsd: row.actual_cost_nano_usd }),
+      ...(row.charged_nano_usd === null ? {} : { chargedNanoUsd: row.charged_nano_usd }),
+    }));
+  }
+
+  private entryFromRow(row: BillingEntryRow): SgBillingEntry {
+    return {
+      entryId: row.entry_id,
+      globalId: row.global_id,
+      operationId: row.operation_id,
+      type: row.entry_type,
+      createdAt: row.created_at,
+      ...(row.amount_nano_usd === null ? {} : { amountNanoUsd: row.amount_nano_usd }),
+      ...(row.outcome === null ? {} : { outcome: row.outcome }),
+      ...(row.actual_cost_nano_usd === null ? {} : { actualCostNanoUsd: row.actual_cost_nano_usd }),
+      ...(row.charged_nano_usd === null ? {} : { chargedNanoUsd: row.charged_nano_usd }),
+      ...(row.source_kind === null ? {} : { sourceKind: row.source_kind }),
+      ...(row.source_id === null ? {} : { sourceId: row.source_id }),
+      ...(row.entry_type === "complete"
+        ? { parts: this.partsForOperation(row.global_id, row.operation_id) }
+        : {}),
+    };
+  }
+
   async startTrackedOperation(params: {
     globalId: string;
     operationId: string;
     role: "monarch";
+    source?: SgBillingOperationSource;
   }): Promise<void> {
     const globalId = requireIdentifier(params.globalId, "global-id");
     const operationId = requireIdentifier(params.operationId, "operation-id");
+    const sourceId = optionalIdentifier(params.source?.id, "source-id");
     runSqliteImmediateTransactionSync(
       this.database,
       () => {
@@ -358,7 +563,9 @@ export class SgBillingLedger {
             existing.state === "reserved" &&
             existing.amount_nano_usd === 0 &&
             existing.billing_role === params.role &&
-            existing.charge_multiplier === 0
+            existing.charge_multiplier === 0 &&
+            existing.source_kind === (params.source?.kind ?? null) &&
+            existing.source_id === (sourceId ?? null)
           ) {
             return;
           }
@@ -368,10 +575,18 @@ export class SgBillingLedger {
           .prepare(
             `INSERT INTO sg_billing_operations
               (global_id, operation_id, operation_type, state, amount_nano_usd,
-               billing_role, charge_multiplier, created_at, updated_at)
-             VALUES (?, ?, 'usage', 'reserved', 0, ?, 0, ?, ?)`,
+               billing_role, charge_multiplier, source_kind, source_id, created_at, updated_at)
+             VALUES (?, ?, 'usage', 'reserved', 0, ?, 0, ?, ?, ?, ?)`,
           )
-          .run(globalId, operationId, params.role, now, now);
+          .run(
+            globalId,
+            operationId,
+            params.role,
+            params.source?.kind ?? null,
+            sourceId ?? null,
+            now,
+            now,
+          );
       },
       {
         busyTimeoutMs: 5_000,
@@ -526,13 +741,35 @@ export class SgBillingLedger {
     );
   }
 
-  async financialReport(): Promise<SgBillingFinancialReport> {
+  async recordProviderFinancialSnapshot(params: SgBillingProviderFinancialSnapshot): Promise<void> {
+    const spendLimitNanoUsd = requireNanoUsd(params.spendLimitNanoUsd, "spend-limit", true);
+    const syncedAt = requireNanoUsd(params.syncedAt ?? Date.now(), "snapshot-time", true);
+    this.database
+      .prepare(
+        `INSERT INTO sg_billing_provider_financial_snapshots
+          (provider, spend_limit_nano_usd, enforcement, interval, synced_at)
+         VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT(provider) DO UPDATE SET
+           spend_limit_nano_usd = excluded.spend_limit_nano_usd,
+           enforcement = excluded.enforcement,
+           interval = excluded.interval,
+           synced_at = excluded.synced_at`,
+      )
+      .run(params.provider, spendLimitNanoUsd, params.enforcement, params.interval, syncedAt);
+  }
+
+  async financialReport(nowInput = Date.now()): Promise<SgBillingFinancialReport> {
+    const now = requireNanoUsd(nowInput, "report-time", true);
+    const nowDate = new Date(now);
+    const monthStartMs = Date.UTC(nowDate.getUTCFullYear(), nowDate.getUTCMonth(), 1);
     const usageRows = this.database
       .prepare(
         `SELECT global_id, billing_role,
                 COALESCE(SUM(actual_cost_nano_usd), 0) AS provider_cost,
                 COALESCE(SUM(charged_nano_usd), 0) AS charged,
-                SUM(CASE WHEN state = 'reserved' THEN 1 ELSE 0 END) AS pending
+                SUM(CASE WHEN state = 'reserved' THEN 1 ELSE 0 END) AS pending,
+                SUM(CASE WHEN state = 'terminal' THEN 1 ELSE 0 END) AS completed,
+                MAX(created_at) AS last_operation
          FROM sg_billing_operations
          WHERE operation_type = 'usage'
          GROUP BY global_id, billing_role
@@ -544,6 +781,8 @@ export class SgBillingLedger {
       provider_cost: number;
       charged: number;
       pending: number;
+      completed: number;
+      last_operation: number;
     }>;
     const reconciliation = this.database
       .prepare(
@@ -558,16 +797,16 @@ export class SgBillingLedger {
          )`,
       )
       .get() as { adjustment: number; windows: number; last_synced: number | null };
-    const users = usageRows.map(
-      (row): SgBillingFinancialUser => ({
-        globalId: row.global_id,
-        role: row.billing_role,
-        providerCostNanoUsd: row.provider_cost,
-        chargedNanoUsd: row.charged,
-        profitNanoUsd: row.charged - row.provider_cost,
-        pendingOperationCount: row.pending,
-      }),
-    );
+    const users = usageRows.map((row): SgBillingFinancialUser => ({
+      globalId: row.global_id,
+      role: row.billing_role,
+      providerCostNanoUsd: row.provider_cost,
+      chargedNanoUsd: row.charged,
+      profitNanoUsd: row.charged - row.provider_cost,
+      pendingOperationCount: row.pending,
+      completedOperationCount: row.completed,
+      lastOperationAt: row.last_operation,
+    }));
     const attributedProviderCostNanoUsd = users.reduce(
       (total, user) => checkedAdd(total, user.providerCostNanoUsd),
       0,
@@ -579,6 +818,35 @@ export class SgBillingLedger {
       attributedProviderCostNanoUsd,
       reconciliation.adjustment,
     );
+    const currentMonthAttributed =
+      now === monthStartMs
+        ? 0
+        : await this.actualCostForWindow({ startMs: monthStartMs, endMs: now });
+    const currentMonthReconciliation = this.database
+      .prepare(
+        `SELECT COALESCE(SUM(current.difference_nano_usd), 0) AS adjustment
+         FROM sg_billing_reconciliation_windows AS current
+         WHERE current.window_start_ms >= ? AND current.window_end_ms <= ?
+           AND current.reconciliation_id = (
+             SELECT MAX(latest.reconciliation_id)
+             FROM sg_billing_reconciliation_windows AS latest
+             WHERE latest.source_key = current.source_key
+           )`,
+      )
+      .get(monthStartMs, now) as { adjustment: number };
+    const currentMonthProviderCostNanoUsd = checkedAdd(
+      currentMonthAttributed,
+      currentMonthReconciliation.adjustment,
+    );
+    const providerSnapshot = this.database
+      .prepare(
+        `SELECT spend_limit_nano_usd, enforcement, synced_at
+         FROM sg_billing_provider_financial_snapshots
+         WHERE provider = 'openai'`,
+      )
+      .get() as
+      | { spend_limit_nano_usd: number; enforcement: "inactive" | "enforcing"; synced_at: number }
+      | undefined;
     return {
       attributedProviderCostNanoUsd,
       reconciliationAdjustmentNanoUsd: reconciliation.adjustment,
@@ -596,6 +864,18 @@ export class SgBillingLedger {
         0,
       ),
       reconciliationWindowCount: reconciliation.windows,
+      currentMonthProviderCostNanoUsd,
+      ...(providerSnapshot
+        ? {
+            openAiSpendLimitNanoUsd: providerSnapshot.spend_limit_nano_usd,
+            openAiAvailableToLimitNanoUsd: Math.max(
+              0,
+              providerSnapshot.spend_limit_nano_usd - currentMonthProviderCostNanoUsd,
+            ),
+            openAiSpendLimitEnforcement: providerSnapshot.enforcement,
+            openAiFinancialSyncedAt: providerSnapshot.synced_at,
+          }
+        : {}),
       ...(reconciliation.last_synced === null
         ? {}
         : { lastReconciledAt: reconciliation.last_synced }),
@@ -645,14 +925,19 @@ export class SgBillingLedger {
           if (!operation || operation.state !== "reserved" || operation.charge_multiplier !== 0) {
             throw new Error("sg-billing-stale-operation-invalid");
           }
-          const resolvedParts = this.database
-            .prepare(
-              `UPDATE sg_billing_operation_parts
+          const resolvedParts = Number(
+            this.database
+              .prepare(
+                `UPDATE sg_billing_operation_parts
                SET outcome = 'error', actual_cost_nano_usd = 0, charged_nano_usd = 0,
                    updated_at = ?
                WHERE global_id = ? AND operation_id = ? AND actual_cost_nano_usd IS NULL`,
-            )
-            .run(now, item.global_id, item.operation_id).changes;
+              )
+              .run(now, item.global_id, item.operation_id).changes,
+          );
+          if (!Number.isSafeInteger(resolvedParts) || resolvedParts < 0) {
+            throw new Error("sg-billing-stale-resolution-invalid");
+          }
           const totals = this.database
             .prepare(
               `SELECT COALESCE(SUM(actual_cost_nano_usd), 0) AS actual_cost,
@@ -810,9 +1095,14 @@ export class SgBillingLedger {
     );
   }
 
-  async reserveAvailable(params: { globalId: string; operationId: string }): Promise<number> {
+  async reserveAvailable(params: {
+    globalId: string;
+    operationId: string;
+    source?: SgBillingOperationSource;
+  }): Promise<number> {
     const globalId = requireIdentifier(params.globalId, "global-id");
     const operationId = requireIdentifier(params.operationId, "operation-id");
+    const sourceId = optionalIdentifier(params.source?.id, "source-id");
     let reservedAmount = 0;
     runSqliteImmediateTransactionSync(
       this.database,
@@ -821,7 +1111,12 @@ export class SgBillingLedger {
         this.ensureAccount(globalId, now);
         const existing = this.operation(globalId, operationId);
         if (existing) {
-          if (existing.operation_type === "usage" && existing.state === "reserved") {
+          if (
+            existing.operation_type === "usage" &&
+            existing.state === "reserved" &&
+            existing.source_kind === (params.source?.kind ?? null) &&
+            existing.source_id === (sourceId ?? null)
+          ) {
             reservedAmount = existing.amount_nano_usd;
             return;
           }
@@ -836,10 +1131,19 @@ export class SgBillingLedger {
         this.database
           .prepare(
             `INSERT INTO sg_billing_operations
-              (global_id, operation_id, operation_type, state, amount_nano_usd, created_at, updated_at)
-             VALUES (?, ?, 'usage', 'reserved', ?, ?, ?)`,
+              (global_id, operation_id, operation_type, state, amount_nano_usd,
+               source_kind, source_id, created_at, updated_at)
+             VALUES (?, ?, 'usage', 'reserved', ?, ?, ?, ?, ?)`,
           )
-          .run(globalId, operationId, available, now, now);
+          .run(
+            globalId,
+            operationId,
+            available,
+            params.source?.kind ?? null,
+            sourceId ?? null,
+            now,
+            now,
+          );
         this.database
           .prepare(
             `UPDATE sg_billing_accounts
@@ -958,11 +1262,13 @@ export class SgBillingLedger {
     operationId: string;
     partId: string;
     authorizedNanoUsd: number;
+    metadata?: SgBillingPartMetadata;
   }): Promise<void> {
     const globalId = requireIdentifier(params.globalId, "global-id");
     const operationId = requireIdentifier(params.operationId, "operation-id");
     const partId = requireIdentifier(params.partId, "part-id");
     const authorizedNanoUsd = requireNanoUsd(params.authorizedNanoUsd, "authorized-amount");
+    const metadata = this.normalizePartMetadata(params.metadata);
     runSqliteImmediateTransactionSync(
       this.database,
       () => {
@@ -1007,10 +1313,22 @@ export class SgBillingLedger {
             this.database
               .prepare(
                 `UPDATE sg_billing_operation_parts
-                 SET authorized_nano_usd = ?, updated_at = ?
+                 SET authorized_nano_usd = ?, part_kind = ?,
+                     provider = COALESCE(?, provider), model = COALESCE(?, model),
+                     tool_name = COALESCE(?, tool_name), updated_at = ?
                  WHERE global_id = ? AND operation_id = ? AND part_id = ?`,
               )
-              .run(authorizedNanoUsd, Date.now(), globalId, operationId, partId);
+              .run(
+                authorizedNanoUsd,
+                metadata.kind,
+                metadata.provider,
+                metadata.model,
+                metadata.toolName,
+                Date.now(),
+                globalId,
+                operationId,
+                partId,
+              );
             return;
           }
           throw new Error("sg-billing-idempotency-conflict");
@@ -1031,10 +1349,22 @@ export class SgBillingLedger {
         this.database
           .prepare(
             `INSERT INTO sg_billing_operation_parts
-              (global_id, operation_id, part_id, outcome, authorized_nano_usd, created_at, updated_at)
-             VALUES (?, ?, ?, 'pending', ?, ?, ?)`,
+              (global_id, operation_id, part_id, outcome, authorized_nano_usd,
+               part_kind, provider, model, tool_name, created_at, updated_at)
+             VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?)`,
           )
-          .run(globalId, operationId, partId, authorizedNanoUsd, now, now);
+          .run(
+            globalId,
+            operationId,
+            partId,
+            authorizedNanoUsd,
+            metadata.kind,
+            metadata.provider,
+            metadata.model,
+            metadata.toolName,
+            now,
+            now,
+          );
       },
       {
         busyTimeoutMs: 5_000,
@@ -1050,6 +1380,7 @@ export class SgBillingLedger {
     partId: string;
     outcome: "completed" | "error";
     actualCostNanoUsd?: number;
+    metadata?: SgBillingPartMetadata;
   }): Promise<void> {
     const globalId = requireIdentifier(params.globalId, "global-id");
     const operationId = requireIdentifier(params.operationId, "operation-id");
@@ -1058,6 +1389,7 @@ export class SgBillingLedger {
       params.actualCostNanoUsd === undefined
         ? undefined
         : requireNanoUsd(params.actualCostNanoUsd, "actual-cost", true);
+    const metadata = this.normalizePartMetadata(params.metadata);
     runSqliteImmediateTransactionSync(
       this.database,
       () => {
@@ -1093,10 +1425,31 @@ export class SgBillingLedger {
               this.database
                 .prepare(
                   `UPDATE sg_billing_operation_parts
-                   SET outcome = ?, updated_at = ?
+                   SET outcome = ?, part_kind = ?, provider = COALESCE(?, provider),
+                       model = COALESCE(?, model), tool_name = COALESCE(?, tool_name),
+                       input_tokens = COALESCE(?, input_tokens),
+                       output_tokens = COALESCE(?, output_tokens),
+                       cache_read_tokens = COALESCE(?, cache_read_tokens),
+                       cache_write_tokens = COALESCE(?, cache_write_tokens),
+                       cost_evidence = COALESCE(?, cost_evidence), updated_at = ?
                    WHERE global_id = ? AND operation_id = ? AND part_id = ?`,
                 )
-                .run(params.outcome, now, globalId, operationId, partId);
+                .run(
+                  params.outcome,
+                  metadata.kind,
+                  metadata.provider,
+                  metadata.model,
+                  metadata.toolName,
+                  metadata.inputTokens,
+                  metadata.outputTokens,
+                  metadata.cacheReadTokens,
+                  metadata.cacheWriteTokens,
+                  metadata.costEvidence,
+                  now,
+                  globalId,
+                  operationId,
+                  partId,
+                );
               return;
             }
             const chargedSoFar = operation.charged_nano_usd ?? 0;
@@ -1111,13 +1464,29 @@ export class SgBillingLedger {
             this.database
               .prepare(
                 `UPDATE sg_billing_operation_parts
-                 SET outcome = ?, actual_cost_nano_usd = ?, charged_nano_usd = ?, updated_at = ?
+                 SET outcome = ?, actual_cost_nano_usd = ?, charged_nano_usd = ?,
+                     part_kind = ?, provider = COALESCE(?, provider),
+                     model = COALESCE(?, model), tool_name = COALESCE(?, tool_name),
+                     input_tokens = COALESCE(?, input_tokens),
+                     output_tokens = COALESCE(?, output_tokens),
+                     cache_read_tokens = COALESCE(?, cache_read_tokens),
+                     cache_write_tokens = COALESCE(?, cache_write_tokens),
+                     cost_evidence = COALESCE(?, cost_evidence), updated_at = ?
                  WHERE global_id = ? AND operation_id = ? AND part_id = ?`,
               )
               .run(
                 params.outcome,
                 actualCostNanoUsd,
                 chargedNanoUsd,
+                metadata.kind,
+                metadata.provider,
+                metadata.model,
+                metadata.toolName,
+                metadata.inputTokens,
+                metadata.outputTokens,
+                metadata.cacheReadTokens,
+                metadata.cacheWriteTokens,
+                metadata.costEvidence,
                 now,
                 globalId,
                 operationId,
@@ -1152,10 +1521,28 @@ export class SgBillingLedger {
           this.database
             .prepare(
               `INSERT INTO sg_billing_operation_parts
-                (global_id, operation_id, part_id, outcome, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?)`,
+                (global_id, operation_id, part_id, outcome, part_kind, provider, model, tool_name,
+                 input_tokens, output_tokens, cache_read_tokens, cache_write_tokens,
+                 cost_evidence, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             )
-            .run(globalId, operationId, partId, params.outcome, now, now);
+            .run(
+              globalId,
+              operationId,
+              partId,
+              params.outcome,
+              metadata.kind,
+              metadata.provider,
+              metadata.model,
+              metadata.toolName,
+              metadata.inputTokens,
+              metadata.outputTokens,
+              metadata.cacheReadTokens,
+              metadata.cacheWriteTokens,
+              metadata.costEvidence,
+              now,
+              now,
+            );
           return;
         }
 
@@ -1171,8 +1558,10 @@ export class SgBillingLedger {
           .prepare(
             `INSERT INTO sg_billing_operation_parts
               (global_id, operation_id, part_id, outcome, actual_cost_nano_usd,
-               charged_nano_usd, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+               charged_nano_usd, part_kind, provider, model, tool_name, input_tokens,
+               output_tokens, cache_read_tokens, cache_write_tokens, cost_evidence,
+               created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           )
           .run(
             globalId,
@@ -1181,6 +1570,15 @@ export class SgBillingLedger {
             params.outcome,
             actualCostNanoUsd,
             chargedNanoUsd,
+            metadata.kind,
+            metadata.provider,
+            metadata.model,
+            metadata.toolName,
+            metadata.inputTokens,
+            metadata.outputTokens,
+            metadata.cacheReadTokens,
+            metadata.cacheWriteTokens,
+            metadata.costEvidence,
             now,
             now,
           );
@@ -1216,10 +1614,12 @@ export class SgBillingLedger {
     globalId: string;
     operationId: string;
     partId: string;
+    metadata?: SgBillingPartMetadata;
   }): Promise<void> {
     const globalId = requireIdentifier(params.globalId, "global-id");
     const operationId = requireIdentifier(params.operationId, "operation-id");
     const partId = requireIdentifier(params.partId, "part-id");
+    const metadata = this.normalizePartMetadata(params.metadata);
     runSqliteImmediateTransactionSync(
       this.database,
       () => {
@@ -1251,10 +1651,21 @@ export class SgBillingLedger {
         this.database
           .prepare(
             `INSERT INTO sg_billing_operation_parts
-              (global_id, operation_id, part_id, outcome, created_at, updated_at)
-             VALUES (?, ?, ?, 'pending', ?, ?)`,
+              (global_id, operation_id, part_id, outcome, part_kind, provider, model, tool_name,
+               created_at, updated_at)
+             VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?)`,
           )
-          .run(globalId, operationId, partId, now, now);
+          .run(
+            globalId,
+            operationId,
+            partId,
+            metadata.kind,
+            metadata.provider,
+            metadata.model,
+            metadata.toolName,
+            now,
+            now,
+          );
       },
       {
         busyTimeoutMs: 5_000,
@@ -1416,35 +1827,19 @@ export class SgBillingLedger {
     const globalId = requireIdentifier(globalIdInput, "global-id");
     const rows = this.database
       .prepare(
-        `SELECT entry_id, global_id, operation_id, entry_type, amount_nano_usd,
-                outcome, actual_cost_nano_usd, charged_nano_usd, created_at
-         FROM sg_billing_entries
-         WHERE global_id = ?
-         ORDER BY entry_id ASC`,
+        `SELECT entries.entry_id, entries.global_id, entries.operation_id, entries.entry_type,
+                entries.amount_nano_usd, entries.outcome, entries.actual_cost_nano_usd,
+                entries.charged_nano_usd, entries.created_at,
+                operations.source_kind, operations.source_id
+         FROM sg_billing_entries AS entries
+         JOIN sg_billing_operations AS operations
+           ON operations.global_id = entries.global_id
+          AND operations.operation_id = entries.operation_id
+         WHERE entries.global_id = ?
+         ORDER BY entries.entry_id ASC`,
       )
       .all(globalId) as BillingEntryRow[];
-    return rows.map((row) => {
-      const entry: SgBillingEntry = {
-        entryId: row.entry_id,
-        globalId: row.global_id,
-        operationId: row.operation_id,
-        type: row.entry_type,
-        createdAt: row.created_at,
-      };
-      if (row.amount_nano_usd !== null) {
-        entry.amountNanoUsd = row.amount_nano_usd;
-      }
-      if (row.outcome !== null) {
-        entry.outcome = row.outcome;
-      }
-      if (row.actual_cost_nano_usd !== null) {
-        entry.actualCostNanoUsd = row.actual_cost_nano_usd;
-      }
-      if (row.charged_nano_usd !== null) {
-        entry.chargedNanoUsd = row.charged_nano_usd;
-      }
-      return entry;
-    });
+    return rows.map((row) => this.entryFromRow(row));
   }
 
   async recentEntries(globalIdInput: string, limitInput = 20): Promise<SgBillingEntry[]> {
@@ -1452,36 +1847,20 @@ export class SgBillingLedger {
     const limit = requireNanoUsd(limitInput, "entry-limit");
     const rows = this.database
       .prepare(
-        `SELECT entry_id, global_id, operation_id, entry_type, amount_nano_usd,
-                outcome, actual_cost_nano_usd, charged_nano_usd, created_at
-         FROM sg_billing_entries
-         WHERE global_id = ?
-         ORDER BY entry_id DESC
+        `SELECT entries.entry_id, entries.global_id, entries.operation_id, entries.entry_type,
+                entries.amount_nano_usd, entries.outcome, entries.actual_cost_nano_usd,
+                entries.charged_nano_usd, entries.created_at,
+                operations.source_kind, operations.source_id
+         FROM sg_billing_entries AS entries
+         JOIN sg_billing_operations AS operations
+           ON operations.global_id = entries.global_id
+          AND operations.operation_id = entries.operation_id
+         WHERE entries.global_id = ?
+         ORDER BY entries.entry_id DESC
          LIMIT ?`,
       )
       .all(globalId, limit) as BillingEntryRow[];
-    return rows.map((row) => {
-      const entry: SgBillingEntry = {
-        entryId: row.entry_id,
-        globalId: row.global_id,
-        operationId: row.operation_id,
-        type: row.entry_type,
-        createdAt: row.created_at,
-      };
-      if (row.amount_nano_usd !== null) {
-        entry.amountNanoUsd = row.amount_nano_usd;
-      }
-      if (row.outcome !== null) {
-        entry.outcome = row.outcome;
-      }
-      if (row.actual_cost_nano_usd !== null) {
-        entry.actualCostNanoUsd = row.actual_cost_nano_usd;
-      }
-      if (row.charged_nano_usd !== null) {
-        entry.chargedNanoUsd = row.charged_nano_usd;
-      }
-      return entry;
-    });
+    return rows.map((row) => this.entryFromRow(row));
   }
 
   async diagnostics(): Promise<SgBillingDiagnostics> {

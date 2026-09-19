@@ -439,6 +439,18 @@ describe("SG prepaid billing ledger", () => {
         updated_at INTEGER NOT NULL,
         PRIMARY KEY (global_id, operation_id)
       ) STRICT;
+
+      CREATE TABLE sg_billing_operation_parts (
+        global_id TEXT NOT NULL,
+        operation_id TEXT NOT NULL,
+        part_id TEXT NOT NULL,
+        outcome TEXT NOT NULL CHECK (outcome IN ('pending', 'completed', 'error')),
+        actual_cost_nano_usd INTEGER CHECK (actual_cost_nano_usd >= 0),
+        charged_nano_usd INTEGER CHECK (charged_nano_usd >= 0),
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        PRIMARY KEY (global_id, operation_id, part_id)
+      ) STRICT;
     `);
     legacy.close();
 
@@ -449,6 +461,39 @@ describe("SG prepaid billing ledger", () => {
     await expect(
       ledger.operationBilling({ globalId: "usr_legacy", operationId: "run:legacy" }),
     ).resolves.toEqual({ role: "citizen", chargeMultiplier: 2 });
+    await ledger.recordPart({
+      globalId: "usr_legacy",
+      operationId: "run:legacy",
+      partId: "model:legacy",
+      outcome: "completed",
+      actualCostNanoUsd: 100,
+      metadata: {
+        kind: "model",
+        provider: "openai",
+        model: "gpt-5.6-terra",
+        inputTokens: 10,
+        outputTokens: 5,
+        costEvidence: "provider-billed",
+      },
+    });
+    await ledger.finalizeParts({
+      globalId: "usr_legacy",
+      operationId: "run:legacy",
+      outcome: "completed",
+    });
+    await expect(ledger.recentEntries("usr_legacy", 1)).resolves.toEqual([
+      expect.objectContaining({
+        parts: [
+          expect.objectContaining({
+            kind: "model",
+            provider: "openai",
+            model: "gpt-5.6-terra",
+            inputTokens: 10,
+            outputTokens: 5,
+          }),
+        ],
+      }),
+    ]);
   });
 
   it("reports project, Monarch and per-user cost, revenue and profit without treating topups as revenue", async () => {

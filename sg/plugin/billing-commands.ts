@@ -84,7 +84,11 @@ function formatFinancialUser(user: SgBillingFinancialUser): string {
     `Финансовый результат: ${formatDisplayUsd(user.profitNanoUsd)}`,
     "",
     "СТАТУС",
+    `Завершённых операций: ${user.completedOperationCount}`,
     `Операций в обработке: ${user.pendingOperationCount}`,
+    `Последняя операция: ${
+      user.lastOperationAt === undefined ? "нет" : new Date(user.lastOperationAt).toISOString()
+    }`,
   ].join("\n");
 }
 
@@ -92,8 +96,29 @@ function formatFinancialReport(report: SgBillingFinancialReport): string {
   return [
     "SG BILLING — ПРОЕКТ",
     "",
-    "РАСХОДЫ",
-    `OpenAI всего: ${formatDisplayUsd(report.projectProviderCostNanoUsd)}`,
+    "OPENAI / ПРОЕКТ SG",
+    `Расходы всего: ${formatDisplayUsd(report.projectProviderCostNanoUsd)}`,
+    `Расходы за текущий месяц: ${formatDisplayUsd(report.currentMonthProviderCostNanoUsd)}`,
+    `Лимит на месяц: ${
+      report.openAiSpendLimitNanoUsd === undefined
+        ? "недоступен"
+        : formatDisplayUsd(report.openAiSpendLimitNanoUsd)
+    }`,
+    `Доступно до лимита: ${
+      report.openAiAvailableToLimitNanoUsd === undefined
+        ? "недоступно"
+        : formatDisplayUsd(report.openAiAvailableToLimitNanoUsd)
+    }`,
+    "Остаток предоплаты: OpenAI API не предоставляет",
+    ...(report.openAiSpendLimitEnforcement === undefined
+      ? []
+      : [
+          `Контроль лимита: ${
+            report.openAiSpendLimitEnforcement === "enforcing" ? "включён" : "выключен"
+          }`,
+        ]),
+    "",
+    "РАСПРЕДЕЛЕНИЕ РАСХОДОВ",
     `Локально распределено: ${formatDisplayUsd(report.attributedProviderCostNanoUsd)}`,
     `Корректировка Admin API: ${formatDisplayUsd(report.reconciliationAdjustmentNanoUsd)}`,
     `Монарх: ${formatDisplayUsd(report.monarchProviderCostNanoUsd)}`,
@@ -147,17 +172,59 @@ function formatBalance(
 }
 
 function formatEntry(entry: SgBillingEntry): string {
-  const details =
-    entry.type === "credit"
-      ? `+${formatNanoUsd(entry.amountNanoUsd ?? 0)}`
-      : entry.type === "reserve"
-        ? `резерв ${formatNanoUsd(entry.amountNanoUsd ?? 0)}`
-        : [
-            entry.outcome ?? "unknown",
-            `cost=${formatNanoUsd(entry.actualCostNanoUsd ?? 0)}`,
-            `charged=${formatNanoUsd(entry.chargedNanoUsd ?? 0)}`,
-          ].join(" ");
-  return `${new Date(entry.createdAt).toISOString()} | ${entry.operationId} | ${entry.type} | ${details}`;
+  if (entry.type === "credit") {
+    return [
+      new Date(entry.createdAt).toISOString(),
+      "ПОПОЛНЕНИЕ",
+      `ID: ${entry.operationId}`,
+      `Сумма: +${formatNanoUsd(entry.amountNanoUsd ?? 0)}`,
+    ].join("\n");
+  }
+  if (entry.type === "reserve") {
+    return [
+      new Date(entry.createdAt).toISOString(),
+      "РЕЗЕРВ",
+      `ID: ${entry.operationId}`,
+      `Сумма: ${formatNanoUsd(entry.amountNanoUsd ?? 0)}`,
+    ].join("\n");
+  }
+  const source =
+    entry.sourceKind === "automation"
+      ? `automation${entry.sourceId ? ` (${entry.sourceId})` : ""}`
+      : entry.sourceKind === "request"
+        ? "ручной запрос"
+        : "источник не сохранён";
+  const parts = entry.parts ?? [];
+  return [
+    new Date(entry.createdAt).toISOString(),
+    `ЗАПУСК — ${entry.outcome === "error" ? "ошибка" : "завершён"}`,
+    `Источник: ${source}`,
+    `Run ID: ${entry.operationId}`,
+    `Расход OpenAI: ${formatDisplayUsd(entry.actualCostNanoUsd ?? 0)}`,
+    `Списано с пользователя: ${formatDisplayUsd(entry.chargedNanoUsd ?? 0)}`,
+    "Детали:",
+    ...(parts.length
+      ? parts.flatMap((part, index) => [
+          `${index + 1}. ${
+            part.kind === "model"
+              ? `Модель: ${part.provider ?? "?"}/${part.model ?? "?"}`
+              : part.kind === "tool"
+                ? `Инструмент: ${part.toolName ?? "?"}; модель: ${part.provider ?? "?"}/${part.model ?? "?"}`
+                : "Историческая операция: детализация не сохранялась"
+          }`,
+          ...(part.kind === "model"
+            ? [
+                `   Токены: вход ${part.inputTokens ?? "?"}, выход ${part.outputTokens ?? "?"}, cache read ${part.cacheReadTokens ?? "?"}, cache write ${part.cacheWriteTokens ?? "?"}`,
+              ]
+            : []),
+          `   Стоимость: ${
+            part.actualCostNanoUsd === undefined
+              ? "не определена"
+              : formatDisplayUsd(part.actualCostNanoUsd)
+          }${part.costEvidence ? `; источник цены: ${part.costEvidence}` : ""}`,
+        ])
+      : ["Историческая операция: детализация не сохранялась"]),
+  ].join("\n");
 }
 
 async function resolveActor(ctx: BillingCommandContext, stateDir: string) {
@@ -230,14 +297,18 @@ export function registerSgBillingCommands(params: {
         const args = ctx.args?.trim().split(/\s+/u).filter(Boolean) ?? [];
         const [action, globalId, value, operationId, ...extra] = args;
         if (action === "report" && !globalId) {
-          const report = await withLedger(stateDir, (ledger) => ledger.financialReport());
+          const report = await withLedger(stateDir, (ledger) =>
+            ledger.financialReport(params.now?.() ?? Date.now()),
+          );
           return { text: formatFinancialReport(report) };
         }
         if (action === "user" && globalId && !value) {
           if (!(await profiles.findByGlobalId(globalId))) {
             return { text: "SG BILLING — Global ID не найден или неактивен" };
           }
-          const report = await withLedger(stateDir, (ledger) => ledger.financialReport());
+          const report = await withLedger(stateDir, (ledger) =>
+            ledger.financialReport(params.now?.() ?? Date.now()),
+          );
           const users = report.users.filter((user) => user.globalId === globalId);
           return {
             text: users.length
@@ -268,6 +339,11 @@ export function registerSgBillingCommands(params: {
               `Затраты Admin API: ${formatNanoUsd(result.providerCostNanoUsd)}`,
               `Локально атрибутировано: ${formatNanoUsd(result.attributedCostNanoUsd)}`,
               `Корректировка: ${formatNanoUsd(result.differenceNanoUsd)}`,
+              `Лимит OpenAI: ${
+                result.spendLimitNanoUsd === undefined
+                  ? "недоступен"
+                  : formatNanoUsd(result.spendLimitNanoUsd)
+              }`,
             ].join("\n"),
           };
         }

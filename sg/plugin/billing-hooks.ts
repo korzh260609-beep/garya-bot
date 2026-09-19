@@ -170,15 +170,19 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
       };
     }
     const operationId = `run:${runId}`;
+    const source = jobId
+      ? ({ kind: "automation", id: jobId } as const)
+      : ({ kind: "request" } as const);
     try {
       if (identity.role === "monarch") {
         await ledger.startTrackedOperation({
           globalId: identity.globalId,
           operationId,
           role: "monarch",
+          source,
         });
       } else {
-        await ledger.reserveAvailable({ globalId: identity.globalId, operationId });
+        await ledger.reserveAvailable({ globalId: identity.globalId, operationId, source });
       }
       await ledger.bindCorrelation({
         correlationId: `run:${runId}`,
@@ -225,7 +229,7 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
     pendingModelRates.delete(pricingKey);
     const actualCost =
       providerBilledCost ??
-      (pricing?.provider === event.provider && pricing.model === event.model
+      (pricing && pricing.provider === event.provider && pricing.model === event.model
         ? estimatedModelCostUsd(event.usage, pricing.rates)
         : undefined);
     try {
@@ -234,6 +238,27 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
         partId: `model:${event.callId}`,
         outcome: event.outcome,
         ...(actualCost === undefined ? {} : { actualCostNanoUsd: usdToNanoUsd(actualCost) }),
+        metadata: {
+          kind: "model",
+          provider: event.provider,
+          model: event.model,
+          ...(event.usage?.input === undefined ? {} : { inputTokens: event.usage.input }),
+          ...(event.usage?.output === undefined ? {} : { outputTokens: event.usage.output }),
+          ...(event.usage?.cacheRead === undefined
+            ? {}
+            : { cacheReadTokens: event.usage.cacheRead }),
+          ...(event.usage?.cacheWrite === undefined
+            ? {}
+            : { cacheWriteTokens: event.usage.cacheWrite }),
+          ...(actualCost === undefined
+            ? {}
+            : {
+                costEvidence:
+                  providerBilledCost === undefined
+                    ? ("catalog-estimate" as const)
+                    : ("provider-billed" as const),
+              }),
+        },
       });
       if (actualCost === undefined) {
         api.logger?.warn(
@@ -299,6 +324,7 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
         ...correlation,
         partId: `model:${event.callId}`,
         authorizedNanoUsd: providerAuthorizedNanoUsd * CUSTOMER_PRICE_MULTIPLIER,
+        metadata: { kind: "model", provider: event.provider, model: event.model },
       });
       pendingModelRates.set(`${event.runId}\0${event.callId}`, {
         provider: event.provider,
@@ -354,9 +380,14 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
             globalId: profile.globalId,
             operationId,
             role: "monarch",
+            source: { kind: "request" },
           });
         } else {
-          await ledger.reserveAvailable({ globalId: profile.globalId, operationId });
+          await ledger.reserveAvailable({
+            globalId: profile.globalId,
+            operationId,
+            source: { kind: "request" },
+          });
         }
         correlation = { globalId: profile.globalId, operationId };
         if (runId) {
@@ -370,7 +401,9 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
       await ledger.recordUnpricedPart({
         ...correlation,
         partId: `tool:${event.toolCallId}`,
+        metadata: { kind: "tool", toolName: event.toolName },
       });
+      return undefined;
     } catch (error) {
       api.logger?.warn(
         `[sg-billing] paid tool reserve failed safely: ${error instanceof Error ? error.message : String(error)}`,
@@ -441,6 +474,11 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
         ...correlation,
         partId: `tool:${event.toolCallId}`,
         authorizedNanoUsd: providerUpperBoundNanoUsd * CUSTOMER_PRICE_MULTIPLIER,
+        metadata: {
+          kind: "tool",
+          provider: event.provider,
+          model: event.model,
+        },
       });
       return { block: false };
     } catch (error) {
@@ -478,6 +516,14 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
         partId: `tool:${event.toolCallId}`,
         outcome: event.outcome,
         ...(exactCostUsd === undefined ? {} : { actualCostNanoUsd: usdToNanoUsd(exactCostUsd) }),
+        metadata: {
+          kind: "tool",
+          provider: event.provider,
+          model: event.model,
+          ...(event.cost?.evidence === "provider-billed" || event.cost?.evidence === "reconciled"
+            ? { costEvidence: event.cost.evidence }
+            : {}),
+        },
       });
       if (exactCostUsd === undefined) {
         api.logger?.warn(

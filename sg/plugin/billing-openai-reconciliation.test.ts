@@ -13,6 +13,38 @@ async function stateDir() {
   return root;
 }
 
+function openAiCostsFetch(results: unknown[]): typeof fetch {
+  return vi.fn(async (input: string | URL | Request) => {
+    const url = new URL(input instanceof Request ? input.url : input);
+    if (url.pathname.endsWith("/spend_limit")) {
+      return new Response("", { status: 404 });
+    }
+    return new Response(
+      JSON.stringify({
+        data: [
+          {
+            start_time: 1_789_689_600,
+            end_time: 1_789_776_000,
+            results,
+          },
+        ],
+        has_more: false,
+      }),
+      { status: 200 },
+    );
+  }) as typeof fetch;
+}
+
+function reconciliationOptions(root: string, results: unknown[]) {
+  return {
+    stateDir: root,
+    env: { OPENAI_ADMIN_KEY: "sk-admin-test", OPENAI_PROJECT_ID: "proj_sg" },
+    fetchFn: openAiCostsFetch(results),
+    now: Date.parse("2026-09-19T08:00:00.000Z"),
+    days: 1,
+  };
+}
+
 afterEach(async () => {
   await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
 });
@@ -114,6 +146,54 @@ describe("SG OpenAI billing reconciliation", () => {
     await expect(
       reconcileOpenAiBilling({ stateDir: root, env: { OPENAI_ADMIN_KEY: "sk-admin-test" } }),
     ).rejects.toThrow("sg-billing-openai-project-id-missing");
+  });
+
+  it("parses decimal and exponential costs exactly and treats a missing value as zero", async () => {
+    const root = await stateDir();
+    await expect(
+      reconcileOpenAiBilling(
+        reconciliationOptions(root, [
+          { amount: { value: "1e-7", currency: "usd" } },
+          { amount: { value: 1e-7, currency: "usd" } },
+          { amount: { currency: "usd" } },
+          { amount: { value: 0, currency: "usd" } },
+          { amount: { value: "4.999999999e-10", currency: "usd" } },
+          { amount: { value: "5e-10", currency: "usd" } },
+          { amount: { value: "-5e-10", currency: "usd" } },
+          { amount: { value: "1.2345678905e-7", currency: "usd" } },
+        ]),
+      ),
+    ).resolves.toMatchObject({
+      providerCostNanoUsd: 323,
+      differenceNanoUsd: 323,
+    });
+  });
+
+  it("rejects non-finite, malformed, wrongly denominated, and overflowing costs", async () => {
+    for (const value of ["NaN", "Infinity", "1e", null]) {
+      const root = await stateDir();
+      await expect(
+        reconcileOpenAiBilling(
+          reconciliationOptions(root, [{ amount: { value, currency: "usd" } }]),
+        ),
+      ).rejects.toThrow("sg-billing-admin-cost-invalid");
+    }
+
+    const wrongCurrencyRoot = await stateDir();
+    await expect(
+      reconcileOpenAiBilling(
+        reconciliationOptions(wrongCurrencyRoot, [{ amount: { value: "1e-7", currency: "eur" } }]),
+      ),
+    ).rejects.toThrow("sg-billing-admin-currency-invalid");
+
+    const overflowRoot = await stateDir();
+    await expect(
+      reconcileOpenAiBilling(
+        reconciliationOptions(overflowRoot, [
+          { amount: { value: "9.007199254740992e6", currency: "usd" } },
+        ]),
+      ),
+    ).rejects.toThrow("sg-billing-admin-cost-overflow");
   });
 
   it("fails safely on rejected or unavailable Admin API responses", async () => {

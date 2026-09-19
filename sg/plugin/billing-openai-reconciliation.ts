@@ -70,23 +70,44 @@ async function fetchOpenAiSpendLimit(params: {
 }
 
 function exactDecimalUsdToNanoUsd(value: unknown): number {
+  if (value === undefined) {
+    return 0;
+  }
   const text =
     typeof value === "string"
       ? value.trim()
       : typeof value === "number" && Number.isFinite(value)
         ? String(value)
         : "";
-  const match = /^(-?)(\d+)(?:\.(\d+))?$/u.exec(text);
+  const match = /^(-?)(\d+)(?:\.(\d+))?(?:[eE]([+-]?\d+))?$/u.exec(text);
   if (!match) {
     throw new Error("sg-billing-admin-cost-invalid");
   }
   const negative = match[1] === "-";
-  const whole = BigInt(match[2]!);
   const fraction = match[3] ?? "";
-  const nanoDigits = fraction.slice(0, 9).padEnd(9, "0");
-  let nanoUsd = whole * 1_000_000_000n + BigInt(nanoDigits);
-  if ((fraction[9] ?? "0") >= "5") {
-    nanoUsd += 1n;
+  const digits = `${match[2]}${fraction}`.replace(/^0+/u, "") || "0";
+  const nanoShift = BigInt(match[4] ?? "0") + 9n - BigInt(fraction.length);
+  let nanoUsd: bigint;
+  if (digits === "0") {
+    nanoUsd = 0n;
+  } else if (nanoShift >= 0n) {
+    if (BigInt(digits.length) + nanoShift > 16n) {
+      throw new Error("sg-billing-admin-cost-overflow");
+    }
+    nanoUsd = BigInt(digits) * 10n ** nanoShift;
+  } else {
+    const integerLength = BigInt(digits.length) + nanoShift;
+    if (integerLength < 0n) {
+      nanoUsd = 0n;
+    } else if (integerLength === 0n) {
+      nanoUsd = digits[0]! >= "5" ? 1n : 0n;
+    } else {
+      const split = Number(integerLength);
+      nanoUsd = BigInt(digits.slice(0, split));
+      if (digits[split]! >= "5") {
+        nanoUsd += 1n;
+      }
+    }
   }
   if (negative) {
     nanoUsd = -nanoUsd;

@@ -410,7 +410,7 @@ describe("SG billing hook integration contract", () => {
     ]);
   });
 
-  it("inherits the verified Monarch billing identity through native subagent lineage", async () => {
+  it("preserves verified billing identity through subagent delegation and return", async () => {
     const root = await createStateDir();
     const { hooks } = register(root);
     const parentSessionKey = "agent:main:telegram:direct:100";
@@ -449,9 +449,21 @@ describe("SG billing hook integration contract", () => {
         modelId: "gpt-5.6-terra",
       },
     );
+    const continuation = await runHooks(
+      hooks,
+      "before_agent_run",
+      { prompt: "Announce the subagent result", messages: [] },
+      {
+        runId: "run-parent-continuation",
+        agentId: "main",
+        sessionId: "session-parent",
+        sessionKey: parentSessionKey,
+      },
+    );
 
     expect(parent).toContainEqual({ outcome: "pass" });
     expect(child).toContainEqual({ outcome: "pass" });
+    expect(continuation).toContainEqual({ outcome: "pass" });
   });
 
   it("preserves native subagent ownership across nested delegation", async () => {

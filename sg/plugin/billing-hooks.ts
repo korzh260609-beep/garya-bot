@@ -137,6 +137,12 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
       return undefined;
     }
     try {
+      const currentOwner = await activeOwner(
+        await ledger.resolveSessionOwner(normalizedSessionKey),
+      );
+      if (currentOwner) {
+        return currentOwner;
+      }
       const [{ resolveAgentIdFromSessionKey }, { getSessionEntry }] = await Promise.all([
         import("openclaw/plugin-sdk/session-key-runtime"),
         import("openclaw/plugin-sdk/session-store-runtime"),
@@ -151,10 +157,7 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
       if (!parentSessionKey) {
         return undefined;
       }
-      return (
-        (await activeOwner(await ledger.resolveSessionOwner(normalizedSessionKey))) ??
-        activeOwner(await ledger.resolveSessionOwner(parentSessionKey))
-      );
+      return activeOwner(await ledger.resolveSessionOwner(parentSessionKey));
     } catch (error) {
       api.logger?.warn(
         `[sg-billing] session owner lookup failed safely: ${error instanceof Error ? error.message : String(error)}`,

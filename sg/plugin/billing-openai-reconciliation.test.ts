@@ -76,7 +76,9 @@ describe("SG OpenAI billing reconciliation", () => {
               {
                 start_time: 1_789_603_200,
                 end_time: 1_789_689_600,
-                results: [{ amount: { value: "1.25", currency: "usd" } }],
+                results: [
+                  { line_item: "model-inference", amount: { value: "1.25", currency: "usd" } },
+                ],
               },
             ],
             has_more: true,
@@ -91,7 +93,9 @@ describe("SG OpenAI billing reconciliation", () => {
             {
               start_time: 1_789_689_600,
               end_time: 1_789_776_000,
-              results: [{ amount: { value: "0.5000000004", currency: "USD" } }],
+              results: [
+                { line_item: "web-search", amount: { value: "0.5000000004", currency: "USD" } },
+              ],
             },
           ],
           has_more: false,
@@ -115,6 +119,14 @@ describe("SG OpenAI billing reconciliation", () => {
       providerCostNanoUsd: 1_750_000_000,
       attributedCostNanoUsd: 0,
       differenceNanoUsd: 1_750_000_000,
+      dailyCosts: [
+        { startMs: Date.parse("2026-09-17T00:00:00.000Z"), costNanoUsd: 1_250_000_000 },
+        { startMs: Date.parse("2026-09-18T00:00:00.000Z"), costNanoUsd: 500_000_000 },
+      ],
+      serviceCosts: [
+        { lineItem: "model-inference", costNanoUsd: 1_250_000_000 },
+        { lineItem: "web-search", costNanoUsd: 500_000_000 },
+      ],
       spendLimitNanoUsd: 10_000_000_000,
       spendLimitEnforcement: "enforcing",
     });

@@ -22,6 +22,8 @@ export type SgOpenAiReconciliationResult = {
   providerCostNanoUsd: number;
   attributedCostNanoUsd: number;
   differenceNanoUsd: number;
+  dailyCosts: Array<{ startMs: number; costNanoUsd: number }>;
+  serviceCosts: Array<{ lineItem: string; costNanoUsd: number }>;
   spendLimitNanoUsd?: number;
   spendLimitEnforcement?: "inactive" | "enforcing";
 };
@@ -191,6 +193,7 @@ export async function reconcileOpenAiBilling(params: {
   });
 
   const providerByStart = new Map<number, { total: number; evidence: unknown[] }>();
+  const serviceTotals = new Map<string, number>();
   for (const rawBucket of response.data) {
     const bucket = asProviderUsageObject(rawBucket);
     const startSeconds = bucket?.start_time;
@@ -223,7 +226,13 @@ export async function reconcileOpenAiBilling(params: {
       if (currency !== "usd") {
         throw new Error("sg-billing-admin-currency-invalid");
       }
-      total = checkedAddSigned(total, exactDecimalUsdToNanoUsd(amount?.value));
+      const costNanoUsd = exactDecimalUsdToNanoUsd(amount?.value);
+      const lineItem =
+        typeof result?.line_item === "string" && result.line_item.trim()
+          ? result.line_item.trim()
+          : "не указано";
+      total = checkedAddSigned(total, costNanoUsd);
+      serviceTotals.set(lineItem, checkedAddSigned(serviceTotals.get(lineItem) ?? 0, costNanoUsd));
     }
     const existing = providerByStart.get(startMs);
     providerByStart.set(startMs, {
@@ -236,10 +245,14 @@ export async function reconcileOpenAiBilling(params: {
   let providerCostNanoUsd = 0;
   let attributedCostNanoUsd = 0;
   let differenceNanoUsd = 0;
+  const dailyCosts: SgOpenAiReconciliationResult["dailyCosts"] = [];
   try {
     for (let startMs = period.startMs; startMs < period.endMs; startMs += DAY_MS) {
       const endMs = startMs + DAY_MS;
       const provider = providerByStart.get(startMs) ?? { total: 0, evidence: [] };
+      if (provider.total !== 0) {
+        dailyCosts.push({ startMs, costNanoUsd: provider.total });
+      }
       const attributed = await ledger.actualCostForWindow({ startMs, endMs });
       const difference = provider.total - attributed;
       const sourceDigest = digest({
@@ -285,6 +298,14 @@ export async function reconcileOpenAiBilling(params: {
     providerCostNanoUsd,
     attributedCostNanoUsd,
     differenceNanoUsd,
+    dailyCosts,
+    serviceCosts: [...serviceTotals.entries()]
+      .filter(([, costNanoUsd]) => costNanoUsd !== 0)
+      .map(([lineItem, costNanoUsd]) => ({ lineItem, costNanoUsd }))
+      .sort(
+        (left, right) =>
+          right.costNanoUsd - left.costNanoUsd || left.lineItem.localeCompare(right.lineItem),
+      ),
     ...(spendLimit
       ? {
           spendLimitNanoUsd: spendLimit.spendLimitNanoUsd,

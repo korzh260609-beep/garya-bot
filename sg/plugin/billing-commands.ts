@@ -4,7 +4,10 @@ import {
   type SgBillingFinancialReport,
   type SgBillingFinancialUser,
 } from "./billing-ledger.js";
-import { reconcileOpenAiBilling } from "./billing-openai-reconciliation.js";
+import {
+  reconcileOpenAiBilling,
+  type SgOpenAiReconciliationResult,
+} from "./billing-openai-reconciliation.js";
 import { resolveWorkspaceContext } from "./context.js";
 import { SgGlobalProfileRegistry } from "./global-profile-registry.js";
 
@@ -59,6 +62,35 @@ function formatDisplayUsd(value: number): string {
   const whole = Math.floor(roundedMicroUsd / 1_000_000);
   const fraction = String(roundedMicroUsd % 1_000_000).padStart(6, "0");
   return `${sign}$${whole}.${fraction}`;
+}
+
+function formatReconciliation(result: SgOpenAiReconciliationResult): string {
+  return [
+    "SG BILLING — сверка завершена",
+    `Проект OpenAI: ${result.projectId}`,
+    `Окон: ${result.windowCount}`,
+    `Затраты Admin API: ${formatNanoUsd(result.providerCostNanoUsd)}`,
+    `Локально атрибутировано: ${formatNanoUsd(result.attributedCostNanoUsd)}`,
+    `Корректировка: ${formatNanoUsd(result.differenceNanoUsd)}`,
+    `Лимит OpenAI: ${
+      result.spendLimitNanoUsd === undefined
+        ? "недоступен"
+        : formatNanoUsd(result.spendLimitNanoUsd)
+    }`,
+    "",
+    "ПО ДНЯМ (UTC)",
+    ...(result.dailyCosts.length
+      ? result.dailyCosts.map(
+          (entry) =>
+            `${new Date(entry.startMs).toISOString().slice(0, 10)}: ${formatNanoUsd(entry.costNanoUsd)}`,
+        )
+      : ["Расходов нет"]),
+    "",
+    "ПО УСЛУГАМ",
+    ...(result.serviceCosts.length
+      ? result.serviceCosts.map((entry) => `${entry.lineItem}: ${formatNanoUsd(entry.costNanoUsd)}`)
+      : ["Расходов нет"]),
+  ].join("\n");
 }
 
 function reconciliationStatus(report: SgBillingFinancialReport): string {
@@ -331,21 +363,7 @@ export function registerSgBillingCommands(params: {
             ...(params.now ? { now: params.now() } : {}),
             ...(days === undefined ? {} : { days }),
           });
-          return {
-            text: [
-              "SG BILLING — сверка завершена",
-              `Проект OpenAI: ${result.projectId}`,
-              `Окон: ${result.windowCount}`,
-              `Затраты Admin API: ${formatNanoUsd(result.providerCostNanoUsd)}`,
-              `Локально атрибутировано: ${formatNanoUsd(result.attributedCostNanoUsd)}`,
-              `Корректировка: ${formatNanoUsd(result.differenceNanoUsd)}`,
-              `Лимит OpenAI: ${
-                result.spendLimitNanoUsd === undefined
-                  ? "недоступен"
-                  : formatNanoUsd(result.spendLimitNanoUsd)
-              }`,
-            ].join("\n"),
-          };
+          return { text: formatReconciliation(result) };
         }
         if (action === "diag" && !globalId) {
           const diagnostic = await withLedger(stateDir, (ledger) => ledger.diagnostics());

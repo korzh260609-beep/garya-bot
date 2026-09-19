@@ -399,7 +399,16 @@ describe("SG billing commands", () => {
                 {
                   start_time: 1_789_689_600,
                   end_time: 1_789_776_000,
-                  results: [{ amount: { value: "2.5", currency: "usd" } }],
+                  results: [
+                    {
+                      line_item: "model-inference",
+                      amount: { value: "2", currency: "usd" },
+                    },
+                    {
+                      line_item: "web-search",
+                      amount: { value: "0.5", currency: "usd" },
+                    },
+                  ],
                 },
               ],
               has_more: false,
@@ -414,7 +423,7 @@ describe("SG billing commands", () => {
     });
     const result = await configured.invoke("sg_billing", "100", "reconcile 1");
     expect(result.text).toMatch(
-      /сверка завершена[\s\S]*Затраты Admin API: \$2\.5[\s\S]*Лимит OpenAI: \$50/u,
+      /сверка завершена[\s\S]*Затраты Admin API: \$2\.5[\s\S]*Лимит OpenAI: \$50[\s\S]*ПО ДНЯМ \(UTC\)[\s\S]*2026-09-18: \$2\.5[\s\S]*ПО УСЛУГАМ[\s\S]*model-inference: \$2[\s\S]*web-search: \$0\.5/u,
     );
     expect(fetchFn).toHaveBeenCalledTimes(2);
 
@@ -422,5 +431,44 @@ describe("SG billing commands", () => {
     await expect(unconfigured.invoke("sg_billing", "100", "reconcile")).resolves.toEqual({
       text: "SG BILLING — OPENAI_ADMIN_KEY не настроен",
     });
+  });
+
+  it("keeps a 30-day service breakdown within one Telegram message", async () => {
+    const firstDaySeconds = Date.parse("2026-08-20T00:00:00.000Z") / 1_000;
+    const fetchFn = vi.fn(async (input: string | URL | Request) => {
+      const url = new URL(input instanceof Request ? input.url : input);
+      if (url.pathname.endsWith("/spend_limit")) {
+        return new Response("", { status: 404 });
+      }
+      return new Response(
+        JSON.stringify({
+          data: Array.from({ length: 30 }, (_, index) => ({
+            start_time: firstDaySeconds + index * 86_400,
+            end_time: firstDaySeconds + (index + 1) * 86_400,
+            results: [
+              {
+                line_item: `service-${String(index + 1).padStart(2, "0")}`,
+                amount: { value: "0.01", currency: "usd" },
+              },
+            ],
+          })),
+          has_more: false,
+        }),
+        { status: 200 },
+      );
+    }) as typeof fetch;
+    const { invoke } = await fixture({
+      env: { OPENAI_ADMIN_KEY: "sk-admin-test", OPENAI_PROJECT_ID: "proj_sg" },
+      fetchFn,
+      now: () => Date.parse("2026-09-19T08:00:00.000Z"),
+    });
+
+    const result = await invoke("sg_billing", "100", "reconcile 30");
+    expect(result.text).toContain("Затраты Admin API: $0.3");
+    expect(result.text).toContain("2026-08-20: $0.01");
+    expect(result.text).toContain("2026-09-18: $0.01");
+    expect(result.text).toContain("service-01: $0.01");
+    expect(result.text).toContain("service-30: $0.01");
+    expect(result.text.length).toBeLessThanOrEqual(4_096);
   });
 });

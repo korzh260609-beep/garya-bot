@@ -298,7 +298,7 @@ describe("SG billing commands", () => {
     ledger.close();
 
     await expect(invoke("sg_billing", "100", "resolve-stale-monarch 30")).resolves.toEqual({
-      text: "SG BILLING — сначала выполните /sg_billing reconcile 1",
+      text: "SG BILLING — сначала выполните сверку расходов OpenAI за 1 день",
     });
   });
 

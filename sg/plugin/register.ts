@@ -2,6 +2,11 @@ import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
 import { registerSgBillingCommands } from "./billing-commands.js";
 import { registerSgBillingHooks } from "./billing-hooks.js";
 import { registerSgBillingReconciliation } from "./billing-reconciliation-lifecycle.js";
+import {
+  BILLING_AGENT_GUIDANCE,
+  BILLING_TOOL_NAMES,
+  createSgBillingTool,
+} from "./billing-tools.js";
 import { SgContentRegistry } from "./content-registry.js";
 import { SgContextDiagnostics, type SgContextDiagnosticCommand } from "./context-diagnostics.js";
 import { formatWorkspaceContext, resolveWorkspaceContext } from "./context.js";
@@ -183,6 +188,9 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
     names: [...PROJECT_HANDOFF_TOOL_NAMES],
   });
   api.registerTool((ctx) => createSgRenderTool(ctx), { names: [...RENDER_TOOL_NAMES] });
+  api.registerTool((ctx) => createSgBillingTool(ctx, stateDir, { logger: api.logger }), {
+    names: [...BILLING_TOOL_NAMES],
+  });
   wsp5Lifecycle.register(api);
   wsp6Lifecycle.register(api);
   registerSgBillingHooks({ api, stateDir });
@@ -229,7 +237,7 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
       );
     }
     return {
-      prependSystemContext: `${identityContext}\n\n${PERSONAL_MEMORY_AGENT_GUIDANCE}${resourceMemoryGuidance}${projectMemoryGuidance}\n${WSP5_AGENT_GUIDANCE}\n${WSP6_AGENT_GUIDANCE}`,
+      prependSystemContext: `${identityContext}\n\n${PERSONAL_MEMORY_AGENT_GUIDANCE}${resourceMemoryGuidance}${projectMemoryGuidance}\n${BILLING_AGENT_GUIDANCE}\n${WSP5_AGENT_GUIDANCE}\n${WSP6_AGENT_GUIDANCE}`,
     };
   });
 

@@ -11,7 +11,7 @@ import {
 import { resolveWorkspaceContext } from "./context.js";
 import { SgGlobalProfileRegistry } from "./global-profile-registry.js";
 
-type BillingCommandContext = {
+export type BillingCommandContext = {
   channel: string;
   accountId?: string;
   to?: string;
@@ -31,6 +31,11 @@ type BillingCommandApi = {
     handler(ctx: BillingCommandContext): Promise<{ text: string }>;
   }): void;
   logger?: { warn(message: string): void };
+};
+
+export type SgBillingCommandHandlers = {
+  balance(ctx: BillingCommandContext): Promise<{ text: string }>;
+  billing(ctx: BillingCommandContext): Promise<{ text: string }>;
 };
 
 const BILLING_USAGE = [
@@ -515,7 +520,7 @@ export function registerSgBillingCommands(params: {
         }
         if (message === "sg-billing-reconciliation-required") {
           return {
-            text: "SG BILLING — сначала выполните /sg_billing reconcile 1",
+            text: "SG BILLING — сначала выполните сверку расходов OpenAI за 1 день",
           };
         }
         return {
@@ -527,4 +532,30 @@ export function registerSgBillingCommands(params: {
       }
     },
   });
+}
+
+export function createSgBillingCommandHandlers(params: {
+  stateDir: string;
+  env?: NodeJS.ProcessEnv;
+  fetchFn?: typeof fetch;
+  now?: () => number;
+  logger?: BillingCommandApi["logger"];
+}): SgBillingCommandHandlers {
+  const handlers = new Map<string, (ctx: BillingCommandContext) => Promise<{ text: string }>>();
+  registerSgBillingCommands({
+    stateDir: params.stateDir,
+    ...(params.env ? { env: params.env } : {}),
+    ...(params.fetchFn ? { fetchFn: params.fetchFn } : {}),
+    ...(params.now ? { now: params.now } : {}),
+    api: {
+      registerCommand: (command) => handlers.set(command.name, command.handler),
+      ...(params.logger ? { logger: params.logger } : {}),
+    },
+  });
+  const balance = handlers.get("sg_balance");
+  const billing = handlers.get("sg_billing");
+  if (!balance || !billing) {
+    throw new Error("sg-billing-command-handlers-missing");
+  }
+  return { balance, billing };
 }

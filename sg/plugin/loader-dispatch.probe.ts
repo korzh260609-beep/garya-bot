@@ -46,6 +46,7 @@ const workspaceToolGrant = [
   "sg_test_stats",
   "sg_project_handoff",
   "sg_render",
+  "sg_billing_manage",
 ];
 const withoutWorkspaceGrant = resolveEmbeddedAttemptToolConstructionPlan({
   toolsEnabled: true,
@@ -191,6 +192,7 @@ console.log(
     projectHandoffToolInModelSurface: pluginTools.some(
       (tool) => tool.name === "sg_project_handoff",
     ),
+    billingToolInModelSurface: pluginTools.some((tool) => tool.name === "sg_billing_manage"),
     citizenshipToolsAbsentWithoutGrant: !pluginToolsWithoutGrant.some((tool) =>
       tool.name.startsWith("sg_citizen_"),
     ),

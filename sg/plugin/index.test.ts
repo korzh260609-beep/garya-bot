@@ -211,6 +211,7 @@ describe("SG Workspace Manager", () => {
       "sg_project_memory_reindex",
       "sg_project_handoff",
       "sg_render",
+      "sg_billing_manage",
     ]);
     expect(registerInteractiveHandler).toHaveBeenCalledWith({
       channel: "telegram",
@@ -239,6 +240,9 @@ describe("SG Workspace Manager", () => {
     expect(result.prependSystemContext).not.toContain("sg_resource_memory_search");
     expect(result.prependSystemContext).toContain("штатным automations");
     expect(result.prependSystemContext).toContain("обычные опросы отправляй штатным message");
+    expect(result.prependSystemContext).toContain("Понимай намерение пользователя семантически");
+    expect(result.prependSystemContext).toContain("не используй сопоставление по ключевым словам");
+    expect(result.prependSystemContext).toContain("Не предлагай пользователю запоминать");
     expect(result.prependSystemContext).not.toMatch(/sg_workspace_(?:onboard|pending|decide)/u);
   });
 

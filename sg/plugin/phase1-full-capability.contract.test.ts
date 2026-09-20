@@ -83,6 +83,7 @@ const toolCatalog = [
   "github_identity_status",
   "github_publish",
   "sg_render",
+  "sg_billing_manage",
   "gateway",
   "nodes",
   "openclaw",
@@ -120,6 +121,7 @@ async function createEntrypointHarness() {
     "scoped-memory-entries.ts",
     "cost-diagnostics.ts",
     "render-tools.ts",
+    "billing-tools.ts",
     "openclaw.plugin.json",
     "package.json",
   ]) {
@@ -270,6 +272,7 @@ describe("SG 2.2 Phase 1 full capability contracts", () => {
       "github_identity_status",
       "github_publish",
       "sg_render",
+      "sg_billing_manage",
       "sg_project_memory_record",
       "sg_project_memory_search",
       "sg_project_memory_get",
@@ -351,6 +354,7 @@ describe("SG 2.2 Phase 1 full capability contracts", () => {
       "sg_content_draft",
       "sg_content_dispatch",
       "sg_test_attempt",
+      "sg_billing_manage",
     ]) {
       expect(names, required).toContain(required);
     }

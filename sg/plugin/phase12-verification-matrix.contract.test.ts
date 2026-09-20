@@ -40,6 +40,7 @@ const currentPluginTools = [
   "sg_project_memory_reindex",
   "sg_project_handoff",
   "sg_render",
+  "sg_billing_manage",
 ] as const;
 
 function readShellJsonArray(source: string, variable: string): string[] {

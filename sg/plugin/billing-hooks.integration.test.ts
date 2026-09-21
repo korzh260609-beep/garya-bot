@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -94,7 +95,8 @@ async function createSpawnedSession(params: {
   agentId: string;
   sessionKey: string;
   sessionId: string;
-  spawnedBy: string;
+  spawnedBy?: string;
+  parentSessionKey?: string;
 }) {
   await upsertSessionEntry({
     agentId: params.agentId,
@@ -103,7 +105,8 @@ async function createSpawnedSession(params: {
     entry: {
       sessionId: params.sessionId,
       updatedAt: Date.now(),
-      spawnedBy: params.spawnedBy,
+      ...(params.spawnedBy ? { spawnedBy: params.spawnedBy } : {}),
+      ...(params.parentSessionKey ? { parentSessionKey: params.parentSessionKey } : {}),
     },
   });
 }
@@ -594,6 +597,180 @@ describe("SG billing hook integration contract", () => {
     expect(grandchild).toContainEqual({ outcome: "pass" });
   });
 
+  it("inherits billing ownership through parentSessionKey-only lineage", async () => {
+    const root = await createStateDir();
+    const { hooks } = register(root);
+    const parentSessionKey = "agent:main:telegram:direct:100";
+    const childSessionKey = "agent:research:subagent:parent-key-only";
+
+    await runHooks(
+      hooks,
+      "before_agent_run",
+      { ...beforeRunEvent, channelId: "100", senderId: "100", senderIsOwner: true },
+      {
+        ...agentContext("run-parent-key-parent"),
+        sessionKey: parentSessionKey,
+        channelId: "100",
+        senderId: "100",
+      },
+    );
+    await createSpawnedSession({
+      root,
+      agentId: "research",
+      sessionKey: childSessionKey,
+      sessionId: "session-parent-key-child",
+      parentSessionKey,
+    });
+
+    const child = await runHooks(
+      hooks,
+      "before_agent_run",
+      { prompt: "Parent-key delegation", messages: [] },
+      {
+        runId: "run-parent-key-child",
+        agentId: "research",
+        sessionId: "session-parent-key-child",
+        sessionKey: childSessionKey,
+      },
+    );
+
+    expect(child).toContainEqual({ outcome: "pass" });
+  });
+
+  it("binds the native OpenClaw system-agent delegation to the verified Monarch", async () => {
+    const root = await createStateDir();
+    const { hooks } = register(root);
+    const parentSessionKey = "agent:main:telegram:direct:100";
+    const parentContext = {
+      ...agentContext("run-openclaw-parent"),
+      sessionId: "session-openclaw-parent",
+      sessionKey: parentSessionKey,
+      channelId: "100",
+      senderId: "100",
+    };
+    await runHooks(
+      hooks,
+      "before_agent_run",
+      { ...beforeRunEvent, channelId: "100", senderId: "100", senderIsOwner: true },
+      parentContext,
+    );
+    const toolResults = await runHooks(
+      hooks,
+      "before_tool_call",
+      {
+        toolName: "openclaw",
+        params: { message: "Включи codex" },
+        runId: "run-openclaw-parent",
+        toolCallId: "tool-openclaw",
+      },
+      {
+        ...parentContext,
+        toolName: "openclaw",
+        toolCallId: "tool-openclaw",
+        requester: { channel: "telegram", senderId: "100" },
+      },
+    );
+    const delegatedSessionId = `delegate-${createHash("sha256")
+      .update(`main\0${parentSessionKey}`)
+      .digest("hex")
+      .slice(0, 32)}`;
+
+    const delegatedRun = await runHooks(
+      hooks,
+      "before_agent_run",
+      { prompt: "Enable Codex", messages: [] },
+      {
+        runId: "openclaw-turn-system-agent",
+        agentId: "openclaw",
+        sessionId: delegatedSessionId,
+        sessionKey: "agent:openclaw:main",
+        trigger: "manual",
+        channel: "openclaw",
+        messageProvider: "openclaw",
+      },
+    );
+    const unrelatedTurn = await runHooks(
+      hooks,
+      "before_agent_run",
+      { prompt: "Different unbound control request", messages: [] },
+      {
+        runId: "openclaw-turn-unrelated",
+        agentId: "openclaw",
+        sessionId: "delegate-unrelated",
+        sessionKey: "agent:openclaw:main",
+        trigger: "manual",
+        channel: "openclaw",
+        messageProvider: "openclaw",
+      },
+    );
+
+    expect(toolResults).toContain(undefined);
+    expect(delegatedRun).toContainEqual({ outcome: "pass" });
+    expect(unrelatedTurn).toContainEqual(
+      expect.objectContaining({ outcome: "block", category: "cost_identity_unresolved" }),
+    );
+  });
+
+  it("keeps an unbound OpenClaw system-agent turn blocked", async () => {
+    const root = await createStateDir();
+    const { hooks } = register(root);
+
+    const result = await runHooks(
+      hooks,
+      "before_agent_run",
+      { prompt: "Unbound control request", messages: [] },
+      {
+        runId: "openclaw-turn-unbound",
+        agentId: "openclaw",
+        sessionId: "delegate-unbound",
+        sessionKey: "agent:openclaw:main",
+        trigger: "manual",
+        channel: "openclaw",
+        messageProvider: "openclaw",
+      },
+    );
+
+    expect(result).toContainEqual(
+      expect.objectContaining({ outcome: "block", category: "cost_identity_unresolved" }),
+    );
+  });
+
+  it("admits trusted OpenClaw planner and setup-probe runs as Monarch control work", async () => {
+    const root = await createStateDir();
+    const { hooks } = register(root);
+
+    const planner = await runHooks(
+      hooks,
+      "before_agent_run",
+      { prompt: "Plan", messages: [] },
+      {
+        runId: "openclaw-planner-test",
+        agentId: "main",
+        sessionId: "openclaw-planner-test-session",
+        trigger: "manual",
+        channel: "openclaw",
+        messageProvider: "openclaw",
+      },
+    );
+    const probe = await runHooks(
+      hooks,
+      "before_agent_run",
+      { prompt: "Probe", messages: [] },
+      {
+        runId: "probe-setup-inference-test",
+        agentId: "openclaw",
+        sessionId: "probe-setup-inference-test",
+        sessionKey: "agent:openclaw:setup-inference:incognito-probe-setup-inference-test",
+        trigger: "manual",
+        channel: "openclaw",
+        messageProvider: "openclaw",
+      },
+    );
+
+    expect(planner).toContainEqual({ outcome: "pass" });
+    expect(probe).toContainEqual({ outcome: "pass" });
+  });
+
   it("keeps an unowned native subagent blocked", async () => {
     const root = await createStateDir();
     const { hooks } = register(root);
@@ -968,6 +1145,70 @@ describe("SG billing hook integration contract", () => {
     expect((await snapshot(root)).balanceNanoUsd).toBe(openingBalance - usdToNanoUsd(0.0001) * 2);
   });
 
+  it("authorizes and settles compaction model calls against the parent run", async () => {
+    const root = await createStateDir();
+    const openingBalance = usdToNanoUsd(1);
+    await credit(root, openingBalance);
+    const { hooks, warn } = register(root);
+    const ctx = agentContext("run-with-compaction");
+    await runHooks(hooks, "before_agent_run", beforeRunEvent, ctx);
+    const compactRunId = "run-with-compaction:compaction:diag-1";
+    const request = {
+      runId: compactRunId,
+      callId: `${compactRunId}:model:1`,
+      provider: "openai",
+      model: "gpt-5.6-terra",
+      maxOutputTokens: 1_000,
+      inputUpperBoundTokens: 1_000,
+      cost: { input: 2, output: 12, cacheRead: 0.2, cacheWrite: 2.5 },
+    };
+
+    const authorization = await runHooks(hooks, "before_model_call", request, ctx);
+    await runHooks(
+      hooks,
+      "model_call_ended",
+      {
+        ...request,
+        durationMs: 10,
+        outcome: "completed",
+        usage: { cost: { total: 0.0001, totalOrigin: "provider-billed" } },
+      },
+      ctx,
+    );
+    await runHooks(hooks, "agent_end", { messages: [], success: true }, ctx);
+
+    expect(authorization).toContainEqual(
+      expect.objectContaining({ maxOutputTokens: expect.any(Number), maxRetries: 0 }),
+    );
+    expect((await snapshot(root)).balanceNanoUsd).toBe(openingBalance - usdToNanoUsd(0.0001) * 2);
+    expect(warn).not.toHaveBeenCalledWith(expect.stringContaining("no run correlation"));
+  });
+
+  it("blocks an orphaned paid model call before provider I/O", async () => {
+    const root = await createStateDir();
+    const { hooks } = register(root);
+
+    const result = await runHooks(
+      hooks,
+      "before_model_call",
+      {
+        runId: "orphan-model-run",
+        callId: "orphan-model-call",
+        provider: "openai",
+        model: "gpt-5.6-terra",
+        maxOutputTokens: 100,
+        inputUpperBoundTokens: 100,
+        cost: { input: 2, output: 12, cacheRead: 0.2, cacheWrite: 2.5 },
+      },
+      {},
+    );
+
+    expect(result).toContainEqual({
+      block: true,
+      blockReason: "SG cannot prove the payer or model-run correlation",
+    });
+  });
+
   it("settles token usage with the authorized catalog rates when provider cost is missing", async () => {
     const root = await createStateDir();
     const openingBalance = usdToNanoUsd(1);
@@ -1216,7 +1457,7 @@ describe("SG billing hook integration contract", () => {
     expect(results).toContainEqual({
       outcome: "block",
       reason: "SG cannot prove the payer Global ID",
-      message: "Недостаточно средств. Сначала пополните баланс.",
+      message: "Не удалось подтвердить владельца запроса. Выполнение остановлено без расходов.",
       category: "cost_identity_unresolved",
     });
   });

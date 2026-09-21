@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
 import { SgBillingLedger, type SgBillingOperationSource, usdToNanoUsd } from "./billing-ledger.js";
 import { resolveSgCanonicalIdentity } from "./context.js";
@@ -23,6 +24,43 @@ function automationJobId(ctx: { jobId?: string; sessionKey?: string }): string |
     return explicit;
   }
   return /^agent:[^:]+:cron:([^:]+):run:[^:]+$/u.exec(ctx.sessionKey ?? "")?.[1];
+}
+
+function openClawDelegationSessionId(params: {
+  requestedSessionId?: unknown;
+  agentId?: string;
+  sessionKey?: string;
+}): string | undefined {
+  const requested =
+    typeof params.requestedSessionId === "string" ? params.requestedSessionId.trim() : "";
+  if (requested) {
+    return requested;
+  }
+  const sessionKey = params.sessionKey?.trim();
+  if (!sessionKey) {
+    return undefined;
+  }
+  // This mirrors OpenClaw's host-owned default delegation id. A mismatch must fail closed,
+  // otherwise the nested system-agent run loses its payer while the provider call still starts.
+  return `delegate-${createHash("sha256")
+    .update(`${params.agentId?.trim() || "unknown"}\0${sessionKey}`)
+    .digest("hex")
+    .slice(0, 32)}`;
+}
+
+function delegatedSessionOwnerKey(sessionId: string): string {
+  return `openclaw-delegation:${sessionId}`;
+}
+
+function compactionParentRunId(runId: string): string | undefined {
+  const marker = ":compaction:";
+  const markerIndex = runId.lastIndexOf(marker);
+  if (markerIndex <= 0 || markerIndex + marker.length >= runId.length) {
+    return undefined;
+  }
+  // Direct compaction emits model hooks under a derived run id without its own run admission.
+  // Preserve the parent's reservation so compaction cannot become uncorrelated paid work.
+  return runId.slice(0, markerIndex);
 }
 
 function modelRates(value: ModelRates): ModelRates | undefined {
@@ -131,39 +169,79 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
     const profile = await profiles.findByGlobalId(owner.globalId);
     return profile?.role === owner.role ? owner : undefined;
   };
-  const resolveSessionOwner = async (sessionKey?: string) => {
+  const resolveActiveMonarch = async (): Promise<BillingOwner | undefined> => {
+    const snapshot = await profiles.snapshot();
+    const monarch = snapshot.profiles.find(
+      (profile) =>
+        profile.globalId === snapshot.monarchGlobalId &&
+        profile.role === "monarch" &&
+        profile.status === "active",
+    );
+    return monarch
+      ? { globalId: monarch.globalId, role: "monarch", source: { kind: "request" } }
+      : undefined;
+  };
+  const resolveSessionOwner = async (
+    sessionKey?: string,
+    sessionId?: string,
+    allowDelegatedSessionId = false,
+  ) => {
     const normalizedSessionKey = sessionKey?.trim();
-    if (!normalizedSessionKey) {
+    const normalizedSessionId = sessionId?.trim();
+    if (!normalizedSessionKey && !normalizedSessionId) {
       return undefined;
     }
     try {
-      const currentOwner = await activeOwner(
-        await ledger.resolveSessionOwner(normalizedSessionKey),
-      );
-      if (currentOwner) {
-        return currentOwner;
+      if (allowDelegatedSessionId && normalizedSessionId) {
+        const delegatedOwner = await activeOwner(
+          await ledger.resolveSessionOwner(delegatedSessionOwnerKey(normalizedSessionId)),
+        );
+        if (delegatedOwner) {
+          return delegatedOwner;
+        }
+      }
+      if (!normalizedSessionKey) {
+        return undefined;
       }
       const [{ resolveAgentIdFromSessionKey }, { getSessionEntry }] = await Promise.all([
         import("openclaw/plugin-sdk/session-key-runtime"),
         import("openclaw/plugin-sdk/session-store-runtime"),
       ]);
-      const entry = getSessionEntry({
-        agentId: resolveAgentIdFromSessionKey(normalizedSessionKey),
-        env: { ...process.env, OPENCLAW_STATE_DIR: stateDir },
-        readConsistency: "latest",
-        sessionKey: normalizedSessionKey,
-      });
-      const parentSessionKey = entry?.spawnedBy?.trim();
-      if (!parentSessionKey) {
-        return undefined;
+      const visited = new Set<string>();
+      let currentSessionKey: string | undefined = normalizedSessionKey;
+      for (let depth = 0; currentSessionKey && depth < 16; depth += 1) {
+        if (visited.has(currentSessionKey)) {
+          return undefined;
+        }
+        visited.add(currentSessionKey);
+        const currentOwner = await activeOwner(await ledger.resolveSessionOwner(currentSessionKey));
+        if (currentOwner) {
+          return currentOwner;
+        }
+        const entry = getSessionEntry({
+          agentId: resolveAgentIdFromSessionKey(currentSessionKey),
+          env: { ...process.env, OPENCLAW_STATE_DIR: stateDir },
+          readConsistency: "latest",
+          sessionKey: currentSessionKey,
+        });
+        currentSessionKey = entry?.parentSessionKey?.trim() || entry?.spawnedBy?.trim();
       }
-      return activeOwner(await ledger.resolveSessionOwner(parentSessionKey));
+      return undefined;
     } catch (error) {
       api.logger?.warn(
         `[sg-billing] session owner lookup failed safely: ${error instanceof Error ? error.message : String(error)}`,
       );
       return undefined;
     }
+  };
+
+  const resolveRunCorrelation = async (runId: string) => {
+    const direct = await ledger.resolveCorrelation(`run:${runId}`);
+    if (direct) {
+      return direct;
+    }
+    const parentRunId = compactionParentRunId(runId);
+    return parentRunId ? ledger.resolveCorrelation(`run:${parentRunId}`) : undefined;
   };
 
   api.on("before_agent_run", async (event, ctx) => {
@@ -187,11 +265,25 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
             source: jobId ? { kind: "automation", id: jobId } : { kind: "request" },
           }
         : undefined;
-    const owner: BillingOwner | undefined =
+    let owner: BillingOwner | undefined =
       directOwner ??
       (automationOwner && jobId
         ? { ...automationOwner, source: { kind: "automation", id: jobId } }
-        : await resolveSessionOwner(ctx.sessionKey));
+        : await resolveSessionOwner(
+            ctx.sessionKey,
+            ctx.sessionId,
+            ctx.channel === "openclaw" || ctx.messageProvider === "openclaw",
+          ));
+    const trustedSystemRun =
+      !owner &&
+      ctx.trigger === "manual" &&
+      (ctx.channel === "openclaw" || ctx.messageProvider === "openclaw") &&
+      (ctx.runId?.startsWith("openclaw-planner-") ||
+        ctx.runId?.startsWith("openclaw-greeting-") ||
+        ctx.runId?.startsWith("probe-setup-inference-"));
+    if (trustedSystemRun) {
+      owner = await resolveActiveMonarch();
+    }
     // OpenClaw resolves this bit from trusted ingress identity before plugin hooks run.
     // Preserve owner availability if the secondary SG profile store itself is unavailable;
     // there is no safe Global ID to which cost can be attributed in that degraded case.
@@ -207,7 +299,7 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
           : "SG cannot prove the payer Global ID",
         message: automationUnbound
           ? "Задача не привязана к активному владельцу биллинга. Выполнение остановлено."
-          : "Недостаточно средств. Сначала пополните баланс.",
+          : "Не удалось подтвердить владельца запроса. Выполнение остановлено без расходов.",
         category: "cost_identity_unresolved",
       };
     }
@@ -233,7 +325,13 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
       } else {
         await ledger.reserveAvailable({ globalId: owner.globalId, operationId, source });
       }
-      if (ctx.sessionKey) {
+      const sharedSystemAgentSession =
+        ctx.agentId === "openclaw" &&
+        ctx.trigger === "manual" &&
+        (ctx.channel === "openclaw" || ctx.messageProvider === "openclaw");
+      // The system agent reuses agent:openclaw:main across callers. Persisting that shared key
+      // would let a later unbound control turn inherit an earlier caller's billing owner.
+      if (ctx.sessionKey && !sharedSystemAgentSession) {
         await ledger.bindSessionOwner({ sessionKey: ctx.sessionKey, ...owner });
       }
       await ledger.bindCorrelation({
@@ -263,7 +361,7 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
   });
 
   api.on("model_call_ended", async (event) => {
-    const correlation = await ledger.resolveCorrelation(`run:${event.runId}`);
+    const correlation = await resolveRunCorrelation(event.runId);
     if (!correlation) {
       api.logger?.warn(`[sg-billing] model call has no run correlation: ${event.callId}`);
       return;
@@ -325,9 +423,9 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
   });
 
   api.on("before_model_call", async (event) => {
-    const correlation = await ledger.resolveCorrelation(`run:${event.runId}`);
+    const correlation = await resolveRunCorrelation(event.runId);
     if (!correlation) {
-      return;
+      return { block: true, blockReason: "SG cannot prove the payer or model-run correlation" };
     }
     try {
       const rates = modelRates(event.cost);
@@ -393,6 +491,48 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
   });
 
   api.on("before_tool_call", async (event, ctx) => {
+    if (event.toolName === "openclaw") {
+      const directProfile = await resolveProfile(ctx.requester?.channel, ctx.requester?.senderId);
+      const owner =
+        directProfile?.role === "monarch" || directProfile?.role === "citizen"
+          ? ({
+              globalId: directProfile.globalId,
+              role: directProfile.role,
+              source: { kind: "request" },
+            } satisfies BillingOwner)
+          : await resolveSessionOwner(ctx.sessionKey);
+      if (!owner || owner.role !== "monarch") {
+        return {
+          block: true,
+          blockReason: "SG cannot prove monarch ownership for OpenClaw control",
+        };
+      }
+      const delegationSessionId = openClawDelegationSessionId({
+        requestedSessionId: event.params.sessionId,
+        agentId: ctx.agentId,
+        sessionKey: ctx.sessionKey,
+      });
+      if (!delegationSessionId) {
+        return {
+          block: true,
+          blockReason: "SG cannot correlate the OpenClaw delegation session",
+        };
+      }
+      try {
+        await ledger.bindSessionOwner({
+          sessionKey: delegatedSessionOwnerKey(delegationSessionId),
+          ...owner,
+        });
+      } catch (error) {
+        api.logger?.warn(
+          `[sg-billing] OpenClaw delegation owner binding failed safely: ${error instanceof Error ? error.message : String(error)}`,
+        );
+        return {
+          block: true,
+          blockReason: "SG billing could not bind the OpenClaw delegation owner",
+        };
+      }
+    }
     if (event.toolName === "automations" || event.toolName === "cron") {
       const action = event.params.action;
       const requester = ctx.requester;

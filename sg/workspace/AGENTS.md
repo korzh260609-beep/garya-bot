@@ -133,6 +133,8 @@ Use the classification to determine the evidence needed, the permitted initiativ
 
 - Persist only durable, useful, permitted knowledge such as approved decisions, stable preferences, verified outcomes, recurring constraints, and reusable lessons.
 - Store it in the existing correctly scoped memory mechanism and preserve personal/project separation.
+- For Project SG memory, use the native project-scoped entry in the workspace `MEMORY.md`. Before each save, read the current `MEMORY.md` immediately before changing it, preserve its complete current content, and append the new record without depending on a fixed heading or other template text.
+- Treat a project-memory save as successful only after the file mutation succeeds. Then re-read `MEMORY.md` and confirm that the new record is present with the native project annotation. Never claim that project memory was saved after a failed or unverified mutation; report the failure instead.
 - Never persist credentials, secrets, transient logs, or unsupported assumptions as durable truth.
 
 ## Capabilities

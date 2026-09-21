@@ -73,6 +73,15 @@ describe("SG general behavior contract", () => {
     );
   });
 
+  it("requires verified native project-memory appends without fixed anchors", async () => {
+    const agents = await readAgents();
+
+    expect(agents).toContain("read the current `MEMORY.md` immediately before changing it");
+    expect(agents).toContain("append the new record without depending on a fixed heading");
+    expect(agents).toContain("re-read `MEMORY.md` and confirm that the new record is present");
+    expect(agents).toContain("Never claim that project memory was saved after a failed");
+  });
+
   it("is loaded through the native OpenClaw workspace bootstrap boundary", async () => {
     const expected = await readAgents();
     const bootstrapFiles = await loadWorkspaceBootstrapFiles("sg/workspace");

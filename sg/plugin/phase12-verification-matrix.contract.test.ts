@@ -33,12 +33,6 @@ const currentPluginTools = [
   "sg_resource_memory_correct",
   "sg_resource_memory_export",
   "sg_resource_memory_reindex",
-  "sg_project_memory_record",
-  "sg_project_memory_search",
-  "sg_project_memory_get",
-  "sg_project_memory_export",
-  "sg_project_memory_reindex",
-  "sg_project_handoff",
   "sg_render",
   "sg_billing_manage",
 ] as const;
@@ -58,6 +52,7 @@ function readSenderPolicies(source: string) {
 }
 
 const migrationScripts = [
+  "sg22-migrate-project-memory.mjs",
   "sg22-migrate-global-profiles.mjs",
   "sg22-migrate-workspace-memberships.mjs",
   "sg22-migrate-workspace-requests.mjs",
@@ -73,6 +68,8 @@ function runMigrationChain(root: string) {
       env: {
         ...process.env,
         OPENCLAW_STATE_DIR: root,
+        OPENCLAW_WORKSPACE_DIR: root,
+        SG22_NATIVE_PROJECT_KEY: "github.com/korzh260609-beep/garya-bot",
         SG_WORKSPACE_PLUGIN_ENABLED: "true",
         SG_MONARCH_GLOBAL_USER_ID: "usr_monarch",
         SG_MONARCH_TELEGRAM_USER_ID: "100",

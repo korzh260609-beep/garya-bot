@@ -11,6 +11,12 @@ import type { GroupToolPolicyBySenderConfig } from "../../src/config/types.tools
 import { registerWorkspaceManager } from "./register.js";
 
 type RuntimeConfig = {
+  agents?: {
+    defaults?: {
+      repoRoot?: string;
+      compaction?: { memoryFlush?: { enabled?: boolean } };
+    };
+  };
   session?: { dmScope?: string };
   messages?: { groupChat?: { mentionPatterns?: string[] } };
   channels?: {
@@ -58,12 +64,6 @@ const toolCatalog = [
   "sg_resource_memory_correct",
   "sg_resource_memory_export",
   "sg_resource_memory_reindex",
-  "sg_project_memory_record",
-  "sg_project_memory_search",
-  "sg_project_memory_get",
-  "sg_project_memory_export",
-  "sg_project_memory_reindex",
-  "sg_project_handoff",
   "message",
   "file_fetch",
   "file_write",
@@ -107,6 +107,7 @@ async function createEntrypointHarness() {
   const workspaceDir = path.join(root, "workspace");
   const binDir = path.join(root, "bin");
   const nodeLog = path.join(root, "node.log");
+  const projectRepoRoot = path.join(root, "project-repo");
   const rewrittenEntrypoint = path.join(root, "sg22-render-entrypoint.sh");
 
   for (const file of ["IDENTITY.md", "SOUL.md", "AGENTS.md"]) {
@@ -117,7 +118,6 @@ async function createEntrypointHarness() {
     "register.ts",
     "personal-memory-tools.ts",
     "resource-memory-tools.ts",
-    "project-memory-tools.ts",
     "scoped-memory-entries.ts",
     "cost-diagnostics.ts",
     "render-tools.ts",
@@ -127,6 +127,13 @@ async function createEntrypointHarness() {
   ]) {
     await writeHarnessFile(path.join(appRoot, "sg", "plugin", file));
   }
+  await mkdir(projectRepoRoot, { recursive: true });
+  await writeHarnessFile(path.join(appRoot, "scripts", "sg22-migrate-project-memory.mjs"));
+  await writeHarnessFile(
+    path.join(appRoot, "scripts", "sg22-project-repo.sh"),
+    `#!/bin/sh\nset -eu\nprintf 'status=ready\\npath=%s\\n' "$SG22_PROJECT_REPO_ROOT"\n`,
+  );
+  await chmod(path.join(appRoot, "scripts", "sg22-project-repo.sh"), 0o755);
 
   await mkdir(binDir, { recursive: true });
   await writeFile(nodeLog, "", "utf8");
@@ -184,6 +191,7 @@ exit 0
         SG_MONARCH_GLOBAL_USER_ID: "usr_phase1_monarch",
         SG_WORKSPACE_PLUGIN_ENABLED: "true",
         SG22_NODE_LOG: nodeLog,
+        SG22_PROJECT_REPO_ROOT: projectRepoRoot,
         SG22_REAL_NODE: process.execPath,
         PORT: "18789",
       },
@@ -194,7 +202,7 @@ exit 0
     ) as RuntimeConfig;
   };
 
-  return { run, stateDir };
+  return { run, stateDir, projectRepoRoot };
 }
 
 function effectiveTools(config: RuntimeConfig, senderId: string) {
@@ -226,6 +234,8 @@ describe("SG 2.2 Phase 1 full capability contracts", () => {
     const config = await harness.run();
 
     expect(config.tools?.profile).toBe("full");
+    expect(config.agents?.defaults?.repoRoot).toBe(harness.projectRepoRoot);
+    expect(config.agents?.defaults?.compaction?.memoryFlush?.enabled).toBe(true);
   });
 
   it("builds the Render image with the standard Playwright Chromium runtime", async () => {
@@ -273,12 +283,6 @@ describe("SG 2.2 Phase 1 full capability contracts", () => {
       "github_publish",
       "sg_render",
       "sg_billing_manage",
-      "sg_project_memory_record",
-      "sg_project_memory_search",
-      "sg_project_memory_get",
-      "sg_project_memory_export",
-      "sg_project_memory_reindex",
-      "sg_project_handoff",
       "gateway",
     ]) {
       expect(names, required).toContain(required);
@@ -301,12 +305,6 @@ describe("SG 2.2 Phase 1 full capability contracts", () => {
       "github_identity_status",
       "github_publish",
       "sg_render",
-      "sg_project_memory_record",
-      "sg_project_memory_search",
-      "sg_project_memory_get",
-      "sg_project_memory_export",
-      "sg_project_memory_reindex",
-      "sg_project_handoff",
       "gateway",
       "nodes",
       "openclaw",

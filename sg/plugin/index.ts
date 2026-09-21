@@ -14,7 +14,6 @@ export type {
   SgProfileStatus,
 } from "./global-profile-registry.js";
 export * from "./register.js";
-export * from "./project-memory-tools.js";
 export * from "./render-tools.js";
 export * from "./workspace-registry.js";
 export * from "./content-registry.js";

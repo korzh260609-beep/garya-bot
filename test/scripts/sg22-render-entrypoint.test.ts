@@ -40,11 +40,13 @@ describe("SG 2.2 Render entrypoint", () => {
       '{"path":"plugins.entries.sg-workspace-manager.hooks.allowConversationAccess","value":true}',
     );
     expect(script).toContain(
-      'workspace_plugin_tools=\'["sg_content_draft","sg_content_review","sg_content_publish","sg_content_schedule","sg_content_dispatch","sg_test_manage","sg_test_attempt","sg_test_stats","sg_memory_remember","sg_memory_search","sg_memory_get","sg_memory_correct","sg_memory_forget","sg_memory_export","sg_memory_reindex","sg_resource_memory_remember","sg_resource_memory_search","sg_resource_memory_get","sg_resource_memory_correct","sg_resource_memory_export","sg_resource_memory_reindex","sg_project_memory_record","sg_project_memory_search","sg_project_memory_get","sg_project_memory_export","sg_project_memory_reindex","sg_project_handoff","sg_render","sg_billing_manage"]\'',
+      'workspace_plugin_tools=\'["sg_content_draft","sg_content_review","sg_content_publish","sg_content_schedule","sg_content_dispatch","sg_test_manage","sg_test_attempt","sg_test_stats","sg_memory_remember","sg_memory_search","sg_memory_get","sg_memory_correct","sg_memory_forget","sg_memory_export","sg_memory_reindex","sg_resource_memory_remember","sg_resource_memory_search","sg_resource_memory_get","sg_resource_memory_correct","sg_resource_memory_export","sg_resource_memory_reindex","sg_render","sg_billing_manage"]\'',
     );
     expect(script).toContain("node /app/scripts/sg22-migrate-workspace-memberships.mjs");
     expect(script).toContain("node /app/scripts/sg22-migrate-workspace-requests.mjs");
     expect(script).toContain("node /app/scripts/sg22-migrate-wsp6-assessments.mjs");
+    expect(script).toContain("/app/scripts/sg22-project-repo.sh prepare");
+    expect(script).toContain("node /app/scripts/sg22-migrate-project-memory.mjs");
     expect(script).toMatch(/deny[^\n]+memory_search[^\n]+memory_get/u);
     expect(script).toMatch(/deny[^\n]+sg_test_manage[^\n]+sg_test_stats/u);
     expect(script).toMatch(/alsoAllow[^\n]+sg_test_manage[^\n]+sg_test_stats/u);
@@ -80,7 +82,10 @@ describe("SG 2.2 Render entrypoint", () => {
       '{"path":"agents.defaults.compaction.midTurnPrecheck","value":{"enabled":true}}',
     );
     expect(script).toContain(
-      '{"path":"agents.defaults.compaction.memoryFlush.enabled","value":false}',
+      '{"path":"agents.defaults.compaction.memoryFlush.enabled","value":true}',
+    );
+    expect(script).toMatch(
+      /\{"path":"agents\.defaults\.repoRoot","value":"'"\$\{project_repo_root\}"'"\}/u,
     );
     expect(script).toContain('{"path":"agents.defaults.contextPruning.mode","value":"cache-ttl"}');
     expect(script).toContain('{"path":"agents.defaults.contextPruning.ttl","value":"5m"}');
@@ -88,7 +93,9 @@ describe("SG 2.2 Render entrypoint", () => {
       '{"path":"agents.defaults.contextPruning.hardClear.enabled","value":true}',
     );
     expect(script).toContain(
-      "for plugin_file in index.ts register.ts personal-memory-tools.ts resource-memory-tools.ts project-memory-tools.ts scoped-memory-entries.ts cost-diagnostics.ts render-tools.ts billing-tools.ts openclaw.plugin.json package.json",
+      "for plugin_file in index.ts register.ts personal-memory-tools.ts resource-memory-tools.ts scoped-memory-entries.ts cost-diagnostics.ts render-tools.ts billing-tools.ts openclaw.plugin.json package.json",
     );
+    expect(script).not.toContain("sg_project_memory_");
+    expect(script).not.toContain("sg_project_handoff");
   });
 });

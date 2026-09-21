@@ -1,26 +1,3 @@
 {
-  "hooks": {
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node .codex/hooks/project-memory-guard.mjs snapshot",
-            "timeout": 10
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node .codex/hooks/project-memory-guard.mjs stop",
-            "timeout": 10
-          }
-        ]
-      }
-    ]
-  }
+  "hooks": {}
 }

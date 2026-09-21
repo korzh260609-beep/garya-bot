@@ -204,12 +204,6 @@ describe("SG Workspace Manager", () => {
       "sg_resource_memory_correct",
       "sg_resource_memory_export",
       "sg_resource_memory_reindex",
-      "sg_project_memory_record",
-      "sg_project_memory_search",
-      "sg_project_memory_get",
-      "sg_project_memory_export",
-      "sg_project_memory_reindex",
-      "sg_project_handoff",
       "sg_render",
       "sg_billing_manage",
     ]);

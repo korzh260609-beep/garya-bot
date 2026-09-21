@@ -15,17 +15,6 @@ import {
   createPersonalMemoryTools,
   PERSONAL_MEMORY_AGENT_GUIDANCE,
 } from "./personal-memory-tools.js";
-import {
-  createProjectHandoffTool,
-  PROJECT_HANDOFF_AGENT_GUIDANCE,
-  PROJECT_HANDOFF_TOOL_NAMES,
-  registerAutomaticProjectMemory,
-} from "./project-memory-automatic.js";
-import {
-  createProjectMemoryTools,
-  PROJECT_MEMORY_AGENT_GUIDANCE,
-  PROJECT_MEMORY_TOOL_NAMES,
-} from "./project-memory-tools.js";
 import { createSgRenderTool } from "./render-tools.js";
 import {
   createResourceMemoryTools,
@@ -181,12 +170,6 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
   api.registerTool((ctx) => createResourceMemoryTools(ctx, stateDir), {
     names: [...RESOURCE_MEMORY_TOOL_NAMES],
   });
-  api.registerTool((ctx) => createProjectMemoryTools(ctx, stateDir), {
-    names: [...PROJECT_MEMORY_TOOL_NAMES],
-  });
-  api.registerTool((ctx) => createProjectHandoffTool(ctx, stateDir), {
-    names: [...PROJECT_HANDOFF_TOOL_NAMES],
-  });
   api.registerTool((ctx) => createSgRenderTool(ctx), { names: [...RENDER_TOOL_NAMES] });
   api.registerTool((ctx) => createSgBillingTool(ctx, stateDir, { logger: api.logger }), {
     names: [...BILLING_TOOL_NAMES],
@@ -196,10 +179,8 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
   registerSgBillingHooks({ api, stateDir });
   registerSgBillingCommands({ api, stateDir });
   registerSgBillingReconciliation({ api, stateDir });
-  registerAutomaticProjectMemory(api, stateDir);
 
   api.on("before_prompt_build", async (_event, ctx) => {
-    let projectMemoryGuidance = "";
     let resourceMemoryGuidance = "";
     let identityContext = [
       "SG — identity and scope",
@@ -218,9 +199,6 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
         stateDir,
       );
       identityContext = formatWorkspaceContext(identity);
-      if (identity.projectRole === "monarch" && identity.globalId) {
-        projectMemoryGuidance = `\n${PROJECT_MEMORY_AGENT_GUIDANCE}\n${PROJECT_HANDOFF_AGENT_GUIDANCE}`;
-      }
       if (ctx.channel && ctx.conversationId) {
         const scope = await registry.resolve({
           platform: ctx.channel,
@@ -237,7 +215,7 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
       );
     }
     return {
-      prependSystemContext: `${identityContext}\n\n${PERSONAL_MEMORY_AGENT_GUIDANCE}${resourceMemoryGuidance}${projectMemoryGuidance}\n${BILLING_AGENT_GUIDANCE}\n${WSP5_AGENT_GUIDANCE}\n${WSP6_AGENT_GUIDANCE}`,
+      prependSystemContext: `${identityContext}\n\n${PERSONAL_MEMORY_AGENT_GUIDANCE}${resourceMemoryGuidance}\n${BILLING_AGENT_GUIDANCE}\n${WSP5_AGENT_GUIDANCE}\n${WSP6_AGENT_GUIDANCE}`,
     };
   });
 

@@ -44,7 +44,6 @@ const workspaceToolGrant = [
   "sg_test_manage",
   "sg_test_attempt",
   "sg_test_stats",
-  "sg_project_handoff",
   "sg_render",
   "sg_billing_manage",
 ];
@@ -188,9 +187,6 @@ console.log(
     ].every((name) => pluginTools.some((tool) => tool.name === name)),
     wsp6ToolsInModelSurface: ["sg_test_manage", "sg_test_attempt", "sg_test_stats"].every((name) =>
       pluginTools.some((tool) => tool.name === name),
-    ),
-    projectHandoffToolInModelSurface: pluginTools.some(
-      (tool) => tool.name === "sg_project_handoff",
     ),
     billingToolInModelSurface: pluginTools.some((tool) => tool.name === "sg_billing_manage"),
     citizenshipToolsAbsentWithoutGrant: !pluginToolsWithoutGrant.some((tool) =>

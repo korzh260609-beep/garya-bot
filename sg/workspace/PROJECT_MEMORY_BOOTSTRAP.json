@@ -1,0 +1,192 @@
+{
+  "schemaVersion": 1,
+  "projectKey": "github.com/korzh260609-beep/garya-bot",
+  "records": [
+    {
+      "id": "sg22-history-foundation-2026-08-28",
+      "recordedAt": "2026-08-28",
+      "title": "SG 2.2 развёрнут поверх OpenClaw",
+      "summary": "SG 2.2 работает как внешняя сущность и плагин над штатным OpenClaw. Render хранит состояние на постоянном диске, Telegram служит основным каналом, а глобальная идентичность и роль владельца определяются внешним SG-слоем без изменения штатного Telegram-адаптера.",
+      "evidence": [
+        "github:commit:43694b85283f7be4adf46697e6784cc1ce14c326",
+        "github:commit:b1edc483a",
+        "roadmap:SG_2_2_OPENCLAW_MIGRATION.md"
+      ]
+    },
+    {
+      "id": "sg22-history-wsp1-wsp6-2026-09-03",
+      "recordedAt": "2026-09-03",
+      "title": "Реализованы этапы WSP1–WSP6",
+      "summary": "Внешний SG Workspace Manager получил безопасный OpenClaw plugin seam, реестр и изоляцию workspace, диагностику, контентную публикацию и тесты, опросы и многошаговые проверки. WSP4 позднее был упрощён новой моделью ролей, а WSP5 и WSP6 перенесены на scoped-ресурсы.",
+      "evidence": [
+        "github:commit:7242a8cda",
+        "github:commit:81580bf1c",
+        "github:commit:a933513aa",
+        "github:commit:7924cc55a",
+        "github:commit:10c748c5ad4ba48d0343708199a5920a327c7d2d",
+        "roadmap:SG22_WORKSPACE_COMMUNITY_PLUGIN.md"
+      ]
+    },
+    {
+      "id": "sg22-history-role-model-2026-09-06",
+      "recordedAt": "2026-09-06",
+      "title": "Зафиксирована действующая модель ролей и изоляции",
+      "summary": "ГАРИК является единственным Monarch и владельцем SG/OpenClaw. Новый пользователь автоматически становится Citizen и получает постоянный Global ID и личный workspace. DM и группы используют один Global ID без смешивания SG-ролей с Telegram-администрированием; Citizen закрыт от инфраструктурных и чужих сессионных инструментов.",
+      "evidence": [
+        "github:commit:fd4d76149",
+        "github:commit:e506a01fa",
+        "github:commit:a41092abb",
+        "github:commit:30d1bb7897b398af425b5025ac72bc84b7664cc3",
+        "github:commit:b607bc0d0d41719cc11dc6a26e504f03e8481777"
+      ]
+    },
+    {
+      "id": "sg22-history-openclaw-access-2026-09-08",
+      "recordedAt": "2026-09-08",
+      "title": "Активирован полный разрешённый OpenClaw-контур владельца",
+      "summary": "Для Monarch активирован полный штатный профиль инструментов OpenClaw. Подтверждены GitHub CLI с постоянной авторизацией, защищённые Render-инструменты, Telegram-возможности и сессионная изоляция. Citizen сохраняет рабочие Telegram-возможности, но не получает инфраструктурный доступ или sessions_send.",
+      "evidence": [
+        "github:commit:dba947316cc1f093d39e7e42ae1fc832649f2a9e",
+        "github:commit:c54e87c32ebbba9df2d817caf92a4e4cc7ae3086",
+        "github:commit:0d09d2a21ef63214e1829aff595b66fe37ef2083",
+        "github:commit:c90031b239700945e132f71692dcd74e5e4e7817",
+        "roadmap:SG22_FULL_OPENCLAW_CAPABILITY_INHERITANCE.md"
+      ]
+    },
+    {
+      "id": "sg22-history-personal-memory-2026-09-08",
+      "recordedAt": "2026-09-08",
+      "title": "Личная память изолирована по Global ID",
+      "summary": "Штатный OpenClaw Memory Core привязан к личным workspace SG: один Global ID получает одну долговременную память, общую между его DM и группами, но недоступную другим пользователям. Изоляция, переживание перезапуска и ограниченный поиск были подтверждены контрактами.",
+      "evidence": [
+        "github:commit:952436a3b21f0f329ce47aa8bdfdec69dfdbb474",
+        "github:commit:c768187a9",
+        "test:phase6-personal-memory"
+      ]
+    },
+    {
+      "id": "sg22-history-project-memory-contract-2026-09-09",
+      "recordedAt": "2026-09-09",
+      "title": "Утверждён контракт Project Memory 3.0",
+      "summary": "Проектная память должна автоматически сохранять решения, задачи, коммиты, CI, деплои, инциденты, исправления и прогресс roadmap; использовать только OpenClaw Memory Core; проверять изменяемые факты по авторитетным источникам; исключать секреты, дубли и шум; сохранять историю исправлений и восстанавливать неполную историю из канонических артефактов.",
+      "evidence": [
+        "github:commit:dc20993b623a6f44087f2a257c51cff787dcb7bd",
+        "github:commit:49899dee8",
+        "roadmap:SG22_FULL_OPENCLAW_CAPABILITY_INHERITANCE.md:Project-Memory-3.0"
+      ]
+    },
+    {
+      "id": "sg22-history-automation-and-workflow-2026-09-12",
+      "recordedAt": "2026-09-12",
+      "title": "Закреплены штатные автоматизации и алгоритм поведения SG",
+      "summary": "Уведомления и расписания используют только native OpenClaw automations и штатную Telegram-доставку. Общий цикл SG: понять цель, выбрать инструменты, предложить варианты и оптимальное решение, дать короткий план, получить разрешение, выполнить, проверить и отчитаться доказательствами. Разработка не должна создавать параллельные scheduler, memory, agent или Telegram-системы.",
+      "evidence": [
+        "github:commit:2da915d3a",
+        "github:commit:89145d55f60a9dd8444fd3cdfb87ec4ea4760c1c",
+        "github:commit:641fa529d177285b3c984a2256c532d996e17b4b",
+        "workspace:AGENTS.md"
+      ]
+    },
+    {
+      "id": "sg22-history-billing-2026-09-21",
+      "recordedAt": "2026-09-21",
+      "title": "Сформирован внешний prepaid billing-контур SG",
+      "summary": "Внешний SG-плагин ведёт prepaid ledger с резервированием и точным списанием, применяет бизнес-правило provider cost ×2, связывает штатные automation и subagent-запуски с доказанным владельцем, показывает расходы по дням и сервисам и поддерживает семантическое управление. Неизвестные или неоплаченные операции блокируются до provider I/O; OpenClaw core не изменён этим контуром.",
+      "evidence": [
+        "github:commit:ff645eed752bba40cf8c3bdc66413f5c98e88bcd",
+        "github:commit:37b9192f07f3418c9a9d0a9e257cf3f4f014357c",
+        "github:commit:8dc03b8de304ab036515fb1e03b5fcc81c51ec47",
+        "github:commit:67e475cdc08967196f04e05f9418e21c9230b2b3",
+        "github:commit:e2879919d8d91d51a3841e79b26aa6e9afdd9aff",
+        "roadmap:SG22_PREPAID_BILLING_AND_MODEL_ROUTING_PLAN.md"
+      ]
+    },
+    {
+      "id": "sg22-history-resource-memory-2026-09-17",
+      "recordedAt": "2026-09-17",
+      "title": "Завершены resource memory Phase 8 и поисковые исправления Phase 9",
+      "summary": "Штатный Memory Core получил SG-инструменты для памяти Telegram-ресурсов и групп с сохранением изоляции от личной и Monarch project memory. Добавлены обслуживание scoped-памяти, обязательная маршрутизация через memory tools, синхронизация индекса после изменений и центрирование длинных результатов поиска на совпадении.",
+      "evidence": [
+        "github:commit:d4d17ad3427280ff01b842affde4e0bf0f33a4e6",
+        "github:commit:bb9f609f4",
+        "github:commit:40c1acb83",
+        "github:commit:d74f483108cae977b39232b1aa4d95c9f3cedb2b",
+        "github:commit:3d0c263e63c85f9a2553c29122329c4866c7a60f",
+        "github:commit:7cadd0e04"
+      ]
+    },
+    {
+      "id": "sg22-history-project-memory-automation-2026-09-18",
+      "recordedAt": "2026-09-18",
+      "title": "Автоматический lifecycle Project Memory прошёл реализацию",
+      "summary": "Внешний SG-слой получил автоматический handoff и lifecycle-сверку для решений, задач, инцидентов, GitHub-коммитов, Actions и Render-деплоев с проверкой источников, фильтрацией секретов и идемпотентностью. Этот этап зафиксировал обязательное правило: проектная работа не должна требовать от Monarch отдельной команды «запомни».",
+      "evidence": [
+        "github:commit:6ea16f5cd38e476d63784a8971d616700fc4c0c7",
+        "github:commit:4d3c2fba6",
+        "github:commit:a2a2619972eb84d75790aebab6c8c2cdb301736a",
+        "render:deploy:dep-damln2ou01pc73ao6fig:live",
+        "artifact:SG22_PROJECT_MEMORY_HANDOFFS.json"
+      ]
+    },
+    {
+      "id": "sg22-history-native-project-memory-2026-09-21",
+      "recordedAt": "2026-09-21",
+      "title": "Project Memory переведена на штатный project-scoped механизм OpenClaw",
+      "summary": "Параллельный SG project-memory runtime удалён из рабочего пути. OpenClaw определяет проект по metadata-only bare Git context без полного checkout, а существующие legacy-записи получили нативный ключ github.com/korzh260609-beep/garya-bot. OpenClaw core и штатный Telegram-адаптер не изменялись.",
+      "evidence": [
+        "github:commit:fdaa183b43beeef5505847f24cb8e59cd5169b60",
+        "github:commit:42647c7fad27dbc791e3a5304269d40a69fc7f9b",
+        "github:commit:aa71c5ef7e89451409b7146dcc032dba48bf90da",
+        "github:actions:330:success",
+        "github:actions:331:success"
+      ]
+    },
+    {
+      "id": "sg22-history-memory-save-incident-2026-09-21",
+      "recordedAt": "2026-09-21",
+      "title": "Исправлен ложный успех записи проектной памяти",
+      "summary": "Live E2E выявил, что SG привязывал edit к отсутствующему фиксированному заголовку MEMORY.md и после edit failed ошибочно отвечал «Запомнил». Внешние инструкции исправлены: перед сохранением читать актуальный файл, безопасно дописывать без фиксированного якоря, после мутации перечитывать и подтверждать native project-аннотацию, а при ошибке не заявлять об успехе.",
+      "evidence": [
+        "github:commit:db81211a06aa6d1e24c3d3c73b9a41eb9849ae6c",
+        "github:commit:42cc9e866a2053cfa46ffe174137bcb38ec21203",
+        "github:actions:332:success",
+        "github:actions:333:success",
+        "render:deploy:dep-daokrc2d0e5s738mq01g:live",
+        "telegram:e2e:KEDR-921:passed-after-new-session"
+      ]
+    },
+    {
+      "id": "sg22-history-live-baseline-2026-09-21",
+      "recordedAt": "2026-09-21",
+      "title": "Зафиксирован проверенный live baseline SG 2.2",
+      "summary": "Ветка разработки — dev/sg2.2-openclaw; main не трогать. Автодеплой Render выключен. На проверенном baseline Render deploy dep-daokrc2d0e5s738mq01g был live, /health возвращал 200, фактический image_commit был db81211a06aa6d1e24c3d3c73b9a41eb9849ae6c, Telegram polling работал, свежих error и 5xx не было.",
+      "evidence": [
+        "github:commit:42cc9e866a2053cfa46ffe174137bcb38ec21203",
+        "github:actions:333:success",
+        "render:deploy:dep-daokrc2d0e5s738mq01g:live",
+        "render:health:200"
+      ]
+    },
+    {
+      "id": "sg22-history-rollback-anchors-2026-09-21",
+      "recordedAt": "2026-09-21",
+      "title": "Сохранены ключевые rollback-опоры",
+      "summary": "Для интерактивного WSP6 сохранена опора before-wsp6-interactive на commit 10c748c5ad4ba48d0343708199a5920a327c7d2d. Для начала полной активации OpenClaw сохранена опора before-full-openclaw на commit 4a3fd1490857842327db96bb223cd0b1a179c24e.",
+      "evidence": [
+        "github:commit:10c748c5ad4ba48d0343708199a5920a327c7d2d",
+        "github:commit:4a3fd1490857842327db96bb223cd0b1a179c24e"
+      ]
+    },
+    {
+      "id": "sg22-history-daily-audit-pending-2026-09-21",
+      "recordedAt": "2026-09-21",
+      "title": "Ежедневный аудит проектной памяти ещё не создан",
+      "summary": "Подготовлено правильное задание для штатной OpenClaw automation: ежедневно сверять новые GitHub-коммиты и Actions, Render deploy/health/logs, Telegram и инциденты, записывать только новые подтверждённые факты в native project memory и проверять запись. Само расписание ещё не создано и требует отдельного запуска SG с разрешением Monarch.",
+      "evidence": [
+        "owner-request:2026-09-21",
+        "openclaw:automations:native",
+        "workspace:AGENTS.md:Scheduled-Telegram-delivery"
+      ]
+    }
+  ]
+}

@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 
 const repoRoot = path.resolve(".");
 const migrationScript = path.join(repoRoot, "scripts", "sg22-migrate-project-memory.mjs");
+const historicalBootstrap = path.join(repoRoot, "sg", "workspace", "PROJECT_MEMORY_BOOTSTRAP.json");
 const nativeProjectKey = "github.com/korzh260609-beep/garya-bot";
 
 async function fixture() {
@@ -23,6 +24,19 @@ function runMigration(workspace: string, projectKey = nativeProjectKey) {
       ...process.env,
       OPENCLAW_WORKSPACE_DIR: workspace,
       SG22_NATIVE_PROJECT_KEY: projectKey,
+    },
+  });
+}
+
+function runBootstrapMigration(workspace: string, bootstrapPath: string) {
+  return spawnSync(process.execPath, [migrationScript], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      OPENCLAW_WORKSPACE_DIR: workspace,
+      SG22_NATIVE_PROJECT_KEY: nativeProjectKey,
+      SG22_PROJECT_MEMORY_BOOTSTRAP_PATH: bootstrapPath,
     },
   });
 }
@@ -86,5 +100,63 @@ describe("SG legacy project memory migration", () => {
 
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain("sg-project-memory-migration-project-key-invalid");
+  });
+
+  it("appends a historical bootstrap to native MEMORY.md exactly once", async () => {
+    const { workspace } = await fixture();
+    const memoryPath = path.join(workspace, "MEMORY.md");
+    const bootstrapPath = path.join(workspace, "PROJECT_MEMORY_BOOTSTRAP.json");
+    await writeFile(memoryPath, "Existing native memory.\n", { mode: 0o600 });
+    await writeFile(
+      bootstrapPath,
+      JSON.stringify({
+        schemaVersion: 1,
+        projectKey: nativeProjectKey,
+        records: [
+          {
+            id: "sg22-bootstrap-test",
+            recordedAt: "2026-09-21",
+            title: "Verified project history",
+            summary: "The historical bootstrap reached native project memory.",
+            evidence: ["github:commit:abc", "render:deploy:dep-test:live"],
+          },
+        ],
+      }),
+      "utf8",
+    );
+
+    const first = runBootstrapMigration(workspace, bootstrapPath);
+    expect(first.status, first.stderr).toBe(0);
+    expect(first.stdout).toContain("bootstrap_scanned=1 bootstrap_added=1");
+    const migrated = await readFile(memoryPath, "utf8");
+    expect(migrated).toContain("Existing native memory.");
+    expect(migrated).toContain("<!-- sg-project-bootstrap: sg22-bootstrap-test -->");
+    expect(migrated).toContain(`<!-- project: ${nativeProjectKey} -->`);
+    expect(migrated).toContain("Verified project history");
+
+    const second = runBootstrapMigration(workspace, bootstrapPath);
+    expect(second.status, second.stderr).toBe(0);
+    expect(second.stdout).toContain("bootstrap_scanned=1 bootstrap_added=0");
+    expect(await readFile(memoryPath, "utf8")).toBe(migrated);
+  });
+
+  it("loads every record from the bundled historical bootstrap", async () => {
+    const { workspace } = await fixture();
+    const memoryPath = path.join(workspace, "MEMORY.md");
+
+    const first = runBootstrapMigration(workspace, historicalBootstrap);
+    expect(first.status, first.stderr).toBe(0);
+    expect(first.stdout).toContain("bootstrap_scanned=15 bootstrap_added=15");
+    const migrated = await readFile(memoryPath, "utf8");
+    expect(migrated.match(/<!-- sg-project-bootstrap:/gu)).toHaveLength(15);
+    expect(migrated.match(new RegExp(`<!-- project: ${nativeProjectKey} -->`, "gu"))).toHaveLength(
+      15,
+    );
+    expect(migrated).toContain("Ежедневный аудит проектной памяти ещё не создан");
+
+    const second = runBootstrapMigration(workspace, historicalBootstrap);
+    expect(second.status, second.stderr).toBe(0);
+    expect(second.stdout).toContain("bootstrap_scanned=15 bootstrap_added=0");
+    expect(await readFile(memoryPath, "utf8")).toBe(migrated);
   });
 });

@@ -414,9 +414,7 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
     if (!PAID_MEDIA_TOOL_NAMES.has(event.toolName)) {
       return;
     }
-    const requester = ctx.requester;
-    const profile = await resolveProfile(requester?.channel, requester?.senderId);
-    if ((profile?.role !== "monarch" && profile?.role !== "citizen") || !event.toolCallId) {
+    if (!event.toolCallId) {
       return {
         block: true,
         blockReason: "SG cannot prove the payer or paid-operation correlation",
@@ -426,6 +424,14 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
       const runId = event.runId ?? ctx.runId;
       let correlation = runId ? await ledger.resolveCorrelation(`run:${runId}`) : undefined;
       if (!correlation) {
+        const requester = ctx.requester;
+        const profile = await resolveProfile(requester?.channel, requester?.senderId);
+        if (profile?.role !== "monarch" && profile?.role !== "citizen") {
+          return {
+            block: true,
+            blockReason: "SG cannot prove the payer or paid-operation correlation",
+          };
+        }
         const operationId = `tool:${event.toolCallId}`;
         if (profile.role === "monarch") {
           await ledger.startTrackedOperation({

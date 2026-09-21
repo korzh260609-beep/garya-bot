@@ -410,6 +410,85 @@ describe("SG billing hook integration contract", () => {
     ]);
   });
 
+  it("uses the proven run correlation for Monarch media in a native cron run", async () => {
+    const root = await createStateDir();
+    const setup = new SgBillingLedger(root);
+    await setup.bindAutomationOwner({
+      jobId: "job-daily-image",
+      globalId: "usr_monarch",
+      role: "monarch",
+    });
+    setup.close();
+    const { hooks } = register(root);
+    const ctx = {
+      runId: "cron:job-daily-image:1",
+      jobId: "job-daily-image",
+      trigger: "cron",
+      agentId: "main",
+      sessionKey: "agent:main:cron:job-daily-image:run:1",
+      modelProviderId: "openai",
+      modelId: "gpt-5.6-terra",
+    };
+
+    await expect(
+      runHooks(hooks, "before_agent_run", { prompt: "Daily image", messages: [] }, ctx),
+    ).resolves.toContainEqual({ outcome: "pass" });
+    await expect(
+      runHooks(
+        hooks,
+        "before_tool_call",
+        {
+          toolName: "image_generate",
+          params: { size: "1024x1024" },
+          runId: ctx.runId,
+          toolCallId: "tool-daily-image",
+        },
+        ctx,
+      ),
+    ).resolves.not.toContainEqual(expect.objectContaining({ block: true }));
+    await expect(
+      runHooks(
+        hooks,
+        "before_billable_operation",
+        {
+          runId: ctx.runId,
+          toolCallId: "tool-daily-image",
+          provider: "openai",
+          model: "gpt-image-1.5",
+          category: "image_generation",
+        },
+        ctx,
+      ),
+    ).resolves.toContainEqual({ block: false });
+  });
+
+  it("blocks paid media without a proven run correlation or requester", async () => {
+    const root = await createStateDir();
+    const { hooks } = register(root);
+
+    await expect(
+      runHooks(
+        hooks,
+        "before_tool_call",
+        {
+          toolName: "image_generate",
+          params: { size: "1024x1024" },
+          runId: "cron:unknown:1",
+          toolCallId: "tool-unknown-image",
+        },
+        {
+          runId: "cron:unknown:1",
+          trigger: "cron",
+          agentId: "main",
+          sessionKey: "agent:main:cron:unknown:run:1",
+        },
+      ),
+    ).resolves.toContainEqual({
+      block: true,
+      blockReason: "SG cannot prove the payer or paid-operation correlation",
+    });
+  });
+
   it("preserves verified billing identity through subagent delegation and return", async () => {
     const root = await createStateDir();
     const { hooks } = register(root);

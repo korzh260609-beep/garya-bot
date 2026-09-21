@@ -285,10 +285,10 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
       owner = await resolveActiveMonarch();
     }
     // OpenClaw resolves this bit from trusted ingress identity before plugin hooks run.
-    // Preserve owner availability if the secondary SG profile store itself is unavailable;
-    // there is no safe Global ID to which cost can be attributed in that degraded case.
+    // Recover the active Monarch when a continuation omits sender identity, then continue
+    // through normal admission so model calls and direct compaction inherit a correlation.
     if (!owner && event.senderIsOwner === true) {
-      return { outcome: "pass" };
+      owner = await resolveActiveMonarch();
     }
     if (!owner) {
       const automationUnbound = Boolean(jobId);

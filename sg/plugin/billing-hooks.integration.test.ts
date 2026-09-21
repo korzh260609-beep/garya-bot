@@ -207,7 +207,7 @@ describe("SG billing hook integration contract", () => {
     expect(results).toContainEqual({ outcome: "pass" });
   });
 
-  it("passes a trusted OpenClaw owner even when the SG profile lookup is unavailable", async () => {
+  it("fails closed when trusted ingress has no active Monarch profile", async () => {
     const root = await createStateDir();
     await rm(path.join(root, "sg", "global-profiles.json"));
     const { hooks } = register(root);
@@ -231,7 +231,57 @@ describe("SG billing hook integration contract", () => {
       },
     );
 
-    expect(results).toContainEqual({ outcome: "pass" });
+    expect(results).toContainEqual({
+      outcome: "block",
+      reason: "SG cannot prove the payer Global ID",
+      message: "Не удалось подтвердить владельца запроса. Выполнение остановлено без расходов.",
+      category: "cost_identity_unresolved",
+    });
+  });
+
+  it("authorizes compaction after trusted ingress omits the sender identity", async () => {
+    const root = await createStateDir();
+    const { hooks } = register(root);
+    const ctx = {
+      ...agentContext("run-trusted-owner-compaction"),
+      sessionId: "session-monarch",
+      sessionKey: "agent:main:telegram:direct:100",
+      chatId: "telegram:100",
+      channelId: "100",
+      senderId: undefined,
+    };
+
+    await expect(
+      runHooks(
+        hooks,
+        "before_agent_run",
+        {
+          ...beforeRunEvent,
+          channelId: "100",
+          senderId: undefined,
+          senderIsOwner: true,
+        },
+        ctx,
+      ),
+    ).resolves.toContainEqual({ outcome: "pass" });
+
+    const compactRunId = "run-trusted-owner-compaction:compaction:diag-live";
+    await expect(
+      runHooks(
+        hooks,
+        "before_model_call",
+        {
+          runId: compactRunId,
+          callId: `${compactRunId}:model:1`,
+          provider: "openai",
+          model: "gpt-5.6-terra",
+          maxOutputTokens: 1_000,
+          inputUpperBoundTokens: 1_000,
+          cost: { input: 2, output: 12, cacheRead: 0.2, cacheWrite: 2.5 },
+        },
+        ctx,
+      ),
+    ).resolves.not.toContainEqual(expect.objectContaining({ block: true }));
   });
 
   it("records an interactive Monarch run as expense with zero customer charge", async () => {

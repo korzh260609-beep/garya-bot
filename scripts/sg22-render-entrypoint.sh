@@ -173,9 +173,9 @@ node /app/openclaw.mjs onboard --non-interactive --accept-risk --skip-health --s
   --gateway-auth token \
   --gateway-token-ref-env OPENCLAW_GATEWAY_TOKEN
 
-# Bind normal SG turns to the canonical Git worktree so OpenClaw can derive its
-# native project key from remote.origin.url. Keep the personal workspace separate.
-project_repo_status="$(/app/scripts/sg22-project-repo.sh prepare)"
+# Bind normal SG turns to a metadata-only Git context so OpenClaw can derive its
+# native project key from remote.origin.url without materializing a checkout.
+project_repo_status="$(/app/scripts/sg22-project-repo.sh context)"
 project_repo_root="$(printf '%s\n' "$project_repo_status" | sed -n 's/^path=//p' | head -n 1)"
 if [ -z "$project_repo_root" ] || [ ! -d "$project_repo_root" ]; then
   echo "SG 2.2 startup error: canonical project repository is unavailable" >&2

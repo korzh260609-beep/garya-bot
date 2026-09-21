@@ -6,9 +6,9 @@ default_branch="dev/sg2.2-openclaw"
 operation="${1:-prepare}"
 
 case "$operation" in
-  prepare|status|sync) ;;
+  context|prepare|status|sync) ;;
   *)
-    echo "Usage: sg22-project-repo.sh [prepare|status|sync] [OWNER/REPOSITORY] [BRANCH]" >&2
+    echo "Usage: sg22-project-repo.sh [context|prepare|status|sync] [OWNER/REPOSITORY] [BRANCH]" >&2
     exit 2
     ;;
 esac
@@ -17,7 +17,7 @@ if [ "$#" -gt 0 ]; then
   shift
 fi
 [ "$#" -le 2 ] || {
-  echo "Usage: sg22-project-repo.sh [prepare|status|sync] [OWNER/REPOSITORY] [BRANCH]" >&2
+  echo "Usage: sg22-project-repo.sh [context|prepare|status|sync] [OWNER/REPOSITORY] [BRANCH]" >&2
   exit 2
 }
 
@@ -62,7 +62,7 @@ available_kb() {
   df -Pk "$workspace" | awk 'NR == 2 { print $4 }'
 }
 
-for required_command in git gh df awk tr; do
+for required_command in git gh df awk tr rm; do
   command -v "$required_command" >/dev/null 2>&1 || fail "$required_command is unavailable"
 done
 
@@ -86,10 +86,63 @@ branch_key=$(printf '%s' "$branch" | git hash-object --stdin)
 checkout="$repo_root/worktrees/$branch_key"
 canonical_origin="https://github.com/$repo.git"
 disk_available_before_kb=$(available_kb)
+context_version=1
 
 umask 077
-mkdir -p "$workspace/github/$owner" "$repo_root/worktrees"
-chmod 700 "$workspace/github" "$workspace/github/$owner" "$repo_root" "$repo_root/worktrees"
+mkdir -p "$workspace/github/$owner"
+chmod 700 "$workspace/github" "$workspace/github/$owner"
+
+if [ "$operation" = "context" ]; then
+  existing_context_version=""
+  if [ -d "$git_dir" ]; then
+    existing_context_version=$(
+      git --git-dir="$git_dir" config --get sg.nativeProjectContextVersion 2>/dev/null || true
+    )
+  fi
+
+  # Version 1 replaces the legacy checkout cache. This exact directory is owned
+  # by this helper; unrelated workspace state is intentionally left untouched.
+  if [ -e "$repo_root" ] && [ "$existing_context_version" != "$context_version" ]; then
+    rm -rf -- "$repo_root"
+  fi
+
+  mkdir -p "$repo_root"
+  chmod 700 "$repo_root"
+  if [ ! -e "$git_dir" ]; then
+    git init --bare --quiet "$git_dir" || fail "Git context initialization failed"
+    git --git-dir="$git_dir" remote add origin "$canonical_origin" \
+      || fail "Git context origin setup failed"
+    git --git-dir="$git_dir" config sg.nativeProjectContextVersion "$context_version"
+  elif [ ! -d "$git_dir" ]; then
+    fail "repository store path is not a directory: $git_dir"
+  fi
+
+  actual_origin=$(git --git-dir="$git_dir" config --get remote.origin.url 2>/dev/null || true)
+  same_repo "$actual_origin" "$repo" || fail "unexpected origin: ${actual_origin:-missing}"
+  git --git-dir="$git_dir" fetch --quiet --prune "$canonical_origin" \
+    "+refs/heads/$branch:refs/remotes/origin/$branch" || fail "fetch failed"
+  git --git-dir="$git_dir" show-ref --verify --quiet "refs/remotes/origin/$branch" \
+    || fail "branch is unavailable: $branch"
+  remote_sha=$(git --git-dir="$git_dir" rev-parse "refs/remotes/origin/$branch")
+  disk_available_after_kb=$(available_kb)
+  printf '%s\n' \
+    "status=ready" \
+    "operation=$operation" \
+    "path=$git_dir" \
+    "repository=$repo" \
+    "branch=$branch" \
+    "origin=$actual_origin" \
+    "local_sha=$remote_sha" \
+    "remote_sha=$remote_sha" \
+    "relation=equal" \
+    "working_tree=not-applicable" \
+    "disk_available_kb_before=$disk_available_before_kb" \
+    "disk_available_kb_after=$disk_available_after_kb"
+  exit 0
+fi
+
+mkdir -p "$repo_root/worktrees"
+chmod 700 "$repo_root" "$repo_root/worktrees"
 
 if [ ! -e "$git_dir" ]; then
   [ "$operation" = "prepare" ] || fail "repository workspace is missing; run prepare first"

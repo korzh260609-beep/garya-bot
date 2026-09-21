@@ -154,6 +154,49 @@ describe("SG GitHub repository workspace", () => {
     expect(field(otherResult.stdout, "path")).not.toBe(field(defaultResult.stdout, "path"));
   });
 
+  it("creates a native project context without a checkout and replaces only the managed cache", async () => {
+    const harness = await createHarness();
+    const managedRoot = path.join(harness.workspace, "github", "korzh260609-beep", "garya-bot");
+    const legacyCheckout = path.join(managedRoot, "worktrees", "legacy");
+    const unrelatedState = path.join(harness.workspace, "memory", "keep.txt");
+    await mkdir(legacyCheckout, { recursive: true });
+    await mkdir(path.dirname(unrelatedState), { recursive: true });
+    await writeFile(path.join(legacyCheckout, "legacy.txt"), "remove\n", "utf8");
+    await writeFile(unrelatedState, "keep\n", "utf8");
+
+    const first = harness.execute(["context"]);
+    expect(first.status, `${first.stdout}\n${first.stderr}`).toBe(0);
+    expect(field(first.stdout, "operation")).toBe("context");
+    expect(field(first.stdout, "working_tree")).toBe("not-applicable");
+    const contextRoot = field(first.stdout, "path");
+    expect(contextRoot).toBe(path.join(managedRoot, "repository.git"));
+    expect(
+      run(
+        "git",
+        ["-C", contextRoot, "config", "--get", "remote.origin.url"],
+        harness.root,
+        harness.env,
+      ),
+    ).toBe(`https://github.com/${defaultRepo}.git`);
+    expect(
+      run(
+        "git",
+        ["--git-dir", contextRoot, "config", "--get", "sg.nativeProjectContextVersion"],
+        harness.root,
+        harness.env,
+      ),
+    ).toBe("1");
+    await expect(readFile(path.join(legacyCheckout, "legacy.txt"), "utf8")).rejects.toThrow();
+    await expect(readFile(unrelatedState, "utf8")).resolves.toBe("keep\n");
+
+    const second = harness.execute(["context"]);
+    expect(second.status, `${second.stdout}\n${second.stderr}`).toBe(0);
+    expect(field(second.stdout, "path")).toBe(contextRoot);
+    await expect(
+      readFile(path.join(managedRoot, "worktrees", "legacy.txt"), "utf8"),
+    ).rejects.toThrow();
+  });
+
   it("rejects malformed repository and branch inputs without creating unsafe paths", async () => {
     const harness = await createHarness();
     let result = harness.execute(["prepare", "../outside", "main"]);

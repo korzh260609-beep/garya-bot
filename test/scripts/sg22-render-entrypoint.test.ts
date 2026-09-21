@@ -45,7 +45,8 @@ describe("SG 2.2 Render entrypoint", () => {
     expect(script).toContain("node /app/scripts/sg22-migrate-workspace-memberships.mjs");
     expect(script).toContain("node /app/scripts/sg22-migrate-workspace-requests.mjs");
     expect(script).toContain("node /app/scripts/sg22-migrate-wsp6-assessments.mjs");
-    expect(script).toContain("/app/scripts/sg22-project-repo.sh prepare");
+    expect(script).toContain("/app/scripts/sg22-project-repo.sh context");
+    expect(script).not.toContain("/app/scripts/sg22-project-repo.sh prepare");
     expect(script).toContain("node /app/scripts/sg22-migrate-project-memory.mjs");
     expect(script).toMatch(/deny[^\n]+memory_search[^\n]+memory_get/u);
     expect(script).toMatch(/deny[^\n]+sg_test_manage[^\n]+sg_test_stats/u);

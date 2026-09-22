@@ -1,6 +1,12 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
+function readShellJson(script: string, variable: string): unknown {
+  const match = script.match(new RegExp(`^${variable}='([^']+)'$`, "mu"));
+  expect(match, `${variable} assignment`).not.toBeNull();
+  return JSON.parse(match![1]);
+}
+
 describe("SG 2.2 Render entrypoint", () => {
   it("uses Terra as the declared and runtime fallback primary model", async () => {
     const [script, blueprint] = await Promise.all([
@@ -98,5 +104,31 @@ describe("SG 2.2 Render entrypoint", () => {
     );
     expect(script).not.toContain("sg_project_memory_");
     expect(script).not.toContain("sg_project_handoff");
+  });
+
+  it("restamps requester-isolated Notion OAuth and keeps sign-in links out of groups", async () => {
+    const script = await readFile(
+      new URL("../../scripts/sg22-render-entrypoint.sh", import.meta.url),
+      "utf8",
+    );
+
+    expect(script).toContain('gateway_public_origin="https://sg-2-2-openclaw.onrender.com"');
+    expect(readShellJson(script, "notion_mcp_server")).toEqual({
+      url: "https://mcp.notion.com/mcp",
+      transport: "streamable-http",
+      auth: "oauth",
+      oauth: { identity: "per-requester" },
+    });
+    expect(readShellJson(script, "telegram_groups")).toEqual({
+      "*": { requireMention: true, tools: { deny: ["notion__connect"] } },
+    });
+    expect(script).toContain(
+      '{"path":"gateway.publicOrigin","value":"\'"${gateway_public_origin}"\'"}',
+    );
+    expect(script).toContain('{"path":"mcp.servers.notion","value":\'"${notion_mcp_server}"\'}');
+    expect(script).toContain(
+      '{"path":"channels.telegram.groups","value":\'"${telegram_groups}"\'}',
+    );
+    expect(script).not.toContain("openclaw.mjs mcp login notion");
   });
 });

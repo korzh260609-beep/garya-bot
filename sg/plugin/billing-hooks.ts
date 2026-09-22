@@ -235,6 +235,23 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
     }
   };
 
+  const startOwnedOperation = async (owner: BillingOwner, operationId: string) => {
+    if (owner.role === "monarch") {
+      await ledger.startTrackedOperation({
+        globalId: owner.globalId,
+        operationId,
+        role: "monarch",
+        source: owner.source,
+      });
+      return;
+    }
+    await ledger.reserveAvailable({
+      globalId: owner.globalId,
+      operationId,
+      source: owner.source,
+    });
+  };
+
   const resolveRunCorrelation = async (runId: string) => {
     const direct = await ledger.resolveCorrelation(`run:${runId}`);
     if (direct) {
@@ -242,6 +259,34 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
     }
     const parentRunId = compactionParentRunId(runId);
     return parentRunId ? ledger.resolveCorrelation(`run:${parentRunId}`) : undefined;
+  };
+
+  const modelCallCorrelationId = (callId: string) => `model:${callId}`;
+  const resolveModelCorrelation = async (event: { runId: string; callId: string }) =>
+    (await ledger.resolveCorrelation(modelCallCorrelationId(event.callId))) ??
+    resolveRunCorrelation(event.runId);
+
+  const createPreflightCompactionCorrelation = async (event: {
+    runId: string;
+    callId: string;
+    sessionKey?: string;
+    sessionId?: string;
+  }) => {
+    if (!compactionParentRunId(event.runId)) {
+      return undefined;
+    }
+    const owner = await resolveSessionOwner(event.sessionKey, event.sessionId, true);
+    if (!owner) {
+      return undefined;
+    }
+    const operationId = `compaction-model:${event.callId}`;
+    await startOwnedOperation(owner, operationId);
+    const correlation = { globalId: owner.globalId, operationId };
+    await ledger.bindCorrelation({
+      correlationId: modelCallCorrelationId(event.callId),
+      ...correlation,
+    });
+    return correlation;
   };
 
   api.on("before_agent_run", async (event, ctx) => {
@@ -313,18 +358,8 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
       };
     }
     const operationId = `run:${runId}`;
-    const source = owner.source;
     try {
-      if (owner.role === "monarch") {
-        await ledger.startTrackedOperation({
-          globalId: owner.globalId,
-          operationId,
-          role: "monarch",
-          source,
-        });
-      } else {
-        await ledger.reserveAvailable({ globalId: owner.globalId, operationId, source });
-      }
+      await startOwnedOperation(owner, operationId);
       const sharedSystemAgentSession =
         ctx.agentId === "openclaw" &&
         ctx.trigger === "manual" &&
@@ -361,7 +396,10 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
   });
 
   api.on("model_call_ended", async (event) => {
-    const correlation = await resolveRunCorrelation(event.runId);
+    const standaloneCorrelation = await ledger.resolveCorrelation(
+      modelCallCorrelationId(event.callId),
+    );
+    const correlation = standaloneCorrelation ?? (await resolveRunCorrelation(event.runId));
     if (!correlation) {
       api.logger?.warn(`[sg-billing] model call has no run correlation: ${event.callId}`);
       return;
@@ -414,6 +452,16 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
         api.logger?.warn(
           `[sg-billing] provider cost unavailable; reserve retained for model call ${event.callId}`,
         );
+      } else if (standaloneCorrelation) {
+        const finalized = await ledger.finalizeParts({
+          ...standaloneCorrelation,
+          outcome: event.outcome,
+        });
+        if (!finalized) {
+          api.logger?.warn(
+            `[sg-billing] preflight compaction cost unresolved; reserve retained for model call ${event.callId}`,
+          );
+        }
       }
     } catch (error) {
       api.logger?.warn(
@@ -423,15 +471,38 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
   });
 
   api.on("before_model_call", async (event) => {
-    const correlation = await resolveRunCorrelation(event.runId);
+    const rates = modelRates(event.cost);
+    if (!rates) {
+      return { block: true, blockReason: "SG model pricing is unavailable" };
+    }
+    let correlation = await resolveModelCorrelation(event);
+    let standaloneCorrelation: typeof correlation;
+    if (!correlation) {
+      try {
+        standaloneCorrelation = await createPreflightCompactionCorrelation(event);
+        correlation = standaloneCorrelation;
+      } catch (error) {
+        api.logger?.warn(
+          `[sg-billing] preflight compaction correlation failed safely: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
     if (!correlation) {
       return { block: true, blockReason: "SG cannot prove the payer or model-run correlation" };
     }
-    try {
-      const rates = modelRates(event.cost);
-      if (!rates) {
-        return { block: true, blockReason: "SG model pricing is unavailable" };
+    const releaseStandaloneCorrelation = async () => {
+      if (!standaloneCorrelation) {
+        return;
       }
+      try {
+        await ledger.finalizeParts({ ...standaloneCorrelation, outcome: "error" });
+      } catch (error) {
+        api.logger?.warn(
+          `[sg-billing] preflight compaction reserve release failed safely: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    };
+    try {
       const billing = await ledger.operationBilling(correlation);
       if (billing.chargeMultiplier === 0) {
         pendingModelRates.set(`${event.runId}\0${event.callId}`, {
@@ -465,6 +536,7 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
               Math.floor(outputBudgetNanoUsd / (outputRate * NANO_USD_PER_TOKEN_PER_MILLION_RATE)),
             );
       if (maxOutputTokens < 1) {
+        await releaseStandaloneCorrelation();
         return { block: true, blockReason: "SG prepaid balance cannot cover this model request" };
       }
       const providerAuthorizedNanoUsd =
@@ -483,6 +555,7 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
       });
       return { maxOutputTokens, maxRetries: 0 };
     } catch (error) {
+      await releaseStandaloneCorrelation();
       api.logger?.warn(
         `[sg-billing] model authorization failed safely: ${error instanceof Error ? error.message : String(error)}`,
       );

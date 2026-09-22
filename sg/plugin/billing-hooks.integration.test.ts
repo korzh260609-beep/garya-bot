@@ -284,6 +284,178 @@ describe("SG billing hook integration contract", () => {
     ).resolves.not.toContainEqual(expect.objectContaining({ block: true }));
   });
 
+  it("authorizes preflight compaction before the current agent run is admitted", async () => {
+    const root = await createStateDir();
+    const { hooks } = register(root);
+    const sessionKey = "agent:main:telegram:direct:100";
+    const sessionId = "session-monarch-preflight";
+    const admittedContext = {
+      ...agentContext("run-before-preflight"),
+      sessionId,
+      sessionKey,
+      chatId: "telegram:100",
+      channelId: "100",
+      senderId: "100",
+    };
+
+    await expect(
+      runHooks(
+        hooks,
+        "before_agent_run",
+        { ...beforeRunEvent, channelId: "100", senderId: "100", senderIsOwner: true },
+        admittedContext,
+      ),
+    ).resolves.toContainEqual({ outcome: "pass" });
+    await runHooks(hooks, "agent_end", { messages: [], success: true }, admittedContext);
+
+    // OpenClaw performs budget compaction before before_agent_run. Because that caller omits
+    // runId, the compaction model hook derives its run id from the stable session id.
+    const compactRunId = `${sessionId}:compaction:diag-preflight`;
+    const compactCallId = `${compactRunId}:model:1`;
+    const compactContext = { runId: compactRunId, sessionId, sessionKey };
+    await expect(
+      runHooks(
+        hooks,
+        "before_model_call",
+        {
+          runId: compactRunId,
+          callId: compactCallId,
+          sessionId,
+          sessionKey,
+          provider: "openai",
+          model: "gpt-5.6-terra",
+          maxOutputTokens: 1_000,
+          inputUpperBoundTokens: 1_000,
+          cost: { input: 2, output: 12, cacheRead: 0.2, cacheWrite: 2.5 },
+        },
+        compactContext,
+      ),
+    ).resolves.not.toContainEqual(expect.objectContaining({ block: true }));
+    await runHooks(
+      hooks,
+      "model_call_ended",
+      {
+        runId: compactRunId,
+        callId: compactCallId,
+        sessionId,
+        sessionKey,
+        provider: "openai",
+        model: "gpt-5.6-terra",
+        durationMs: 10,
+        outcome: "completed",
+        usage: { cost: { total: 0.0002, totalOrigin: "provider-billed" } },
+      },
+      compactContext,
+    );
+
+    await expect(entries(root, "usr_monarch")).resolves.toContainEqual(
+      expect.objectContaining({
+        operationId: `compaction-model:${compactCallId}`,
+        type: "complete",
+        actualCostNanoUsd: usdToNanoUsd(0.0002),
+        chargedNanoUsd: 0,
+      }),
+    );
+  });
+
+  it("keeps preflight compaction blocked when the session has no proven owner", async () => {
+    const root = await createStateDir();
+    const { hooks } = register(root);
+    const sessionId = "session-unowned-preflight";
+    const sessionKey = "agent:main:telegram:direct:unknown";
+    const compactRunId = `${sessionId}:compaction:diag-unowned`;
+
+    await expect(
+      runHooks(
+        hooks,
+        "before_model_call",
+        {
+          runId: compactRunId,
+          callId: `${compactRunId}:model:1`,
+          sessionId,
+          sessionKey,
+          provider: "openai",
+          model: "gpt-5.6-terra",
+          maxOutputTokens: 1_000,
+          inputUpperBoundTokens: 1_000,
+          cost: { input: 2, output: 12, cacheRead: 0.2, cacheWrite: 2.5 },
+        },
+        { runId: compactRunId, sessionId, sessionKey },
+      ),
+    ).resolves.toContainEqual({
+      block: true,
+      blockReason: "SG cannot prove the payer or model-run correlation",
+    });
+  });
+
+  it("settles Citizen preflight compaction without retaining its balance reserve", async () => {
+    const root = await createStateDir();
+    await credit(root, 100_000_000);
+    const { hooks } = register(root);
+    const sessionId = "session-citizen-preflight";
+    const sessionKey = "agent:main:telegram:direct:200";
+    const admittedContext = {
+      ...agentContext("run-citizen-before-preflight"),
+      sessionId,
+      sessionKey,
+    };
+
+    await runHooks(hooks, "before_agent_run", beforeRunEvent, admittedContext);
+    await runHooks(hooks, "agent_end", { messages: [], success: true }, admittedContext);
+
+    const compactRunId = `${sessionId}:compaction:diag-citizen`;
+    const compactCallId = `${compactRunId}:model:1`;
+    const compactContext = { runId: compactRunId, sessionId, sessionKey };
+    await expect(
+      runHooks(
+        hooks,
+        "before_model_call",
+        {
+          runId: compactRunId,
+          callId: compactCallId,
+          sessionId,
+          sessionKey,
+          provider: "openai",
+          model: "gpt-5.6-terra",
+          maxOutputTokens: 1_000,
+          inputUpperBoundTokens: 1_000,
+          cost: { input: 2, output: 12, cacheRead: 0.2, cacheWrite: 2.5 },
+        },
+        compactContext,
+      ),
+    ).resolves.not.toContainEqual(expect.objectContaining({ block: true }));
+    await runHooks(
+      hooks,
+      "model_call_ended",
+      {
+        runId: compactRunId,
+        callId: compactCallId,
+        sessionId,
+        sessionKey,
+        provider: "openai",
+        model: "gpt-5.6-terra",
+        durationMs: 10,
+        outcome: "completed",
+        usage: { cost: { total: 0.0002, totalOrigin: "provider-billed" } },
+      },
+      compactContext,
+    );
+
+    await expect(snapshot(root)).resolves.toEqual({
+      balanceNanoUsd: 99_600_000,
+      reservedNanoUsd: 0,
+      availableNanoUsd: 99_600_000,
+    });
+    await expect(entries(root, "usr_citizen")).resolves.toContainEqual(
+      expect.objectContaining({
+        operationId: `compaction-model:${compactCallId}`,
+        type: "complete",
+        actualCostNanoUsd: 200_000,
+        chargedNanoUsd: 400_000,
+      }),
+    );
+  });
+
   it("records an interactive Monarch run as expense with zero customer charge", async () => {
     const root = await createStateDir();
     const { hooks } = register(root);

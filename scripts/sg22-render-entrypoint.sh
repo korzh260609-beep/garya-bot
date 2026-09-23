@@ -219,8 +219,8 @@ if [ "$workspace_plugin_enabled" = "true" ]; then
     checksum="$(sha256sum "/app/sg/plugin/$plugin_file" | cut -d ' ' -f 1)"
     echo "SG workspace diagnostic: file=$plugin_file sha256=$checksum"
   done
-  if ! node /app/openclaw.mjs plugins status; then
-    echo "SG workspace diagnostic: plugins status failed; gateway startup continues" >&2
+  if ! node /app/openclaw.mjs plugins list --json; then
+    echo "SG workspace diagnostic: plugins list failed; gateway startup continues" >&2
   fi
 fi
 

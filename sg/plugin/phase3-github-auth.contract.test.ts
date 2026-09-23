@@ -31,7 +31,7 @@ describe("SG 2.2 Phase 3 GitHub authentication contracts", () => {
       "utf8",
     );
 
-    expect(workflow).toContain("--build-arg OPENCLAW_IMAGE_APT_PACKAGES=gh");
+    expect(workflow).toMatch(/OPENCLAW_IMAGE_APT_PACKAGES=[^"\n\\]*\bgh\b/u);
   });
 
   it("reports the authenticated GitHub identity without exposing a token", async () => {

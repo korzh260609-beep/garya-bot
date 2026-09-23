@@ -229,6 +229,13 @@ describe("SG Workspace Manager", () => {
       {},
       { channel: "telegram", conversationId: "telegram:100", senderId: "100" },
     )) as { prependSystemContext?: string };
+    const agents = await readFile("sg/workspace/AGENTS.md", "utf8");
+    const mandatoryRules = agents
+      .split("<!-- SG_MANDATORY_EXECUTION_RULES_START -->")[1]
+      ?.split("<!-- SG_MANDATORY_EXECUTION_RULES_END -->")[0]
+      ?.trim();
+    expect(mandatoryRules).toBeTruthy();
+    expect(result.prependSystemContext).toContain(mandatoryRules);
     expect(result.prependSystemContext).toContain("Роль SG: monarch");
     expect(result.prependSystemContext).toContain("sg_memory_search");
     expect(result.prependSystemContext).not.toContain("sg_resource_memory_search");

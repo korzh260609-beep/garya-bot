@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
 import { registerSgBillingCommands } from "./billing-commands.js";
 import { registerSgBillingHooks } from "./billing-hooks.js";
@@ -93,6 +94,36 @@ const PERSONAL_MEMORY_TOOL_NAMES = [
   "sg_memory_export",
   "sg_memory_reindex",
 ] as const;
+
+const MANDATORY_RULES_START = "<!-- SG_MANDATORY_EXECUTION_RULES_START -->";
+const MANDATORY_RULES_END = "<!-- SG_MANDATORY_EXECUTION_RULES_END -->";
+let mandatoryRulesPromise: Promise<string> | undefined;
+
+function extractMandatoryRules(source: string): string {
+  const start = source.indexOf(MANDATORY_RULES_START);
+  const end = source.indexOf(MANDATORY_RULES_END);
+  const duplicateStart = source.indexOf(
+    MANDATORY_RULES_START,
+    start + MANDATORY_RULES_START.length,
+  );
+  const duplicateEnd = source.indexOf(MANDATORY_RULES_END, end + MANDATORY_RULES_END.length);
+  if (start < 0 || end < 0 || end <= start || duplicateStart >= 0 || duplicateEnd >= 0) {
+    throw new Error("SG mandatory execution rules are missing or malformed");
+  }
+  const rules = source.slice(start + MANDATORY_RULES_START.length, end).trim();
+  if (!rules) {
+    throw new Error("SG mandatory execution rules are empty");
+  }
+  return rules;
+}
+
+function loadMandatoryRules(): Promise<string> {
+  mandatoryRulesPromise ??= readFile(
+    new URL("../workspace/AGENTS.md", import.meta.url),
+    "utf8",
+  ).then(extractMandatoryRules);
+  return mandatoryRulesPromise;
+}
 const RENDER_TOOL_NAMES = ["sg_render"] as const;
 
 export function registerWorkspaceManager(api: WorkspacePluginApi): void {
@@ -181,6 +212,7 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
   registerSgBillingReconciliation({ api, stateDir });
 
   api.on("before_prompt_build", async (_event, ctx) => {
+    const mandatoryRules = await loadMandatoryRules();
     let resourceMemoryGuidance = "";
     let identityContext = [
       "SG — identity and scope",
@@ -215,7 +247,7 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
       );
     }
     return {
-      prependSystemContext: `${identityContext}\n\n${PERSONAL_MEMORY_AGENT_GUIDANCE}${resourceMemoryGuidance}\n${BILLING_AGENT_GUIDANCE}\n${WSP5_AGENT_GUIDANCE}\n${WSP6_AGENT_GUIDANCE}`,
+      prependSystemContext: `${identityContext}\n\n${mandatoryRules}\n\n${PERSONAL_MEMORY_AGENT_GUIDANCE}${resourceMemoryGuidance}\n${BILLING_AGENT_GUIDANCE}\n${WSP5_AGENT_GUIDANCE}\n${WSP6_AGENT_GUIDANCE}`,
     };
   });
 

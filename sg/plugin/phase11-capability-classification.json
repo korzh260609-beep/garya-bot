@@ -1,0 +1,53 @@
+{
+  "auditedOpenClawVersion": "2026.8.1",
+  "observed": {
+    "totalSkills": 84,
+    "eligibleSkills": 52,
+    "missingRequirementSkills": 32,
+    "loadedPlugins": 39,
+    "disabledPlugins": 19,
+    "pairedNodes": 0
+  },
+  "categories": {
+    "linuxApplicable": [
+      "blogwatcher",
+      "coding-agent",
+      "gifgrep",
+      "mcporter",
+      "model-usage",
+      "nano-pdf",
+      "obsidian",
+      "openai-whisper",
+      "sherpa-onnx-tts",
+      "songsee",
+      "summarize"
+    ],
+    "requiresCredentialOrAccount": [
+      "1password",
+      "gemini",
+      "gog",
+      "goplaces",
+      "himalaya",
+      "oracle",
+      "ordercli",
+      "sag",
+      "spotify-player",
+      "trello",
+      "xurl"
+    ],
+    "requiresDeviceOrNode": [
+      "blucli",
+      "camsnap",
+      "eightctl",
+      "openhue",
+      "sonoscli"
+    ],
+    "platformIncompatible": [
+      "apple-notes",
+      "apple-reminders",
+      "bear-notes",
+      "peekaboo",
+      "things-mac"
+    ]
+  }
+}

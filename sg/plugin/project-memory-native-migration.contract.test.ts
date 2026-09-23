@@ -146,17 +146,18 @@ describe("SG legacy project memory migration", () => {
 
     const first = runBootstrapMigration(workspace, historicalBootstrap);
     expect(first.status, first.stderr).toBe(0);
-    expect(first.stdout).toContain("bootstrap_scanned=15 bootstrap_added=15");
+    expect(first.stdout).toContain("bootstrap_scanned=16 bootstrap_added=16");
     const migrated = await readFile(memoryPath, "utf8");
-    expect(migrated.match(/<!-- sg-project-bootstrap:/gu)).toHaveLength(15);
+    expect(migrated.match(/<!-- sg-project-bootstrap:/gu)).toHaveLength(16);
     expect(migrated.match(new RegExp(`<!-- project: ${nativeProjectKey} -->`, "gu"))).toHaveLength(
-      15,
+      16,
     );
     expect(migrated).toContain("Ежедневный аудит проектной памяти ещё не создан");
+    expect(migrated).toContain("Ежедневный аудит и запись в Project Memory работают");
 
     const second = runBootstrapMigration(workspace, historicalBootstrap);
     expect(second.status, second.stderr).toBe(0);
-    expect(second.stdout).toContain("bootstrap_scanned=15 bootstrap_added=0");
+    expect(second.stdout).toContain("bootstrap_scanned=16 bootstrap_added=0");
     expect(await readFile(memoryPath, "utf8")).toBe(migrated);
   });
 });

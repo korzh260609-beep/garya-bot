@@ -187,6 +187,27 @@
         "openclaw:automations:native",
         "workspace:AGENTS.md:Scheduled-Telegram-delivery"
       ]
+    },
+    {
+      "id": "sg22-history-daily-audit-active-2026-09-23",
+      "recordedAt": "2026-09-23",
+      "title": "Ежедневный аудит и запись в Project Memory работают",
+      "summary": "Прежний статус pending от 21 сентября завершён. Штатная OpenClaw automation выполнила аудит за период 2026-09-21 18:00 — 2026-09-22 18:00 UTC, проверила GitHub, Actions, Render, /health и Telegram, записала в native project-scoped memory новый live baseline и риск RSS, затем повторно проверила обе записи. Аудит также обнаружил 3 ответа 502, ошибки compaction/memory fallback, таймауты отдельных cron-задач и рост RSS до 892 MiB при пороге 804 MiB; эти риски требуют отдельной диагностики. Параллельные scheduler и memory-системы не используются.",
+      "evidence": [
+        "owner-verified:daily-audit-and-project-memory-write:2026-09-23",
+        "audit-period:2026-09-21T18:00Z/2026-09-22T18:00Z",
+        "github:new-commits:5",
+        "github:actions:available-build-and-publish:4:success",
+        "render:deploy:dep-dap09jmk1f9s7390had0:live",
+        "render:source:c9aea87",
+        "render:image_commit:06ef090",
+        "render:health:200",
+        "telegram:polling:active",
+        "project-memory:live-baseline-and-rss-risk:write-rechecked",
+        "openclaw:automations:native",
+        "openclaw:memory-core:project-scoped",
+        "workspace:AGENTS.md:Preserve-durable-experience"
+      ]
     }
   ]
 }

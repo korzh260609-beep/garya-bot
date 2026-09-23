@@ -122,6 +122,7 @@ async function createEntrypointHarness() {
     "cost-diagnostics.ts",
     "render-tools.ts",
     "billing-tools.ts",
+    "phase11-capability-tools.ts",
     "openclaw.plugin.json",
     "package.json",
   ]) {

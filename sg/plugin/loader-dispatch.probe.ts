@@ -46,6 +46,8 @@ const workspaceToolGrant = [
   "sg_test_stats",
   "sg_render",
   "sg_billing_manage",
+  "sg_blogwatcher",
+  "sg_songsee",
 ];
 const withoutWorkspaceGrant = resolveEmbeddedAttemptToolConstructionPlan({
   toolsEnabled: true,
@@ -173,6 +175,11 @@ console.log(
           tool.names.includes(name),
         ),
     ),
+    phase11ToolsRegistered: registry.tools.some(
+      (tool) =>
+        tool.pluginId === "sg-workspace-manager" &&
+        ["sg_blogwatcher", "sg_songsee"].every((name) => tool.names.includes(name)),
+    ),
     onboardingGuidanceAbsent:
       !promptBuildResult?.prependSystemContext?.includes("sg_workspace_pending"),
     onboardingToolsAbsentInModelSurface: !pluginTools.some((tool) =>
@@ -189,6 +196,9 @@ console.log(
       pluginTools.some((tool) => tool.name === name),
     ),
     billingToolInModelSurface: pluginTools.some((tool) => tool.name === "sg_billing_manage"),
+    phase11ToolsInModelSurface: ["sg_blogwatcher", "sg_songsee"].every((name) =>
+      pluginTools.some((tool) => tool.name === name),
+    ),
     citizenshipToolsAbsentWithoutGrant: !pluginToolsWithoutGrant.some((tool) =>
       tool.name.startsWith("sg_citizen_"),
     ),

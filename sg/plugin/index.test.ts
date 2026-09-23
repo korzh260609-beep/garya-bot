@@ -206,6 +206,8 @@ describe("SG Workspace Manager", () => {
       "sg_resource_memory_reindex",
       "sg_render",
       "sg_billing_manage",
+      "sg_blogwatcher",
+      "sg_songsee",
     ]);
     expect(registerInteractiveHandler).toHaveBeenCalledWith({
       channel: "telegram",

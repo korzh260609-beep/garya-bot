@@ -56,6 +56,22 @@ describe("SG 2.2 Phase 11 capability activation contracts", () => {
     expect(workflow).toContain("songsee --help");
   });
 
+  it("exposes narrow Blogwatcher and Songsee tools to citizens without granting exec", async () => {
+    const entrypoint = await readFile(
+      path.join(repoRoot, "scripts", "sg22-render-entrypoint.sh"),
+      "utf8",
+    );
+    const manifest = JSON.parse(
+      await readFile(path.join(repoRoot, "sg", "plugin", "openclaw.plugin.json"), "utf8"),
+    ) as { contracts: { tools: string[] } };
+
+    expect(entrypoint).toContain('"sg_blogwatcher","sg_songsee"');
+    expect(entrypoint).toContain('\\"exec\\",\\"process\\",\\"code_execution\\",\\"terminal\\"');
+    expect(manifest.contracts.tools).toEqual(
+      expect.arrayContaining(["sg_blogwatcher", "sg_songsee"]),
+    );
+  });
+
   it("classifies every remaining deployed skill blocker exactly once before activation", async () => {
     const classification = JSON.parse(
       await readFile(
@@ -123,7 +139,7 @@ describe("SG 2.2 Phase 11 capability activation contracts", () => {
       disabledPlugins: 19,
       pairedNodes: 0,
     });
-    expect([...classifiedSkills].sort()).toEqual([...expectedMissingSkills].sort());
+    expect(classifiedSkills.toSorted()).toEqual(expectedMissingSkills.toSorted());
     expect(new Set(classifiedSkills).size).toBe(classifiedSkills.length);
   });
 });

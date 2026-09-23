@@ -16,6 +16,11 @@ import {
   createPersonalMemoryTools,
   PERSONAL_MEMORY_AGENT_GUIDANCE,
 } from "./personal-memory-tools.js";
+import {
+  createPhase11CapabilityTools,
+  PHASE11_CAPABILITY_AGENT_GUIDANCE,
+  PHASE11_CAPABILITY_TOOL_NAMES,
+} from "./phase11-capability-tools.js";
 import { createSgRenderTool } from "./render-tools.js";
 import {
   createResourceMemoryTools,
@@ -205,6 +210,9 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
   api.registerTool((ctx) => createSgBillingTool(ctx, stateDir, { logger: api.logger }), {
     names: [...BILLING_TOOL_NAMES],
   });
+  api.registerTool((ctx) => createPhase11CapabilityTools(ctx, stateDir), {
+    names: [...PHASE11_CAPABILITY_TOOL_NAMES],
+  });
   wsp5Lifecycle.register(api);
   wsp6Lifecycle.register(api);
   registerSgBillingHooks({ api, stateDir });
@@ -247,7 +255,7 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
       );
     }
     return {
-      prependSystemContext: `${identityContext}\n\n${mandatoryRules}\n\n${PERSONAL_MEMORY_AGENT_GUIDANCE}${resourceMemoryGuidance}\n${BILLING_AGENT_GUIDANCE}\n${WSP5_AGENT_GUIDANCE}\n${WSP6_AGENT_GUIDANCE}`,
+      prependSystemContext: `${identityContext}\n\n${mandatoryRules}\n\n${PERSONAL_MEMORY_AGENT_GUIDANCE}${resourceMemoryGuidance}\n${BILLING_AGENT_GUIDANCE}\n${PHASE11_CAPABILITY_AGENT_GUIDANCE}\n${WSP5_AGENT_GUIDANCE}\n${WSP6_AGENT_GUIDANCE}`,
     };
   });
 

@@ -123,6 +123,12 @@ jobs:
             -t ghcr.io/korzh260609-beep/garya-bot-sg22:dev \
             .
 
+      - name: Smoke-test activated Phase 11 CLIs
+        run: |
+          docker run --rm --entrypoint sh \
+            ghcr.io/korzh260609-beep/garya-bot-sg22:${GITHUB_SHA} \
+            -c 'command -v blogwatcher >/dev/null && test "$BLOGWATCHER_DB" = "/data/.openclaw/blogwatcher/blogwatcher.db" && BLOGWATCHER_DB=/tmp/blogwatcher.db blogwatcher blogs >/dev/null && test -s /tmp/blogwatcher.db && command -v songsee >/dev/null && songsee --version && songsee --help >/dev/null'
+
       - name: Publish SG 2.2 image
         run: |
           docker push ghcr.io/korzh260609-beep/garya-bot-sg22:${GITHUB_SHA}

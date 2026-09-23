@@ -1,8 +1,18 @@
 ARG SG22_BASE_IMAGE
+
+FROM golang:1.27.1-bookworm AS sg22-go-tools
+
+ARG BLOGWATCHER_VERSION=v0.0.4
+ARG SONGSEE_VERSION=v0.1.2
+ENV CGO_ENABLED=0
+RUN GOBIN=/out go install github.com/Hyaxia/blogwatcher/cmd/blogwatcher@${BLOGWATCHER_VERSION} \
+    && GOBIN=/out go install github.com/steipete/songsee/cmd/songsee@${SONGSEE_VERSION}
+
 FROM ${SG22_BASE_IMAGE}
 
 ARG SG22_IMAGE_COMMIT=unknown
 ENV SG22_IMAGE_COMMIT=${SG22_IMAGE_COMMIT}
+ENV BLOGWATCHER_DB=/data/.openclaw/blogwatcher/blogwatcher.db
 
 LABEL org.opencontainers.image.source="https://github.com/korzh260609-beep/garya-bot" \
       org.opencontainers.image.title="SG 2.2 on OpenClaw" \
@@ -10,6 +20,9 @@ LABEL org.opencontainers.image.source="https://github.com/korzh260609-beep/garya
 
 USER root
 WORKDIR /app
+
+COPY --from=sg22-go-tools /out/blogwatcher /usr/local/bin/blogwatcher
+COPY --from=sg22-go-tools /out/songsee /usr/local/bin/songsee
 
 # SG 2.2 entity overlay above the compiled OpenClaw runtime.
 COPY --chown=node:node sg/workspace /app/sg/workspace

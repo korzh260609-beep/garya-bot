@@ -2,15 +2,14 @@
   "auditedOpenClawVersion": "2026.8.1",
   "observed": {
     "totalSkills": 84,
-    "eligibleSkills": 52,
-    "missingRequirementSkills": 32,
+    "eligibleSkills": 54,
+    "missingRequirementSkills": 30,
     "loadedPlugins": 39,
     "disabledPlugins": 19,
     "pairedNodes": 0
   },
   "categories": {
     "linuxApplicable": [
-      "blogwatcher",
       "coding-agent",
       "gifgrep",
       "mcporter",
@@ -19,7 +18,6 @@
       "obsidian",
       "openai-whisper",
       "sherpa-onnx-tts",
-      "songsee",
       "summarize"
     ],
     "requiresCredentialOrAccount": [

@@ -29,6 +29,33 @@ describe("SG 2.2 Phase 11 capability activation contracts", () => {
     expect(packages).toEqual(expect.arrayContaining(["gh", "jq", "ripgrep", "ffmpeg", "tmux"]));
   });
 
+  it("builds and smoke-tests the pinned low-footprint Phase 11 CLIs", async () => {
+    const dockerfile = await readFile(path.join(repoRoot, "Dockerfile.sg22-overlay"), "utf8");
+    const workflow = await readFile(
+      path.join(repoRoot, ".github", "workflows", "sg22-render-image.yml"),
+      "utf8",
+    );
+
+    expect(dockerfile).toContain("ARG BLOGWATCHER_VERSION=v0.0.4");
+    expect(dockerfile).toContain("ARG SONGSEE_VERSION=v0.1.2");
+    expect(dockerfile).toContain(
+      "go install github.com/Hyaxia/blogwatcher/cmd/blogwatcher@${BLOGWATCHER_VERSION}",
+    );
+    expect(dockerfile).toContain(
+      "go install github.com/steipete/songsee/cmd/songsee@${SONGSEE_VERSION}",
+    );
+    expect(dockerfile).toContain("ENV BLOGWATCHER_DB=/data/.openclaw/blogwatcher/blogwatcher.db");
+    expect(dockerfile).toContain(
+      "COPY --from=sg22-go-tools /out/blogwatcher /usr/local/bin/blogwatcher",
+    );
+    expect(dockerfile).toContain("COPY --from=sg22-go-tools /out/songsee /usr/local/bin/songsee");
+    expect(workflow).toContain("command -v blogwatcher");
+    expect(workflow).toContain("BLOGWATCHER_DB=/tmp/blogwatcher.db blogwatcher blogs");
+    expect(workflow).toContain("command -v songsee");
+    expect(workflow).toContain("songsee --version");
+    expect(workflow).toContain("songsee --help");
+  });
+
   it("classifies every remaining deployed skill blocker exactly once before activation", async () => {
     const classification = JSON.parse(
       await readFile(
@@ -58,7 +85,6 @@ describe("SG 2.2 Phase 11 capability activation contracts", () => {
       "apple-notes",
       "apple-reminders",
       "bear-notes",
-      "blogwatcher",
       "blucli",
       "camsnap",
       "coding-agent",
@@ -79,7 +105,6 @@ describe("SG 2.2 Phase 11 capability activation contracts", () => {
       "peekaboo",
       "sag",
       "sherpa-onnx-tts",
-      "songsee",
       "sonoscli",
       "spotify-player",
       "summarize",
@@ -92,8 +117,8 @@ describe("SG 2.2 Phase 11 capability activation contracts", () => {
     expect(classification.auditedOpenClawVersion).toBe("2026.8.1");
     expect(classification.observed).toEqual({
       totalSkills: 84,
-      eligibleSkills: 52,
-      missingRequirementSkills: 32,
+      eligibleSkills: 54,
+      missingRequirementSkills: 30,
       loadedPlugins: 39,
       disabledPlugins: 19,
       pairedNodes: 0,

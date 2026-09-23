@@ -113,6 +113,7 @@ describe("SG 2.2 Render entrypoint", () => {
     );
 
     expect(script).toContain('gateway_public_origin="https://sg-2-2-openclaw.onrender.com"');
+    expect(readShellJson(script, "render_trusted_proxies")).toEqual(["10.192.0.0/13"]);
     expect(readShellJson(script, "notion_mcp_server")).toEqual({
       url: "https://mcp.notion.com/mcp",
       transport: "streamable-http",
@@ -124,6 +125,9 @@ describe("SG 2.2 Render entrypoint", () => {
     });
     expect(script).toContain(
       '{"path":"gateway.publicOrigin","value":"\'"${gateway_public_origin}"\'"}',
+    );
+    expect(script).toContain(
+      '{"path":"gateway.trustedProxies","value":\'"${render_trusted_proxies}"\'}',
     );
     expect(script).toContain('{"path":"mcp.servers.notion","value":\'"${notion_mcp_server}"\'}');
     expect(script).toContain(

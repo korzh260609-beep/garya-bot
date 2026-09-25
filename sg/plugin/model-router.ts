@@ -252,6 +252,22 @@ export function assessSgModelTier(params: {
   const stepCount = (prompt.match(/^\s*(?:[-*]|\d+[.)])\s+/gmu) ?? []).length;
   const structuredData =
     /(?:[{[]\s*["'][^\n]{1,80}["']\s*:|\b(?:error|exception)\b[^\n]*\n\s+at\s)/iu.test(prompt);
+  const analysisIntent =
+    /(?:проанализ|исследу|провед[иі].{0,20}аудит|оцен[иі]|analy[sz]|investigat|audit|evaluate)/iu.test(
+      prompt,
+    );
+  const outcomeIntent =
+    /(?:найд[иі].{0,20}риск|предлож[иі].{0,20}план|рекомендац|сравн|find.{0,20}risk|propose.{0,20}plan|recommend|compar)/iu.test(
+      prompt,
+    );
+  const domainCount = [
+    /архитектур|architect/iu,
+    /безопасност|security/iu,
+    /памят|memory/iu,
+    /биллинг|оплат|billing/iu,
+    /маршрутиз|routing/iu,
+    /изоляц|isolation/iu,
+  ].filter((pattern) => pattern.test(prompt)).length;
   const requiredCapabilities: SgModelCapability[] = attachments.length ? ["attachments"] : [];
   const reasons: string[] = [];
   let score = 0;
@@ -284,6 +300,10 @@ export function assessSgModelTier(params: {
   if (attachments.length) {
     score += attachments.some((item) => item.kind === "document" || item.kind === "video") ? 2 : 1;
     reasons.push("attachments");
+  }
+  if (analysisIntent && outcomeIntent && domainCount >= 2) {
+    score += 5;
+    reasons.push("multi-domain-analysis");
   }
 
   if (score >= 5) {
@@ -382,6 +402,12 @@ export function registerSgModelRouter(params: {
         return;
       }
       const mode = await preferences.get(identity.globalId);
+      if (!event.prompt.trim()) {
+        api.logger?.warn(
+          `[sg-model-router] decision=retain activation=${activation} mode=${mode} reason=prompt-empty`,
+        );
+        return;
+      }
       const assessment = assessSgModelTier(event);
       const tier = mode === "auto" ? assessment.tier : mode;
       const requiredCapabilities: SgModelCapability[] = event.attachments?.length

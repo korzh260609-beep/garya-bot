@@ -54,6 +54,12 @@ describe("SG model router", () => {
       reasons: ["bounded-short-request"],
     });
     expect(
+      assessSgModelTier({ prompt: "Сколько будет 17 + 25? Ответь одним числом." }),
+    ).toMatchObject({
+      tier: "cheap",
+      reasons: ["bounded-short-request"],
+    });
+    expect(
       assessSgModelTier({
         prompt: "Проанализируй документ и составь рекомендации для проекта.",
         attachments: [{ kind: "document", mimeType: "application/pdf" }],
@@ -68,6 +74,12 @@ describe("SG model router", () => {
       tier: "medium",
       reasons: ["conservative-default"],
     });
+    expect(
+      assessSgModelTier({
+        prompt:
+          "Проанализируй архитектуру многопользовательского ИИ-помощника: безопасность, память, биллинг и маршрутизацию моделей. Найди риски и предложи план проверки.",
+      }),
+    ).toMatchObject({ tier: "expensive", reasons: ["multi-domain-analysis"] });
   });
 
   it("selects the highest-priority enabled provider route with required capabilities", () => {
@@ -162,6 +174,15 @@ describe("SG model router", () => {
     expect(logs).not.toContain("private prompt");
     expect(logs).not.toContain("secret body");
     expect(await readFile(routingFile, "utf8")).toContain('"version":99');
+  });
+
+  it("retains the configured model when the runtime exposes no user prompt", async () => {
+    const stateDir = await createStateDir();
+    const { hook, logger } = registerRouter(stateDir, "active");
+    await expect(
+      hook({ prompt: "" }, { channel: "telegram", senderId: "301" }),
+    ).resolves.toBeUndefined();
+    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining("reason=prompt-empty"));
   });
 
   it("defaults unknown activation values to shadow", () => {

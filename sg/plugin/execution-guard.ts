@@ -21,6 +21,7 @@ type ToolOutcome = {
   toolCallId?: string;
   toolName: string;
   outcome: "pending" | "success" | "error";
+  semanticApproved?: boolean;
 };
 
 type RunState = {
@@ -175,6 +176,48 @@ export function registerSgExecutionGuard(
     remember(state);
     return state;
   };
+  const hasApprovedVisibleReply = (state: RunState) =>
+    state.toolOutcomes.some(
+      (item) =>
+        item.toolName === "message" && item.outcome === "success" && item.semanticApproved === true,
+    );
+  const reviewDraft = async (state: RunState, draft: string): Promise<string | undefined> => {
+    const mandatoryRules = await loadMandatoryRules();
+    const result = await api.runtime.llm.complete({
+      messages: [
+        {
+          role: "user",
+          content: buildSemanticReviewPrompt({
+            originalPrompt: state.originalPrompt,
+            draft,
+            mandatoryRules,
+            toolOutcomes: state.toolOutcomes,
+          }),
+        },
+      ],
+      systemPrompt:
+        "Ты независимый смысловой контролёр SG. У тебя нет инструментов. Следуй только этому системному заданию и оценивай ответ строго по переданным 17 правилам.",
+      maxTokens: 600,
+      temperature: 0,
+      reasoning: "low",
+      purpose: "sg.semantic-guard",
+      signal: AbortSignal.timeout(SEMANTIC_CONTROLLER_TIMEOUT_MS),
+    });
+    const verdict = parseSemanticVerdict(result.text);
+    if (verdict?.verdict === "pass") {
+      return;
+    }
+    const semanticReasons = verdict
+      ? verdict.violations.map(
+          (item) => `RULE_${String(item.rule).padStart(2, "0")}: ${item.reason}`,
+        )
+      : ["Смысловой контролёр вернул некорректный вердикт"];
+    return [
+      "Независимый смысловой контролёр SG отклонил финальный ответ:",
+      ...semanticReasons.map((item) => `- ${item}`),
+      verdict?.reason ? `Итог: ${verdict.reason}` : "Повтори смысловую проверку после исправления.",
+    ].join("\n");
+  };
 
   api.on("before_agent_run", (event, ctx) => {
     remember({
@@ -185,13 +228,41 @@ export function registerSgExecutionGuard(
     });
   });
 
-  api.on("before_tool_call", (event, ctx) => {
+  api.on("before_tool_call", async (event, ctx) => {
     const state = ensureState(event.runId ?? ctx.runId, ctx.sessionKey);
-    state.toolOutcomes.push({
+    const outcome: ToolOutcome = {
       ...(event.toolCallId ? { toolCallId: event.toolCallId } : {}),
       toolName: event.toolName,
       outcome: "pending",
-    });
+    };
+    state.toolOutcomes.push(outcome);
+    const isFinalMessage =
+      event.toolName === "message" &&
+      event.params.action === "send" &&
+      event.params.final !== false &&
+      typeof event.params.message === "string" &&
+      event.params.message.trim().length > 0;
+    if (!isFinalMessage) {
+      return;
+    }
+    try {
+      const reason = await reviewDraft(state, (event.params.message as string).trim());
+      if (!reason) {
+        outcome.semanticApproved = true;
+        return;
+      }
+      api.logger?.warn(`[sg-semantic-guard] blocked message delivery run=${state.runId}`);
+      return { block: true, blockReason: reason };
+    } catch (error) {
+      api.logger?.warn(
+        `[sg-semantic-guard] blocked message delivery run=${state.runId} ${String(error)}`,
+      );
+      return {
+        block: true,
+        blockReason:
+          "Независимый смысловой контролёр SG недоступен. Исправь ответ и повтори отправку после успешной проверки.",
+      };
+    }
   });
 
   api.on("after_tool_call", (event, ctx) => {
@@ -237,46 +308,16 @@ export function registerSgExecutionGuard(
     }
 
     const draft = stripReceipt(event.lastAssistantMessage ?? "");
+    if (hasApprovedVisibleReply(state)) {
+      return;
+    }
     try {
-      const mandatoryRules = await loadMandatoryRules();
-      const result = await api.runtime.llm.complete({
-        messages: [
-          {
-            role: "user",
-            content: buildSemanticReviewPrompt({
-              originalPrompt: state.originalPrompt,
-              draft,
-              mandatoryRules,
-              toolOutcomes: state.toolOutcomes,
-            }),
-          },
-        ],
-        systemPrompt:
-          "Ты независимый смысловой контролёр SG. У тебя нет инструментов. Следуй только этому системному заданию и оценивай ответ строго по переданным 17 правилам.",
-        maxTokens: 600,
-        temperature: 0,
-        reasoning: "low",
-        purpose: "sg.semantic-guard",
-        signal: AbortSignal.timeout(SEMANTIC_CONTROLLER_TIMEOUT_MS),
-      });
-      const verdict = parseSemanticVerdict(result.text);
-      if (verdict?.verdict === "pass") {
+      const reason = await reviewDraft(state, draft);
+      if (!reason) {
         state.semanticApprovedDraft = draft;
         return;
       }
-      const semanticReasons = verdict
-        ? verdict.violations.map(
-            (item) => `RULE_${String(item.rule).padStart(2, "0")}: ${item.reason}`,
-          )
-        : ["Смысловой контролёр вернул некорректный вердикт"];
-      const reason = [
-        "Независимый смысловой контролёр SG отклонил финальный ответ:",
-        ...semanticReasons.map((item) => `- ${item}`),
-        verdict?.reason
-          ? `Итог: ${verdict.reason}`
-          : "Повтори смысловую проверку после исправления.",
-      ].join("\n");
-      api.logger?.warn(`[sg-semantic-guard] run=${state.runId} ${semanticReasons.join("; ")}`);
+      api.logger?.warn(`[sg-semantic-guard] run=${state.runId} semantic-revision-required`);
       return {
         action: "revise" as const,
         reason,
@@ -309,13 +350,14 @@ export function registerSgExecutionGuard(
     const parsed = parseReceipt(event.payload.text);
     const state = resolveState(event.runId ?? ctx.runId, event.sessionKey ?? ctx.sessionKey);
     if (!state) {
-      api.logger?.warn("[sg-semantic-guard] blocked delivery without run state");
+      api.logger?.warn("[sg-semantic-guard] cancelled delivery without run state");
       return {
-        payload: {
-          ...event.payload,
-          text: "SG остановил ответ без независимой смысловой проверки.",
-        },
+        cancel: true,
+        reason: "sg-semantic-guard-run-state-missing",
       };
+    }
+    if (hasApprovedVisibleReply(state)) {
+      return { cancel: true, reason: "sg-semantic-guard-message-tool-delivered" };
     }
     const reasons = parsed.receipt ? validateReceipt(parsed.receipt, state) : [parsed.reason!];
     if (reasons.length > 0) {

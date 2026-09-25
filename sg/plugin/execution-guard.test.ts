@@ -248,4 +248,85 @@ describe("SG execution guard", () => {
       payload: { text: "SG остановил ответ без независимой смысловой проверки." },
     });
   });
+
+  it("checks a final message-tool reply before its visible side effect", async () => {
+    const { complete, hook } = setup();
+    await hook("before_agent_run")(
+      { prompt: "Сколько будет 17 + 25?", messages: [] },
+      { runId: "r9" },
+    );
+
+    await expect(
+      hook("before_tool_call")(
+        {
+          runId: "r9",
+          toolCallId: "m1",
+          toolName: "message",
+          params: { action: "send", message: "42" },
+        },
+        { runId: "r9", toolName: "message" },
+      ),
+    ).resolves.toBeUndefined();
+    await hook("after_tool_call")(
+      {
+        runId: "r9",
+        toolCallId: "m1",
+        toolName: "message",
+        params: { action: "send", message: "42" },
+        result: "ok",
+      },
+      { runId: "r9", toolName: "message" },
+    );
+    const finalReceipt = receipt();
+    await expect(
+      hook("before_agent_finalize")(
+        { runId: "r9", sessionId: "s9", lastAssistantMessage: finalReceipt },
+        { runId: "r9" },
+      ),
+    ).resolves.toBeUndefined();
+    await expect(
+      hook("reply_payload_sending")(
+        { kind: "final", runId: "r9", payload: { text: finalReceipt } },
+        { runId: "r9" },
+      ),
+    ).resolves.toEqual({
+      cancel: true,
+      reason: "sg-semantic-guard-message-tool-delivered",
+    });
+    expect(complete).toHaveBeenCalledOnce();
+  });
+
+  it("blocks a final message-tool reply that fails semantic review", async () => {
+    const { complete, hook } = setup();
+    complete.mockResolvedValueOnce({
+      text: JSON.stringify({
+        verdict: "revise",
+        violations: [{ rule: 4, reason: "Неподтверждённый факт" }],
+        reason: "Исправить факт",
+      }),
+    });
+    await hook("before_agent_run")({ prompt: "Ответь точно", messages: [] }, { runId: "r10" });
+
+    await expect(
+      hook("before_tool_call")(
+        {
+          runId: "r10",
+          toolCallId: "m1",
+          toolName: "message",
+          params: { action: "send", message: "Неверный факт" },
+        },
+        { runId: "r10", toolName: "message" },
+      ),
+    ).resolves.toMatchObject({ block: true, blockReason: expect.stringContaining("RULE_04") });
+  });
+
+  it("cancels an uncorrelated final instead of sending a false guard warning", async () => {
+    const { hook } = setup();
+    await expect(
+      hook("reply_payload_sending")({ kind: "final", payload: { text: "служебный финал" } }, {}),
+    ).resolves.toEqual({
+      cancel: true,
+      reason: "sg-semantic-guard-run-state-missing",
+    });
+  });
 });

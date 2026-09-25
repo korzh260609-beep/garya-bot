@@ -16,6 +16,7 @@ describe("SG Workspace Manager real loader and dispatch runner", () => {
     const { stdout } = await execFileAsync(process.execPath, ["--import", "tsx", probe, stateDir], {
       cwd: path.resolve(pluginDir, "../.."),
       timeout: 60_000,
+      env: { ...process.env, SG_MODEL_ROUTING_ACTIVATION: "active" },
     });
     const marker = stdout.split("\n").find((line) => line.startsWith("SG_LOADER_PROBE="));
     expect(marker).toBeDefined();
@@ -23,6 +24,11 @@ describe("SG Workspace Manager real loader and dispatch runner", () => {
       pluginLoaded: true,
       hookRegistered: true,
       promptHookRegistered: true,
+      modelRouterHookRegistered: true,
+      modelRouterOverride: {
+        providerOverride: "openai",
+        modelOverride: "gpt-5.6-luna",
+      },
       lifecycleHooksRegistered: true,
       onboardingToolsAbsent: true,
       wsp5ToolsRegistered: true,

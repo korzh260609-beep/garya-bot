@@ -35,6 +35,15 @@ const registry = loadOpenClawPlugins({
   config: pluginConfig,
 });
 const hookRunner = createHookRunner(registry);
+const modelResolveResult = await hookRunner.runBeforeModelResolve(
+  { prompt: "Привет" },
+  {
+    runId: "run-model-route",
+    channel: "telegram",
+    accountId: "default",
+    senderId: "100",
+  },
+);
 const workspaceToolGrant = [
   "sg_content_draft",
   "sg_content_review",
@@ -144,6 +153,11 @@ console.log(
     promptHookRegistered: registry.typedHooks.some(
       (hook) => hook.pluginId === "sg-workspace-manager" && hook.hookName === "before_prompt_build",
     ),
+    modelRouterHookRegistered: registry.typedHooks.some(
+      (hook) =>
+        hook.pluginId === "sg-workspace-manager" && hook.hookName === "before_model_resolve",
+    ),
+    modelRouterOverride: modelResolveResult,
     lifecycleHooksRegistered: ["before_prompt_build", "before_tool_call", "after_tool_call"].every(
       (hookName) =>
         registry.typedHooks.some(

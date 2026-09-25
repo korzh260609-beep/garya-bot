@@ -386,6 +386,63 @@ Provide:
 
 The preference belongs to the Global ID and follows the user across channels.
 
+### Approved implementation plan (2026-09-25)
+
+The first production tranche keeps routing inside the SG plugin and relies on the
+native OpenClaw model lifecycle. It must not change OpenClaw core or add a second
+gateway.
+
+1. Add a provider-neutral SG model registry. The initial enabled routes are Luna,
+   Terra and Sol from the table above. The registry owns tier/capability metadata;
+   OpenClaw and provider usage events remain the source of truth for model prices.
+2. Persist each user's `auto`, `cheap`, `medium` or `expensive` preference in a
+   separate versioned store keyed by Global ID. Identity linking therefore carries
+   the same preference across supported channels without changing the identity
+   schema.
+3. Register `/sg_model auto|cheap|medium|expensive|status`. Manual modes always win
+   over automatic classification.
+4. Implement a deterministic, no-extra-model classifier. It uses observable task
+   structure (prompt size, code/structured-data density, attachments, links and
+   multi-step shape), selects the minimum sufficient tier, defaults uncertain work
+   to `medium`, and never sends prompt contents to logs.
+5. Register the classifier through `before_model_resolve`. Requests without a
+   trusted sender identity, invalid state or an unavailable route fail safely by
+   retaining OpenClaw's current model.
+6. Support `off`, `shadow` and `active` activation through
+   `SG_MODEL_ROUTING_ACTIVATION`; default to `shadow`. Shadow mode records the same
+   decision metadata but returns no model override.
+7. Keep native OpenClaw fallback/retry behavior. Billing continues to meter every
+   actual resolved provider/model call and applies the existing provider-cost ×2
+   settlement; routing does not estimate or replace provider accounting.
+8. Add unit tests for classification, registry selection, preference persistence,
+   manual overrides, shadow/active behavior, identity isolation and safe failures.
+   Extend the real plugin-loader probe to prove the hook registration and a real
+   active model override.
+9. Run targeted tests, type/check validation and the relevant build. Commit and push
+   only `dev/sg2.2-openclaw`, verify CI/image readiness, then stop before changing any
+   Render service or environment variable.
+
+### Provider expansion contract
+
+Anthropic Claude and Google Gemini remain disabled in the first tranche. Adding them
+later requires only registry entries after their credentials, deployed catalog IDs,
+capabilities, data-handling policy and account availability are verified. Provider
+fallback must be explicit; an unavailable provider must never silently change the
+selected business tier.
+
+### Acceptance criteria
+
+- `auto` chooses the enabled route for the detected minimum tier and retains the
+  current model if that route is unavailable.
+- A manual mode deterministically selects its configured tier.
+- The preference follows a Global ID and never leaks to another Global ID.
+- Shadow mode cannot change the model; active mode returns the exact provider/model
+  override.
+- Logs contain decision identifiers and reason codes, never the prompt body.
+- Billing records the model actually called, including native retries/fallbacks.
+- No deployment occurs until the owner explicitly approves it after reviewing the
+  pre-deployment report.
+
 ## Phase 6 — images
 
 1. Correlate every `image_generate` or edit request to the trusted Global ID.

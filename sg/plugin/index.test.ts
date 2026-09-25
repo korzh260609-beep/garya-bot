@@ -174,6 +174,7 @@ describe("SG Workspace Manager", () => {
     expect(registerCommand.mock.calls.map((call) => call[0]?.name)).toEqual([
       "sg_balance",
       "sg_billing",
+      "sg_model",
       "sg_context",
       "sg_workspace",
       "sg_wsp5_diag",
@@ -215,6 +216,7 @@ describe("SG Workspace Manager", () => {
       handler: expect.any(Function),
     });
     expect(on).toHaveBeenCalledWith("before_dispatch", expect.any(Function));
+    expect(on).toHaveBeenCalledWith("before_model_resolve", expect.any(Function));
     expect(on).toHaveBeenCalledWith("before_agent_finalize", expect.any(Function));
     expect(on).toHaveBeenCalledWith("reply_payload_sending", expect.any(Function));
   });

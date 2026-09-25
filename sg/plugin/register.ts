@@ -13,6 +13,7 @@ import { SgContextDiagnostics, type SgContextDiagnosticCommand } from "./context
 import { formatWorkspaceContext, resolveWorkspaceContext } from "./context.js";
 import { buildSgCostDiagnostic, type SgCostDiagnosticConfig } from "./cost-diagnostics.js";
 import { registerSgExecutionGuard, SG_EXECUTION_GUARD_GUIDANCE } from "./execution-guard.js";
+import { registerSgModelRouter } from "./model-router.js";
 import {
   createPersonalMemoryTools,
   PERSONAL_MEMORY_AGENT_GUIDANCE,
@@ -220,6 +221,7 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
   registerSgBillingHooks({ api, stateDir });
   registerSgExecutionGuard(api, loadMandatoryRules);
   registerSgBillingCommands({ api, stateDir });
+  registerSgModelRouter({ api, stateDir });
   registerSgBillingReconciliation({ api, stateDir });
 
   api.on("before_prompt_build", async (_event, ctx) => {

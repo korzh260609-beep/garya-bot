@@ -41,7 +41,80 @@ const receipt = (overrides: Record<string, unknown> = {}) =>
     ...overrides,
   })}</sg-execution-receipt>`;
 
+async function recordSuccessfulAction(hook: ReturnType<typeof setup>["hook"], runId: string) {
+  await hook("before_tool_call")(
+    { runId, toolCallId: `${runId}-tool`, toolName: "write", params: {} },
+    { runId, toolName: "write" },
+  );
+  await hook("after_tool_call")(
+    { runId, toolCallId: `${runId}-tool`, toolName: "write", params: {}, result: "ok" },
+    { runId, toolName: "write" },
+  );
+}
+
 describe("SG execution guard", () => {
+  it("delivers an ordinary informational answer without a receipt or semantic model call", async () => {
+    const { complete, hook } = setup();
+    await hook("before_agent_run")(
+      { prompt: "Сколько будет 2+2?", messages: [] },
+      { runId: "ordinary-1", sessionKey: "telegram:100" },
+    );
+
+    await expect(
+      hook("before_agent_finalize")(
+        { runId: "ordinary-1", sessionId: "s1", lastAssistantMessage: "4" },
+        { runId: "ordinary-1", sessionKey: "telegram:100" },
+      ),
+    ).resolves.toBeUndefined();
+    await expect(
+      hook("reply_payload_sending")(
+        { kind: "final", runId: "ordinary-1", payload: { text: "4" } },
+        { runId: "ordinary-1", sessionKey: "telegram:100" },
+      ),
+    ).resolves.toEqual({ payload: { text: "4" } });
+    expect(complete).not.toHaveBeenCalled();
+  });
+
+  it("keeps an OpenClaw-assisted analysis informational and skips semantic review", async () => {
+    const { complete, hook } = setup();
+    await hook("before_agent_run")(
+      {
+        prompt:
+          "Проведи сложный многотематический анализ архитектуры, безопасности, памяти и биллинга",
+        messages: [],
+      },
+      { runId: "analysis-1", sessionKey: "telegram:100" },
+    );
+    await hook("before_tool_call")(
+      { runId: "analysis-1", toolCallId: "analysis-tool", toolName: "openclaw", params: {} },
+      { runId: "analysis-1", sessionKey: "telegram:100" },
+    );
+    await hook("after_tool_call")(
+      {
+        runId: "analysis-1",
+        toolCallId: "analysis-tool",
+        toolName: "openclaw",
+        params: {},
+        result: "analysis context",
+      },
+      { runId: "analysis-1", sessionKey: "telegram:100" },
+    );
+
+    await expect(
+      hook("before_agent_finalize")(
+        { runId: "analysis-1", sessionId: "s-analysis", lastAssistantMessage: "Анализ готов." },
+        { runId: "analysis-1", sessionKey: "telegram:100" },
+      ),
+    ).resolves.toBeUndefined();
+    await expect(
+      hook("reply_payload_sending")(
+        { kind: "final", runId: "analysis-1", payload: { text: "Анализ готов." } },
+        { runId: "analysis-1", sessionKey: "telegram:100" },
+      ),
+    ).resolves.toEqual({ payload: { text: "Анализ готов." } });
+    expect(complete).not.toHaveBeenCalled();
+  });
+
   it("requires a machine-checkable receipt before finalization", async () => {
     const { hook } = setup();
     await hook("before_agent_run")({ prompt: "Сделай задачу", messages: [] }, { runId: "r1" });
@@ -56,7 +129,7 @@ describe("SG execution guard", () => {
 
   it("requires the receipt to be the final block", async () => {
     const { hook } = setup();
-    await hook("before_agent_run")({ prompt: "Ответь", messages: [] }, { runId: "r1-tail" });
+    await hook("before_agent_run")({ prompt: "Сделай задачу", messages: [] }, { runId: "r1-tail" });
 
     await expect(
       hook("before_agent_finalize")(
@@ -112,8 +185,12 @@ describe("SG execution guard", () => {
         reason: "Отделить предположение от подтверждённого факта",
       }),
     });
-    await hook("before_agent_run")({ prompt: "Ответь точно", messages: [] }, { runId: "r3-sem" });
-    const answer = receipt({ mode: "answer", toolsRequired: false, verification: "not-needed" });
+    await hook("before_agent_run")(
+      { prompt: "Сделай изменение", messages: [] },
+      { runId: "r3-sem" },
+    );
+    await recordSuccessfulAction(hook, "r3-sem");
+    const answer = receipt();
 
     await expect(
       hook("before_agent_finalize")(
@@ -136,10 +213,11 @@ describe("SG execution guard", () => {
       }),
     });
     await hook("before_agent_run")(
-      { prompt: "Ответь точно", messages: [] },
+      { prompt: "Сделай изменение", messages: [] },
       { runId: "r3-single-review", sessionKey: "telegram:100" },
     );
-    const first = receipt({ mode: "answer", toolsRequired: false, verification: "not-needed" });
+    await recordSuccessfulAction(hook, "r3-single-review");
+    const first = receipt();
     const corrected = first.replace("Готово.", "Исправлено.");
 
     await expect(
@@ -176,14 +254,18 @@ describe("SG execution guard", () => {
         { runId: "r3-exact", sessionKey: "telegram:100" },
       ),
     ).resolves.toEqual({ payload: { text: "OK" } });
-    expect(complete).toHaveBeenCalledOnce();
+    expect(complete).not.toHaveBeenCalled();
   });
 
   it("fails closed when the controller returns malformed output", async () => {
     const { complete, hook } = setup();
     complete.mockResolvedValueOnce({ text: "not json" });
-    await hook("before_agent_run")({ prompt: "Ответь", messages: [] }, { runId: "r3-bad" });
-    const answer = receipt({ mode: "answer", toolsRequired: false, verification: "not-needed" });
+    await hook("before_agent_run")(
+      { prompt: "Сделай изменение", messages: [] },
+      { runId: "r3-bad" },
+    );
+    await recordSuccessfulAction(hook, "r3-bad");
+    const answer = receipt();
 
     await expect(
       hook("before_agent_finalize")(
@@ -196,8 +278,12 @@ describe("SG execution guard", () => {
   it("fails closed when the controller call throws", async () => {
     const { complete, hook } = setup();
     complete.mockRejectedValueOnce(new Error("controller unavailable"));
-    await hook("before_agent_run")({ prompt: "Ответь", messages: [] }, { runId: "r3-error" });
-    const answer = receipt({ mode: "answer", toolsRequired: false, verification: "not-needed" });
+    await hook("before_agent_run")(
+      { prompt: "Сделай изменение", messages: [] },
+      { runId: "r3-error" },
+    );
+    await recordSuccessfulAction(hook, "r3-error");
+    const answer = receipt();
 
     await expect(
       hook("before_agent_finalize")(
@@ -268,10 +354,11 @@ describe("SG execution guard", () => {
     });
   });
 
-  it("blocks a technically valid reply that skipped semantic finalization", async () => {
+  it("blocks a technically valid action reply that skipped semantic finalization", async () => {
     const { hook } = setup();
-    await hook("before_agent_run")({ prompt: "Ответь", messages: [] }, { runId: "r7" });
-    const answer = receipt({ mode: "answer", toolsRequired: false, verification: "not-needed" });
+    await hook("before_agent_run")({ prompt: "Сделай изменение", messages: [] }, { runId: "r7" });
+    await recordSuccessfulAction(hook, "r7");
+    const answer = receipt();
 
     await expect(
       hook("reply_payload_sending")(
@@ -285,8 +372,9 @@ describe("SG execution guard", () => {
 
   it("blocks a delivered draft changed after semantic approval", async () => {
     const { hook } = setup();
-    await hook("before_agent_run")({ prompt: "Ответь", messages: [] }, { runId: "r8" });
-    const answer = receipt({ mode: "answer", toolsRequired: false, verification: "not-needed" });
+    await hook("before_agent_run")({ prompt: "Сделай изменение", messages: [] }, { runId: "r8" });
+    await recordSuccessfulAction(hook, "r8");
+    const answer = receipt();
     await hook("before_agent_finalize")(
       { runId: "r8", sessionId: "s8", lastAssistantMessage: answer },
       { runId: "r8" },
@@ -355,7 +443,7 @@ describe("SG execution guard", () => {
       cancel: true,
       reason: "sg-semantic-guard-message-tool-delivered",
     });
-    expect(complete).toHaveBeenCalledOnce();
+    expect(complete).not.toHaveBeenCalled();
   });
 
   it("blocks a final message-tool reply that fails semantic review", async () => {
@@ -367,7 +455,8 @@ describe("SG execution guard", () => {
         reason: "Исправить факт",
       }),
     });
-    await hook("before_agent_run")({ prompt: "Ответь точно", messages: [] }, { runId: "r10" });
+    await hook("before_agent_run")({ prompt: "Сделай изменение", messages: [] }, { runId: "r10" });
+    await recordSuccessfulAction(hook, "r10");
 
     await expect(
       hook("before_tool_call")(

@@ -31,6 +31,7 @@ type RunState = {
   originalPrompt: string;
   toolOutcomes: ToolOutcome[];
   exactOutput: boolean;
+  actionExpected: boolean;
   correctionUsed: boolean;
   semanticReviewDone: boolean;
   semanticRevisionPending: boolean;
@@ -41,17 +42,25 @@ type RunState = {
 const RECEIPT_PATTERN = /<sg-execution-receipt>([\s\S]*?)<\/sg-execution-receipt>/gu;
 const MAX_TRACKED_RUNS = 512;
 const SEMANTIC_CONTROLLER_TIMEOUT_MS = 12_000;
+const INFORMATIONAL_TOOLS = new Set(["message", "openclaw", "skill_workshop"]);
 
 export const SG_EXECUTION_GUARD_GUIDANCE = `SG execution guard (mandatory)
-Before every final reply, silently audit all 17 mandatory SG rules and append exactly one machine receipt as the final block:
+For an ordinary informational answer, answer normally without the message tool and without a receipt. For a tool-backed action with side effects, silently audit all 17 mandatory SG rules and append exactly one machine receipt as the final block:
 <sg-execution-receipt>{"mode":"answer|plan|action","status":"complete|partial|blocked","toolsRequired":true|false,"verification":"not-needed|confirmed|failed","completed":"...","evidence":"...","notCompleted":"...","blocker":"...","userDecisionRequired":true|false}</sg-execution-receipt>
 Use mode=action whenever the requested outcome required a tool or state change. An action can be complete only after a successful tool result and verification. Use partial or blocked with the exact blocker whenever work remains. The receipt is control metadata and is removed before delivery. If the user explicitly requires an exact output and nothing else, return that exact output without a receipt.`;
 
 const EXACT_OUTPUT_PATTERN =
   /(?:\b(?:reply|respond|return|output|print|say|write)\b.{0,80}\bexactly\b|\b(?:reply|respond|return|output|print|say|write)\b.{0,80}\bonly\s+(?:one\s+)?(?:word|number|line|token)|(?:ответь|напиши|верни|выведи|скажи).{0,80}ровно|(?:ответь|напиши|верни|выведи|скажи).{0,80}только\s+(?:одним\s+)?(?:словом|числом|строкой|токеном)|\bnothing else\b|и ничего больше|без дополнительного текста)/isu;
 
+const ACTION_REQUEST_PATTERN =
+  /(?:\b(?:create|change|update|delete|remove|send|publish|deploy|restart|commit|push|schedule|cancel)\b|(?:сделай|создай|измени|обнови|удали|отправь|опубликуй|задеплой|перезапусти|закоммить|запушь|запланируй|отмени))/iu;
+
 function isExactOutputRequest(prompt: string): boolean {
   return EXACT_OUTPUT_PATTERN.test(prompt);
+}
+
+function isActionRequest(prompt: string): boolean {
+  return ACTION_REQUEST_PATTERN.test(prompt);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -186,6 +195,7 @@ export function registerSgExecutionGuard(
       originalPrompt: "",
       toolOutcomes: [],
       exactOutput: false,
+      actionExpected: false,
       correctionUsed: false,
       semanticReviewDone: false,
       semanticRevisionPending: false,
@@ -198,6 +208,10 @@ export function registerSgExecutionGuard(
       (item) =>
         item.toolName === "message" && item.outcome === "success" && item.semanticApproved === true,
     );
+  const hasConsequentialToolActivity = (state: RunState) =>
+    state.toolOutcomes.some((item) => !INFORMATIONAL_TOOLS.has(item.toolName));
+  const requiresActionGuard = (state: RunState) =>
+    state.actionExpected || hasConsequentialToolActivity(state);
   const reviewDraft = async (state: RunState, draft: string): Promise<string | undefined> => {
     const mandatoryRules = await loadMandatoryRules();
     const result = await api.runtime.llm.complete({
@@ -241,21 +255,7 @@ export function registerSgExecutionGuard(
     draft: string,
   ): Promise<{ revisionReason?: string; blockedReason?: string }> => {
     if (state.exactOutput) {
-      if (!state.semanticReviewDone) {
-        state.semanticReviewDone = true;
-        try {
-          const reason = await reviewDraft(state, draft);
-          if (reason) {
-            api.logger?.warn(
-              `[sg-semantic-guard] run=${state.runId} exact-output-preserved-after-review`,
-            );
-          }
-        } catch (error) {
-          api.logger?.warn(
-            `[sg-semantic-guard] run=${state.runId} exact-output-preserved controller=${String(error)}`,
-          );
-        }
-      }
+      state.semanticReviewDone = true;
       state.semanticApprovedDraft = draft;
       return {};
     }
@@ -303,6 +303,7 @@ export function registerSgExecutionGuard(
       if (!existing.originalPrompt) {
         existing.originalPrompt = event.prompt;
         existing.exactOutput = isExactOutputRequest(event.prompt);
+        existing.actionExpected = isActionRequest(event.prompt);
       }
       return;
     }
@@ -312,6 +313,7 @@ export function registerSgExecutionGuard(
       originalPrompt: event.prompt,
       toolOutcomes: [],
       exactOutput: isExactOutputRequest(event.prompt),
+      actionExpected: isActionRequest(event.prompt),
       correctionUsed: false,
       semanticReviewDone: false,
       semanticRevisionPending: false,
@@ -341,6 +343,11 @@ export function registerSgExecutionGuard(
       return { block: true, blockReason: parsed.reason };
     }
     const draft = parsed.receipt ? stripReceipt(rawMessage) : rawMessage;
+    if (!requiresActionGuard(state)) {
+      outcome.semanticApproved = true;
+      outcome.visibleDraft = draft;
+      return parsed.receipt ? { params: { ...event.params, message: draft } } : undefined;
+    }
     const reviewed = await reviewDraftOnce(state, draft);
     if (reviewed.revisionReason || reviewed.blockedReason) {
       api.logger?.warn(`[sg-semantic-guard] blocked message delivery run=${state.runId}`);
@@ -405,6 +412,10 @@ export function registerSgExecutionGuard(
       await reviewDraftOnce(state, event.lastAssistantMessage ?? "");
       return;
     }
+    if (!requiresActionGuard(state)) {
+      state.semanticApprovedDraft = stripReceipt(event.lastAssistantMessage ?? "");
+      return;
+    }
     const parsed = parseReceipt(event.lastAssistantMessage ?? "");
     const reasons = parsed.receipt ? validateReceipt(parsed.receipt, state) : [parsed.reason!];
     if (reasons.length > 0) {
@@ -462,6 +473,9 @@ export function registerSgExecutionGuard(
       return { cancel: true, reason: "sg-semantic-guard-message-tool-delivered" };
     }
     if (state.exactOutput) {
+      return { payload: { ...event.payload, text: stripReceipt(event.payload.text) } };
+    }
+    if (!requiresActionGuard(state)) {
       return { payload: { ...event.payload, text: stripReceipt(event.payload.text) } };
     }
     const reasons = parsed.receipt ? validateReceipt(parsed.receipt, state) : [parsed.reason!];

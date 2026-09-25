@@ -1367,6 +1367,93 @@ describe("SG billing hook integration contract", () => {
     expect((await snapshot(root)).balanceNanoUsd).toBe(openingBalance - usdToNanoUsd(0.0001) * 2);
   });
 
+  it("ignores a repeated terminal for the same physical attempt even when terminal details differ", async () => {
+    const root = await createStateDir();
+    const openingBalance = usdToNanoUsd(1);
+    await credit(root, openingBalance);
+    const { hooks, warn } = register(root);
+    const ctx = agentContext("run-terminal-replay");
+    await runHooks(hooks, "before_agent_run", beforeRunEvent, ctx);
+    const request = {
+      runId: "run-terminal-replay",
+      callId: "call-terminal-replay",
+      provider: "openai",
+      model: "gpt-5.6-luna",
+      maxOutputTokens: 100,
+      inputUpperBoundTokens: 100,
+      cost: { input: 1, output: 2, cacheRead: 0.1, cacheWrite: 1 },
+    };
+    await runHooks(hooks, "before_model_call", request, ctx);
+    await runHooks(
+      hooks,
+      "model_call_ended",
+      {
+        ...request,
+        durationMs: 10,
+        outcome: "completed",
+        usage: { cost: { total: 0.0001, totalOrigin: "provider-billed" } },
+      },
+      ctx,
+    );
+    await runHooks(
+      hooks,
+      "model_call_ended",
+      {
+        ...request,
+        durationMs: 12,
+        outcome: "completed",
+        usage: {
+          input: 1,
+          cost: { total: 0.00011, totalOrigin: "provider-billed" },
+        },
+      },
+      ctx,
+    );
+    await runHooks(hooks, "agent_end", { messages: [], success: true }, ctx);
+
+    expect((await snapshot(root)).balanceNanoUsd).toBe(openingBalance - usdToNanoUsd(0.0001) * 2);
+    expect(warn).not.toHaveBeenCalledWith(expect.stringContaining("idempotency-conflict"));
+  });
+
+  it("releases a run reserve after a proven pre-provider abort with zero cost", async () => {
+    const root = await createStateDir();
+    const openingBalance = usdToNanoUsd(1);
+    await credit(root, openingBalance);
+    const { hooks } = register(root);
+    const ctx = agentContext("run-aborted-before-provider");
+    await runHooks(hooks, "before_agent_run", beforeRunEvent, ctx);
+    const request = {
+      runId: "run-aborted-before-provider",
+      callId: "call-aborted-before-provider",
+      provider: "openai",
+      model: "gpt-5.6-luna",
+      maxOutputTokens: 100,
+      inputUpperBoundTokens: 100,
+      cost: { input: 1, output: 2, cacheRead: 0.1, cacheWrite: 1 },
+    };
+    await runHooks(hooks, "before_model_call", request, ctx);
+    await runHooks(
+      hooks,
+      "model_call_ended",
+      {
+        ...request,
+        durationMs: 1,
+        outcome: "error",
+        failureKind: "aborted",
+        requestPayloadBytes: 0,
+        responseStreamBytes: 0,
+      },
+      ctx,
+    );
+    await runHooks(hooks, "agent_end", { messages: [], success: false, error: "aborted" }, ctx);
+
+    await expect(snapshot(root)).resolves.toEqual({
+      balanceNanoUsd: openingBalance,
+      reservedNanoUsd: 0,
+      availableNanoUsd: openingBalance,
+    });
+  });
+
   it("settles reused model call ids from separate attempts without conflicts or stuck reserves", async () => {
     const root = await createStateDir();
     const openingBalance = usdToNanoUsd(1);

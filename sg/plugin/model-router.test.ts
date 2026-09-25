@@ -44,7 +44,7 @@ function registerRouter(
   if (!hook || !command) {
     throw new Error("router contracts were not registered");
   }
-  return { hook, command, logger };
+  return { hook, hooks, command, logger };
 }
 
 describe("SG model router", () => {
@@ -181,6 +181,80 @@ describe("SG model router", () => {
       providerOverride: "openai",
       modelOverride: "gpt-5.6-sol",
     });
+  });
+
+  it("routes only user turns and does not let internal controller runs select a route", async () => {
+    const stateDir = await createStateDir();
+    const { hook, logger } = registerRouter(stateDir, "active");
+    const session = {
+      channel: "telegram",
+      accountId: "default",
+      senderId: "100",
+      sessionKey: "agent:main:telegram:direct:100",
+    };
+
+    await expect(
+      hook(
+        { prompt: "Проверь внутренний отчёт контролёра" },
+        { ...session, runId: "internal-review", trigger: "manual" },
+      ),
+    ).resolves.toBeUndefined();
+    await expect(
+      hook(
+        { prompt: "Сколько будет 2+2?" },
+        { ...session, runId: "telegram-turn", trigger: "user" },
+      ),
+    ).resolves.toEqual({ providerOverride: "openai", modelOverride: "gpt-5.6-luna" });
+    expect(logger.info).not.toHaveBeenCalledWith(expect.stringContaining("internal-review"));
+  });
+
+  it("suppresses a false fallback notice for the hook-selected model but keeps a real fallback", async () => {
+    const stateDir = await createStateDir();
+    const { hook, hooks } = registerRouter(stateDir, "active");
+    const session = {
+      channel: "telegram",
+      accountId: "default",
+      senderId: "100",
+      sessionKey: "agent:main:telegram:direct:100",
+      trigger: "user",
+    };
+    await hook({ prompt: "Сколько будет 2+2?" }, { ...session, runId: "turn-false" });
+    const started = hooks.get("model_call_started");
+    const sending = hooks.get("reply_payload_sending");
+    expect(started).toBeDefined();
+    expect(sending).toBeDefined();
+    await started?.(
+      {
+        runId: "turn-false",
+        callId: "call-1",
+        provider: "openai",
+        model: "gpt-5.6-luna",
+      },
+      { ...session, runId: "turn-false" },
+    );
+    expect(
+      sending?.(
+        { kind: "final", runId: "turn-false", payload: { text: "notice", isFallbackNotice: true } },
+        { ...session, runId: "turn-false" },
+      ),
+    ).toEqual({ cancel: true, reason: "sg-model-router-false-fallback-notice" });
+
+    await hook({ prompt: "Сколько будет 2+2?" }, { ...session, runId: "turn-real" });
+    await started?.(
+      {
+        runId: "turn-real",
+        callId: "call-2",
+        provider: "openai",
+        model: "gpt-5.6-terra",
+      },
+      { ...session, runId: "turn-real" },
+    );
+    expect(
+      sending?.(
+        { kind: "final", runId: "turn-real", payload: { text: "notice", isFallbackNotice: true } },
+        { ...session, runId: "turn-real" },
+      ),
+    ).toBeUndefined();
   });
 
   it("retains the current model on missing identity or invalid persisted state", async () => {

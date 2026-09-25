@@ -59,6 +59,23 @@ type RouterApi = {
       ctx: RouterModelResolveContext,
     ) => Promise<RouterModelResolveResult | undefined> | RouterModelResolveResult | undefined,
   ): void;
+  on(
+    hookName: "model_call_started",
+    handler: (
+      event: RouterModelCallStartedEvent,
+      ctx: RouterModelResolveContext,
+    ) => Promise<void> | void,
+  ): void;
+  on(
+    hookName: "reply_payload_sending",
+    handler: (
+      event: RouterReplyPayloadSendingEvent,
+      ctx: RouterModelResolveContext,
+    ) =>
+      | Promise<RouterReplyPayloadSendingResult | undefined>
+      | RouterReplyPayloadSendingResult
+      | undefined,
+  ): void;
   registerCommand(command: RouterCommand): void;
   logger?: { info(message: string): void; warn(message: string): void };
 };
@@ -80,12 +97,27 @@ type RouterModelResolveContext = {
   senderId?: string;
   sessionKey?: string;
   runId?: string;
+  trigger?: string;
 };
 
 type RouterModelResolveResult = {
   providerOverride?: string;
   modelOverride?: string;
 };
+
+type RouterModelCallStartedEvent = {
+  runId: string;
+  provider: string;
+  model: string;
+};
+
+type RouterReplyPayloadSendingEvent = {
+  kind: string;
+  runId?: string;
+  payload: { isFallbackNotice?: boolean };
+};
+
+type RouterReplyPayloadSendingResult = { cancel: true; reason: string };
 
 const ROUTES: readonly SgModelRoute[] = [
   {
@@ -341,15 +373,23 @@ export function registerSgModelRouter(params: {
   const activation = resolveSgModelRouterActivation(params.env);
   const registry = params.registry ?? new SgModelRegistry();
   const preferences = new SgModelPreferenceRegistry(stateDir);
-  const runRoutes = new Map<
-    string,
-    { mode: SgModelMode; tier: SgModelTier; route: SgModelRoute }
-  >();
+  type RunRoute = {
+    mode: SgModelMode;
+    tier: SgModelTier;
+    route: SgModelRoute;
+    selectedModelObserved: boolean;
+    differentModelObserved: boolean;
+  };
+  const runRoutes = new Map<string, RunRoute>();
   const rememberRunRoute = (
     runId: string,
-    decision: { mode: SgModelMode; tier: SgModelTier; route: SgModelRoute },
+    decision: Omit<RunRoute, "selectedModelObserved" | "differentModelObserved">,
   ) => {
-    runRoutes.set(runId, decision);
+    runRoutes.set(runId, {
+      ...decision,
+      selectedModelObserved: false,
+      differentModelObserved: false,
+    });
     while (runRoutes.size > 512) {
       const oldest = runRoutes.keys().next().value as string | undefined;
       if (!oldest) {
@@ -399,6 +439,12 @@ export function registerSgModelRouter(params: {
 
   api.on("before_model_resolve", async (event, ctx) => {
     if (activation === "off") {
+      return;
+    }
+    if (ctx.trigger && ctx.trigger !== "user") {
+      api.logger?.info(
+        `[sg-model-router] decision=retain trigger=${ctx.trigger} reason=non-user-run`,
+      );
       return;
     }
     const cached = ctx.runId ? runRoutes.get(ctx.runId) : undefined;
@@ -463,5 +509,31 @@ export function registerSgModelRouter(params: {
         `[sg-model-router] decision=retain reason=router-error error=${error instanceof Error ? error.message : String(error)}`,
       );
     }
+  });
+
+  api.on("model_call_started", (event) => {
+    const decision = runRoutes.get(event.runId);
+    if (!decision) {
+      return;
+    }
+    const matchesSelected =
+      event.provider === decision.route.provider && event.model === decision.route.model;
+    decision.selectedModelObserved ||= matchesSelected;
+    decision.differentModelObserved ||= !matchesSelected;
+  });
+
+  api.on("reply_payload_sending", (event, ctx) => {
+    if (event.kind !== "final" || event.payload.isFallbackNotice !== true) {
+      return;
+    }
+    const runId = event.runId ?? ctx.runId;
+    const decision = runId ? runRoutes.get(runId) : undefined;
+    if (!decision?.selectedModelObserved || decision.differentModelObserved) {
+      return;
+    }
+    api.logger?.info(
+      `[sg-model-router] decision=suppress-false-fallback route=${decision.route.provider}/${decision.route.model}`,
+    );
+    return { cancel: true, reason: "sg-model-router-false-fallback-notice" };
   });
 }

@@ -1,5 +1,6 @@
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
 import { buildSemanticReviewPrompt, parseSemanticVerdict } from "./semantic-controller.js";
+import { isSgInternalRun, SgTurnCorrelationRegistry } from "./turn-correlation.js";
 
 type GuardApi = Pick<OpenClawPluginApi, "on" | "runtime"> & {
   logger?: { warn(message: string): void };
@@ -23,6 +24,7 @@ type ToolOutcome = {
   outcome: "pending" | "success" | "error";
   semanticApproved?: boolean;
   visibleDraft?: string;
+  consequential: boolean;
 };
 
 type RunState = {
@@ -42,7 +44,29 @@ type RunState = {
 const RECEIPT_PATTERN = /<sg-execution-receipt>([\s\S]*?)<\/sg-execution-receipt>/gu;
 const MAX_TRACKED_RUNS = 512;
 const SEMANTIC_CONTROLLER_TIMEOUT_MS = 12_000;
-const INFORMATIONAL_TOOLS = new Set(["message", "openclaw", "skill_workshop"]);
+const READ_ONLY_TOOL_PATTERN =
+  /(?:^|[_-])(?:get|list|read|search|find|fetch|view|inspect|status|tail|logs?|metrics?|health|compare|query|open|screenshot|diagnos(?:e|tic|tics))(?:$|[_-])/iu;
+const MUTATING_TOOL_PATTERN =
+  /(?:^|[_-])(?:create|update|delete|remove|send|publish|deploy|restart|commit|push|write|edit|patch|move|upload|install|uninstall|enable|disable|cancel|rerun|trigger|schedule|approve|reject|resolve|lock|unlock|set)(?:$|[_-])/iu;
+const MUTATING_ACTION_PATTERN =
+  /^(?:create|update|delete|remove|send|publish|deploy|restart|commit|push|write|edit|patch|move|upload|install|uninstall|enable|disable|cancel|rerun|trigger|schedule|approve|reject|resolve|lock|unlock|set)$/iu;
+
+function isConsequentialToolCall(toolName: string, params: Record<string, unknown>): boolean {
+  if (toolName === "message") {
+    return false;
+  }
+  const action = typeof params.action === "string" ? params.action.trim() : "";
+  if (action && MUTATING_ACTION_PATTERN.test(action)) {
+    return true;
+  }
+  if (toolName === "openclaw") {
+    return false;
+  }
+  if (toolName === "skill_workshop" || MUTATING_TOOL_PATTERN.test(toolName)) {
+    return true;
+  }
+  return !READ_ONLY_TOOL_PATTERN.test(toolName);
+}
 
 export const SG_EXECUTION_GUARD_GUIDANCE = `SG execution guard (mandatory)
 For an ordinary informational answer, answer normally without the message tool and without a receipt. For a tool-backed action with side effects, silently audit all 17 mandatory SG rules and append exactly one machine receipt as the final block:
@@ -160,9 +184,22 @@ function validateReceipt(receipt: Receipt, state: RunState): string[] {
 export function registerSgExecutionGuard(
   api: GuardApi,
   loadMandatoryRules: () => Promise<string> = async () => SG_EXECUTION_GUARD_GUIDANCE,
+  turnCorrelation: SgTurnCorrelationRegistry = new SgTurnCorrelationRegistry(),
 ): void {
   const runs = new Map<string, RunState>();
   const sessionRuns = new Map<string, string>();
+  const ignoredRuns = new Set<string>();
+  const ignoreRun = (runId: string) => {
+    ignoredRuns.add(runId);
+    while (ignoredRuns.size > MAX_TRACKED_RUNS) {
+      const oldest = ignoredRuns.values().next().value as string | undefined;
+      if (!oldest) {
+        break;
+      }
+      ignoredRuns.delete(oldest);
+    }
+  };
+  const ignored = (runId?: string) => Boolean(runId && ignoredRuns.has(runId));
 
   const remember = (state: RunState) => {
     runs.set(state.runId, state);
@@ -209,7 +246,7 @@ export function registerSgExecutionGuard(
         item.toolName === "message" && item.outcome === "success" && item.semanticApproved === true,
     );
   const hasConsequentialToolActivity = (state: RunState) =>
-    state.toolOutcomes.some((item) => !INFORMATIONAL_TOOLS.has(item.toolName));
+    state.toolOutcomes.some((item) => item.consequential);
   const requiresActionGuard = (state: RunState) =>
     state.actionExpected || hasConsequentialToolActivity(state);
   const reviewDraft = async (state: RunState, draft: string): Promise<string | undefined> => {
@@ -298,6 +335,11 @@ export function registerSgExecutionGuard(
 
   api.on("before_agent_run", (event, ctx) => {
     const runId = ctx.runId ?? `session:${ctx.sessionKey ?? "unknown"}`;
+    if (isSgInternalRun(runId, ctx.trigger)) {
+      ignoreRun(runId);
+      return;
+    }
+    turnCorrelation.remember({ ...ctx, runId });
     const existing = runs.get(runId);
     if (existing) {
       if (!existing.originalPrompt) {
@@ -321,11 +363,16 @@ export function registerSgExecutionGuard(
   });
 
   api.on("before_tool_call", async (event, ctx) => {
-    const state = ensureState(event.runId ?? ctx.runId, ctx.sessionKey);
+    const runId = event.runId ?? ctx.runId;
+    if (ignored(runId) || isSgInternalRun(runId)) {
+      return;
+    }
+    const state = ensureState(runId, ctx.sessionKey);
     const outcome: ToolOutcome = {
       ...(event.toolCallId ? { toolCallId: event.toolCallId } : {}),
       toolName: event.toolName,
       outcome: "pending",
+      consequential: isConsequentialToolCall(event.toolName, event.params),
     };
     state.toolOutcomes.push(outcome);
     const isFinalMessage =
@@ -362,7 +409,11 @@ export function registerSgExecutionGuard(
   });
 
   api.on("after_tool_call", (event, ctx) => {
-    const state = ensureState(event.runId ?? ctx.runId, ctx.sessionKey);
+    const runId = event.runId ?? ctx.runId;
+    if (ignored(runId) || isSgInternalRun(runId)) {
+      return;
+    }
+    const state = ensureState(runId, ctx.sessionKey);
     const current = event.toolCallId
       ? state.toolOutcomes.findLast((item) => item.toolCallId === event.toolCallId)
       : state.toolOutcomes.findLast(
@@ -380,6 +431,7 @@ export function registerSgExecutionGuard(
         ...(event.toolCallId ? { toolCallId: event.toolCallId } : {}),
         toolName: event.toolName,
         outcome,
+        consequential: isConsequentialToolCall(event.toolName, event.params),
       });
     }
   });
@@ -404,7 +456,11 @@ export function registerSgExecutionGuard(
   });
 
   api.on("before_agent_finalize", async (event, ctx) => {
-    const state = ensureState(event.runId ?? ctx.runId, event.sessionKey ?? ctx.sessionKey);
+    const runId = event.runId ?? ctx.runId;
+    if (ignored(runId) || isSgInternalRun(runId, ctx.trigger)) {
+      return;
+    }
+    const state = ensureState(runId, event.sessionKey ?? ctx.sessionKey);
     if (hasApprovedVisibleReply(state)) {
       return;
     }
@@ -460,44 +516,59 @@ export function registerSgExecutionGuard(
   });
 
   api.on("reply_payload_sending", (event, ctx) => {
-    if (event.kind !== "final" || typeof event.payload.text !== "string") {
+    if (
+      event.kind !== "final" ||
+      typeof event.payload.text !== "string" ||
+      event.payload.isFallbackNotice === true ||
+      event.payload.isStatusNotice === true ||
+      event.payload.isCompactionNotice === true ||
+      event.payload.isReasoning === true ||
+      event.payload.isCommentary === true
+    ) {
+      return;
+    }
+    const correlatedTurn = turnCorrelation.resolve({
+      ...ctx,
+      channel: event.channel ?? ctx.channelId,
+      sessionKey: event.sessionKey ?? ctx.sessionKey,
+      runId: event.runId ?? ctx.runId,
+    });
+    const runId = event.runId ?? ctx.runId ?? correlatedTurn?.runId;
+    if (ignored(runId) || isSgInternalRun(runId)) {
       return;
     }
     const parsed = parseReceipt(event.payload.text);
-    const state = resolveState(event.runId ?? ctx.runId, event.sessionKey ?? ctx.sessionKey);
+    const state = resolveState(runId, event.sessionKey ?? ctx.sessionKey ?? correlatedTurn?.sessionKey);
+    const deliver = (text: string) => {
+      const deliveryRunId = correlatedTurn?.runId ?? state?.runId;
+      if (deliveryRunId && !turnCorrelation.claimFinalDelivery(deliveryRunId)) {
+        return { cancel: true, reason: "sg-exactly-once-final-delivery" };
+      }
+      return { payload: { ...event.payload, text } };
+    };
     if (!state) {
       api.logger?.warn("[sg-semantic-guard] sanitized delivery without run state");
-      return { payload: { ...event.payload, text: stripReceipt(event.payload.text) } };
+      return deliver(stripReceipt(event.payload.text));
     }
     if (hasApprovedVisibleReply(state)) {
       return { cancel: true, reason: "sg-semantic-guard-message-tool-delivered" };
     }
     if (state.exactOutput) {
-      return { payload: { ...event.payload, text: stripReceipt(event.payload.text) } };
+      return deliver(stripReceipt(event.payload.text));
     }
     if (!requiresActionGuard(state)) {
-      return { payload: { ...event.payload, text: stripReceipt(event.payload.text) } };
+      return deliver(stripReceipt(event.payload.text));
     }
     const reasons = parsed.receipt ? validateReceipt(parsed.receipt, state) : [parsed.reason!];
     if (reasons.length > 0) {
       api.logger?.warn(`[sg-execution-guard] blocked delivery run=${state.runId}`);
-      return {
-        payload: {
-          ...event.payload,
-          text: `SG остановил непроверенный ответ.\n\n${reasons.join("\n")}`,
-        },
-      };
+      return deliver(`SG остановил непроверенный ответ.\n\n${reasons.join("\n")}`);
     }
     const draft = stripReceipt(event.payload.text);
     if (state.semanticApprovedDraft !== draft) {
       api.logger?.warn(`[sg-semantic-guard] blocked unchecked delivery run=${state.runId}`);
-      return {
-        payload: {
-          ...event.payload,
-          text: "SG остановил ответ без независимой смысловой проверки.",
-        },
-      };
+      return deliver("SG остановил ответ без независимой смысловой проверки.");
     }
-    return { payload: { ...event.payload, text: draft } };
+    return deliver(draft);
   });
 }

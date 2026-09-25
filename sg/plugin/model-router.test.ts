@@ -234,8 +234,12 @@ describe("SG model router", () => {
     );
     expect(
       sending?.(
-        { kind: "final", runId: "turn-false", payload: { text: "notice", isFallbackNotice: true } },
-        { ...session, runId: "turn-false" },
+        {
+          kind: "final",
+          channel: "telegram",
+          payload: { text: "notice", isFallbackNotice: true },
+        },
+        { ...session, runId: undefined },
       ),
     ).toEqual({ cancel: true, reason: "sg-model-router-false-fallback-notice" });
 

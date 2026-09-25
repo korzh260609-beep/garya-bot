@@ -478,4 +478,92 @@ describe("SG execution guard", () => {
       hook("reply_payload_sending")({ kind: "final", payload: { text: answer } }, {}),
     ).resolves.toEqual({ payload: { text: "Готово." } });
   });
+
+  it("keeps common read-only connector tools out of semantic review", async () => {
+    const { complete, hook } = setup();
+    await hook("before_agent_run")(
+      { prompt: "Проведи read-only анализ", messages: [] },
+      { runId: "readonly-connector", sessionKey: "discord:42", trigger: "user" },
+    );
+    await hook("before_tool_call")(
+      {
+        runId: "readonly-connector",
+        toolCallId: "fetch-1",
+        toolName: "github_fetch",
+        params: { path: "README.md" },
+      },
+      { runId: "readonly-connector", sessionKey: "discord:42" },
+    );
+    await hook("after_tool_call")(
+      {
+        runId: "readonly-connector",
+        toolCallId: "fetch-1",
+        toolName: "github_fetch",
+        params: { path: "README.md" },
+        result: "ok",
+      },
+      { runId: "readonly-connector", sessionKey: "discord:42" },
+    );
+    await hook("before_agent_finalize")(
+      {
+        runId: "readonly-connector",
+        sessionId: "readonly-session",
+        lastAssistantMessage: "Анализ готов.",
+      },
+      { runId: "readonly-connector", sessionKey: "discord:42" },
+    );
+    expect(complete).not.toHaveBeenCalled();
+  });
+
+  it("excludes workshop review runs from the user semantic flow", async () => {
+    const { complete, hook } = setup();
+    const runId = "skill-workshop-review:internal-1";
+    await hook("before_agent_run")(
+      { prompt: "Внутренняя ревизия", messages: [] },
+      { runId, sessionKey: "internal:review" },
+    );
+    await hook("before_tool_call")(
+      { runId, toolCallId: "skill-1", toolName: "skill_workshop", params: {} },
+      { runId, sessionKey: "internal:review" },
+    );
+    await hook("before_agent_finalize")(
+      { runId, sessionId: "internal-session", lastAssistantMessage: "Готово." },
+      { runId, sessionKey: "internal:review" },
+    );
+    expect(complete).not.toHaveBeenCalled();
+  });
+
+  it.each(["telegram", "discord"])(
+    "correlates %s delivery without runId and allows one final answer",
+    async (channel) => {
+      const { hook } = setup();
+      const runId = `${channel}-delivery-turn`;
+      const conversationId = `${channel}-conversation`;
+      await hook("before_agent_run")(
+        { prompt: "Сколько будет 2+2?", messages: [] },
+        {
+          runId,
+          trigger: "user",
+          channel,
+          accountId: "default",
+          chatId: conversationId,
+        },
+      );
+      await hook("before_agent_finalize")(
+        { runId, sessionId: `${channel}-session`, lastAssistantMessage: "4" },
+        { runId, channel, accountId: "default", chatId: conversationId },
+      );
+
+      const event = { kind: "final", channel, payload: { text: "4" } };
+      const context = { channelId: channel, accountId: "default", conversationId };
+      await expect(hook("reply_payload_sending")(event, context)).resolves.toEqual({
+        payload: { text: "4" },
+      });
+      await expect(hook("reply_payload_sending")(event, context)).resolves.toEqual({
+        cancel: true,
+        reason: "sg-exactly-once-final-delivery",
+      });
+    },
+  );
+
 });

@@ -3,6 +3,7 @@ import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
 import { SgBillingLedger, type SgBillingOperationSource, usdToNanoUsd } from "./billing-ledger.js";
 import { resolveSgCanonicalIdentity } from "./context.js";
 import { SgGlobalProfileRegistry } from "./global-profile-registry.js";
+import type { SgTurnCorrelationRegistry } from "./turn-correlation.js";
 
 type SgBillingHookApi = {
   config?: OpenClawPluginApi["config"];
@@ -150,7 +151,11 @@ function automationParamJobId(params: Record<string, unknown>): string | undefin
   return undefined;
 }
 
-export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir: string }): void {
+export function registerSgBillingHooks(params: {
+  api: SgBillingHookApi;
+  stateDir: string;
+  turnCorrelation?: SgTurnCorrelationRegistry;
+}): void {
   const { api, stateDir } = params;
   const ledger = new SgBillingLedger(stateDir);
   const profiles = new SgGlobalProfileRegistry(stateDir);
@@ -522,6 +527,11 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
         state.pending.splice(pendingIndex, 1);
       }
       state.completedModels.add(attemptKey);
+      params.turnCorrelation?.noteBilling(
+        event.runId,
+        event.callId,
+        actualCost === undefined ? "unpriced" : "settled",
+      );
       if (actualCost === undefined) {
         api.logger?.warn(
           `[sg-billing] provider cost unavailable; reserve retained for model call ${event.callId}`,
@@ -587,6 +597,7 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
           rates,
         });
         callState(event.runId, event.callId).pending.push(attempt);
+        params.turnCorrelation?.noteBilling(event.runId, event.callId, "reserved");
         return;
       }
       const capacity = await ledger.prepaidCapacity(correlation);
@@ -633,6 +644,7 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
         metadata: { kind: "model", provider: event.provider, model: event.model },
       });
       callState(event.runId, event.callId).pending.push(attempt);
+      params.turnCorrelation?.noteBilling(event.runId, event.callId, "reserved");
       return { maxOutputTokens, maxRetries: 0 };
     } catch (error) {
       await releaseStandaloneCorrelation();

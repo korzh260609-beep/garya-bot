@@ -14,6 +14,7 @@ import { formatWorkspaceContext, resolveWorkspaceContext } from "./context.js";
 import { buildSgCostDiagnostic, type SgCostDiagnosticConfig } from "./cost-diagnostics.js";
 import { registerSgExecutionGuard, SG_EXECUTION_GUARD_GUIDANCE } from "./execution-guard.js";
 import { registerSgModelRouter } from "./model-router.js";
+import { SgTurnCorrelationRegistry } from "./turn-correlation.js";
 import {
   createPersonalMemoryTools,
   PERSONAL_MEMORY_AGENT_GUIDANCE,
@@ -218,10 +219,11 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
   });
   wsp5Lifecycle.register(api);
   wsp6Lifecycle.register(api);
-  registerSgBillingHooks({ api, stateDir });
-  registerSgExecutionGuard(api, loadMandatoryRules);
+  const turnCorrelation = new SgTurnCorrelationRegistry();
+  registerSgBillingHooks({ api, stateDir, turnCorrelation });
+  registerSgExecutionGuard(api, loadMandatoryRules, turnCorrelation);
   registerSgBillingCommands({ api, stateDir });
-  registerSgModelRouter({ api, stateDir });
+  registerSgModelRouter({ api, stateDir, turnCorrelation });
   registerSgBillingReconciliation({ api, stateDir });
 
   api.on("before_prompt_build", async (_event, ctx) => {

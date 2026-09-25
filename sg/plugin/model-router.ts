@@ -2,6 +2,7 @@ import path from "node:path";
 import { withFileLock } from "openclaw/plugin-sdk/file-lock";
 import { readJsonFileWithFallback, writeJsonFileAtomically } from "openclaw/plugin-sdk/json-store";
 import { resolveWorkspaceContext } from "./context.js";
+import { SgTurnCorrelationRegistry } from "./turn-correlation.js";
 
 export type SgModelMode = "auto" | "cheap" | "medium" | "expensive";
 export type SgModelTier = Exclude<SgModelMode, "auto">;
@@ -98,6 +99,9 @@ type RouterModelResolveContext = {
   sessionKey?: string;
   runId?: string;
   trigger?: string;
+  channelId?: string;
+  chatId?: string;
+  conversationId?: string;
 };
 
 type RouterModelResolveResult = {
@@ -113,6 +117,8 @@ type RouterModelCallStartedEvent = {
 
 type RouterReplyPayloadSendingEvent = {
   kind: string;
+  channel?: string;
+  sessionKey?: string;
   runId?: string;
   payload: { isFallbackNotice?: boolean };
 };
@@ -368,10 +374,12 @@ export function registerSgModelRouter(params: {
   stateDir: string;
   env?: NodeJS.ProcessEnv;
   registry?: SgModelRegistry;
+  turnCorrelation?: SgTurnCorrelationRegistry;
 }): void {
   const { api, stateDir } = params;
   const activation = resolveSgModelRouterActivation(params.env);
   const registry = params.registry ?? new SgModelRegistry();
+  const turnCorrelation = params.turnCorrelation ?? new SgTurnCorrelationRegistry();
   const preferences = new SgModelPreferenceRegistry(stateDir);
   type RunRoute = {
     mode: SgModelMode;
@@ -499,6 +507,12 @@ export function registerSgModelRouter(params: {
       );
       if (ctx.runId) {
         rememberRunRoute(ctx.runId, { mode, tier, route });
+        turnCorrelation.remember({
+          ...ctx,
+          runId: ctx.runId,
+          selectedProvider: route.provider,
+          selectedModel: route.model,
+        });
       }
       if (activation !== "active") {
         return;
@@ -513,26 +527,30 @@ export function registerSgModelRouter(params: {
 
   api.on("model_call_started", (event) => {
     const decision = runRoutes.get(event.runId);
-    if (!decision) {
-      return;
+    if (decision) {
+      const matchesSelected =
+        event.provider === decision.route.provider && event.model === decision.route.model;
+      decision.selectedModelObserved ||= matchesSelected;
+      decision.differentModelObserved ||= !matchesSelected;
     }
-    const matchesSelected =
-      event.provider === decision.route.provider && event.model === decision.route.model;
-    decision.selectedModelObserved ||= matchesSelected;
-    decision.differentModelObserved ||= !matchesSelected;
+    turnCorrelation.noteModelCall(event.runId, event.provider, event.model);
   });
 
   api.on("reply_payload_sending", (event, ctx) => {
     if (event.kind !== "final" || event.payload.isFallbackNotice !== true) {
       return;
     }
-    const runId = event.runId ?? ctx.runId;
-    const decision = runId ? runRoutes.get(runId) : undefined;
-    if (!decision?.selectedModelObserved || decision.differentModelObserved) {
+    const turn = turnCorrelation.resolve({
+      ...ctx,
+      channel: event.channel ?? ctx.channel,
+      sessionKey: event.sessionKey ?? ctx.sessionKey,
+      runId: event.runId ?? ctx.runId,
+    });
+    if (!turn?.selectedModelObserved || turn.differentModelObserved) {
       return;
     }
     api.logger?.info(
-      `[sg-model-router] decision=suppress-false-fallback route=${decision.route.provider}/${decision.route.model}`,
+      `[sg-model-router] decision=suppress-false-fallback route=${turn.selectedProvider}/${turn.selectedModel}`,
     );
     return { cancel: true, reason: "sg-model-router-false-fallback-notice" };
   });

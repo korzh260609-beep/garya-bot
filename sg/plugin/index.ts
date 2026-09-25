@@ -6,6 +6,7 @@ export * from "./personal-workspace.js";
 export * from "./cost-diagnostics.js";
 export * from "./context-diagnostics.js";
 export * from "./model-router.js";
+export * from "./turn-correlation.js";
 export { SgGlobalProfileRegistry, validateGlobalProfileStore } from "./global-profile-registry.js";
 export type {
   SgGlobalProfile,

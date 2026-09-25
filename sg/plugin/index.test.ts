@@ -215,6 +215,8 @@ describe("SG Workspace Manager", () => {
       handler: expect.any(Function),
     });
     expect(on).toHaveBeenCalledWith("before_dispatch", expect.any(Function));
+    expect(on).toHaveBeenCalledWith("before_agent_finalize", expect.any(Function));
+    expect(on).toHaveBeenCalledWith("reply_payload_sending", expect.any(Function));
   });
 
   it("injects identity plus WSP5/WSP6 guidance without onboarding guidance", async () => {
@@ -238,6 +240,7 @@ describe("SG Workspace Manager", () => {
       ?.trim();
     expect(mandatoryRules).toBeTruthy();
     expect(result.prependSystemContext).toContain(mandatoryRules);
+    expect(result.prependSystemContext).toContain("SG execution guard (mandatory)");
     expect(result.prependSystemContext).toContain("Роль SG: monarch");
     expect(result.prependSystemContext).toContain("sg_memory_search");
     expect(result.prependSystemContext).not.toContain("sg_resource_memory_search");

@@ -12,6 +12,7 @@ import { SgContentRegistry } from "./content-registry.js";
 import { SgContextDiagnostics, type SgContextDiagnosticCommand } from "./context-diagnostics.js";
 import { formatWorkspaceContext, resolveWorkspaceContext } from "./context.js";
 import { buildSgCostDiagnostic, type SgCostDiagnosticConfig } from "./cost-diagnostics.js";
+import { registerSgExecutionGuard, SG_EXECUTION_GUARD_GUIDANCE } from "./execution-guard.js";
 import {
   createPersonalMemoryTools,
   PERSONAL_MEMORY_AGENT_GUIDANCE,
@@ -216,6 +217,7 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
   wsp5Lifecycle.register(api);
   wsp6Lifecycle.register(api);
   registerSgBillingHooks({ api, stateDir });
+  registerSgExecutionGuard(api);
   registerSgBillingCommands({ api, stateDir });
   registerSgBillingReconciliation({ api, stateDir });
 
@@ -255,7 +257,7 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
       );
     }
     return {
-      prependSystemContext: `${identityContext}\n\n${mandatoryRules}\n\n${PERSONAL_MEMORY_AGENT_GUIDANCE}${resourceMemoryGuidance}\n${BILLING_AGENT_GUIDANCE}\n${PHASE11_CAPABILITY_AGENT_GUIDANCE}\n${WSP5_AGENT_GUIDANCE}\n${WSP6_AGENT_GUIDANCE}`,
+      prependSystemContext: `${identityContext}\n\n${mandatoryRules}\n\n${SG_EXECUTION_GUARD_GUIDANCE}\n\n${PERSONAL_MEMORY_AGENT_GUIDANCE}${resourceMemoryGuidance}\n${BILLING_AGENT_GUIDANCE}\n${PHASE11_CAPABILITY_AGENT_GUIDANCE}\n${WSP5_AGENT_GUIDANCE}\n${WSP6_AGENT_GUIDANCE}`,
     };
   });
 

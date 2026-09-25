@@ -1367,6 +1367,58 @@ describe("SG billing hook integration contract", () => {
     expect((await snapshot(root)).balanceNanoUsd).toBe(openingBalance - usdToNanoUsd(0.0001) * 2);
   });
 
+  it("settles reused model call ids from separate attempts without conflicts or stuck reserves", async () => {
+    const root = await createStateDir();
+    const openingBalance = usdToNanoUsd(1);
+    await credit(root, openingBalance);
+    const { hooks, warn } = register(root);
+    const ctx = agentContext("run-reused-call-id");
+    await runHooks(hooks, "before_agent_run", beforeRunEvent, ctx);
+    const base = {
+      runId: "run-reused-call-id",
+      callId: "run-reused-call-id:model:1",
+      provider: "openai",
+      maxOutputTokens: 1_000,
+      inputUpperBoundTokens: 1_000,
+      cost: { input: 2, output: 12, cacheRead: 0.2, cacheWrite: 2.5 },
+    };
+
+    await runHooks(hooks, "before_model_call", { ...base, model: "gpt-5.6-terra" }, ctx);
+    await runHooks(
+      hooks,
+      "model_call_ended",
+      {
+        ...base,
+        model: "gpt-5.6-terra",
+        durationMs: 10,
+        outcome: "completed",
+        usage: { cost: { total: 0.0001, totalOrigin: "provider-billed" } },
+      },
+      ctx,
+    );
+    await runHooks(hooks, "before_model_call", { ...base, model: "gpt-5.6-luna" }, ctx);
+    await runHooks(
+      hooks,
+      "model_call_ended",
+      {
+        ...base,
+        model: "gpt-5.6-luna",
+        durationMs: 10,
+        outcome: "completed",
+        usage: { cost: { total: 0.0002, totalOrigin: "provider-billed" } },
+      },
+      ctx,
+    );
+    await runHooks(hooks, "agent_end", { messages: [], success: true }, ctx);
+
+    await expect(snapshot(root)).resolves.toEqual({
+      balanceNanoUsd: openingBalance - usdToNanoUsd(0.0003) * 2,
+      reservedNanoUsd: 0,
+      availableNanoUsd: openingBalance - usdToNanoUsd(0.0003) * 2,
+    });
+    expect(warn).not.toHaveBeenCalledWith(expect.stringContaining("idempotency-conflict"));
+  });
+
   it("authorizes and settles compaction model calls against the parent run", async () => {
     const root = await createStateDir();
     const openingBalance = usdToNanoUsd(1);

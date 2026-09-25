@@ -22,6 +22,7 @@ type ToolOutcome = {
   toolName: string;
   outcome: "pending" | "success" | "error";
   semanticApproved?: boolean;
+  visibleDraft?: string;
 };
 
 type RunState = {
@@ -29,7 +30,12 @@ type RunState = {
   sessionKey?: string;
   originalPrompt: string;
   toolOutcomes: ToolOutcome[];
+  exactOutput: boolean;
+  correctionUsed: boolean;
+  semanticReviewDone: boolean;
+  semanticRevisionPending: boolean;
   semanticApprovedDraft?: string;
+  deliveryConfirmed?: boolean;
 };
 
 const RECEIPT_PATTERN = /<sg-execution-receipt>([\s\S]*?)<\/sg-execution-receipt>/gu;
@@ -39,7 +45,14 @@ const SEMANTIC_CONTROLLER_TIMEOUT_MS = 12_000;
 export const SG_EXECUTION_GUARD_GUIDANCE = `SG execution guard (mandatory)
 Before every final reply, silently audit all 17 mandatory SG rules and append exactly one machine receipt as the final block:
 <sg-execution-receipt>{"mode":"answer|plan|action","status":"complete|partial|blocked","toolsRequired":true|false,"verification":"not-needed|confirmed|failed","completed":"...","evidence":"...","notCompleted":"...","blocker":"...","userDecisionRequired":true|false}</sg-execution-receipt>
-Use mode=action whenever the requested outcome required a tool or state change. An action can be complete only after a successful tool result and verification. Use partial or blocked with the exact blocker whenever work remains. The receipt is control metadata and is removed before delivery.`;
+Use mode=action whenever the requested outcome required a tool or state change. An action can be complete only after a successful tool result and verification. Use partial or blocked with the exact blocker whenever work remains. The receipt is control metadata and is removed before delivery. If the user explicitly requires an exact output and nothing else, return that exact output without a receipt.`;
+
+const EXACT_OUTPUT_PATTERN =
+  /(?:\b(?:reply|respond|return|output|print|say|write)\b.{0,80}\bexactly\b|\b(?:reply|respond|return|output|print|say|write)\b.{0,80}\bonly\s+(?:one\s+)?(?:word|number|line|token)|(?:ответь|напиши|верни|выведи|скажи).{0,80}ровно|(?:ответь|напиши|верни|выведи|скажи).{0,80}только\s+(?:одним\s+)?(?:словом|числом|строкой|токеном)|\bnothing else\b|и ничего больше|без дополнительного текста)/isu;
+
+function isExactOutputRequest(prompt: string): boolean {
+  return EXACT_OUTPUT_PATTERN.test(prompt);
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -172,6 +185,10 @@ export function registerSgExecutionGuard(
       ...(sessionKey ? { sessionKey } : {}),
       originalPrompt: "",
       toolOutcomes: [],
+      exactOutput: false,
+      correctionUsed: false,
+      semanticReviewDone: false,
+      semanticRevisionPending: false,
     };
     remember(state);
     return state;
@@ -219,12 +236,85 @@ export function registerSgExecutionGuard(
     ].join("\n");
   };
 
+  const reviewDraftOnce = async (
+    state: RunState,
+    draft: string,
+  ): Promise<{ revisionReason?: string; blockedReason?: string }> => {
+    if (state.exactOutput) {
+      if (!state.semanticReviewDone) {
+        state.semanticReviewDone = true;
+        try {
+          const reason = await reviewDraft(state, draft);
+          if (reason) {
+            api.logger?.warn(
+              `[sg-semantic-guard] run=${state.runId} exact-output-preserved-after-review`,
+            );
+          }
+        } catch (error) {
+          api.logger?.warn(
+            `[sg-semantic-guard] run=${state.runId} exact-output-preserved controller=${String(error)}`,
+          );
+        }
+      }
+      state.semanticApprovedDraft = draft;
+      return {};
+    }
+    if (state.semanticRevisionPending) {
+      state.semanticRevisionPending = false;
+      state.semanticApprovedDraft = draft;
+      return {};
+    }
+    if (state.semanticApprovedDraft === draft) {
+      return {};
+    }
+    if (state.semanticReviewDone) {
+      return { blockedReason: "SG остановил ответ, изменённый после смысловой проверки." };
+    }
+    state.semanticReviewDone = true;
+    try {
+      const reason = await reviewDraft(state, draft);
+      if (!reason) {
+        state.semanticApprovedDraft = draft;
+        return {};
+      }
+      if (!state.correctionUsed) {
+        state.correctionUsed = true;
+        state.semanticRevisionPending = true;
+        return { revisionReason: reason };
+      }
+      return { blockedReason: reason };
+    } catch (error) {
+      const reason =
+        "Независимый смысловой контролёр SG недоступен. Не отправляй ответ без его успешной проверки.";
+      api.logger?.warn(`[sg-semantic-guard] run=${state.runId} ${String(error)}`);
+      if (!state.correctionUsed) {
+        state.correctionUsed = true;
+        state.semanticRevisionPending = true;
+        return { revisionReason: reason };
+      }
+      return { blockedReason: reason };
+    }
+  };
+
   api.on("before_agent_run", (event, ctx) => {
+    const runId = ctx.runId ?? `session:${ctx.sessionKey ?? "unknown"}`;
+    const existing = runs.get(runId);
+    if (existing) {
+      if (!existing.originalPrompt) {
+        existing.originalPrompt = event.prompt;
+        existing.exactOutput = isExactOutputRequest(event.prompt);
+      }
+      return;
+    }
     remember({
-      runId: ctx.runId ?? `session:${ctx.sessionKey ?? "unknown"}`,
+      runId,
       ...(ctx.sessionKey ? { sessionKey: ctx.sessionKey } : {}),
       originalPrompt: event.prompt,
       toolOutcomes: [],
+      exactOutput: isExactOutputRequest(event.prompt),
+      correctionUsed: false,
+      semanticReviewDone: false,
+      semanticRevisionPending: false,
     });
   });
 
@@ -245,24 +335,23 @@ export function registerSgExecutionGuard(
     if (!isFinalMessage) {
       return;
     }
-    try {
-      const reason = await reviewDraft(state, (event.params.message as string).trim());
-      if (!reason) {
-        outcome.semanticApproved = true;
-        return;
-      }
+    const rawMessage = (event.params.message as string).trim();
+    const parsed = parseReceipt(rawMessage);
+    if (rawMessage.includes("<sg-execution-receipt>") && !parsed.receipt) {
+      return { block: true, blockReason: parsed.reason };
+    }
+    const draft = parsed.receipt ? stripReceipt(rawMessage) : rawMessage;
+    const reviewed = await reviewDraftOnce(state, draft);
+    if (reviewed.revisionReason || reviewed.blockedReason) {
       api.logger?.warn(`[sg-semantic-guard] blocked message delivery run=${state.runId}`);
-      return { block: true, blockReason: reason };
-    } catch (error) {
-      api.logger?.warn(
-        `[sg-semantic-guard] blocked message delivery run=${state.runId} ${String(error)}`,
-      );
       return {
         block: true,
-        blockReason:
-          "Независимый смысловой контролёр SG недоступен. Исправь ответ и повтори отправку после успешной проверки.",
+        blockReason: reviewed.revisionReason ?? reviewed.blockedReason,
       };
     }
+    outcome.semanticApproved = true;
+    outcome.visibleDraft = draft;
+    return parsed.receipt ? { params: { ...event.params, message: draft } } : undefined;
   });
 
   api.on("after_tool_call", (event, ctx) => {
@@ -272,7 +361,11 @@ export function registerSgExecutionGuard(
       : state.toolOutcomes.findLast(
           (item) => item.toolName === event.toolName && item.outcome === "pending",
         );
-    const outcome = event.error ? "error" : "success";
+    const isFinalMessage =
+      event.toolName === "message" &&
+      event.params.action === "send" &&
+      event.params.final !== false;
+    const outcome = event.error ? "error" : isFinalMessage ? "pending" : "success";
     if (current) {
       current.outcome = outcome;
     } else {
@@ -284,11 +377,36 @@ export function registerSgExecutionGuard(
     }
   });
 
+  api.on("message_sent", (event) => {
+    const state = resolveState(event.runId, event.sessionKey);
+    if (!state) {
+      return;
+    }
+    const pendingMessage = state.toolOutcomes.findLast(
+      (item) =>
+        item.toolName === "message" &&
+        item.outcome === "pending" &&
+        item.visibleDraft === event.content,
+    );
+    if (pendingMessage) {
+      pendingMessage.outcome = event.success ? "success" : "error";
+    }
+    if (event.success) {
+      state.deliveryConfirmed = true;
+    }
+  });
+
   api.on("before_agent_finalize", async (event, ctx) => {
     const state = ensureState(event.runId ?? ctx.runId, event.sessionKey ?? ctx.sessionKey);
+    if (hasApprovedVisibleReply(state)) {
+      return;
+    }
+    if (state.exactOutput) {
+      await reviewDraftOnce(state, event.lastAssistantMessage ?? "");
+      return;
+    }
     const parsed = parseReceipt(event.lastAssistantMessage ?? "");
     const reasons = parsed.receipt ? validateReceipt(parsed.receipt, state) : [parsed.reason!];
-    state.semanticApprovedDraft = undefined;
     if (reasons.length > 0) {
       const reason = [
         "SG execution guard отклонил финальный ответ:",
@@ -296,51 +414,38 @@ export function registerSgExecutionGuard(
         "Исправь только отчёт или незавершённые безопасные шаги. Не повторяй уже успешные действия с побочными эффектами.",
       ].join("\n");
       api.logger?.warn(`[sg-execution-guard] run=${state.runId} ${reasons.join("; ")}`);
+      if (state.correctionUsed) {
+        return { action: "finalize" as const, reason };
+      }
+      state.correctionUsed = true;
       return {
         action: "revise" as const,
         reason,
         retry: {
           instruction: reason,
           idempotencyKey: `sg-execution-guard:${state.runId}`,
-          maxAttempts: 2,
+          maxAttempts: 1,
         },
       };
     }
 
     const draft = stripReceipt(event.lastAssistantMessage ?? "");
-    if (hasApprovedVisibleReply(state)) {
-      return;
-    }
-    try {
-      const reason = await reviewDraft(state, draft);
-      if (!reason) {
-        state.semanticApprovedDraft = draft;
-        return;
-      }
+    const reviewed = await reviewDraftOnce(state, draft);
+    if (reviewed.revisionReason) {
       api.logger?.warn(`[sg-semantic-guard] run=${state.runId} semantic-revision-required`);
       return {
         action: "revise" as const,
-        reason,
+        reason: reviewed.revisionReason,
         retry: {
-          instruction: reason,
+          instruction: reviewed.revisionReason,
           idempotencyKey: `sg-semantic-guard:${state.runId}`,
-          maxAttempts: 2,
-        },
-      };
-    } catch (error) {
-      const reason =
-        "Независимый смысловой контролёр SG недоступен. Не отправляй ответ без его успешной проверки.";
-      api.logger?.warn(`[sg-semantic-guard] run=${state.runId} ${String(error)}`);
-      return {
-        action: "revise" as const,
-        reason,
-        retry: {
-          instruction: reason,
-          idempotencyKey: `sg-semantic-guard:${state.runId}`,
-          maxAttempts: 2,
+          maxAttempts: 1,
         },
       };
     }
+    return reviewed.blockedReason
+      ? { action: "finalize" as const, reason: reviewed.blockedReason }
+      : undefined;
   });
 
   api.on("reply_payload_sending", (event, ctx) => {
@@ -350,14 +455,14 @@ export function registerSgExecutionGuard(
     const parsed = parseReceipt(event.payload.text);
     const state = resolveState(event.runId ?? ctx.runId, event.sessionKey ?? ctx.sessionKey);
     if (!state) {
-      api.logger?.warn("[sg-semantic-guard] cancelled delivery without run state");
-      return {
-        cancel: true,
-        reason: "sg-semantic-guard-run-state-missing",
-      };
+      api.logger?.warn("[sg-semantic-guard] sanitized delivery without run state");
+      return { payload: { ...event.payload, text: stripReceipt(event.payload.text) } };
     }
     if (hasApprovedVisibleReply(state)) {
       return { cancel: true, reason: "sg-semantic-guard-message-tool-delivered" };
+    }
+    if (state.exactOutput) {
+      return { payload: { ...event.payload, text: stripReceipt(event.payload.text) } };
     }
     const reasons = parsed.receipt ? validateReceipt(parsed.receipt, state) : [parsed.reason!];
     if (reasons.length > 0) {

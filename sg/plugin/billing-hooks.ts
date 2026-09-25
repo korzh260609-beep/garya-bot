@@ -17,6 +17,17 @@ const CUSTOMER_PRICE_MULTIPLIER = 2;
 type BillingIdentity = { globalId: string; role: "monarch" | "citizen" };
 type BillingOwner = BillingIdentity & { source: SgBillingOperationSource };
 type ModelRates = { input: number; output: number; cacheRead: number; cacheWrite: number };
+type PendingModelAttempt = {
+  partId: string;
+  provider: string;
+  model: string;
+  rates?: ModelRates;
+};
+type ModelCallState = {
+  nextOccurrence: number;
+  pending: PendingModelAttempt[];
+  completedFingerprints: Set<string>;
+};
 
 function automationJobId(ctx: { jobId?: string; sessionKey?: string }): string | undefined {
   const explicit = ctx.jobId?.trim();
@@ -147,10 +158,64 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
     string,
     { action: "add" | "update" | "remove"; identity: BillingIdentity; jobId?: string }
   >();
-  const pendingModelRates = new Map<
-    string,
-    { provider: string; model: string; rates: ModelRates }
-  >();
+  const modelCallStates = new Map<string, ModelCallState>();
+  const MAX_MODEL_CALL_STATES = 2_048;
+  const modelCallKey = (runId: string, callId: string) => `${runId}\0${callId}`;
+  const callState = (runId: string, callId: string) => {
+    const key = modelCallKey(runId, callId);
+    const existing = modelCallStates.get(key);
+    if (existing) {
+      return existing;
+    }
+    const created: ModelCallState = {
+      nextOccurrence: 0,
+      pending: [],
+      completedFingerprints: new Set(),
+    };
+    modelCallStates.set(key, created);
+    while (modelCallStates.size > MAX_MODEL_CALL_STATES) {
+      const oldest = modelCallStates.keys().next().value as string | undefined;
+      if (!oldest) {
+        break;
+      }
+      modelCallStates.delete(oldest);
+    }
+    return created;
+  };
+  const allocateModelAttempt = (event: {
+    runId: string;
+    callId: string;
+    provider: string;
+    model: string;
+    rates?: ModelRates;
+  }): PendingModelAttempt => {
+    const state = callState(event.runId, event.callId);
+    state.nextOccurrence += 1;
+    return {
+      partId: `model:${event.callId}:attempt:${state.nextOccurrence}`,
+      provider: event.provider,
+      model: event.model,
+      rates: event.rates,
+    };
+  };
+  const terminalFingerprint = (event: {
+    provider: string;
+    model: string;
+    outcome: string;
+    usage?: {
+      input?: number;
+      output?: number;
+      cacheRead?: number;
+      cacheWrite?: number;
+      cost?: { total?: number; totalOrigin?: string };
+    };
+  }) =>
+    JSON.stringify({
+      provider: event.provider,
+      model: event.model,
+      outcome: event.outcome,
+      usage: event.usage,
+    });
   const resolveProfile = async (channel?: string, senderId?: string) => {
     if (!channel || !senderId) {
       return undefined;
@@ -412,18 +477,35 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
       providerCost.total >= 0
         ? providerCost.total
         : undefined;
-    const pricingKey = `${event.runId}\0${event.callId}`;
-    const pricing = pendingModelRates.get(pricingKey);
-    pendingModelRates.delete(pricingKey);
+    const state = callState(event.runId, event.callId);
+    const fingerprint = terminalFingerprint(event);
+    let pendingIndex = state.pending.findIndex(
+      (item) => item.provider === event.provider && item.model === event.model,
+    );
+    if (pendingIndex < 0 && state.pending.length > 0) {
+      pendingIndex = 0;
+    }
+    const pending = pendingIndex >= 0 ? state.pending[pendingIndex] : undefined;
+    if (!pending && state.completedFingerprints.has(fingerprint)) {
+      return;
+    }
+    const attempt =
+      pending ??
+      allocateModelAttempt({
+        runId: event.runId,
+        callId: event.callId,
+        provider: event.provider,
+        model: event.model,
+      });
     const actualCost =
       providerBilledCost ??
-      (pricing && pricing.provider === event.provider && pricing.model === event.model
-        ? estimatedModelCostUsd(event.usage, pricing.rates)
+      (attempt.rates && attempt.provider === event.provider && attempt.model === event.model
+        ? estimatedModelCostUsd(event.usage, attempt.rates)
         : undefined);
     try {
       await ledger.recordPart({
         ...correlation,
-        partId: `model:${event.callId}`,
+        partId: attempt.partId,
         outcome: event.outcome,
         ...(actualCost === undefined ? {} : { actualCostNanoUsd: usdToNanoUsd(actualCost) }),
         metadata: {
@@ -448,6 +530,10 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
               }),
         },
       });
+      if (pendingIndex >= 0) {
+        state.pending.splice(pendingIndex, 1);
+      }
+      state.completedFingerprints.add(fingerprint);
       if (actualCost === undefined) {
         api.logger?.warn(
           `[sg-billing] provider cost unavailable; reserve retained for model call ${event.callId}`,
@@ -505,11 +591,14 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
     try {
       const billing = await ledger.operationBilling(correlation);
       if (billing.chargeMultiplier === 0) {
-        pendingModelRates.set(`${event.runId}\0${event.callId}`, {
+        const attempt = allocateModelAttempt({
+          runId: event.runId,
+          callId: event.callId,
           provider: event.provider,
           model: event.model,
           rates,
         });
+        callState(event.runId, event.callId).pending.push(attempt);
         return;
       }
       const capacity = await ledger.prepaidCapacity(correlation);
@@ -542,17 +631,20 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
       const providerAuthorizedNanoUsd =
         inputUpperBoundNanoUsd +
         Math.ceil(maxOutputTokens * outputRate * NANO_USD_PER_TOKEN_PER_MILLION_RATE);
-      await ledger.authorizePart({
-        ...correlation,
-        partId: `model:${event.callId}`,
-        authorizedNanoUsd: providerAuthorizedNanoUsd * CUSTOMER_PRICE_MULTIPLIER,
-        metadata: { kind: "model", provider: event.provider, model: event.model },
-      });
-      pendingModelRates.set(`${event.runId}\0${event.callId}`, {
+      const attempt = allocateModelAttempt({
+        runId: event.runId,
+        callId: event.callId,
         provider: event.provider,
         model: event.model,
         rates,
       });
+      await ledger.authorizePart({
+        ...correlation,
+        partId: attempt.partId,
+        authorizedNanoUsd: providerAuthorizedNanoUsd * CUSTOMER_PRICE_MULTIPLIER,
+        metadata: { kind: "model", provider: event.provider, model: event.model },
+      });
+      callState(event.runId, event.callId).pending.push(attempt);
       return { maxOutputTokens, maxRetries: 0 };
     } catch (error) {
       await releaseStandaloneCorrelation();
@@ -833,7 +925,7 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
   });
 
   api.on("gateway_stop", () => {
-    pendingModelRates.clear();
+    modelCallStates.clear();
     ledger.close();
   });
 }

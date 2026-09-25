@@ -156,6 +156,33 @@ describe("SG model router", () => {
     );
   });
 
+  it("keeps one route for internal retries and reroutes the next Telegram message", async () => {
+    const stateDir = await createStateDir();
+    const { hook } = registerRouter(stateDir, "active");
+    const session = {
+      channel: "telegram",
+      accountId: "default",
+      senderId: "100",
+      sessionKey: "agent:main:telegram:direct:100",
+    };
+    const arithmetic = "Сколько будет 2+2?";
+    const analysis =
+      "Проанализируй архитектуру многопользовательского ИИ-помощника: безопасность, память, биллинг и маршрутизацию моделей. Найди риски и предложи план проверки.";
+
+    await expect(hook({ prompt: arithmetic }, { ...session, runId: "turn-1" })).resolves.toEqual({
+      providerOverride: "openai",
+      modelOverride: "gpt-5.6-luna",
+    });
+    await expect(hook({ prompt: analysis }, { ...session, runId: "turn-1" })).resolves.toEqual({
+      providerOverride: "openai",
+      modelOverride: "gpt-5.6-luna",
+    });
+    await expect(hook({ prompt: analysis }, { ...session, runId: "turn-2" })).resolves.toEqual({
+      providerOverride: "openai",
+      modelOverride: "gpt-5.6-sol",
+    });
+  });
+
   it("retains the current model on missing identity or invalid persisted state", async () => {
     const stateDir = await createStateDir();
     const { hook, logger } = registerRouter(stateDir, "active");

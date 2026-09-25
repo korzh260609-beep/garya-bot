@@ -78,6 +78,8 @@ type RouterModelResolveContext = {
   messageProvider?: string;
   accountId?: string;
   senderId?: string;
+  sessionKey?: string;
+  runId?: string;
 };
 
 type RouterModelResolveResult = {
@@ -339,6 +341,23 @@ export function registerSgModelRouter(params: {
   const activation = resolveSgModelRouterActivation(params.env);
   const registry = params.registry ?? new SgModelRegistry();
   const preferences = new SgModelPreferenceRegistry(stateDir);
+  const runRoutes = new Map<
+    string,
+    { mode: SgModelMode; tier: SgModelTier; route: SgModelRoute }
+  >();
+  const rememberRunRoute = (
+    runId: string,
+    decision: { mode: SgModelMode; tier: SgModelTier; route: SgModelRoute },
+  ) => {
+    runRoutes.set(runId, decision);
+    while (runRoutes.size > 512) {
+      const oldest = runRoutes.keys().next().value as string | undefined;
+      if (!oldest) {
+        break;
+      }
+      runRoutes.delete(oldest);
+    }
+  };
 
   api.registerCommand({
     name: "sg_model",
@@ -382,6 +401,15 @@ export function registerSgModelRouter(params: {
     if (activation === "off") {
       return;
     }
+    const cached = ctx.runId ? runRoutes.get(ctx.runId) : undefined;
+    if (cached) {
+      api.logger?.info(
+        `[sg-model-router] decision=${activation === "active" ? "reuse" : "shadow-reuse"} mode=${cached.mode} tier=${cached.tier} route=${cached.route.provider}/${cached.route.model} reason=user-turn-route-locked`,
+      );
+      return activation === "active"
+        ? { providerOverride: cached.route.provider, modelOverride: cached.route.model }
+        : undefined;
+    }
     const channel = ctx.channel ?? ctx.messageProvider;
     if (!channel || !ctx.senderId) {
       api.logger?.warn("[sg-model-router] decision=retain reason=trusted-identity-missing");
@@ -423,6 +451,9 @@ export function registerSgModelRouter(params: {
       api.logger?.info(
         `[sg-model-router] decision=${activation === "active" ? "override" : "shadow"} mode=${mode} tier=${tier} route=${route.provider}/${route.model} reasons=${assessment.reasons.join(",")}`,
       );
+      if (ctx.runId) {
+        rememberRunRoute(ctx.runId, { mode, tier, route });
+      }
       if (activation !== "active") {
         return;
       }

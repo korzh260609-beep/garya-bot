@@ -126,6 +126,59 @@ describe("SG execution guard", () => {
     });
   });
 
+  it("runs the semantic controller once and allows at most one correction", async () => {
+    const { complete, hook } = setup();
+    complete.mockResolvedValue({
+      text: JSON.stringify({
+        verdict: "revise",
+        violations: [{ rule: 4, reason: "Неподтверждённый факт" }],
+        reason: "Исправить факт",
+      }),
+    });
+    await hook("before_agent_run")(
+      { prompt: "Ответь точно", messages: [] },
+      { runId: "r3-single-review", sessionKey: "telegram:100" },
+    );
+    const first = receipt({ mode: "answer", toolsRequired: false, verification: "not-needed" });
+    const corrected = first.replace("Готово.", "Исправлено.");
+
+    await expect(
+      hook("before_agent_finalize")(
+        { runId: "r3-single-review", sessionId: "s3", lastAssistantMessage: first },
+        { runId: "r3-single-review", sessionKey: "telegram:100" },
+      ),
+    ).resolves.toMatchObject({ action: "revise", retry: { maxAttempts: 1 } });
+    await expect(
+      hook("before_agent_finalize")(
+        { runId: "r3-single-review", sessionId: "s3", lastAssistantMessage: corrected },
+        { runId: "r3-single-review", sessionKey: "telegram:100" },
+      ),
+    ).resolves.toBeUndefined();
+    expect(complete).toHaveBeenCalledOnce();
+  });
+
+  it("preserves an explicitly exact output byte-for-byte", async () => {
+    const { complete, hook } = setup();
+    await hook("before_agent_run")(
+      { prompt: "Ответь ровно OK и ничего больше", messages: [] },
+      { runId: "r3-exact", sessionKey: "telegram:100" },
+    );
+
+    await expect(
+      hook("before_agent_finalize")(
+        { runId: "r3-exact", sessionId: "s3", lastAssistantMessage: "OK" },
+        { runId: "r3-exact", sessionKey: "telegram:100" },
+      ),
+    ).resolves.toBeUndefined();
+    await expect(
+      hook("reply_payload_sending")(
+        { kind: "final", runId: "r3-exact", payload: { text: "OK" } },
+        { runId: "r3-exact", sessionKey: "telegram:100" },
+      ),
+    ).resolves.toEqual({ payload: { text: "OK" } });
+    expect(complete).toHaveBeenCalledOnce();
+  });
+
   it("fails closed when the controller returns malformed output", async () => {
     const { complete, hook } = setup();
     complete.mockResolvedValueOnce({ text: "not json" });
@@ -253,20 +306,25 @@ describe("SG execution guard", () => {
     const { complete, hook } = setup();
     await hook("before_agent_run")(
       { prompt: "Сколько будет 17 + 25?", messages: [] },
-      { runId: "r9" },
+      { runId: "r9", sessionKey: "telegram:100" },
     );
 
+    const messageWithReceipt = receipt({
+      mode: "answer",
+      toolsRequired: false,
+      verification: "not-needed",
+    }).replace("Готово.", "42");
     await expect(
       hook("before_tool_call")(
         {
           runId: "r9",
           toolCallId: "m1",
           toolName: "message",
-          params: { action: "send", message: "42" },
+          params: { action: "send", message: messageWithReceipt },
         },
-        { runId: "r9", toolName: "message" },
+        { runId: "r9", sessionKey: "telegram:100", toolName: "message" },
       ),
-    ).resolves.toBeUndefined();
+    ).resolves.toEqual({ params: { action: "send", message: "42" } });
     await hook("after_tool_call")(
       {
         runId: "r9",
@@ -275,7 +333,11 @@ describe("SG execution guard", () => {
         params: { action: "send", message: "42" },
         result: "ok",
       },
-      { runId: "r9", toolName: "message" },
+      { runId: "r9", sessionKey: "telegram:100", toolName: "message" },
+    );
+    await hook("message_sent")(
+      { sessionKey: "telegram:100", content: "42", success: true, messageId: "1" },
+      { runId: "r9", sessionKey: "telegram:100" },
     );
     const finalReceipt = receipt();
     await expect(
@@ -320,13 +382,11 @@ describe("SG execution guard", () => {
     ).resolves.toMatchObject({ block: true, blockReason: expect.stringContaining("RULE_04") });
   });
 
-  it("cancels an uncorrelated final instead of sending a false guard warning", async () => {
+  it("sanitizes an uncorrelated final instead of cancelling delivery", async () => {
     const { hook } = setup();
+    const answer = receipt({ mode: "answer", toolsRequired: false, verification: "not-needed" });
     await expect(
-      hook("reply_payload_sending")({ kind: "final", payload: { text: "служебный финал" } }, {}),
-    ).resolves.toEqual({
-      cancel: true,
-      reason: "sg-semantic-guard-run-state-missing",
-    });
+      hook("reply_payload_sending")({ kind: "final", payload: { text: answer } }, {}),
+    ).resolves.toEqual({ payload: { text: "Готово." } });
   });
 });

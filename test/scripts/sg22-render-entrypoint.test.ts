@@ -4,10 +4,22 @@ import { describe, expect, it } from "vitest";
 function readShellJson(script: string, variable: string): unknown {
   const match = script.match(new RegExp(`^${variable}='([^']+)'$`, "mu"));
   expect(match, `${variable} assignment`).not.toBeNull();
-  return JSON.parse(match![1]);
+  const encoded = match?.[1];
+  if (!encoded) {
+    throw new Error(`${variable} assignment is empty`);
+  }
+  return JSON.parse(encoded);
 }
 
 describe("SG 2.2 Render entrypoint", () => {
+  it("uses automatic visible replies for ordinary direct and group answers", async () => {
+    const source = await readFile(
+      new URL("../../scripts/sg22-render-entrypoint.sh", import.meta.url),
+      "utf8",
+    );
+    expect(source).toContain('messages.visibleReplies\\\",\\\"value\\\":\\\"automatic');
+    expect(source).toContain('messages.groupChat.visibleReplies\\\",\\\"value\\\":\\\"automatic');
+  });
   it("uses Terra as the declared and runtime fallback primary model", async () => {
     const [script, blueprint] = await Promise.all([
       readFile(new URL("../../scripts/sg22-render-entrypoint.sh", import.meta.url), "utf8"),

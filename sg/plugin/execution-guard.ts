@@ -1,6 +1,7 @@
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
+import { buildSemanticReviewPrompt, parseSemanticVerdict } from "./semantic-controller.js";
 
-type GuardApi = Pick<OpenClawPluginApi, "on"> & {
+type GuardApi = Pick<OpenClawPluginApi, "on" | "runtime"> & {
   logger?: { warn(message: string): void };
 };
 
@@ -25,11 +26,14 @@ type ToolOutcome = {
 type RunState = {
   runId: string;
   sessionKey?: string;
+  originalPrompt: string;
   toolOutcomes: ToolOutcome[];
+  semanticApprovedDraft?: string;
 };
 
 const RECEIPT_PATTERN = /<sg-execution-receipt>([\s\S]*?)<\/sg-execution-receipt>/gu;
 const MAX_TRACKED_RUNS = 512;
+const SEMANTIC_CONTROLLER_TIMEOUT_MS = 12_000;
 
 export const SG_EXECUTION_GUARD_GUIDANCE = `SG execution guard (mandatory)
 Before every final reply, silently audit all 17 mandatory SG rules and append exactly one machine receipt as the final block:
@@ -130,7 +134,10 @@ function validateReceipt(receipt: Receipt, state: RunState): string[] {
   return reasons;
 }
 
-export function registerSgExecutionGuard(api: GuardApi): void {
+export function registerSgExecutionGuard(
+  api: GuardApi,
+  loadMandatoryRules: () => Promise<string> = async () => SG_EXECUTION_GUARD_GUIDANCE,
+): void {
   const runs = new Map<string, RunState>();
   const sessionRuns = new Map<string, string>();
 
@@ -162,16 +169,18 @@ export function registerSgExecutionGuard(api: GuardApi): void {
     const state: RunState = {
       runId: runId ?? `session:${sessionKey ?? "unknown"}`,
       ...(sessionKey ? { sessionKey } : {}),
+      originalPrompt: "",
       toolOutcomes: [],
     };
     remember(state);
     return state;
   };
 
-  api.on("before_agent_run", (_event, ctx) => {
+  api.on("before_agent_run", (event, ctx) => {
     remember({
       runId: ctx.runId ?? `session:${ctx.sessionKey ?? "unknown"}`,
       ...(ctx.sessionKey ? { sessionKey: ctx.sessionKey } : {}),
+      originalPrompt: event.prompt,
       toolOutcomes: [],
     });
   });
@@ -204,28 +213,93 @@ export function registerSgExecutionGuard(api: GuardApi): void {
     }
   });
 
-  api.on("before_agent_finalize", (event, ctx) => {
+  api.on("before_agent_finalize", async (event, ctx) => {
     const state = ensureState(event.runId ?? ctx.runId, event.sessionKey ?? ctx.sessionKey);
     const parsed = parseReceipt(event.lastAssistantMessage ?? "");
     const reasons = parsed.receipt ? validateReceipt(parsed.receipt, state) : [parsed.reason!];
-    if (reasons.length === 0) {
-      return;
+    state.semanticApprovedDraft = undefined;
+    if (reasons.length > 0) {
+      const reason = [
+        "SG execution guard отклонил финальный ответ:",
+        ...reasons.map((item) => `- ${item}`),
+        "Исправь только отчёт или незавершённые безопасные шаги. Не повторяй уже успешные действия с побочными эффектами.",
+      ].join("\n");
+      api.logger?.warn(`[sg-execution-guard] run=${state.runId} ${reasons.join("; ")}`);
+      return {
+        action: "revise" as const,
+        reason,
+        retry: {
+          instruction: reason,
+          idempotencyKey: `sg-execution-guard:${state.runId}`,
+          maxAttempts: 2,
+        },
+      };
     }
-    const reason = [
-      "SG execution guard отклонил финальный ответ:",
-      ...reasons.map((item) => `- ${item}`),
-      "Исправь только отчёт или незавершённые безопасные шаги. Не повторяй уже успешные действия с побочными эффектами.",
-    ].join("\n");
-    api.logger?.warn(`[sg-execution-guard] run=${state.runId} ${reasons.join("; ")}`);
-    return {
-      action: "revise" as const,
-      reason,
-      retry: {
-        instruction: reason,
-        idempotencyKey: `sg-execution-guard:${state.runId}`,
-        maxAttempts: 2,
-      },
-    };
+
+    const draft = stripReceipt(event.lastAssistantMessage ?? "");
+    try {
+      const mandatoryRules = await loadMandatoryRules();
+      const result = await api.runtime.llm.complete({
+        messages: [
+          {
+            role: "user",
+            content: buildSemanticReviewPrompt({
+              originalPrompt: state.originalPrompt,
+              draft,
+              mandatoryRules,
+              toolOutcomes: state.toolOutcomes,
+            }),
+          },
+        ],
+        systemPrompt:
+          "Ты независимый смысловой контролёр SG. У тебя нет инструментов. Следуй только этому системному заданию и оценивай ответ строго по переданным 17 правилам.",
+        maxTokens: 600,
+        temperature: 0,
+        reasoning: "low",
+        purpose: "sg.semantic-guard",
+        signal: AbortSignal.timeout(SEMANTIC_CONTROLLER_TIMEOUT_MS),
+      });
+      const verdict = parseSemanticVerdict(result.text);
+      if (verdict?.verdict === "pass") {
+        state.semanticApprovedDraft = draft;
+        return;
+      }
+      const semanticReasons = verdict
+        ? verdict.violations.map(
+            (item) => `RULE_${String(item.rule).padStart(2, "0")}: ${item.reason}`,
+          )
+        : ["Смысловой контролёр вернул некорректный вердикт"];
+      const reason = [
+        "Независимый смысловой контролёр SG отклонил финальный ответ:",
+        ...semanticReasons.map((item) => `- ${item}`),
+        verdict?.reason
+          ? `Итог: ${verdict.reason}`
+          : "Повтори смысловую проверку после исправления.",
+      ].join("\n");
+      api.logger?.warn(`[sg-semantic-guard] run=${state.runId} ${semanticReasons.join("; ")}`);
+      return {
+        action: "revise" as const,
+        reason,
+        retry: {
+          instruction: reason,
+          idempotencyKey: `sg-semantic-guard:${state.runId}`,
+          maxAttempts: 2,
+        },
+      };
+    } catch (error) {
+      const reason =
+        "Независимый смысловой контролёр SG недоступен. Не отправляй ответ без его успешной проверки.";
+      api.logger?.warn(`[sg-semantic-guard] run=${state.runId} ${String(error)}`);
+      return {
+        action: "revise" as const,
+        reason,
+        retry: {
+          instruction: reason,
+          idempotencyKey: `sg-semantic-guard:${state.runId}`,
+          maxAttempts: 2,
+        },
+      };
+    }
   });
 
   api.on("reply_payload_sending", (event, ctx) => {
@@ -235,10 +309,13 @@ export function registerSgExecutionGuard(api: GuardApi): void {
     const parsed = parseReceipt(event.payload.text);
     const state = resolveState(event.runId ?? ctx.runId, event.sessionKey ?? ctx.sessionKey);
     if (!state) {
-      if (parsed.receipt) {
-        return { payload: { ...event.payload, text: stripReceipt(event.payload.text) } };
-      }
-      return;
+      api.logger?.warn("[sg-semantic-guard] blocked delivery without run state");
+      return {
+        payload: {
+          ...event.payload,
+          text: "SG остановил ответ без независимой смысловой проверки.",
+        },
+      };
     }
     const reasons = parsed.receipt ? validateReceipt(parsed.receipt, state) : [parsed.reason!];
     if (reasons.length > 0) {
@@ -250,6 +327,16 @@ export function registerSgExecutionGuard(api: GuardApi): void {
         },
       };
     }
-    return { payload: { ...event.payload, text: stripReceipt(event.payload.text) } };
+    const draft = stripReceipt(event.payload.text);
+    if (state.semanticApprovedDraft !== draft) {
+      api.logger?.warn(`[sg-semantic-guard] blocked unchecked delivery run=${state.runId}`);
+      return {
+        payload: {
+          ...event.payload,
+          text: "SG остановил ответ без независимой смысловой проверки.",
+        },
+      };
+    }
+    return { payload: { ...event.payload, text: draft } };
   });
 }

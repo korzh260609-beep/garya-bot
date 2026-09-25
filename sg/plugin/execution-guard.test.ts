@@ -5,10 +5,17 @@ type Hook = (event: Record<string, unknown>, ctx: Record<string, unknown>) => un
 
 function setup() {
   const hooks = new Map<string, Hook>();
-  registerSgExecutionGuard({
-    on: (name: string, handler: Hook) => hooks.set(name, handler),
-    logger: { warn: vi.fn() },
-  } as never);
+  const complete = vi.fn(async () => ({
+    text: '{"verdict":"pass","violations":[],"reason":"Соответствует"}',
+  }));
+  registerSgExecutionGuard(
+    {
+      on: (name: string, handler: Hook) => hooks.set(name, handler),
+      logger: { warn: vi.fn() },
+      runtime: { llm: { complete } },
+    } as never,
+    async () => "1. Не выдумывать\n4. Отделять факты от предположений\n17. Проверять результат",
+  );
   const hook = (name: string) => {
     const handler = hooks.get(name);
     if (!handler) {
@@ -17,7 +24,7 @@ function setup() {
     return (event: Record<string, unknown>, ctx: Record<string, unknown>) =>
       Promise.resolve(handler(event, ctx));
   };
-  return { hook };
+  return { complete, hook };
 }
 
 const receipt = (overrides: Record<string, unknown> = {}) =>
@@ -76,7 +83,7 @@ describe("SG execution guard", () => {
   });
 
   it("accepts a verified action backed by a successful tool call", async () => {
-    const { hook } = setup();
+    const { complete, hook } = setup();
     await hook("before_agent_run")({ prompt: "Сделай задачу", messages: [] }, { runId: "r3" });
     await hook("before_tool_call")(
       { runId: "r3", toolCallId: "t1", toolName: "write", params: {} },
@@ -93,6 +100,61 @@ describe("SG execution guard", () => {
         { runId: "r3" },
       ),
     ).resolves.toBeUndefined();
+    expect(complete).toHaveBeenCalledOnce();
+  });
+
+  it("requests revision when the independent controller finds a semantic violation", async () => {
+    const { complete, hook } = setup();
+    complete.mockResolvedValueOnce({
+      text: JSON.stringify({
+        verdict: "revise",
+        violations: [{ rule: 4, reason: "Предположение выдано за факт" }],
+        reason: "Отделить предположение от подтверждённого факта",
+      }),
+    });
+    await hook("before_agent_run")({ prompt: "Ответь точно", messages: [] }, { runId: "r3-sem" });
+    const answer = receipt({ mode: "answer", toolsRequired: false, verification: "not-needed" });
+
+    await expect(
+      hook("before_agent_finalize")(
+        { runId: "r3-sem", sessionId: "s3-sem", lastAssistantMessage: answer },
+        { runId: "r3-sem" },
+      ),
+    ).resolves.toMatchObject({
+      action: "revise",
+      reason: expect.stringContaining("RULE_04"),
+    });
+  });
+
+  it("fails closed when the controller returns malformed output", async () => {
+    const { complete, hook } = setup();
+    complete.mockResolvedValueOnce({ text: "not json" });
+    await hook("before_agent_run")({ prompt: "Ответь", messages: [] }, { runId: "r3-bad" });
+    const answer = receipt({ mode: "answer", toolsRequired: false, verification: "not-needed" });
+
+    await expect(
+      hook("before_agent_finalize")(
+        { runId: "r3-bad", sessionId: "s3-bad", lastAssistantMessage: answer },
+        { runId: "r3-bad" },
+      ),
+    ).resolves.toMatchObject({ action: "revise" });
+  });
+
+  it("fails closed when the controller call throws", async () => {
+    const { complete, hook } = setup();
+    complete.mockRejectedValueOnce(new Error("controller unavailable"));
+    await hook("before_agent_run")({ prompt: "Ответь", messages: [] }, { runId: "r3-error" });
+    const answer = receipt({ mode: "answer", toolsRequired: false, verification: "not-needed" });
+
+    await expect(
+      hook("before_agent_finalize")(
+        { runId: "r3-error", sessionId: "s3-error", lastAssistantMessage: answer },
+        { runId: "r3-error" },
+      ),
+    ).resolves.toMatchObject({
+      action: "revise",
+      reason: expect.stringContaining("недоступен"),
+    });
   });
 
   it("rejects a false success after an unrecovered tool failure", async () => {
@@ -150,6 +212,40 @@ describe("SG execution guard", () => {
       payload: {
         text: expect.stringContaining("SG остановил непроверенный ответ"),
       },
+    });
+  });
+
+  it("blocks a technically valid reply that skipped semantic finalization", async () => {
+    const { hook } = setup();
+    await hook("before_agent_run")({ prompt: "Ответь", messages: [] }, { runId: "r7" });
+    const answer = receipt({ mode: "answer", toolsRequired: false, verification: "not-needed" });
+
+    await expect(
+      hook("reply_payload_sending")(
+        { kind: "final", runId: "r7", payload: { text: answer } },
+        { runId: "r7" },
+      ),
+    ).resolves.toEqual({
+      payload: { text: "SG остановил ответ без независимой смысловой проверки." },
+    });
+  });
+
+  it("blocks a delivered draft changed after semantic approval", async () => {
+    const { hook } = setup();
+    await hook("before_agent_run")({ prompt: "Ответь", messages: [] }, { runId: "r8" });
+    const answer = receipt({ mode: "answer", toolsRequired: false, verification: "not-needed" });
+    await hook("before_agent_finalize")(
+      { runId: "r8", sessionId: "s8", lastAssistantMessage: answer },
+      { runId: "r8" },
+    );
+
+    await expect(
+      hook("reply_payload_sending")(
+        { kind: "final", runId: "r8", payload: { text: `Изменено.\n${answer}` } },
+        { runId: "r8" },
+      ),
+    ).resolves.toEqual({
+      payload: { text: "SG остановил ответ без независимой смысловой проверки." },
     });
   });
 });

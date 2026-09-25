@@ -68,6 +68,7 @@ type WorkspacePluginApi = {
     state: {
       resolveStateDir(env?: NodeJS.ProcessEnv): string;
     };
+    llm: OpenClawPluginApi["runtime"]["llm"];
     channel?: Pick<OpenClawPluginApi["runtime"]["channel"], "outbound">;
   };
   registerInteractiveHandler?: OpenClawPluginApi["registerInteractiveHandler"];
@@ -217,7 +218,7 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
   wsp5Lifecycle.register(api);
   wsp6Lifecycle.register(api);
   registerSgBillingHooks({ api, stateDir });
-  registerSgExecutionGuard(api);
+  registerSgExecutionGuard(api, loadMandatoryRules);
   registerSgBillingCommands({ api, stateDir });
   registerSgBillingReconciliation({ api, stateDir });
 

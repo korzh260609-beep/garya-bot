@@ -116,6 +116,7 @@ async function createEntrypointHarness() {
   for (const file of [
     "index.ts",
     "register.ts",
+    "mandatory-rules.ts",
     "personal-memory-tools.ts",
     "resource-memory-tools.ts",
     "scoped-memory-entries.ts",

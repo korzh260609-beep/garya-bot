@@ -112,7 +112,7 @@ describe("SG 2.2 Render entrypoint", () => {
       '{"path":"agents.defaults.contextPruning.hardClear.enabled","value":true}',
     );
     expect(script).toContain(
-      "for plugin_file in index.ts register.ts personal-memory-tools.ts resource-memory-tools.ts scoped-memory-entries.ts cost-diagnostics.ts action-policy.ts render-tools.ts billing-tools.ts phase11-capability-tools.ts openclaw.plugin.json package.json",
+      "for plugin_file in index.ts register.ts mandatory-rules.ts personal-memory-tools.ts resource-memory-tools.ts scoped-memory-entries.ts cost-diagnostics.ts action-policy.ts render-tools.ts billing-tools.ts phase11-capability-tools.ts openclaw.plugin.json package.json",
     );
     expect(script).not.toContain("sg_project_memory_");
     expect(script).not.toContain("sg_project_handoff");

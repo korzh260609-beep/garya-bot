@@ -7,6 +7,7 @@ import { BILLING_TOOL_NAMES, createSgBillingTool } from "./billing-tools.js";
 import { SgContentRegistry } from "./content-registry.js";
 import { formatWorkspaceContext, resolveWorkspaceContext } from "./context.js";
 import { buildSgCostDiagnostic, type SgCostDiagnosticConfig } from "./cost-diagnostics.js";
+import { SG_MANDATORY_EXECUTION_RULES } from "./mandatory-rules.js";
 import { registerSgModelRouter } from "./model-router.js";
 import { createPersonalMemoryTools } from "./personal-memory-tools.js";
 import {
@@ -200,6 +201,7 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
       );
     }
     return {
+      appendSystemContext: SG_MANDATORY_EXECUTION_RULES,
       prependSystemContext: identityContext,
     };
   });

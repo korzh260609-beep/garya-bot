@@ -7,6 +7,7 @@ import {
   useNoBundledPlugins,
 } from "../../src/plugins/loader.test-fixtures.js";
 import { resolvePluginTools } from "../../src/plugins/tools.js";
+import { SG_MANDATORY_EXECUTION_RULES } from "./mandatory-rules.js";
 import { SgWorkspaceRegistry } from "./workspace-registry.js";
 
 const stateDir = process.argv[2];
@@ -196,6 +197,7 @@ console.log(
     ),
     onboardingGuidanceAbsent:
       !promptBuildResult?.prependSystemContext?.includes("sg_workspace_pending"),
+    mandatoryRulesInjected: promptBuildResult?.appendSystemContext === SG_MANDATORY_EXECUTION_RULES,
     onboardingToolsAbsentInModelSurface: !pluginTools.some((tool) =>
       ["sg_workspace_onboard", "sg_workspace_pending", "sg_workspace_decide"].includes(tool.name),
     ),

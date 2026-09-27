@@ -35,6 +35,7 @@ describe("SG Workspace Manager real loader and dispatch runner", () => {
       wsp6ToolsRegistered: true,
       phase11ToolsRegistered: true,
       onboardingGuidanceAbsent: true,
+      mandatoryRulesInjected: true,
       onboardingToolsAbsentInModelSurface: true,
       wsp5ToolsInModelSurface: true,
       wsp6ToolsInModelSurface: true,

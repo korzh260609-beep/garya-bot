@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { resolveSgCanonicalIdentity, resolveWorkspaceContext } from "./context.js";
+import { SG_MANDATORY_EXECUTION_RULES } from "./mandatory-rules.js";
 import { registerWorkspaceManager } from "./register.js";
 import { SgWorkspaceRegistry } from "./workspace-registry.js";
 
@@ -221,7 +222,7 @@ describe("SG Workspace Manager", () => {
     expect(on).not.toHaveBeenCalledWith("message_sent", expect.any(Function));
   });
 
-  it("injects only compact dynamic identity context", async () => {
+  it("injects the mandatory execution rules beside compact dynamic identity", async () => {
     const { root } = await stateDirWithProfiles();
     const hooks = new Map<string, (...args: unknown[]) => unknown>();
     registerWorkspaceManager({
@@ -234,15 +235,17 @@ describe("SG Workspace Manager", () => {
     const result = (await hooks.get("before_prompt_build")?.(
       {},
       { channel: "telegram", conversationId: "telegram:100", senderId: "100" },
-    )) as { prependSystemContext?: string };
+    )) as { appendSystemContext?: string; prependSystemContext?: string };
     expect(result.prependSystemContext).toContain("SG — identity and scope");
     expect(result.prependSystemContext).toContain("Роль SG: monarch");
     expect(result.prependSystemContext).not.toContain("SG execution guard");
     expect(result.prependSystemContext).not.toContain("sg_memory_");
     expect(result.prependSystemContext?.length).toBeLessThan(1_000);
+    expect(result.appendSystemContext).toBe(SG_MANDATORY_EXECUTION_RULES);
+    expect(result.appendSystemContext).not.toContain("SG execution guard");
   });
 
-  it("keeps admitted group prompts compact and identity-only", async () => {
+  it("keeps admitted group identity compact and applies the same mandatory rules", async () => {
     const { root } = await stateDirWithProfiles();
     const hooks = new Map<string, (...args: unknown[]) => unknown>();
     registerWorkspaceManager({
@@ -269,11 +272,31 @@ describe("SG Workspace Manager", () => {
         conversationId: "telegram:-100500",
         senderId: "200",
       },
-    )) as { prependSystemContext?: string };
+    )) as { appendSystemContext?: string; prependSystemContext?: string };
     expect(result.prependSystemContext).toContain("Роль SG: citizen");
     expect(result.prependSystemContext).not.toContain("sg_resource_memory_");
     expect(result.prependSystemContext).not.toContain("execution guard");
+    expect(result.appendSystemContext).toBe(SG_MANDATORY_EXECUTION_RULES);
   });
+
+  it.each(["cron", "heartbeat"])(
+    "injects all mandatory rules into a lightweight %s turn",
+    async (trigger) => {
+      const { root } = await stateDirWithProfiles();
+      const hooks = new Map<string, (...args: unknown[]) => unknown>();
+      registerWorkspaceManager({
+        registerCommand: vi.fn(),
+        registerTool: vi.fn(),
+        on: vi.fn((name, handler) => hooks.set(name, handler)),
+        runtime: { state: { resolveStateDir: () => root } },
+      });
+
+      const result = (await hooks.get("before_prompt_build")?.({}, { trigger })) as {
+        appendSystemContext?: string;
+      };
+      expect(result.appendSystemContext).toBe(SG_MANDATORY_EXECUTION_RULES);
+    },
+  );
 
   it("creates and attaches the citizen identity before an ordinary model call", async () => {
     const { root, target } = await stateDirWithProfiles();

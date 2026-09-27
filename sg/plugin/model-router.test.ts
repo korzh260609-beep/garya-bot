@@ -156,7 +156,7 @@ describe("SG model router", () => {
     );
   });
 
-  it("keeps one route for internal retries and reroutes the next Telegram message", async () => {
+  it("selects a route without keeping a parallel per-run routing state", async () => {
     const stateDir = await createStateDir();
     const { hook } = registerRouter(stateDir, "active");
     const session = {
@@ -175,7 +175,7 @@ describe("SG model router", () => {
     });
     await expect(hook({ prompt: analysis }, { ...session, runId: "turn-1" })).resolves.toEqual({
       providerOverride: "openai",
-      modelOverride: "gpt-5.6-luna",
+      modelOverride: "gpt-5.6-sol",
     });
     await expect(hook({ prompt: analysis }, { ...session, runId: "turn-2" })).resolves.toEqual({
       providerOverride: "openai",
@@ -208,104 +208,10 @@ describe("SG model router", () => {
     expect(logger.info).not.toHaveBeenCalledWith(expect.stringContaining("internal-review"));
   });
 
-  it("suppresses a false fallback notice for the hook-selected model but keeps a real fallback", async () => {
+  it("registers no model lifecycle or delivery hooks", async () => {
     const stateDir = await createStateDir();
-    const { hook, hooks } = registerRouter(stateDir, "active");
-    const session = {
-      channel: "telegram",
-      accountId: "default",
-      senderId: "100",
-      sessionKey: "agent:main:telegram:direct:100",
-      chatId: "telegram:100",
-      channelId: "100",
-      trigger: "user",
-    };
-    await hook({ prompt: "Сколько будет 2+2?" }, { ...session, runId: "turn-false" });
-    const started = hooks.get("model_call_started");
-    const ended = hooks.get("model_call_ended");
-    const sending = hooks.get("reply_payload_sending");
-    expect(started).toBeDefined();
-    expect(ended).toBeDefined();
-    expect(sending).toBeDefined();
-    await started?.(
-      {
-        runId: "turn-false",
-        callId: "call-1",
-        provider: "openai",
-        model: "gpt-5.6-luna",
-      },
-      { ...session, runId: "turn-false" },
-    );
-    await ended?.(
-      {
-        runId: "turn-false",
-        callId: "call-1",
-        provider: "openai",
-        model: "gpt-5.6-luna",
-        outcome: "completed",
-      },
-      { ...session, runId: "turn-false" },
-    );
-    expect(
-      sending?.(
-        {
-          kind: "final",
-          channel: "telegram",
-          payload: { text: "notice", isFallbackNotice: true },
-        },
-        {
-          channelId: "telegram",
-          accountId: "default",
-          conversationId: "100",
-        },
-      ),
-    ).toEqual({ cancel: true, reason: "sg-model-router-false-fallback-notice" });
-
-    await hook({ prompt: "Сколько будет 2+2?" }, { ...session, runId: "turn-real" });
-    await started?.(
-      {
-        runId: "turn-real",
-        callId: "call-2",
-        provider: "openai",
-        model: "gpt-5.6-luna",
-      },
-      { ...session, runId: "turn-real" },
-    );
-    await ended?.(
-      {
-        runId: "turn-real",
-        callId: "call-2",
-        provider: "openai",
-        model: "gpt-5.6-luna",
-        outcome: "error",
-      },
-      { ...session, runId: "turn-real" },
-    );
-    await started?.(
-      {
-        runId: "turn-real",
-        callId: "call-3",
-        provider: "openai",
-        model: "gpt-5.6-terra",
-      },
-      { ...session, runId: "turn-real" },
-    );
-    await ended?.(
-      {
-        runId: "turn-real",
-        callId: "call-3",
-        provider: "openai",
-        model: "gpt-5.6-terra",
-        outcome: "completed",
-      },
-      { ...session, runId: "turn-real" },
-    );
-    expect(
-      sending?.(
-        { kind: "final", runId: "turn-real", payload: { text: "notice", isFallbackNotice: true } },
-        { ...session, runId: "turn-real" },
-      ),
-    ).toBeUndefined();
+    const { hooks } = registerRouter(stateDir, "active");
+    expect([...hooks.keys()]).toEqual(["before_model_resolve"]);
   });
 
   it("retains the current model on missing identity or invalid persisted state", async () => {

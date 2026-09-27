@@ -1,35 +1,19 @@
-import { readFile } from "node:fs/promises";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
 import { registerSgBillingCommands } from "./billing-commands.js";
 import { registerSgBillingHooks } from "./billing-hooks.js";
 import { registerSgBillingReconciliation } from "./billing-reconciliation-lifecycle.js";
-import {
-  BILLING_AGENT_GUIDANCE,
-  BILLING_TOOL_NAMES,
-  createSgBillingTool,
-} from "./billing-tools.js";
+import { BILLING_TOOL_NAMES, createSgBillingTool } from "./billing-tools.js";
 import { SgContentRegistry } from "./content-registry.js";
-import { SgContextDiagnostics, type SgContextDiagnosticCommand } from "./context-diagnostics.js";
 import { formatWorkspaceContext, resolveWorkspaceContext } from "./context.js";
 import { buildSgCostDiagnostic, type SgCostDiagnosticConfig } from "./cost-diagnostics.js";
-import { registerSgExecutionGuard, SG_EXECUTION_GUARD_GUIDANCE } from "./execution-guard.js";
 import { registerSgModelRouter } from "./model-router.js";
-import { SgTurnCorrelationRegistry } from "./turn-correlation.js";
-import {
-  createPersonalMemoryTools,
-  PERSONAL_MEMORY_AGENT_GUIDANCE,
-} from "./personal-memory-tools.js";
+import { createPersonalMemoryTools } from "./personal-memory-tools.js";
 import {
   createPhase11CapabilityTools,
-  PHASE11_CAPABILITY_AGENT_GUIDANCE,
   PHASE11_CAPABILITY_TOOL_NAMES,
 } from "./phase11-capability-tools.js";
 import { createSgRenderTool } from "./render-tools.js";
-import {
-  createResourceMemoryTools,
-  RESOURCE_MEMORY_AGENT_GUIDANCE,
-  RESOURCE_MEMORY_TOOL_NAMES,
-} from "./resource-memory-tools.js";
+import { createResourceMemoryTools, RESOURCE_MEMORY_TOOL_NAMES } from "./resource-memory-tools.js";
 import {
   canonicalWorkspaceResourceId,
   formatWorkspaceResolution,
@@ -37,12 +21,12 @@ import {
 } from "./workspace-registry.js";
 import { buildWsp5Diagnostic } from "./wsp5-diagnostics.js";
 import { Wsp5NativeLifecycle } from "./wsp5-lifecycle.js";
-import { createWsp5Tools, WSP5_AGENT_GUIDANCE } from "./wsp5-tools.js";
+import { createWsp5Tools } from "./wsp5-tools.js";
 import { openSgAssessmentStores, SgAssessmentRegistry } from "./wsp6-assessments.js";
 import { buildWsp6Diagnostic } from "./wsp6-diagnostics.js";
 import { Wsp6InteractiveController } from "./wsp6-interactive.js";
 import { Wsp6NativeLifecycle } from "./wsp6-lifecycle.js";
-import { createWsp6Tools, WSP6_AGENT_GUIDANCE } from "./wsp6-tools.js";
+import { createWsp6Tools } from "./wsp6-tools.js";
 
 type CommandContext = {
   channel: string;
@@ -53,9 +37,7 @@ type CommandContext = {
   agentId?: string;
   sessionKey?: string;
   sessionId?: string;
-  sessionTarget?: SgContextDiagnosticCommand["sessionTarget"];
   args?: string;
-  runtimeContext?: SgContextDiagnosticCommand["runtimeContext"];
   threadParentId?: string;
   messageThreadId?: string | number;
   senderId?: string;
@@ -104,35 +86,6 @@ const PERSONAL_MEMORY_TOOL_NAMES = [
   "sg_memory_reindex",
 ] as const;
 
-const MANDATORY_RULES_START = "<!-- SG_MANDATORY_EXECUTION_RULES_START -->";
-const MANDATORY_RULES_END = "<!-- SG_MANDATORY_EXECUTION_RULES_END -->";
-let mandatoryRulesPromise: Promise<string> | undefined;
-
-function extractMandatoryRules(source: string): string {
-  const start = source.indexOf(MANDATORY_RULES_START);
-  const end = source.indexOf(MANDATORY_RULES_END);
-  const duplicateStart = source.indexOf(
-    MANDATORY_RULES_START,
-    start + MANDATORY_RULES_START.length,
-  );
-  const duplicateEnd = source.indexOf(MANDATORY_RULES_END, end + MANDATORY_RULES_END.length);
-  if (start < 0 || end < 0 || end <= start || duplicateStart >= 0 || duplicateEnd >= 0) {
-    throw new Error("SG mandatory execution rules are missing or malformed");
-  }
-  const rules = source.slice(start + MANDATORY_RULES_START.length, end).trim();
-  if (!rules) {
-    throw new Error("SG mandatory execution rules are empty");
-  }
-  return rules;
-}
-
-function loadMandatoryRules(): Promise<string> {
-  mandatoryRulesPromise ??= readFile(
-    new URL("../workspace/AGENTS.md", import.meta.url),
-    "utf8",
-  ).then(extractMandatoryRules);
-  return mandatoryRulesPromise;
-}
 const RENDER_TOOL_NAMES = ["sg_render"] as const;
 
 export function registerWorkspaceManager(api: WorkspacePluginApi): void {
@@ -165,9 +118,6 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
       })
     : undefined;
   wsp6Interactive?.register();
-  const contextDiagnostics = new SgContextDiagnostics(stateDir, api);
-  contextDiagnostics.register();
-
   const resolveDiagnosticContext = async (ctx: CommandContext) => {
     const actor = await resolveWorkspaceContext(
       {
@@ -219,16 +169,12 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
   });
   wsp5Lifecycle.register(api);
   wsp6Lifecycle.register(api);
-  const turnCorrelation = new SgTurnCorrelationRegistry();
-  registerSgBillingHooks({ api, stateDir, turnCorrelation });
-  registerSgExecutionGuard(api, loadMandatoryRules, turnCorrelation);
+  registerSgBillingHooks({ api, stateDir });
   registerSgBillingCommands({ api, stateDir });
-  registerSgModelRouter({ api, stateDir, turnCorrelation });
+  registerSgModelRouter({ api, stateDir });
   registerSgBillingReconciliation({ api, stateDir });
 
   api.on("before_prompt_build", async (_event, ctx) => {
-    const mandatoryRules = await loadMandatoryRules();
-    let resourceMemoryGuidance = "";
     let identityContext = [
       "SG — identity and scope",
       "Global ID: не найден",
@@ -246,23 +192,13 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
         stateDir,
       );
       identityContext = formatWorkspaceContext(identity);
-      if (ctx.channel && ctx.conversationId) {
-        const scope = await registry.resolve({
-          platform: ctx.channel,
-          accountId: ctx.accountId,
-          resourceId: canonicalWorkspaceResourceId(ctx.channel, ctx.conversationId),
-        });
-        if (scope) {
-          resourceMemoryGuidance = `\n${RESOURCE_MEMORY_AGENT_GUIDANCE}`;
-        }
-      }
     } catch (error) {
       api.logger?.warn(
         `[sg-workspace] identity resolution failed safely: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
     return {
-      prependSystemContext: `${identityContext}\n\n${mandatoryRules}\n\n${SG_EXECUTION_GUARD_GUIDANCE}\n\n${PERSONAL_MEMORY_AGENT_GUIDANCE}${resourceMemoryGuidance}\n${BILLING_AGENT_GUIDANCE}\n${PHASE11_CAPABILITY_AGENT_GUIDANCE}\n${WSP5_AGENT_GUIDANCE}\n${WSP6_AGENT_GUIDANCE}`,
+      prependSystemContext: identityContext,
     };
   });
 
@@ -377,28 +313,6 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
           registeredToolNames: WSP6_TOOL_NAMES,
         }),
       };
-    },
-  });
-  api.registerCommand({
-    name: "sg_context_diag",
-    description: "Проверить контекст, инструменты и compaction SG",
-    acceptsArgs: true,
-    requireAuth: false,
-    handler: async (ctx) => {
-      const actor = await resolveWorkspaceContext(
-        {
-          channel: ctx.channel,
-          accountId: ctx.accountId,
-          to: ctx.to,
-          senderId: ctx.senderId,
-          identityLinks: ctx.config.session?.identityLinks,
-        },
-        stateDir,
-      );
-      if (actor.projectRole !== "monarch" || !actor.globalId) {
-        return { text: "SG CONTEXT DIAG — доступ разрешён только монарху" };
-      }
-      return { text: await contextDiagnostics.report(ctx) };
     },
   });
   api.registerCommand({

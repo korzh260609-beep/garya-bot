@@ -2,7 +2,6 @@ import path from "node:path";
 import { withFileLock } from "openclaw/plugin-sdk/file-lock";
 import { readJsonFileWithFallback, writeJsonFileAtomically } from "openclaw/plugin-sdk/json-store";
 import { resolveWorkspaceContext } from "./context.js";
-import { SgTurnCorrelationRegistry } from "./turn-correlation.js";
 
 export type SgModelMode = "auto" | "cheap" | "medium" | "expensive";
 export type SgModelTier = Exclude<SgModelMode, "auto">;
@@ -60,30 +59,6 @@ type RouterApi = {
       ctx: RouterModelResolveContext,
     ) => Promise<RouterModelResolveResult | undefined> | RouterModelResolveResult | undefined,
   ): void;
-  on(
-    hookName: "model_call_started",
-    handler: (
-      event: RouterModelCallStartedEvent,
-      ctx: RouterModelResolveContext,
-    ) => Promise<void> | void,
-  ): void;
-  on(
-    hookName: "model_call_ended",
-    handler: (
-      event: RouterModelCallEndedEvent,
-      ctx: RouterModelResolveContext,
-    ) => Promise<void> | void,
-  ): void;
-  on(
-    hookName: "reply_payload_sending",
-    handler: (
-      event: RouterReplyPayloadSendingEvent,
-      ctx: RouterModelResolveContext,
-    ) =>
-      | Promise<RouterReplyPayloadSendingResult | undefined>
-      | RouterReplyPayloadSendingResult
-      | undefined,
-  ): void;
   registerCommand(command: RouterCommand): void;
   logger?: { info(message: string): void; warn(message: string): void };
 };
@@ -117,27 +92,6 @@ type RouterModelResolveResult = {
   providerOverride?: string;
   modelOverride?: string;
 };
-
-type RouterModelCallStartedEvent = {
-  runId: string;
-  callId: string;
-  provider: string;
-  model: string;
-};
-
-type RouterModelCallEndedEvent = RouterModelCallStartedEvent & {
-  outcome: "completed" | "error";
-};
-
-type RouterReplyPayloadSendingEvent = {
-  kind: string;
-  channel?: string;
-  sessionKey?: string;
-  runId?: string;
-  payload: { isFallbackNotice?: boolean };
-};
-
-type RouterReplyPayloadSendingResult = { cancel: true; reason: string };
 
 const ROUTES: readonly SgModelRoute[] = [
   {
@@ -388,38 +342,11 @@ export function registerSgModelRouter(params: {
   stateDir: string;
   env?: NodeJS.ProcessEnv;
   registry?: SgModelRegistry;
-  turnCorrelation?: SgTurnCorrelationRegistry;
 }): void {
   const { api, stateDir } = params;
   const activation = resolveSgModelRouterActivation(params.env);
   const registry = params.registry ?? new SgModelRegistry();
-  const turnCorrelation = params.turnCorrelation ?? new SgTurnCorrelationRegistry();
   const preferences = new SgModelPreferenceRegistry(stateDir);
-  type RunRoute = {
-    mode: SgModelMode;
-    tier: SgModelTier;
-    route: SgModelRoute;
-    selectedModelObserved: boolean;
-    differentModelObserved: boolean;
-  };
-  const runRoutes = new Map<string, RunRoute>();
-  const rememberRunRoute = (
-    runId: string,
-    decision: Omit<RunRoute, "selectedModelObserved" | "differentModelObserved">,
-  ) => {
-    runRoutes.set(runId, {
-      ...decision,
-      selectedModelObserved: false,
-      differentModelObserved: false,
-    });
-    while (runRoutes.size > 512) {
-      const oldest = runRoutes.keys().next().value as string | undefined;
-      if (!oldest) {
-        break;
-      }
-      runRoutes.delete(oldest);
-    }
-  };
 
   api.registerCommand({
     name: "sg_model",
@@ -469,15 +396,6 @@ export function registerSgModelRouter(params: {
       );
       return;
     }
-    const cached = ctx.runId ? runRoutes.get(ctx.runId) : undefined;
-    if (cached) {
-      api.logger?.info(
-        `[sg-model-router] decision=${activation === "active" ? "reuse" : "shadow-reuse"} mode=${cached.mode} tier=${cached.tier} route=${cached.route.provider}/${cached.route.model} reason=user-turn-route-locked`,
-      );
-      return activation === "active"
-        ? { providerOverride: cached.route.provider, modelOverride: cached.route.model }
-        : undefined;
-    }
     const channel = ctx.channel ?? ctx.messageProvider;
     if (!channel || !ctx.senderId) {
       api.logger?.warn("[sg-model-router] decision=retain reason=trusted-identity-missing");
@@ -519,15 +437,6 @@ export function registerSgModelRouter(params: {
       api.logger?.info(
         `[sg-model-router] decision=${activation === "active" ? "override" : "shadow"} mode=${mode} tier=${tier} route=${route.provider}/${route.model} reasons=${assessment.reasons.join(",")}`,
       );
-      if (ctx.runId) {
-        rememberRunRoute(ctx.runId, { mode, tier, route });
-        turnCorrelation.remember({
-          ...ctx,
-          runId: ctx.runId,
-          selectedProvider: route.provider,
-          selectedModel: route.model,
-        });
-      }
       if (activation !== "active") {
         return;
       }
@@ -537,44 +446,5 @@ export function registerSgModelRouter(params: {
         `[sg-model-router] decision=retain reason=router-error error=${error instanceof Error ? error.message : String(error)}`,
       );
     }
-  });
-
-  api.on("model_call_started", (event) => {
-    const decision = runRoutes.get(event.runId);
-    if (decision) {
-      const matchesSelected =
-        event.provider === decision.route.provider && event.model === decision.route.model;
-      decision.selectedModelObserved ||= matchesSelected;
-      decision.differentModelObserved ||= !matchesSelected;
-    }
-    turnCorrelation.noteModelCall(event.runId, event.provider, event.model);
-  });
-
-  api.on("model_call_ended", (event) => {
-    turnCorrelation.noteModelCallEnded(
-      event.runId,
-      event.provider,
-      event.model,
-      event.outcome,
-    );
-  });
-
-  api.on("reply_payload_sending", (event, ctx) => {
-    if (event.kind !== "final" || event.payload.isFallbackNotice !== true) {
-      return;
-    }
-    const turn = turnCorrelation.resolve({
-      ...ctx,
-      channel: event.channel ?? ctx.channel,
-      sessionKey: event.sessionKey ?? ctx.sessionKey,
-      runId: event.runId ?? ctx.runId,
-    });
-    if (!turn || !turnCorrelation.shouldSuppressFalseFallback(turn.runId)) {
-      return;
-    }
-    api.logger?.info(
-      `[sg-model-router] decision=suppress-false-fallback route=${turn.selectedProvider}/${turn.selectedModel}`,
-    );
-    return { cancel: true, reason: "sg-model-router-false-fallback-notice" };
   });
 }

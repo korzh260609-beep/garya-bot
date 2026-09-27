@@ -179,7 +179,6 @@ describe("SG Workspace Manager", () => {
       "sg_workspace",
       "sg_wsp5_diag",
       "sg_wsp6_diag",
-      "sg_context_diag",
       "sg_cost_diag",
     ]);
     const toolNames = registerTool.mock.calls.flatMap((call) => call[1]?.names ?? []);
@@ -217,11 +216,12 @@ describe("SG Workspace Manager", () => {
     });
     expect(on).toHaveBeenCalledWith("before_dispatch", expect.any(Function));
     expect(on).toHaveBeenCalledWith("before_model_resolve", expect.any(Function));
-    expect(on).toHaveBeenCalledWith("before_agent_finalize", expect.any(Function));
-    expect(on).toHaveBeenCalledWith("reply_payload_sending", expect.any(Function));
+    expect(on).not.toHaveBeenCalledWith("before_agent_finalize", expect.any(Function));
+    expect(on).not.toHaveBeenCalledWith("reply_payload_sending", expect.any(Function));
+    expect(on).not.toHaveBeenCalledWith("message_sent", expect.any(Function));
   });
 
-  it("injects identity plus WSP5/WSP6 guidance without onboarding guidance", async () => {
+  it("injects only compact dynamic identity context", async () => {
     const { root } = await stateDirWithProfiles();
     const hooks = new Map<string, (...args: unknown[]) => unknown>();
     registerWorkspaceManager({
@@ -235,26 +235,14 @@ describe("SG Workspace Manager", () => {
       {},
       { channel: "telegram", conversationId: "telegram:100", senderId: "100" },
     )) as { prependSystemContext?: string };
-    const agents = await readFile("sg/workspace/AGENTS.md", "utf8");
-    const mandatoryRules = agents
-      .split("<!-- SG_MANDATORY_EXECUTION_RULES_START -->")[1]
-      ?.split("<!-- SG_MANDATORY_EXECUTION_RULES_END -->")[0]
-      ?.trim();
-    expect(mandatoryRules).toBeTruthy();
-    expect(result.prependSystemContext).toContain(mandatoryRules);
-    expect(result.prependSystemContext).toContain("SG execution guard (mandatory)");
+    expect(result.prependSystemContext).toContain("SG — identity and scope");
     expect(result.prependSystemContext).toContain("Роль SG: monarch");
-    expect(result.prependSystemContext).toContain("sg_memory_search");
-    expect(result.prependSystemContext).not.toContain("sg_resource_memory_search");
-    expect(result.prependSystemContext).toContain("штатным automations");
-    expect(result.prependSystemContext).toContain("обычные опросы отправляй штатным message");
-    expect(result.prependSystemContext).toContain("Понимай намерение пользователя семантически");
-    expect(result.prependSystemContext).toContain("не используй сопоставление по ключевым словам");
-    expect(result.prependSystemContext).toContain("Не предлагай пользователю запоминать");
-    expect(result.prependSystemContext).not.toMatch(/sg_workspace_(?:onboard|pending|decide)/u);
+    expect(result.prependSystemContext).not.toContain("SG execution guard");
+    expect(result.prependSystemContext).not.toContain("sg_memory_");
+    expect(result.prependSystemContext?.length).toBeLessThan(1_000);
   });
 
-  it("injects resource memory guidance only after native group admission", async () => {
+  it("keeps admitted group prompts compact and identity-only", async () => {
     const { root } = await stateDirWithProfiles();
     const hooks = new Map<string, (...args: unknown[]) => unknown>();
     registerWorkspaceManager({
@@ -282,8 +270,9 @@ describe("SG Workspace Manager", () => {
         senderId: "200",
       },
     )) as { prependSystemContext?: string };
-    expect(result.prependSystemContext).toContain("sg_resource_memory_search");
-    expect(result.prependSystemContext).toContain("текущей группы");
+    expect(result.prependSystemContext).toContain("Роль SG: citizen");
+    expect(result.prependSystemContext).not.toContain("sg_resource_memory_");
+    expect(result.prependSystemContext).not.toContain("execution guard");
   });
 
   it("creates and attaches the citizen identity before an ordinary model call", async () => {

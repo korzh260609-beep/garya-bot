@@ -218,8 +218,41 @@ describe("SG Workspace Manager", () => {
     expect(on).toHaveBeenCalledWith("before_dispatch", expect.any(Function));
     expect(on).toHaveBeenCalledWith("before_model_resolve", expect.any(Function));
     expect(on).not.toHaveBeenCalledWith("before_agent_finalize", expect.any(Function));
-    expect(on).not.toHaveBeenCalledWith("reply_payload_sending", expect.any(Function));
+    expect(on).toHaveBeenCalledWith("reply_payload_sending", expect.any(Function));
     expect(on).not.toHaveBeenCalledWith("message_sent", expect.any(Function));
+  });
+
+  it("hides only native fallback notices from chat delivery", async () => {
+    const { root } = await stateDirWithProfiles();
+    const hooks = new Map<string, (...args: unknown[]) => unknown>();
+    registerWorkspaceManager({
+      registerCommand: vi.fn(),
+      registerTool: vi.fn(),
+      on: vi.fn((name, handler) => hooks.set(name, handler)),
+      runtime: { state: { resolveStateDir: () => root } },
+    });
+
+    const hook = hooks.get("reply_payload_sending");
+    expect(hook).toBeDefined();
+    expect(
+      hook?.(
+        {
+          payload: {
+            text: "Служебное уведомление",
+            isFallbackNotice: true,
+          },
+          kind: "final",
+        },
+        {},
+      ),
+    ).toEqual({ cancel: true, reason: "sg-fallback-notice-hidden" });
+    expect(hook?.({ payload: { text: "Обычный ответ" }, kind: "final" }, {})).toBeUndefined();
+    expect(
+      hook?.({ payload: { text: "Model Fallback — это просто текст" }, kind: "final" }, {}),
+    ).toBeUndefined();
+    expect(
+      hook?.({ payload: { text: "Модель не ответила", isError: true }, kind: "final" }, {}),
+    ).toBeUndefined();
   });
 
   it("injects the mandatory execution rules beside compact dynamic identity", async () => {

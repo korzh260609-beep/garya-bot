@@ -20,6 +20,33 @@ describe("SG 2.2 Render entrypoint", () => {
     expect(source).toContain('messages.visibleReplies\\\",\\\"value\\\":\\\"automatic');
     expect(source).toContain('messages.groupChat.visibleReplies\\\",\\\"value\\\":\\\"automatic');
   });
+
+  it("shows only the compact actual-model label in the native usage footer", async () => {
+    const script = await readFile(
+      new URL("../../scripts/sg22-render-entrypoint.sh", import.meta.url),
+      "utf8",
+    );
+
+    expect(readShellJson(script, "model_usage_template")).toEqual({
+      schema: "openclaw.usageBar.v1",
+      aliases: {
+        models: {
+          "gpt-5.6-luna": "Luna 5.6",
+          "gpt-5.6-terra": "Terra 5.6",
+          "gpt-5.6-sol": "Sol 5.6",
+        },
+      },
+      output: {
+        sep: "",
+        default: [{ text: "{model.display_name|alias:models}" }],
+      },
+    });
+    expect(script).toContain('{"path":"messages.responseUsage","value":"full"}');
+    expect(script).toContain(
+      '{"path":"messages.usageTemplate","value":\'"${model_usage_template}"\'}',
+    );
+  });
+
   it("uses Terra as the declared and runtime fallback primary model", async () => {
     const [script, blueprint] = await Promise.all([
       readFile(new URL("../../scripts/sg22-render-entrypoint.sh", import.meta.url), "utf8"),

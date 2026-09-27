@@ -177,6 +177,13 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
   registerSgModelRouter({ api, stateDir });
   registerSgBillingReconciliation({ api, stateDir });
 
+  // Fallback diagnostics stay in OpenClaw state/logs; SG chat shows only the answer footer.
+  api.on("reply_payload_sending", (event) =>
+    event.payload.isFallbackNotice === true
+      ? { cancel: true, reason: "sg-fallback-notice-hidden" }
+      : undefined,
+  );
+
   api.on("before_prompt_build", async (_event, ctx) => {
     let identityContext = [
       "SG — identity and scope",

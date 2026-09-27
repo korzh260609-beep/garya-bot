@@ -216,12 +216,16 @@ describe("SG model router", () => {
       accountId: "default",
       senderId: "100",
       sessionKey: "agent:main:telegram:direct:100",
+      chatId: "telegram:100",
+      channelId: "100",
       trigger: "user",
     };
     await hook({ prompt: "Сколько будет 2+2?" }, { ...session, runId: "turn-false" });
     const started = hooks.get("model_call_started");
+    const ended = hooks.get("model_call_ended");
     const sending = hooks.get("reply_payload_sending");
     expect(started).toBeDefined();
+    expect(ended).toBeDefined();
     expect(sending).toBeDefined();
     await started?.(
       {
@@ -232,6 +236,16 @@ describe("SG model router", () => {
       },
       { ...session, runId: "turn-false" },
     );
+    await ended?.(
+      {
+        runId: "turn-false",
+        callId: "call-1",
+        provider: "openai",
+        model: "gpt-5.6-luna",
+        outcome: "completed",
+      },
+      { ...session, runId: "turn-false" },
+    );
     expect(
       sending?.(
         {
@@ -239,7 +253,11 @@ describe("SG model router", () => {
           channel: "telegram",
           payload: { text: "notice", isFallbackNotice: true },
         },
-        { ...session, runId: undefined },
+        {
+          channelId: "telegram",
+          accountId: "default",
+          conversationId: "100",
+        },
       ),
     ).toEqual({ cancel: true, reason: "sg-model-router-false-fallback-notice" });
 
@@ -249,7 +267,36 @@ describe("SG model router", () => {
         runId: "turn-real",
         callId: "call-2",
         provider: "openai",
+        model: "gpt-5.6-luna",
+      },
+      { ...session, runId: "turn-real" },
+    );
+    await ended?.(
+      {
+        runId: "turn-real",
+        callId: "call-2",
+        provider: "openai",
+        model: "gpt-5.6-luna",
+        outcome: "error",
+      },
+      { ...session, runId: "turn-real" },
+    );
+    await started?.(
+      {
+        runId: "turn-real",
+        callId: "call-3",
+        provider: "openai",
         model: "gpt-5.6-terra",
+      },
+      { ...session, runId: "turn-real" },
+    );
+    await ended?.(
+      {
+        runId: "turn-real",
+        callId: "call-3",
+        provider: "openai",
+        model: "gpt-5.6-terra",
+        outcome: "completed",
       },
       { ...session, runId: "turn-real" },
     );

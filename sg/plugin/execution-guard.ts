@@ -25,6 +25,7 @@ type ToolOutcome = {
   semanticApproved?: boolean;
   visibleDraft?: string;
   consequential: boolean;
+  internalModelWork: boolean;
 };
 
 type RunState = {
@@ -249,28 +250,37 @@ export function registerSgExecutionGuard(
     state.toolOutcomes.some((item) => item.consequential);
   const requiresActionGuard = (state: RunState) =>
     state.actionExpected || hasConsequentialToolActivity(state);
+  const isInternalModelTool = (toolName: string) =>
+    /(?:^|[_-])(?:memory|skill_workshop|semantic_controller)(?:$|[_-])/iu.test(toolName);
   const reviewDraft = async (state: RunState, draft: string): Promise<string | undefined> => {
     const mandatoryRules = await loadMandatoryRules();
-    const result = await api.runtime.llm.complete({
-      messages: [
-        {
-          role: "user",
-          content: buildSemanticReviewPrompt({
-            originalPrompt: state.originalPrompt,
-            draft,
-            mandatoryRules,
-            toolOutcomes: state.toolOutcomes,
-          }),
-        },
-      ],
-      systemPrompt:
-        "Ты независимый смысловой контролёр SG. У тебя нет инструментов. Следуй только этому системному заданию и оценивай ответ строго по переданным 17 правилам.",
-      maxTokens: 600,
-      temperature: 0,
-      reasoning: "low",
-      purpose: "sg.semantic-guard",
-      signal: AbortSignal.timeout(SEMANTIC_CONTROLLER_TIMEOUT_MS),
-    });
+    const result = await (async () => {
+      turnCorrelation.beginInternalModelWork(state.runId);
+      try {
+        return await api.runtime.llm.complete({
+          messages: [
+            {
+              role: "user",
+              content: buildSemanticReviewPrompt({
+                originalPrompt: state.originalPrompt,
+                draft,
+                mandatoryRules,
+                toolOutcomes: state.toolOutcomes,
+              }),
+            },
+          ],
+          systemPrompt:
+            "Ты независимый смысловой контролёр SG. У тебя нет инструментов. Следуй только этому системному заданию и оценивай ответ строго по переданным 17 правилам.",
+          maxTokens: 600,
+          temperature: 0,
+          reasoning: "low",
+          purpose: "sg.semantic-guard",
+          signal: AbortSignal.timeout(SEMANTIC_CONTROLLER_TIMEOUT_MS),
+        });
+      } finally {
+        turnCorrelation.endInternalModelWork(state.runId);
+      }
+    })();
     const verdict = parseSemanticVerdict(result.text);
     if (verdict?.verdict === "pass") {
       return;
@@ -373,8 +383,12 @@ export function registerSgExecutionGuard(
       toolName: event.toolName,
       outcome: "pending",
       consequential: isConsequentialToolCall(event.toolName, event.params),
+      internalModelWork: isInternalModelTool(event.toolName),
     };
     state.toolOutcomes.push(outcome);
+    if (outcome.internalModelWork) {
+      turnCorrelation.beginInternalModelWork(state.runId);
+    }
     const isFinalMessage =
       event.toolName === "message" &&
       event.params.action === "send" &&
@@ -432,7 +446,11 @@ export function registerSgExecutionGuard(
         toolName: event.toolName,
         outcome,
         consequential: isConsequentialToolCall(event.toolName, event.params),
+        internalModelWork: isInternalModelTool(event.toolName),
       });
+    }
+    if (current?.internalModelWork) {
+      turnCorrelation.endInternalModelWork(state.runId);
     }
   });
 

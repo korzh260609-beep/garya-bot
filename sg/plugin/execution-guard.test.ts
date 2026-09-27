@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { registerSgExecutionGuard } from "./execution-guard.js";
+import { SgTurnCorrelationRegistry } from "./turn-correlation.js";
 
 type Hook = (event: Record<string, unknown>, ctx: Record<string, unknown>) => unknown;
 
@@ -8,6 +9,7 @@ function setup() {
   const complete = vi.fn(async () => ({
     text: '{"verdict":"pass","violations":[],"reason":"Соответствует"}',
   }));
+  const turnCorrelation = new SgTurnCorrelationRegistry();
   registerSgExecutionGuard(
     {
       on: (name: string, handler: Hook) => hooks.set(name, handler),
@@ -15,6 +17,7 @@ function setup() {
       runtime: { llm: { complete } },
     } as never,
     async () => "1. Не выдумывать\n4. Отделять факты от предположений\n17. Проверять результат",
+    turnCorrelation,
   );
   const hook = (name: string) => {
     const handler = hooks.get(name);
@@ -24,7 +27,7 @@ function setup() {
     return (event: Record<string, unknown>, ctx: Record<string, unknown>) =>
       Promise.resolve(handler(event, ctx));
   };
-  return { complete, hook };
+  return { complete, hook, turnCorrelation };
 }
 
 const receipt = (overrides: Record<string, unknown> = {}) =>
@@ -533,7 +536,7 @@ describe("SG execution guard", () => {
     expect(complete).not.toHaveBeenCalled();
   });
 
-  it.each(["telegram", "discord"])(
+  it.each(["telegram", "discord", "matrix"])(
     "correlates %s delivery without runId and allows one final answer",
     async (channel) => {
       const { hook } = setup();
@@ -546,12 +549,19 @@ describe("SG execution guard", () => {
           trigger: "user",
           channel,
           accountId: "default",
-          chatId: conversationId,
+          chatId: `${channel}:${conversationId}`,
+          channelId: conversationId,
         },
       );
       await hook("before_agent_finalize")(
         { runId, sessionId: `${channel}-session`, lastAssistantMessage: "4" },
-        { runId, channel, accountId: "default", chatId: conversationId },
+        {
+          runId,
+          channel,
+          accountId: "default",
+          chatId: `${channel}:${conversationId}`,
+          channelId: conversationId,
+        },
       );
 
       const event = { kind: "final", channel, payload: { text: "4" } };
@@ -565,5 +575,43 @@ describe("SG execution guard", () => {
       });
     },
   );
+
+  it("keeps controller and memory model work outside the user model correlation", async () => {
+    const { hook, turnCorrelation } = setup();
+    const runId = "internal-model-work";
+    await hook("before_agent_run")(
+      { prompt: "Сделай изменение", messages: [] },
+      {
+        runId,
+        trigger: "user",
+        channel: "telegram",
+        accountId: "default",
+        chatId: "42",
+      },
+    );
+    await hook("before_tool_call")(
+      { runId, toolCallId: "memory-1", toolName: "memory_search", params: {} },
+      { runId },
+    );
+    expect(turnCorrelation.get(runId)?.internalModelDepth).toBe(1);
+    await hook("after_tool_call")(
+      {
+        runId,
+        toolCallId: "memory-1",
+        toolName: "memory_search",
+        params: {},
+        result: "ok",
+      },
+      { runId },
+    );
+    expect(turnCorrelation.get(runId)?.internalModelDepth).toBe(0);
+
+    await recordSuccessfulAction(hook, runId);
+    await hook("before_agent_finalize")(
+      { runId, sessionId: "internal-model-session", lastAssistantMessage: receipt() },
+      { runId },
+    );
+    expect(turnCorrelation.get(runId)?.internalModelDepth).toBe(0);
+  });
 
 });

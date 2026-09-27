@@ -6,7 +6,7 @@ import {
 } from "./turn-correlation.js";
 
 describe("SG turn correlation", () => {
-  it.each(["telegram", "discord"])(
+  it.each(["telegram", "discord", "matrix"])(
     "recovers a %s turn for delivery without runId or sessionKey",
     (channel) => {
       const registry = new SgTurnCorrelationRegistry();
@@ -14,13 +14,14 @@ describe("SG turn correlation", () => {
         runId: `${channel}-turn`,
         channel,
         accountId: "default",
-        chatId: "conversation-1",
+        chatId: `${channel}:conversation-1`,
+        channelId: "conversation-1",
         selectedProvider: "openai",
         selectedModel: "gpt-5.6-luna",
       });
       registry.noteModelCall(`${channel}-turn`, "openai", "gpt-5.6-luna");
       expect(
-        registry.resolve({ channel, accountId: "default", conversationId: "conversation-1" }),
+        registry.resolve({ channelId: channel, accountId: "default", conversationId: "conversation-1" }),
       ).toMatchObject({
         runId: `${channel}-turn`,
         selectedModelObserved: true,
@@ -53,11 +54,23 @@ describe("SG turn correlation", () => {
       selectedProvider: "openai",
       selectedModel: "gpt-5.6-luna",
     });
-    registry.noteModelCall("turn-real-fallback", "openai", "gpt-5.6-terra");
+    registry.noteModelCallEnded(
+      "turn-real-fallback",
+      "openai",
+      "gpt-5.6-luna",
+      "error",
+    );
+    registry.noteModelCallEnded(
+      "turn-real-fallback",
+      "openai",
+      "gpt-5.6-terra",
+      "completed",
+    );
     expect(registry.get("turn-real-fallback")).toMatchObject({
-      selectedModelObserved: false,
-      differentModelObserved: true,
+      selectedModelSucceeded: false,
+      differentModelSucceeded: true,
     });
+    expect(registry.shouldSuppressFalseFallback("turn-real-fallback")).toBe(false);
   });
 
   it("uses channel, account and conversation as a transport-neutral route", () => {
@@ -71,4 +84,64 @@ describe("SG turn correlation", () => {
     expect(isSgInternalRun("ordinary-user-turn", "memory")).toBe(true);
     expect(isSgInternalRun("ordinary-user-turn", "user")).toBe(false);
   });
+  it("suppresses only a fallback notice disproved by a completed selected model call", () => {
+    const registry = new SgTurnCorrelationRegistry();
+    registry.remember({
+      runId: "turn-false-fallback",
+      channel: "matrix",
+      accountId: "work",
+      chatId: "room-7",
+      selectedProvider: "openai",
+      selectedModel: "gpt-5.6-luna",
+    });
+    registry.noteModelCallEnded(
+      "turn-false-fallback",
+      "openai",
+      "gpt-5.6-luna",
+      "completed",
+    );
+    expect(registry.shouldSuppressFalseFallback("turn-false-fallback")).toBe(true);
+  });
+
+  it("does not let controller or memory model work create a false real-fallback signal", () => {
+    const registry = new SgTurnCorrelationRegistry();
+    registry.remember({
+      runId: "turn-internal-model",
+      channel: "telegram",
+      chatId: "42",
+      selectedProvider: "openai",
+      selectedModel: "gpt-5.6-luna",
+    });
+    registry.noteModelCallEnded(
+      "turn-internal-model",
+      "openai",
+      "gpt-5.6-luna",
+      "completed",
+    );
+    registry.beginInternalModelWork("turn-internal-model");
+    registry.noteModelCallEnded(
+      "turn-internal-model",
+      "openai",
+      "gpt-5.6-terra",
+      "completed",
+    );
+    registry.endInternalModelWork("turn-internal-model");
+    expect(registry.shouldSuppressFalseFallback("turn-internal-model")).toBe(true);
+  });
+
+  it("uses FIFO for concurrent turns on the same transport route", () => {
+    const registry = new SgTurnCorrelationRegistry();
+    const route = { channel: "discord", accountId: "default", chatId: "room-9" };
+    registry.remember({ ...route, runId: "first" });
+    registry.remember({ ...route, runId: "second" });
+    const delivery = {
+      channelId: "discord",
+      accountId: "default",
+      conversationId: "room-9",
+    };
+    expect(registry.resolve(delivery)?.runId).toBe("first");
+    expect(registry.claimFinalDelivery("first")).toBe(true);
+    expect(registry.resolve(delivery)?.runId).toBe("second");
+  });
+
 });

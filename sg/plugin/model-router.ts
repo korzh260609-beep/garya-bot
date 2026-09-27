@@ -68,6 +68,13 @@ type RouterApi = {
     ) => Promise<void> | void,
   ): void;
   on(
+    hookName: "model_call_ended",
+    handler: (
+      event: RouterModelCallEndedEvent,
+      ctx: RouterModelResolveContext,
+    ) => Promise<void> | void,
+  ): void;
+  on(
     hookName: "reply_payload_sending",
     handler: (
       event: RouterReplyPayloadSendingEvent,
@@ -102,6 +109,8 @@ type RouterModelResolveContext = {
   channelId?: string;
   chatId?: string;
   conversationId?: string;
+  to?: string;
+  channelContext?: { chat?: { id?: string } };
 };
 
 type RouterModelResolveResult = {
@@ -111,8 +120,13 @@ type RouterModelResolveResult = {
 
 type RouterModelCallStartedEvent = {
   runId: string;
+  callId: string;
   provider: string;
   model: string;
+};
+
+type RouterModelCallEndedEvent = RouterModelCallStartedEvent & {
+  outcome: "completed" | "error";
 };
 
 type RouterReplyPayloadSendingEvent = {
@@ -536,6 +550,15 @@ export function registerSgModelRouter(params: {
     turnCorrelation.noteModelCall(event.runId, event.provider, event.model);
   });
 
+  api.on("model_call_ended", (event) => {
+    turnCorrelation.noteModelCallEnded(
+      event.runId,
+      event.provider,
+      event.model,
+      event.outcome,
+    );
+  });
+
   api.on("reply_payload_sending", (event, ctx) => {
     if (event.kind !== "final" || event.payload.isFallbackNotice !== true) {
       return;
@@ -546,7 +569,7 @@ export function registerSgModelRouter(params: {
       sessionKey: event.sessionKey ?? ctx.sessionKey,
       runId: event.runId ?? ctx.runId,
     });
-    if (!turn?.selectedModelObserved || turn.differentModelObserved) {
+    if (!turn || !turnCorrelation.shouldSuppressFalseFallback(turn.runId)) {
       return;
     }
     api.logger?.info(

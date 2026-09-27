@@ -190,7 +190,7 @@ async function writeResourceScopes(root: string) {
 }
 
 describe("SG 2.2 Phase 8 WSP5 personal/resource scopes", () => {
-  it("removes caller-selected scope parameters and internal SG role gates from WSP5", async () => {
+  it("removes caller-selected scope parameters and keeps trusted Global ID role gates", async () => {
     const [tools, registry, lifecycle] = await Promise.all(
       ["wsp5-tools.ts", "content-registry.ts", "wsp5-lifecycle.ts"].map((file) =>
         readFile(path.join(pluginDir, file), "utf8"),
@@ -200,7 +200,8 @@ describe("SG 2.2 Phase 8 WSP5 personal/resource scopes", () => {
     expect(tools).not.toMatch(/workspaceId\s*:\s*\{\s*type:\s*["']string["']/u);
     expect(tools).not.toMatch(/topicId\s*:\s*\{\s*type:/u);
     expect(tools).not.toMatch(/params\.(?:workspaceId|resourceScopeId|globalId|topicId)/u);
-    expect(tools).not.toMatch(/projectRole|canManage|requireEditor|workspace\.status/u);
+    expect(tools).toMatch(/projectRole[\s\S]*monarch/u);
+    expect(tools).not.toMatch(/canManage|requireEditor|workspace\.status/u);
     expect(registry).not.toMatch(/\bworkspaceId\b/u);
     expect(registry).not.toMatch(/\bcanManage\b/u);
     expect(lifecycle).not.toMatch(/\bSgWorkspace\b|workspace\.settings/u);

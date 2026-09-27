@@ -120,6 +120,7 @@ async function createEntrypointHarness() {
     "resource-memory-tools.ts",
     "scoped-memory-entries.ts",
     "cost-diagnostics.ts",
+    "action-policy.ts",
     "render-tools.ts",
     "billing-tools.ts",
     "phase11-capability-tools.ts",

@@ -1,4 +1,5 @@
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
+import { registerSgActionPolicy } from "./action-policy.js";
 import { registerSgBillingCommands } from "./billing-commands.js";
 import { registerSgBillingHooks } from "./billing-hooks.js";
 import { registerSgBillingReconciliation } from "./billing-reconciliation-lifecycle.js";
@@ -160,7 +161,7 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
   api.registerTool((ctx) => createResourceMemoryTools(ctx, stateDir), {
     names: [...RESOURCE_MEMORY_TOOL_NAMES],
   });
-  api.registerTool((ctx) => createSgRenderTool(ctx), { names: [...RENDER_TOOL_NAMES] });
+  api.registerTool((ctx) => createSgRenderTool(ctx, stateDir), { names: [...RENDER_TOOL_NAMES] });
   api.registerTool((ctx) => createSgBillingTool(ctx, stateDir, { logger: api.logger }), {
     names: [...BILLING_TOOL_NAMES],
   });
@@ -169,6 +170,7 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
   });
   wsp5Lifecycle.register(api);
   wsp6Lifecycle.register(api);
+  registerSgActionPolicy({ api, stateDir });
   registerSgBillingHooks({ api, stateDir });
   registerSgBillingCommands({ api, stateDir });
   registerSgModelRouter({ api, stateDir });

@@ -98,7 +98,7 @@ describe("SG Workspace Manager WSP5 tools", () => {
     expect(submitted).toMatchObject({ status: "pending", draft: { editorialStatus: "pending" } });
   });
 
-  it("leaves management authorization to the native sender policy", async () => {
+  it("denies citizen management calls inside the tool and allows the monarch", async () => {
     const { root, lifecycle } = await fixture();
     const memberTools = createWsp5Tools(toolContext("30", "session-member"), root, lifecycle);
     const draftTool = findTool(memberTools, "sg_content_draft");
@@ -117,12 +117,32 @@ describe("SG Workspace Manager WSP5 tools", () => {
         decision: "approve",
       }),
     );
-    expect(memberReview).toMatchObject({ status: "approved" });
+    expect(memberReview).toEqual({ status: "denied", reason: "sg-content-monarch-required" });
 
     const memberPublish = details(
       await findTool(memberTools, "sg_content_publish").execute("publish-member", { draftId }),
     );
-    expect(memberPublish).toMatchObject({
+    expect(memberPublish).toEqual({
+      status: "denied",
+      reason: "sg-content-monarch-required",
+    });
+
+    const monarchTools = createWsp5Tools(
+      toolContext("10", "session-monarch-review"),
+      root,
+      lifecycle,
+    );
+    const monarchReview = details(
+      await findTool(monarchTools, "sg_content_review").execute("review-monarch", {
+        draftId,
+        decision: "approve",
+      }),
+    );
+    expect(monarchReview).toMatchObject({ status: "approved" });
+    const monarchPublish = details(
+      await findTool(monarchTools, "sg_content_publish").execute("publish-monarch", { draftId }),
+    );
+    expect(monarchPublish).toMatchObject({
       status: "native_action_required",
       nextTool: "message",
       nextAction: {

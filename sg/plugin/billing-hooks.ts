@@ -425,6 +425,14 @@ export function registerSgBillingHooks(params: { api: SgBillingHookApi; stateDir
       return { outcome: "pass" };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+      if (message === "sg-billing-account-on-hold") {
+        return {
+          outcome: "block",
+          reason: "SG billing account is on hold until debt repayment",
+          message: "На счёте есть долг. Сначала погасите его пополнением баланса.",
+          category: "cost_limit",
+        };
+      }
       if (message === "sg-billing-insufficient-funds") {
         return {
           outcome: "block",

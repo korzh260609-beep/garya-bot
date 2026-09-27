@@ -10,7 +10,7 @@ export const BILLING_AGENT_GUIDANCE = [
   "Понимай намерение пользователя семантически и выбирай строгое действие sg_billing_manage; не используй сопоставление по ключевым словам, шаблоны фраз или собственный текстовый парсер.",
   "Различай предоплаченный баланс пользователя SG, расходы проекта OpenAI и доступный остаток/лимит OpenAI. Если объект запроса неоднозначен, сначала задай короткий уточняющий вопрос и не вызывай инструмент.",
   "Citizen может получать только собственный баланс через self_balance. Управление проектным биллингом и сведения о других пользователях доступны только монарху.",
-  "Для credit, resolve_stale_monarch и bind_automation сначала получи явное подтверждение монарха; только после него передавай confirmed=true.",
+  "Изменяющие действия credit, resolve_stale_monarch и bind_automation подтверждаются нативным approval OpenClaw.",
   "Не предлагай пользователю запоминать или вводить /sg_* команды: это резервная техническая диагностика.",
 ].join("\n");
 
@@ -29,7 +29,6 @@ type BillingToolParameters = {
   days?: number;
   staleMinutes?: number;
   automationJobId?: string;
-  confirmed?: boolean;
 };
 
 const ACTIONS = [
@@ -44,8 +43,6 @@ const ACTIONS = [
   "resolve_stale_monarch",
   "bind_automation",
 ] as const;
-
-const MUTATING_ACTIONS = new Set(["credit", "resolve_stale_monarch", "bind_automation"]);
 
 function requiredText(params: BillingToolParameters, key: keyof BillingToolParameters): string {
   const value = params[key];
@@ -151,7 +148,7 @@ export function createSgBillingTool(
       "Детерминированные операции биллинга после семантического определения намерения моделью. " +
       "Показывает собственный предоплаченный баланс SG; для монарха также отчёты проекта и пользователей, историю, сверку OpenAI и диагностику. " +
       "Не угадывай объект неоднозначного запроса: уточни, имеется в виду баланс SG, расходы проекта OpenAI или доступный остаток/лимит OpenAI. " +
-      "Изменяющие действия credit, resolve_stale_monarch и bind_automation разрешены только после явного подтверждения монарха и требуют confirmed=true.",
+      "Изменяющие действия credit, resolve_stale_monarch и bind_automation требуют нативного approval OpenClaw.",
     parameters: {
       type: "object",
       additionalProperties: false,
@@ -164,7 +161,6 @@ export function createSgBillingTool(
         days: { type: "integer", minimum: 1, maximum: 31 },
         staleMinutes: { type: "integer", minimum: 30, maximum: 10_080 },
         automationJobId: { type: "string", minLength: 1 },
-        confirmed: { type: "boolean" },
       },
     },
     async execute(_toolCallId, rawParameters) {
@@ -176,9 +172,6 @@ export function createSgBillingTool(
       try {
         if (action !== "self_balance" && !(await isMonarch(ctx, stateDir))) {
           return jsonResult({ status: "denied", reason: "monarch-required" });
-        }
-        if (MUTATING_ACTIONS.has(action) && params.confirmed !== true) {
-          return jsonResult({ status: "confirmation_required", action });
         }
         const result =
           action === "self_balance"

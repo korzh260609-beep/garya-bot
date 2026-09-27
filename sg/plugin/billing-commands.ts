@@ -197,7 +197,13 @@ function parsePositiveUsd(value: string): number | undefined {
 
 function formatBalance(
   globalId: string,
-  snapshot: { balanceNanoUsd: number; reservedNanoUsd: number; availableNanoUsd: number },
+  snapshot: {
+    balanceNanoUsd: number;
+    reservedNanoUsd: number;
+    availableNanoUsd: number;
+    debtNanoUsd: number;
+    billingHold: boolean;
+  },
 ): string {
   return [
     "SG BALANCE",
@@ -205,6 +211,8 @@ function formatBalance(
     `Баланс: ${formatNanoUsd(snapshot.balanceNanoUsd)}`,
     `В резерве: ${formatNanoUsd(snapshot.reservedNanoUsd)}`,
     `Доступно: ${formatNanoUsd(snapshot.availableNanoUsd)}`,
+    `Долг: ${formatNanoUsd(snapshot.debtNanoUsd)}`,
+    `Billing hold: ${snapshot.billingHold ? "да" : "нет"}`,
   ].join("\n");
 }
 

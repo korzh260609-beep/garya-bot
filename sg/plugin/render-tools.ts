@@ -1,5 +1,8 @@
 import type { AnyAgentTool, OpenClawPluginToolContext } from "openclaw/plugin-sdk/plugin-entry";
 import { jsonResult } from "openclaw/plugin-sdk/tool-results";
+import { SgBillingLedger } from "./billing-ledger.js";
+import { resolveWorkspaceContext } from "./context.js";
+import { SgGlobalProfileRegistry } from "./global-profile-registry.js";
 
 const RENDER_API_BASE = "https://api.render.com/v1";
 const MAX_PAGE_SIZE = 100;
@@ -126,6 +129,37 @@ function resourceId(explicit: unknown, environmentName: string): string | undefi
     return explicit.trim();
   }
   return configured(environmentName);
+}
+
+async function isActiveMonarch(ctx: OpenClawPluginToolContext, stateDir: string): Promise<boolean> {
+  if (ctx.requesterSenderId) {
+    const actor = await resolveWorkspaceContext(
+      {
+        channel: ctx.messageChannel ?? "",
+        accountId: ctx.agentAccountId,
+        to: ctx.nativeChannelId,
+        messageThreadId: ctx.deliveryContext?.threadId,
+        senderId: ctx.requesterSenderId,
+        identityLinks: ctx.config?.session?.identityLinks,
+      },
+      stateDir,
+    );
+    return actor.projectRole === "monarch" && Boolean(actor.globalId);
+  }
+  if (!ctx.sessionKey) {
+    return false;
+  }
+  const ledger = new SgBillingLedger(stateDir);
+  try {
+    const owner = await ledger.resolveSessionOwner(ctx.sessionKey);
+    if (!owner || owner.role !== "monarch") {
+      return false;
+    }
+    const profile = await new SgGlobalProfileRegistry(stateDir).findByGlobalId(owner.globalId);
+    return profile?.status === "active" && profile.role === "monarch";
+  } finally {
+    ledger.close();
+  }
 }
 
 function pathId(value: string): string {
@@ -420,7 +454,7 @@ async function performAction(action: RenderAction, params: RenderParameters, api
   return jsonResult({ status: "ok", action, data: response.data });
 }
 
-export function createSgRenderTool(_ctx: OpenClawPluginToolContext): AnyAgentTool {
+export function createSgRenderTool(ctx: OpenClawPluginToolContext, stateDir: string): AnyAgentTool {
   return {
     name: "sg_render",
     label: "Render SG",
@@ -457,6 +491,9 @@ export function createSgRenderTool(_ctx: OpenClawPluginToolContext): AnyAgentToo
       const params = (rawParameters ?? {}) as RenderParameters;
       if (!params.action || !ACTIONS.includes(params.action)) {
         return invalid("supported-action-required");
+      }
+      if (!(await isActiveMonarch(ctx, stateDir))) {
+        return jsonResult({ status: "denied", reason: "monarch-required" });
       }
       const apiKey = configured("RENDER_API_KEY");
       if (!apiKey) {

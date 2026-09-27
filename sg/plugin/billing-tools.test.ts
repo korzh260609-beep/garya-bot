@@ -121,19 +121,7 @@ describe("SG semantic billing tool", () => {
     });
   });
 
-  it("requires explicit confirmation for every mutating action", async () => {
-    const stateDir = await fixture();
-    const tool = createSgBillingTool(toolContext("100"), stateDir);
-
-    for (const action of ["credit", "resolve_stale_monarch", "bind_automation"]) {
-      await expect(execute(tool, { action })).resolves.toEqual({
-        status: "confirmation_required",
-        action,
-      });
-    }
-  });
-
-  it("executes a confirmed monarch credit through the existing billing command logic", async () => {
+  it("executes an approved monarch credit through the existing billing command logic", async () => {
     const stateDir = await fixture();
     const monarchTool = createSgBillingTool(toolContext("100"), stateDir);
     const citizenTool = createSgBillingTool(toolContext("200"), stateDir);
@@ -144,7 +132,6 @@ describe("SG semantic billing tool", () => {
         globalId: "usr_citizen",
         amountUsd: "1.250000001",
         operationId: "semantic-credit-001",
-        confirmed: true,
       }),
     ).resolves.toEqual({
       status: "ok",

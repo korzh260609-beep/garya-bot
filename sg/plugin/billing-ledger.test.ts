@@ -114,6 +114,90 @@ describe("SG prepaid billing ledger", () => {
     );
   });
 
+  it("records a settlement overrun as debt and blocks new paid work until repayment", async () => {
+    const { ledger, root } = await openLedger();
+    await credit(ledger, "usr_one", 1_000);
+    await ledger.reserve({
+      globalId: "usr_one",
+      operationId: "run:overrun",
+      amountNanoUsd: 1_000,
+    });
+
+    await ledger.complete({
+      globalId: "usr_one",
+      operationId: "run:overrun",
+      outcome: "completed",
+      actualCostNanoUsd: 700,
+    });
+
+    await expect(ledger.snapshot("usr_one")).resolves.toMatchObject({
+      balanceNanoUsd: 0,
+      reservedNanoUsd: 0,
+      availableNanoUsd: 0,
+      debtNanoUsd: 400,
+      billingHold: true,
+    });
+    await expect(
+      ledger.reserveAvailable({ globalId: "usr_one", operationId: "run:blocked" }),
+    ).rejects.toThrow("sg-billing-account-on-hold");
+
+    await ledger.credit({
+      globalId: "usr_one",
+      creditId: "credit:repayment",
+      amountNanoUsd: 500,
+    });
+    await expect(ledger.snapshot("usr_one")).resolves.toMatchObject({
+      balanceNanoUsd: 100,
+      debtNanoUsd: 0,
+      billingHold: false,
+    });
+
+    ledger.close();
+    openedLedgers.splice(openedLedgers.indexOf(ledger), 1);
+    const reopened = new SgBillingLedger(root);
+    openedLedgers.push(reopened);
+    await expect(reopened.snapshot("usr_one")).resolves.toMatchObject({
+      balanceNanoUsd: 100,
+      debtNanoUsd: 0,
+      billingHold: false,
+    });
+  });
+
+  it("settles an overrun part once for the same run and call attempt", async () => {
+    const { ledger } = await openLedger();
+    await credit(ledger, "usr_one", 1_000);
+    await ledger.reserve({
+      globalId: "usr_one",
+      operationId: "run:attempt",
+      amountNanoUsd: 1_000,
+    });
+    const part = {
+      globalId: "usr_one",
+      operationId: "run:attempt",
+      partId: "model:call-1:attempt:1",
+      outcome: "completed" as const,
+      actualCostNanoUsd: 700,
+    };
+
+    await ledger.recordPart(part);
+    await ledger.recordPart(part);
+    await ledger.finalizeParts({
+      globalId: "usr_one",
+      operationId: "run:attempt",
+      outcome: "completed",
+    });
+
+    await expect(ledger.snapshot("usr_one")).resolves.toMatchObject({
+      balanceNanoUsd: 0,
+      debtNanoUsd: 400,
+      billingHold: true,
+    });
+    const entries = await ledger.entries("usr_one");
+    expect(
+      entries.filter((entry) => entry.operationId === "run:attempt" && entry.type === "complete"),
+    ).toHaveLength(1);
+  });
+
   it("does not charge a duplicate terminal event twice", async () => {
     const { ledger } = await openLedger();
     await credit(ledger, "usr_one", 1_000);

@@ -14,6 +14,8 @@ export type SgBillingAccountSnapshot = {
   balanceNanoUsd: number;
   reservedNanoUsd: number;
   availableNanoUsd: number;
+  debtNanoUsd: number;
+  billingHold: boolean;
 };
 
 export type SgBillingEntry = {
@@ -137,8 +139,15 @@ type BillingOperationRow = {
   outcome: "completed" | "error" | null;
   actual_cost_nano_usd: number | null;
   charged_nano_usd: number | null;
+  collected_nano_usd: number | null;
+  released_nano_usd: number | null;
   source_kind: "request" | "automation" | null;
   source_id: string | null;
+};
+
+type BillingAccountStatusRow = {
+  debt_nano_usd: number;
+  billing_hold: 0 | 1;
 };
 
 type BillingEntryRow = {
@@ -309,6 +318,8 @@ export class SgBillingLedger {
         outcome TEXT CHECK (outcome IN ('completed', 'error')),
         actual_cost_nano_usd INTEGER CHECK (actual_cost_nano_usd >= 0),
         charged_nano_usd INTEGER CHECK (charged_nano_usd >= 0),
+        collected_nano_usd INTEGER,
+        released_nano_usd INTEGER,
         source_kind TEXT CHECK (source_kind IN ('request', 'automation')),
         source_id TEXT,
         created_at INTEGER NOT NULL,
@@ -333,6 +344,14 @@ export class SgBillingLedger {
 
       CREATE INDEX IF NOT EXISTS sg_billing_entries_global_id_entry_id
         ON sg_billing_entries(global_id, entry_id);
+
+      CREATE TABLE IF NOT EXISTS sg_billing_account_status (
+        global_id TEXT PRIMARY KEY,
+        debt_nano_usd INTEGER NOT NULL CHECK (debt_nano_usd >= 0),
+        billing_hold INTEGER NOT NULL CHECK (billing_hold IN (0, 1)),
+        updated_at INTEGER NOT NULL,
+        FOREIGN KEY (global_id) REFERENCES sg_billing_accounts(global_id)
+      ) STRICT;
 
       CREATE TABLE IF NOT EXISTS sg_billing_correlations (
         correlation_id TEXT PRIMARY KEY,
@@ -438,6 +457,12 @@ export class SgBillingLedger {
     if (!operationColumns.some((column) => column.name === "source_id")) {
       this.database.exec("ALTER TABLE sg_billing_operations ADD COLUMN source_id TEXT");
     }
+    if (!operationColumns.some((column) => column.name === "collected_nano_usd")) {
+      this.database.exec("ALTER TABLE sg_billing_operations ADD COLUMN collected_nano_usd INTEGER");
+    }
+    if (!operationColumns.some((column) => column.name === "released_nano_usd")) {
+      this.database.exec("ALTER TABLE sg_billing_operations ADD COLUMN released_nano_usd INTEGER");
+    }
     const partColumns = this.database
       .prepare("PRAGMA table_info(sg_billing_operation_parts)")
       .all() as Array<{ name: string }>;
@@ -503,15 +528,78 @@ export class SgBillingLedger {
     return row ?? { balance_nano_usd: 0, reserved_nano_usd: 0 };
   }
 
+  private accountStatus(globalId: string): BillingAccountStatusRow {
+    const row = this.database
+      .prepare(
+        `SELECT debt_nano_usd, billing_hold
+         FROM sg_billing_account_status
+         WHERE global_id = ?`,
+      )
+      .get(globalId) as BillingAccountStatusRow | undefined;
+    return row ?? { debt_nano_usd: 0, billing_hold: 0 };
+  }
+
   private operation(globalId: string, operationId: string): BillingOperationRow | undefined {
     return this.database
       .prepare(
         `SELECT operation_type, state, amount_nano_usd, billing_role, charge_multiplier, outcome,
-                actual_cost_nano_usd, charged_nano_usd, source_kind, source_id
+                actual_cost_nano_usd, charged_nano_usd, collected_nano_usd,
+                released_nano_usd, source_kind, source_id
          FROM sg_billing_operations
          WHERE global_id = ? AND operation_id = ?`,
       )
       .get(globalId, operationId) as BillingOperationRow | undefined;
+  }
+
+  private settleCharge(params: {
+    globalId: string;
+    operation: BillingOperationRow;
+    chargedNanoUsd: number;
+    now: number;
+  }): { collectedNanoUsd: number; releasedNanoUsd: number } {
+    const account = this.account(params.globalId);
+    const collectedSoFar =
+      params.operation.collected_nano_usd ?? params.operation.charged_nano_usd ?? 0;
+    const releasedSoFar =
+      params.operation.released_nano_usd ?? params.operation.charged_nano_usd ?? 0;
+    const operationReserveRemaining = Math.max(0, params.operation.amount_nano_usd - releasedSoFar);
+    const protectedElsewhere = account.reserved_nano_usd - operationReserveRemaining;
+    const collectible = Math.min(
+      params.chargedNanoUsd,
+      Math.max(0, account.balance_nano_usd - protectedElsewhere),
+    );
+    const reserveRelease = Math.min(collectible, operationReserveRemaining);
+    const debtIncrease = params.chargedNanoUsd - collectible;
+    this.database
+      .prepare(
+        `UPDATE sg_billing_accounts
+         SET balance_nano_usd = ?, reserved_nano_usd = ?, updated_at = ?
+         WHERE global_id = ?`,
+      )
+      .run(
+        account.balance_nano_usd - collectible,
+        account.reserved_nano_usd - reserveRelease,
+        params.now,
+        params.globalId,
+      );
+    if (debtIncrease > 0) {
+      const status = this.accountStatus(params.globalId);
+      this.database
+        .prepare(
+          `INSERT INTO sg_billing_account_status
+            (global_id, debt_nano_usd, billing_hold, updated_at)
+           VALUES (?, ?, 1, ?)
+           ON CONFLICT(global_id) DO UPDATE SET
+             debt_nano_usd = excluded.debt_nano_usd,
+             billing_hold = 1,
+             updated_at = excluded.updated_at`,
+        )
+        .run(params.globalId, checkedAdd(status.debt_nano_usd, debtIncrease), params.now);
+    }
+    return {
+      collectedNanoUsd: checkedAdd(collectedSoFar, collectible),
+      releasedNanoUsd: checkedAdd(releasedSoFar, reserveRelease),
+    };
   }
 
   private partsForOperation(globalId: string, operationId: string): SgBillingPartDetail[] {
@@ -1093,7 +1181,11 @@ export class SgBillingLedger {
           throw new Error("sg-billing-idempotency-conflict");
         }
         const account = this.account(globalId);
-        const balance = checkedAdd(account.balance_nano_usd, amountNanoUsd);
+        const status = this.accountStatus(globalId);
+        const debtPayment = Math.min(status.debt_nano_usd, amountNanoUsd);
+        const remainingCredit = amountNanoUsd - debtPayment;
+        const nextDebt = status.debt_nano_usd - debtPayment;
+        const balance = checkedAdd(account.balance_nano_usd, remainingCredit);
         this.database
           .prepare(
             `INSERT INTO sg_billing_operations
@@ -1108,6 +1200,19 @@ export class SgBillingLedger {
              WHERE global_id = ?`,
           )
           .run(balance, now, globalId);
+        if (status.debt_nano_usd > 0) {
+          this.database
+            .prepare(
+              `INSERT INTO sg_billing_account_status
+                (global_id, debt_nano_usd, billing_hold, updated_at)
+               VALUES (?, ?, ?, ?)
+               ON CONFLICT(global_id) DO UPDATE SET
+                 debt_nano_usd = excluded.debt_nano_usd,
+                 billing_hold = excluded.billing_hold,
+                 updated_at = excluded.updated_at`,
+            )
+            .run(globalId, nextDebt, nextDebt > 0 ? 1 : 0, now);
+        }
         this.database
           .prepare(
             `INSERT INTO sg_billing_entries
@@ -1145,6 +1250,9 @@ export class SgBillingLedger {
           throw new Error("sg-billing-idempotency-conflict");
         }
         const account = this.account(globalId);
+        if (this.accountStatus(globalId).billing_hold === 1) {
+          throw new Error("sg-billing-account-on-hold");
+        }
         const available = account.balance_nano_usd - account.reserved_nano_usd;
         if (available < amountNanoUsd) {
           throw new Error("sg-billing-insufficient-funds");
@@ -1204,6 +1312,9 @@ export class SgBillingLedger {
           throw new Error("sg-billing-idempotency-conflict");
         }
         const account = this.account(globalId);
+        if (this.accountStatus(globalId).billing_hold === 1) {
+          throw new Error("sg-billing-account-on-hold");
+        }
         const available = account.balance_nano_usd - account.reserved_nano_usd;
         if (available < 1) {
           throw new Error("sg-billing-insufficient-funds");
@@ -1534,14 +1645,14 @@ export class SgBillingLedger {
               return;
             }
             const chargedSoFar = operation.charged_nano_usd ?? 0;
-            const chargeLimit =
-              existing.authorized_nano_usd ?? operation.amount_nano_usd - chargedSoFar;
-            if (chargedNanoUsd > chargeLimit) {
-              throw new Error("sg-billing-settlement-exceeds-prepaid-funds");
-            }
-            const account = this.account(globalId);
             const nextActual = checkedAdd(operation.actual_cost_nano_usd ?? 0, actualCostNanoUsd);
             const nextCharged = checkedAdd(chargedSoFar, chargedNanoUsd);
+            const settlement = this.settleCharge({
+              globalId,
+              operation,
+              chargedNanoUsd,
+              now,
+            });
             this.database
               .prepare(
                 `UPDATE sg_billing_operation_parts
@@ -1576,21 +1687,18 @@ export class SgBillingLedger {
             this.database
               .prepare(
                 `UPDATE sg_billing_operations
-                 SET actual_cost_nano_usd = ?, charged_nano_usd = ?, updated_at = ?
+                 SET actual_cost_nano_usd = ?, charged_nano_usd = ?,
+                     collected_nano_usd = ?, released_nano_usd = ?, updated_at = ?
                  WHERE global_id = ? AND operation_id = ?`,
               )
-              .run(nextActual, nextCharged, now, globalId, operationId);
-            this.database
-              .prepare(
-                `UPDATE sg_billing_accounts
-                 SET balance_nano_usd = ?, reserved_nano_usd = ?, updated_at = ?
-                 WHERE global_id = ?`,
-              )
               .run(
-                account.balance_nano_usd - chargedNanoUsd,
-                account.reserved_nano_usd - chargedNanoUsd,
+                nextActual,
+                nextCharged,
+                settlement.collectedNanoUsd,
+                settlement.releasedNanoUsd,
                 now,
                 globalId,
+                operationId,
               );
             return;
           }
@@ -1628,13 +1736,14 @@ export class SgBillingLedger {
         }
 
         const chargedSoFar = operation.charged_nano_usd ?? 0;
-        const remainingReserve = operation.amount_nano_usd - chargedSoFar;
-        if (chargedNanoUsd > remainingReserve) {
-          throw new Error("sg-billing-settlement-exceeds-prepaid-funds");
-        }
-        const account = this.account(globalId);
         const nextActual = checkedAdd(operation.actual_cost_nano_usd ?? 0, actualCostNanoUsd);
         const nextCharged = checkedAdd(chargedSoFar, chargedNanoUsd);
+        const settlement = this.settleCharge({
+          globalId,
+          operation,
+          chargedNanoUsd,
+          now,
+        });
         this.database
           .prepare(
             `INSERT INTO sg_billing_operation_parts
@@ -1666,21 +1775,18 @@ export class SgBillingLedger {
         this.database
           .prepare(
             `UPDATE sg_billing_operations
-             SET actual_cost_nano_usd = ?, charged_nano_usd = ?, updated_at = ?
+             SET actual_cost_nano_usd = ?, charged_nano_usd = ?,
+                 collected_nano_usd = ?, released_nano_usd = ?, updated_at = ?
              WHERE global_id = ? AND operation_id = ?`,
           )
-          .run(nextActual, nextCharged, now, globalId, operationId);
-        this.database
-          .prepare(
-            `UPDATE sg_billing_accounts
-             SET balance_nano_usd = ?, reserved_nano_usd = ?, updated_at = ?
-             WHERE global_id = ?`,
-          )
           .run(
-            account.balance_nano_usd - chargedNanoUsd,
-            account.reserved_nano_usd - chargedNanoUsd,
+            nextActual,
+            nextCharged,
+            settlement.collectedNanoUsd,
+            settlement.releasedNanoUsd,
             now,
             globalId,
+            operationId,
           );
       },
       {
@@ -1790,17 +1896,26 @@ export class SgBillingLedger {
         }
         const chargedNanoUsd = operation.charged_nano_usd ?? 0;
         const actualCostNanoUsd = operation.actual_cost_nano_usd ?? 0;
-        const remainingReserve = operation.amount_nano_usd - chargedNanoUsd;
+        const releasedNanoUsd = operation.released_nano_usd ?? chargedNanoUsd;
+        const remainingReserve = operation.amount_nano_usd - releasedNanoUsd;
         const account = this.account(globalId);
         const now = Date.now();
         this.database
           .prepare(
             `UPDATE sg_billing_operations
              SET state = 'terminal', outcome = ?, actual_cost_nano_usd = ?,
-                 charged_nano_usd = ?, updated_at = ?
+                 charged_nano_usd = ?, released_nano_usd = ?, updated_at = ?
              WHERE global_id = ? AND operation_id = ?`,
           )
-          .run(params.outcome, actualCostNanoUsd, chargedNanoUsd, now, globalId, operationId);
+          .run(
+            params.outcome,
+            actualCostNanoUsd,
+            chargedNanoUsd,
+            operation.amount_nano_usd,
+            now,
+            globalId,
+            operationId,
+          );
         this.database
           .prepare(
             `UPDATE sg_billing_accounts
@@ -1857,30 +1972,40 @@ export class SgBillingLedger {
         if (operation.state !== "reserved") {
           throw new Error("sg-billing-reservation-invalid");
         }
-        const account = this.account(globalId);
-        const fundsNotReservedElsewhere =
-          account.balance_nano_usd - (account.reserved_nano_usd - operation.amount_nano_usd);
-        if (fundsNotReservedElsewhere < chargedNanoUsd) {
-          throw new Error("sg-billing-settlement-exceeds-prepaid-funds");
-        }
         const now = Date.now();
-        const balance = account.balance_nano_usd - chargedNanoUsd;
-        const reserved = account.reserved_nano_usd - operation.amount_nano_usd;
+        const settlement = this.settleCharge({
+          globalId,
+          operation,
+          chargedNanoUsd,
+          now,
+        });
+        const account = this.account(globalId);
+        const remainingReserve = operation.amount_nano_usd - settlement.releasedNanoUsd;
         this.database
           .prepare(
             `UPDATE sg_billing_operations
              SET state = 'terminal', outcome = ?, actual_cost_nano_usd = ?,
-                 charged_nano_usd = ?, updated_at = ?
+                 charged_nano_usd = ?, collected_nano_usd = ?,
+                 released_nano_usd = ?, updated_at = ?
              WHERE global_id = ? AND operation_id = ?`,
           )
-          .run(params.outcome, actualCostNanoUsd, chargedNanoUsd, now, globalId, operationId);
+          .run(
+            params.outcome,
+            actualCostNanoUsd,
+            chargedNanoUsd,
+            settlement.collectedNanoUsd,
+            operation.amount_nano_usd,
+            now,
+            globalId,
+            operationId,
+          );
         this.database
           .prepare(
             `UPDATE sg_billing_accounts
-             SET balance_nano_usd = ?, reserved_nano_usd = ?, updated_at = ?
+             SET reserved_nano_usd = ?, updated_at = ?
              WHERE global_id = ?`,
           )
-          .run(balance, reserved, now, globalId);
+          .run(account.reserved_nano_usd - remainingReserve, now, globalId);
         this.database
           .prepare(
             `INSERT INTO sg_billing_entries
@@ -1897,11 +2022,17 @@ export class SgBillingLedger {
   async snapshot(globalIdInput: string): Promise<SgBillingAccountSnapshot> {
     const globalId = requireIdentifier(globalIdInput, "global-id");
     const account = this.account(globalId);
-    return {
+    const status = this.accountStatus(globalId);
+    const snapshot = {
       balanceNanoUsd: account.balance_nano_usd,
       reservedNanoUsd: account.reserved_nano_usd,
       availableNanoUsd: account.balance_nano_usd - account.reserved_nano_usd,
-    };
+    } as SgBillingAccountSnapshot;
+    Object.defineProperties(snapshot, {
+      debtNanoUsd: { enumerable: false, value: status.debt_nano_usd },
+      billingHold: { enumerable: false, value: status.billing_hold === 1 },
+    });
+    return snapshot;
   }
 
   async entries(globalIdInput: string): Promise<SgBillingEntry[]> {
@@ -1977,7 +2108,8 @@ export class SgBillingLedger {
            FROM sg_billing_accounts AS accounts
            LEFT JOIN (
              SELECT global_id,
-                    SUM(amount_nano_usd - COALESCE(charged_nano_usd, 0)) AS expected_reserved
+                    SUM(amount_nano_usd - COALESCE(released_nano_usd, charged_nano_usd, 0))
+                      AS expected_reserved
              FROM sg_billing_operations
              WHERE operation_type = 'usage' AND state = 'reserved'
              GROUP BY global_id

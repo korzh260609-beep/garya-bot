@@ -41,6 +41,7 @@ type AgentTool = {
 
 type Wsp5Actor = {
   globalId: string;
+  projectRole?: "monarch" | "citizen";
   scope: SgContentScope;
   target: Wsp5DeliveryTarget;
 };
@@ -151,6 +152,7 @@ async function resolveActor(
   if (isPersonalRoute(actor)) {
     return {
       globalId: actor.globalId,
+      ...(actor.projectRole ? { projectRole: actor.projectRole } : {}),
       scope: { kind: "personal", globalId: actor.globalId },
       target: {
         platform: actor.channel,
@@ -177,6 +179,7 @@ async function resolveActor(
   return scope
     ? {
         globalId: actor.globalId,
+        ...(actor.projectRole ? { projectRole: actor.projectRole } : {}),
         scope: { kind: "resource", resourceScopeId: scope.resourceScopeId },
         target: resourceTarget(scope),
       }
@@ -350,6 +353,9 @@ export function createWsp5Tools(
           if (!actor) {
             throw new Error("sg-content-scope-not-found");
           }
+          if (actor.projectRole !== "monarch") {
+            throw new Error("sg-content-monarch-required");
+          }
           const draft = await scopedDraft(textParam(params, "draftId"), actor.scope, contents);
           const decision = textParam(params, "decision");
           if (decision !== "approve" && decision !== "reject") {
@@ -389,6 +395,9 @@ export function createWsp5Tools(
           actor = await resolveActor(await actorContext(ctx, stateDir), workspaces);
           if (!actor) {
             throw new Error("sg-content-scope-not-found");
+          }
+          if (actor.projectRole !== "monarch") {
+            throw new Error("sg-content-monarch-required");
           }
           const current = await scopedDraft(textParam(params, "draftId"), actor.scope, contents);
           operation = await contents.beginPublish(
@@ -451,6 +460,9 @@ export function createWsp5Tools(
           actor = await resolveActor(await actorContext(ctx, stateDir), workspaces);
           if (!actor) {
             throw new Error("sg-content-scope-not-found");
+          }
+          if (actor.projectRole !== "monarch") {
+            throw new Error("sg-content-monarch-required");
           }
           if (actor.scope.kind !== "resource") {
             throw new Error("sg-content-resource-scope-required");

@@ -1,14 +1,23 @@
-import { readFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import type { AnyAgentTool, OpenClawPluginToolContext } from "openclaw/plugin-sdk/plugin-entry";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { SgBillingLedger } from "./billing-ledger.js";
 import { createSgRenderTool } from "./render-tools.js";
 
 type ToolResult = { details: unknown };
 
+let stateDir = "";
+
 function renderTool(
-  context: Partial<OpenClawPluginToolContext> = { senderIsOwner: true },
+  context: Partial<OpenClawPluginToolContext> = {
+    messageChannel: "telegram",
+    nativeChannelId: "telegram:100",
+    requesterSenderId: "100",
+  },
 ): AnyAgentTool {
-  return createSgRenderTool(context as OpenClawPluginToolContext);
+  return createSgRenderTool(context as OpenClawPluginToolContext, stateDir);
 }
 
 async function execute(tool: AnyAgentTool, parameters: Record<string, unknown>): Promise<unknown> {
@@ -23,10 +32,56 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
-afterEach(() => {
+beforeEach(async () => {
+  stateDir = await mkdtemp(path.join(os.tmpdir(), "sg-render-tools-"));
+  const profilePath = path.join(stateDir, "sg", "global-profiles.json");
+  await mkdir(path.dirname(profilePath), { recursive: true });
+  await writeFile(
+    profilePath,
+    JSON.stringify({
+      version: 5,
+      monarchGlobalId: "usr_monarch",
+      profiles: [
+        {
+          globalId: "usr_monarch",
+          canonicalIdentity: "channel:telegram:100",
+          role: "monarch",
+          status: "active",
+          createdAt: "2026-01-01T00:00:00.000Z",
+          updatedAt: "2026-01-01T00:00:00.000Z",
+        },
+        {
+          globalId: "usr_citizen",
+          canonicalIdentity: "channel:telegram:200",
+          role: "citizen",
+          status: "active",
+          createdAt: "2026-01-01T00:00:00.000Z",
+          updatedAt: "2026-01-01T00:00:00.000Z",
+        },
+      ],
+      identities: [
+        {
+          canonicalIdentity: "channel:telegram:100",
+          globalId: "usr_monarch",
+          createdAt: "2026-01-01T00:00:00.000Z",
+          updatedAt: "2026-01-01T00:00:00.000Z",
+        },
+        {
+          canonicalIdentity: "channel:telegram:200",
+          globalId: "usr_citizen",
+          createdAt: "2026-01-01T00:00:00.000Z",
+          updatedAt: "2026-01-01T00:00:00.000Z",
+        },
+      ],
+    }),
+  );
+});
+
+afterEach(async () => {
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
+  await rm(stateDir, { recursive: true, force: true });
 });
 
 describe("sg_render Phase 4", () => {
@@ -58,20 +113,34 @@ describe("sg_render Phase 4", () => {
     expect(entrypoint).toMatch(/for plugin_file in [^\n]*render-tools\.ts/u);
   });
 
-  it("delegates authorization to the OpenClaw tool inventory", async () => {
+  it("denies a citizen inside the Render tool even if the tool was exposed", async () => {
     vi.stubEnv("RENDER_API_KEY", "phase-4-secret");
 
-    const result = await execute(renderTool({ senderIsOwner: false }), { action: "status" });
+    const result = await execute(
+      renderTool({
+        messageChannel: "telegram",
+        nativeChannelId: "telegram:200",
+        requesterSenderId: "200",
+      }),
+      { action: "status" },
+    );
 
     expect(result).toStrictEqual({
-      status: "ready",
-      workspaceConfigured: false,
-      serviceConfigured: false,
+      status: "denied",
+      reason: "monarch-required",
     });
   });
 
   it("allows senderless recovery when OpenClaw already retained the Monarch tool policy", async () => {
     vi.stubEnv("RENDER_API_KEY", "phase-4-secret");
+    const ledger = new SgBillingLedger(stateDir);
+    await ledger.bindSessionOwner({
+      sessionKey: "agent:main:telegram:direct:100",
+      globalId: "usr_monarch",
+      role: "monarch",
+      source: { kind: "request" },
+    });
+    ledger.close();
 
     const result = await execute(
       renderTool({ agentId: "main", sessionKey: "agent:main:telegram:direct:100" }),
@@ -87,6 +156,14 @@ describe("sg_render Phase 4", () => {
 
   it("allows a trusted senderless automation selected by OpenClaw tool policy", async () => {
     vi.stubEnv("RENDER_API_KEY", "phase-4-secret");
+    const ledger = new SgBillingLedger(stateDir);
+    await ledger.bindSessionOwner({
+      sessionKey: "agent:main:cron:trusted-render-check",
+      globalId: "usr_monarch",
+      role: "monarch",
+      source: { kind: "automation", id: "trusted-render-check" },
+    });
+    ledger.close();
 
     const result = await execute(
       renderTool({ agentId: "main", sessionKey: "agent:main:cron:trusted-render-check" }),

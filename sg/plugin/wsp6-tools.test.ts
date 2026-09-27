@@ -347,8 +347,8 @@ describe("WSP6 assessment tools", () => {
     });
   });
 
-  it("keeps test management behavior behind native sender policy", async () => {
-    const { root, workspace, assessments, lifecycle } = await fixture();
+  it("checks the monarch role inside test management", async () => {
+    const { root, assessments, lifecycle } = await fixture();
     const definition = {
       action: "create",
       testId: "managed",
@@ -366,6 +366,15 @@ describe("WSP6 assessment tools", () => {
       ],
     };
     const monarch = createWsp6Tools(toolContext("10", "monarch"), root, assessments, lifecycle);
+    const citizen = createWsp6Tools(toolContext("20", "citizen"), root, assessments, lifecycle);
+    expect(
+      details(
+        await findTool(citizen, "sg_test_manage").execute("citizen", {
+          ...definition,
+          testId: "citizen-denied",
+        }),
+      ),
+    ).toEqual({ status: "denied", reason: "sg-test-monarch-required" });
     expect(
       details(await findTool(monarch, "sg_test_manage").execute("monarch", definition)),
     ).toMatchObject({ status: "created", test: { testId: "managed", status: "draft" } });

@@ -44,6 +44,7 @@ type AgentTool = {
 
 type Wsp6Actor = {
   globalId: string;
+  projectRole?: "monarch" | "citizen";
   scope: SgAssessmentScope;
   target: Wsp6Target;
 };
@@ -328,6 +329,7 @@ async function resolveActor(
   if (isPersonalRoute(actor)) {
     return {
       globalId: actor.globalId,
+      ...(actor.projectRole ? { projectRole: actor.projectRole } : {}),
       scope: { kind: "personal", globalId: actor.globalId },
       target: {
         platform: actor.channel,
@@ -354,6 +356,7 @@ async function resolveActor(
   return scope
     ? {
         globalId: actor.globalId,
+        ...(actor.projectRole ? { projectRole: actor.projectRole } : {}),
         scope: { kind: "resource", resourceScopeId: scope.resourceScopeId },
         target: resourceTarget(scope),
       }
@@ -573,6 +576,9 @@ export function createWsp6Tools(
           if (!actor) {
             return jsonResult({ status: "unavailable", reason: "test-scope-not-found" });
           }
+          if (actor.projectRole !== "monarch") {
+            throw new Error("sg-test-monarch-required");
+          }
           if (action === "create" || action === "create_and_publish" || action === "list") {
             if (action === "list") {
               const definitions = await assessments.listDefinitions(actor.scope);
@@ -788,6 +794,9 @@ export function createWsp6Tools(
           const actor = await resolveActor(await actorContext(ctx, stateDir), scopes);
           if (!actor) {
             return jsonResult({ status: "unavailable", reason: "test-scope-not-found" });
+          }
+          if (actor.projectRole !== "monarch") {
+            throw new Error("sg-test-monarch-required");
           }
           const definition = await assessments.findDefinition(
             textParam(params, "testId"),

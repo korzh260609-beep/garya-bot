@@ -56,7 +56,7 @@ describe("SG 2.2 Phase 11 capability activation contracts", () => {
     expect(workflow).toContain("songsee --help");
   });
 
-  it("exposes narrow Blogwatcher and Songsee tools to citizens without granting exec", async () => {
+  it("exposes citizen tools while node exec stays behind Global ID ownership", async () => {
     const entrypoint = await readFile(
       path.join(repoRoot, "scripts", "sg22-render-entrypoint.sh"),
       "utf8",
@@ -68,7 +68,7 @@ describe("SG 2.2 Phase 11 capability activation contracts", () => {
     expect(entrypoint).toContain('"sg_blogwatcher","sg_songsee"');
     expect(entrypoint).toContain('\\"exec\\",\\"process\\",\\"code_execution\\",\\"terminal\\"');
     expect(manifest.contracts.tools).toEqual(
-      expect.arrayContaining(["sg_blogwatcher", "sg_songsee"]),
+      expect.arrayContaining(["sg_blogwatcher", "sg_songsee", "sg_device"]),
     );
   });
 

@@ -322,7 +322,7 @@ describe("SG 2.2 canonical role model contract", () => {
     assert.doesNotMatch(source, /params\.(?:globalId|resourceScopeId)/u);
   });
 
-  it("default-denies development tool discovery and invocation for non-Monarch senders", async () => {
+  it("keeps development tools denied while node access is delegated to Global ID ownership", async () => {
     const entrypoint = await readFile(
       path.join(repoRoot, "scripts", "sg22-render-entrypoint.sh"),
       "utf8",

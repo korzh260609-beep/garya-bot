@@ -6,7 +6,12 @@ import { registerSgBillingReconciliation } from "./billing-reconciliation-lifecy
 import { BILLING_TOOL_NAMES, createSgBillingTool } from "./billing-tools.js";
 import { SgContentRegistry } from "./content-registry.js";
 import { formatWorkspaceContext, resolveWorkspaceContext } from "./context.js";
-import { buildSgCostDiagnostic, type SgCostDiagnosticConfig } from "./cost-diagnostics.js";\nimport {\n  createSgDeviceTools,\n  registerSgDeviceOwnershipPolicy,\n  SG_DEVICE_TOOL_NAMES,\n} from "./device-access.js";
+import { buildSgCostDiagnostic, type SgCostDiagnosticConfig } from "./cost-diagnostics.js";
+import {
+  createSgDeviceTools,
+  registerSgDeviceOwnershipPolicy,
+  SG_DEVICE_TOOL_NAMES,
+} from "./device-access.js";
 import { SG_MANDATORY_EXECUTION_RULES } from "./mandatory-rules.js";
 import { registerSgModelRouter } from "./model-router.js";
 import { createPersonalMemoryTools } from "./personal-memory-tools.js";

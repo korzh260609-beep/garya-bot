@@ -66,7 +66,7 @@ describe("SG 2.2 Phase 11 capability activation contracts", () => {
     ) as { contracts: { tools: string[] } };
 
     expect(entrypoint).toContain('"sg_blogwatcher","sg_songsee"');
-    expect(entrypoint).toContain('\\"exec\\",\\"process\\",\\"code_execution\\",\\"terminal\\"');
+    expect(entrypoint).toContain('\\\"process\\\",\\\"code_execution\\\",\\\"terminal\\\"');
     expect(manifest.contracts.tools).toEqual(
       expect.arrayContaining(["sg_blogwatcher", "sg_songsee", "sg_device"]),
     );

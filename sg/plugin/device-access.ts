@@ -88,6 +88,10 @@ export function canonicalSgDeviceIdentity(deviceId: string): string {
   return `${DEVICE_IDENTITY_PREFIX}${normalized}`;
 }
 
+function pendingNodeApprovalRequestId(device: PairedDevice): string | undefined {
+  return clean(device.pendingNodeSurface?.requestId) || undefined;
+}
+
 function deviceRoles(device: { role?: string; roles?: string[] }): string[] {
   const out = new Set<string>();
   const primary = clean(device.role).toLowerCase();
@@ -322,6 +326,7 @@ async function finishPairing(params: {
       clean(device.displayName) ||
       device.deviceId,
     platform: clean(device.platform) || undefined,
+    nodeApprovalRequestId: pendingNodeApprovalRequestId(device),
   };
 }
 
@@ -365,6 +370,7 @@ async function confirmPairing(params: {
       clean(device.displayName) ||
       device.deviceId,
     platform: clean(device.platform) || undefined,
+    nodeApprovalRequestId: pendingNodeApprovalRequestId(device),
   };
 }
 
@@ -399,6 +405,7 @@ async function listOwnedDevices(params: {
         connected: node?.connected === true,
         caps: node?.caps ?? device.nodeSurface?.caps ?? [],
         commands: node?.commands ?? device.nodeSurface?.commands ?? [],
+        nodeApprovalRequestId: pendingNodeApprovalRequestId(device),
       };
     });
 }
@@ -470,10 +477,13 @@ function blocked(reason: string) {
   return { block: true, blockReason: reason };
 }
 
-export function registerSgDeviceOwnershipPolicy(params: {
-  api: SgDeviceApi;
-  stateDir: string;
-}): void {
+export function registerSgDeviceOwnershipPolicy(
+  params: {
+    api: SgDeviceApi;
+    stateDir: string;
+  },
+  deps: Pick<SgDeviceAccessDeps, "listPairing"> = defaultDeps,
+): void {
   const { api, stateDir } = params;
   const registry = new SgGlobalProfileRegistry(stateDir);
 
@@ -500,6 +510,21 @@ export function registerSgDeviceOwnershipPolicy(params: {
       const action = clean(event.params.action);
       if (action === "status" || action === "pending") {
         return blocked("Use sg_device list; the raw Gateway node catalog is not user-scoped");
+      }
+      if (action === "approve" || action === "reject") {
+        const requestId = clean(event.params.requestId);
+        if (!requestId) {
+          return blocked("Node pairing approval requires an exact requestId");
+        }
+        const pairing = await deps.listPairing(stateDir).catch(() => ({ pending: [], paired: [] }));
+        const requestOwned = pairing.paired.some(
+          (device) =>
+            owned.has(normalizeDeviceId(device.deviceId)) &&
+            pendingNodeApprovalRequestId(device) === requestId,
+        );
+        return requestOwned
+          ? undefined
+          : blocked("Node pairing request does not belong to the current Global ID");
       }
       return ownedNode(event.params.node, owned)
         ? undefined

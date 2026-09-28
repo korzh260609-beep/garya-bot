@@ -143,6 +143,7 @@ describe("SG device access", () => {
         approvedVia: "bootstrap",
         createdAtMs: 1_000_100,
         approvedAtMs: 1_000_100,
+        pendingNodeSurface: { requestId: "req-node-a" },
       },
     ];
 
@@ -157,6 +158,7 @@ describe("SG device access", () => {
     expect(details(await alice.execute("4", { action: "confirm" }))).toMatchObject({
       status: "paired",
       deviceId: "node-a",
+      nodeApprovalRequestId: "req-node-a",
     });
     await expect(
       new SgGlobalProfileRegistry(root).findByCanonicalIdentity("device:openclaw:node-a"),
@@ -213,6 +215,32 @@ describe("SG device access", () => {
         },
         on: vi.fn((name, handler) => hooks.set(name, handler)),
       } as never,
+    }, {
+      listPairing: async () => ({
+        pending: [],
+        paired: [
+          {
+            deviceId: "node-a",
+            role: "node",
+            roles: ["node"],
+            scopes: [],
+            approvedVia: "bootstrap",
+            createdAtMs: 1,
+            approvedAtMs: 2,
+            pendingNodeSurface: { requestId: "req-node-a" },
+          },
+          {
+            deviceId: "node-b",
+            role: "node",
+            roles: ["node"],
+            scopes: [],
+            approvedVia: "bootstrap",
+            createdAtMs: 1,
+            approvedAtMs: 2,
+            pendingNodeSurface: { requestId: "req-node-b" },
+          },
+        ],
+      }),
     });
     const hook = hooks.get("before_tool_call")!;
     const ctx = { requester: { channel: "telegram", senderId: "100" } };
@@ -225,6 +253,12 @@ describe("SG device access", () => {
     ).resolves.toMatchObject({ block: true });
     await expect(
       hook({ toolName: "nodes", params: { action: "status" } }, ctx),
+    ).resolves.toMatchObject({ block: true });
+    await expect(
+      hook({ toolName: "nodes", params: { action: "approve", requestId: "req-node-a" } }, ctx),
+    ).resolves.toBeUndefined();
+    await expect(
+      hook({ toolName: "nodes", params: { action: "approve", requestId: "req-node-b" } }, ctx),
     ).resolves.toMatchObject({ block: true });
     await expect(
       hook({ toolName: "browser", params: { action: "status" } }, ctx),
@@ -260,6 +294,7 @@ describe("SG device access", () => {
             approvedVia: "bootstrap",
             createdAtMs: 1,
             approvedAtMs: 2,
+            pendingNodeSurface: { requestId: "req-node-a" },
           },
           {
             deviceId: "node-b",
@@ -295,7 +330,11 @@ describe("SG device access", () => {
 
     expect(result.status).toBe("ok");
     expect(result.devices).toEqual([
-      expect.objectContaining({ deviceId: "node-a", connected: true }),
+      expect.objectContaining({
+        deviceId: "node-a",
+        connected: true,
+        nodeApprovalRequestId: "req-node-a",
+      }),
     ]);
   });
 });

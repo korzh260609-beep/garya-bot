@@ -309,6 +309,39 @@ export class SgGlobalProfileRegistry {
     });
   }
 
+
+  async linkIdentity(globalId: string, canonicalIdentity: string): Promise<SgIdentityLink> {
+    const normalizedGlobalId = globalId.trim();
+    const canonical = canonicalIdentity.trim().toLowerCase();
+    if (!normalizedGlobalId) throw new Error("sg-profile-global-id-required");
+    if (!canonical) throw new Error("sg-profile-canonical-identity-required");
+
+    return this.mutate((store) => {
+      const profile = store.profiles.find((candidate) => candidate.globalId === normalizedGlobalId);
+      if (!profile || profile.status !== "active") {
+        throw new Error("sg-profile-not-active");
+      }
+      const existing = store.identities.find(
+        (identity) => identity.canonicalIdentity === canonical,
+      );
+      if (existing) {
+        if (existing.globalId !== normalizedGlobalId) {
+          throw new Error("sg-profile-identity-conflict");
+        }
+        return structuredClone(existing);
+      }
+      const now = new Date().toISOString();
+      const link: SgIdentityLink = {
+        canonicalIdentity: canonical,
+        globalId: normalizedGlobalId,
+        createdAt: now,
+        updatedAt: now,
+      };
+      store.identities.push(link);
+      return structuredClone(link);
+    });
+  }
+
   async validateMonarchConfiguration(): Promise<SgGlobalProfile> {
     if (!this.monarchGlobalId || !this.monarchCanonicalIdentity) {
       throw new Error("sg-monarch-configuration-required");

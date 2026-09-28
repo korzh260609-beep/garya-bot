@@ -204,4 +204,28 @@ describe("SG global profile registry", () => {
       "sg-global-profile-store-invalid",
     );
   });
+  it("links a device identity to an existing Global ID without creating another profile", async () => {
+    const root = await stateDir();
+    const registry = new SgGlobalProfileRegistry(root);
+    const created = await registry.ensureProfile("channel:telegram:200");
+    const link = await registry.linkIdentity(created.globalId, "device:openclaw:NODE-A");
+    expect(link).toMatchObject({
+      canonicalIdentity: "device:openclaw:node-a",
+      globalId: created.globalId,
+    });
+    await expect(registry.findByCanonicalIdentity("device:openclaw:node-a")).resolves.toEqual(created);
+    expect((await registry.snapshot()).profiles).toHaveLength(1);
+  });
+
+  it("fails closed when an identity is already linked to another Global ID", async () => {
+    const root = await stateDir();
+    const registry = new SgGlobalProfileRegistry(root);
+    const first = await registry.ensureProfile("channel:telegram:200");
+    const second = await registry.ensureProfile("channel:telegram:201");
+    await registry.linkIdentity(first.globalId, "device:openclaw:node-a");
+    await expect(
+      registry.linkIdentity(second.globalId, "device:openclaw:node-a"),
+    ).rejects.toThrow("sg-profile-identity-conflict");
+  });
+
 });

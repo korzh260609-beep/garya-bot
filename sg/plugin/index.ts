@@ -3,7 +3,7 @@ import { registerWorkspaceManager } from "./register.js";
 
 export * from "./context.js";
 export * from "./personal-workspace.js";
-export * from "./cost-diagnostics.js";
+export * from "./cost-diagnostics.js";\nexport * from "./device-access.js";
 export * from "./model-router.js";
 export { SgGlobalProfileRegistry, validateGlobalProfileStore } from "./global-profile-registry.js";
 export type {

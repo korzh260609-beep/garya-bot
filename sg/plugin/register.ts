@@ -6,7 +6,7 @@ import { registerSgBillingReconciliation } from "./billing-reconciliation-lifecy
 import { BILLING_TOOL_NAMES, createSgBillingTool } from "./billing-tools.js";
 import { SgContentRegistry } from "./content-registry.js";
 import { formatWorkspaceContext, resolveWorkspaceContext } from "./context.js";
-import { buildSgCostDiagnostic, type SgCostDiagnosticConfig } from "./cost-diagnostics.js";
+import { buildSgCostDiagnostic, type SgCostDiagnosticConfig } from "./cost-diagnostics.js";\nimport {\n  createSgDeviceTools,\n  registerSgDeviceOwnershipPolicy,\n  SG_DEVICE_TOOL_NAMES,\n} from "./device-access.js";
 import { SG_MANDATORY_EXECUTION_RULES } from "./mandatory-rules.js";
 import { registerSgModelRouter } from "./model-router.js";
 import { createPersonalMemoryTools } from "./personal-memory-tools.js";
@@ -51,10 +51,13 @@ type CommandContext = {
 type WorkspacePluginApi = {
   config?: OpenClawPluginApi["config"];
   runtime: {
+    version?: string;
     state: {
       resolveStateDir(env?: NodeJS.ProcessEnv): string;
+      openKeyedStore?: OpenClawPluginApi["runtime"]["state"]["openKeyedStore"];
     };
-    llm: OpenClawPluginApi["runtime"]["llm"];
+    nodes?: Pick<OpenClawPluginApi["runtime"]["nodes"], "list">;
+    llm?: OpenClawPluginApi["runtime"]["llm"];
     channel?: Pick<OpenClawPluginApi["runtime"]["channel"], "outbound">;
   };
   registerInteractiveHandler?: OpenClawPluginApi["registerInteractiveHandler"];
@@ -169,9 +172,13 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
   api.registerTool((ctx) => createPhase11CapabilityTools(ctx, stateDir), {
     names: [...PHASE11_CAPABILITY_TOOL_NAMES],
   });
+  api.registerTool((ctx) => createSgDeviceTools(ctx, stateDir, api), {
+    names: [...SG_DEVICE_TOOL_NAMES],
+  });
   wsp5Lifecycle.register(api);
   wsp6Lifecycle.register(api);
   registerSgActionPolicy({ api, stateDir });
+  registerSgDeviceOwnershipPolicy({ api, stateDir });
   registerSgBillingHooks({ api, stateDir });
   registerSgBillingCommands({ api, stateDir });
   registerSgModelRouter({ api, stateDir });

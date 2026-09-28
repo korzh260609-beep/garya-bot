@@ -85,7 +85,7 @@ describe("SG 2.2 Render entrypoint", () => {
       '{"path":"plugins.entries.sg-workspace-manager.hooks.allowConversationAccess","value":true}',
     );
     expect(script).toContain(
-      'workspace_plugin_tools=\'["sg_content_draft","sg_content_review","sg_content_publish","sg_content_schedule","sg_content_dispatch","sg_test_manage","sg_test_attempt","sg_test_stats","sg_memory_remember","sg_memory_search","sg_memory_get","sg_memory_correct","sg_memory_forget","sg_memory_export","sg_memory_reindex","sg_resource_memory_remember","sg_resource_memory_search","sg_resource_memory_get","sg_resource_memory_correct","sg_resource_memory_export","sg_resource_memory_reindex","sg_render","sg_billing_manage","sg_blogwatcher","sg_songsee"]\'',
+      'workspace_plugin_tools=\'["sg_content_draft","sg_content_review","sg_content_publish","sg_content_schedule","sg_content_dispatch","sg_test_manage","sg_test_attempt","sg_test_stats","sg_memory_remember","sg_memory_search","sg_memory_get","sg_memory_correct","sg_memory_forget","sg_memory_export","sg_memory_reindex","sg_resource_memory_remember","sg_resource_memory_search","sg_resource_memory_get","sg_resource_memory_correct","sg_resource_memory_export","sg_resource_memory_reindex","sg_render","sg_billing_manage","sg_blogwatcher","sg_songsee","sg_device"]\'',
     );
     expect(script).toContain("node /app/scripts/sg22-migrate-workspace-memberships.mjs");
     expect(script).toContain("node /app/scripts/sg22-migrate-workspace-requests.mjs");
@@ -139,7 +139,7 @@ describe("SG 2.2 Render entrypoint", () => {
       '{"path":"agents.defaults.contextPruning.hardClear.enabled","value":true}',
     );
     expect(script).toContain(
-      "for plugin_file in index.ts register.ts mandatory-rules.ts personal-memory-tools.ts resource-memory-tools.ts scoped-memory-entries.ts cost-diagnostics.ts action-policy.ts render-tools.ts billing-tools.ts phase11-capability-tools.ts openclaw.plugin.json package.json",
+      "for plugin_file in index.ts register.ts mandatory-rules.ts personal-memory-tools.ts resource-memory-tools.ts scoped-memory-entries.ts cost-diagnostics.ts action-policy.ts device-access.ts render-tools.ts billing-tools.ts phase11-capability-tools.ts openclaw.plugin.json package.json",
     );
     expect(script).not.toContain("sg_project_memory_");
     expect(script).not.toContain("sg_project_handoff");

@@ -1,9 +1,13 @@
+import { unlink } from "node:fs/promises";
+import path from "node:path";
 import type {
   AnyAgentTool,
   OpenClawPluginApi,
   OpenClawPluginToolContext,
 } from "openclaw/plugin-sdk/plugin-entry";
 import { jsonResult } from "openclaw/plugin-sdk/tool-results";
+import { withFileLock } from "openclaw/plugin-sdk/file-lock";
+import { readJsonFileWithFallback, writeJsonFileAtomically } from "openclaw/plugin-sdk/json-store";
 import {
   issueDeviceBootstrapToken,
   listDevicePairing,
@@ -49,9 +53,6 @@ type SgDeviceApi = {
   config?: OpenClawPluginApi["config"];
   runtime: {
     version?: string;
-    state: {
-      openKeyedStore?: OpenClawPluginApi["runtime"]["state"]["openKeyedStore"];
-    };
     nodes?: Pick<OpenClawPluginApi["runtime"]["nodes"], "list">;
   };
   on: OpenClawPluginApi["on"];
@@ -161,15 +162,39 @@ function encodeSetupCode(input: {
   ).toString("base64url");
 }
 
-function openPairingStore(api: SgDeviceApi): PairingStore {
-  if (!api.runtime.state.openKeyedStore) {
-    throw new Error("sg-device-plugin-state-unavailable");
-  }
-  return api.runtime.state.openKeyedStore<SgPairingSession>({
-    namespace: PAIRING_NAMESPACE,
-    maxEntries: 1,
-    overflowPolicy: "reject-new",
-  }) as PairingStore;
+function openPairingStore(stateDir: string, now: () => number): PairingStore {
+  const file = path.join(stateDir, "sg", `${PAIRING_NAMESPACE}.json`);
+  const lock = <T>(work: () => Promise<T>) =>
+    withFileLock(
+      file,
+      {
+        retries: { retries: 50, factor: 1.2, minTimeout: 10, maxTimeout: 100 },
+        stale: 30_000,
+        staleRecovery: "fail-closed",
+      },
+      work,
+    );
+  const read = async (): Promise<SgPairingSession | undefined> => {
+    const result = await readJsonFileWithFallback<SgPairingSession | null>(file, null);
+    const value = result.value;
+    return value && value.expiresAtMs > now() ? value : undefined;
+  };
+  return {
+    register: async (_key, value) => lock(() => writeJsonFileAtomically(file, value)),
+    registerIfAbsent: async (_key, value) =>
+      lock(async () => {
+        if (await read()) return false;
+        await writeJsonFileAtomically(file, value);
+        return true;
+      }),
+    lookup: async () => read(),
+    delete: async () =>
+      lock(async () => {
+        if (!(await read())) return false;
+        await unlink(file);
+        return true;
+      }),
+  };
 }
 
 async function resolveToolGlobalId(
@@ -238,7 +263,7 @@ async function beginPairing(params: {
   stateDir: string;
   deps: SgDeviceAccessDeps;
 }) {
-  const store = openPairingStore(params.api);
+  const store = openPairingStore(params.stateDir, params.deps.now);
   const snapshot = await params.deps.listPairing(params.stateDir);
   const issuedAtMs = params.deps.now();
   const session: SgPairingSession = {
@@ -292,7 +317,7 @@ async function finishPairing(params: {
   stateDir: string;
   deps: SgDeviceAccessDeps;
 }) {
-  const store = openPairingStore(params.api);
+  const store = openPairingStore(params.stateDir, params.deps.now);
   const session = await store.lookup(PAIRING_KEY);
   if (!session) return { status: "no-active-pairing" };
   if (session.globalId !== params.globalId) {
@@ -337,7 +362,7 @@ async function confirmPairing(params: {
   stateDir: string;
   deps: SgDeviceAccessDeps;
 }) {
-  const store = openPairingStore(params.api);
+  const store = openPairingStore(params.stateDir, params.deps.now);
   const session = await store.lookup(PAIRING_KEY);
   if (!session) return { status: "no-active-pairing" };
   if (session.globalId !== params.globalId) {

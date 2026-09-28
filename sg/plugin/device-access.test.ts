@@ -117,7 +117,14 @@ describe("SG device access", () => {
     };
     const api = {
       config: { gateway: { publicOrigin: "https://sg.example" } },
-      runtime: { version: "2026.8.1", state: pluginState() },
+      runtime: {
+        version: "2026.8.1",
+        state: {
+          openKeyedStore: () => {
+            throw new Error("untrusted-plugin-state");
+          },
+        },
+      },
       on: vi.fn(),
     } as never;
     const alice = createSgDeviceTools(toolContext("100"), root, api, deps)[0]!;

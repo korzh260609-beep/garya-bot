@@ -37,6 +37,7 @@ const currentPluginTools = [
   "sg_billing_manage",
   "sg_blogwatcher",
   "sg_songsee",
+  "sg_device",
 ] as const;
 
 function readShellJsonArray(source: string, variable: string): string[] {
@@ -125,7 +126,6 @@ describe("SG 2.2 Phase 12 verification matrix", () => {
       "write",
       "edit",
       "apply_patch",
-      "exec",
       "process",
       "github_publish",
       "sessions_spawn",

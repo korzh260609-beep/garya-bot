@@ -84,6 +84,7 @@ const toolCatalog = [
   "github_publish",
   "sg_render",
   "sg_billing_manage",
+  "sg_device",
   "gateway",
   "nodes",
   "openclaw",
@@ -122,6 +123,7 @@ async function createEntrypointHarness() {
     "scoped-memory-entries.ts",
     "cost-diagnostics.ts",
     "action-policy.ts",
+    "device-access.ts",
     "render-tools.ts",
     "billing-tools.ts",
     "phase11-capability-tools.ts",
@@ -297,19 +299,20 @@ describe("SG 2.2 Phase 1 full capability contracts", () => {
     const config = await harness.run();
     const names = effectiveTools(config, "citizen-1");
 
+    expect(names).toContain("exec");
+    expect(names).toContain("nodes");
+
     for (const denied of [
       "read",
       "write",
       "edit",
       "apply_patch",
-      "exec",
       "process",
       "terminal",
       "github_identity_status",
       "github_publish",
       "sg_render",
       "gateway",
-      "nodes",
       "openclaw",
       "skill_workshop",
       "sessions_spawn",

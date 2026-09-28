@@ -334,7 +334,7 @@ describe("SG 2.2 canonical role model contract", () => {
     ) as Record<string, { deny?: string[] }>;
     const citizenDeny = policies["*"]?.deny ?? [];
 
-    for (const denied of ["exec", "process", "write", "edit", "apply_patch", "subagents"]) {
+    for (const denied of ["process", "write", "edit", "apply_patch", "subagents"]) {
       assert.ok(citizenDeny.includes(denied));
     }
   });

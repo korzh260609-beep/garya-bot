@@ -1,53 +1,89 @@
 import { describe, expect, it } from "vitest";
-import { chooseRouterCandidate, evaluateRouterCandidate, type RouterExample } from "./model-router-knn.js";
+import {
+  chooseRouterCandidate,
+  evaluateRouterCandidate,
+  validRouterCorpus,
+  type RouterExample,
+} from "./model-router-knn.js";
 
-const sample = (taskId: string, language: string, vector: number[], cheapSuccess = true): RouterExample => ({
-  taskId,
-  familyId: taskId,
-  language,
-  vector,
+const sample = (index: number, cheapSuccess = true): RouterExample => ({
+  taskId: `task-${index}`,
+  familyId: `family-${index}`,
+  language: ["ru", "en", "ja"][index % 3]!,
+  vector: [1, 0.001 * index],
   trials: [
-    { tier: "cheap", succeeded: cheapSuccess, totalCost: cheapSuccess ? 1 : 8 },
-    { tier: "medium", succeeded: true, totalCost: 3 },
-    { tier: "expensive", succeeded: true, totalCost: 7 },
+    {
+      tier: "cheap",
+      succeeded: cheapSuccess,
+      quality: cheapSuccess ? 1 : 0,
+      totalCost: cheapSuccess ? 1 : 8,
+    },
+    { tier: "medium", succeeded: true, quality: 1, totalCost: 3 },
+    { tier: "expensive", succeeded: true, quality: 1, totalCost: 7 },
   ],
 });
 
-describe("offline model router candidate", () => {
-  it("compares the full cost of successful tasks across language labels", () => {
-    const examples = [sample("a", "en", [1, 0]), sample("b", "uk", [0.99, 0.01])];
-    expect(chooseRouterCandidate({ vector: [1, 0], examples, neighborCount: 2 }))
-      .toMatchObject({ tier: "cheap", estimatedCost: 1, estimatedSuccess: 1 });
-    examples[1] = sample("b", "uk", [0.99, 0.01], false);
-    expect(chooseRouterCandidate({ vector: [1, 0], examples, neighborCount: 2 }))
-      .toMatchObject({ tier: "medium", estimatedCost: 3 });
+describe("paired semantic router", () => {
+  it("requires complete validated outcomes and one embedding identity", () => {
+    const examples = Array.from({ length: 60 }, (_, index) => sample(index));
+    expect(
+      validRouterCorpus({
+        version: 1,
+        embedding: { provider: "openai", model: "text-embedding-3-small" },
+        examples,
+      }),
+    ).toBe(true);
+    expect(
+      validRouterCorpus({
+        version: 1,
+        embedding: { provider: "openai", model: "text-embedding-3-small" },
+        examples: [...examples, examples[0]],
+      }),
+    ).toBe(false);
+    expect(
+      validRouterCorpus({
+        version: 1,
+        embedding: { provider: "openai", model: "text-embedding-3-small" },
+        examples: [{ ...examples[0], trials: examples[0]!.trials.slice(1) }],
+      }),
+    ).toBe(false);
   });
 
-  it("abstains without sufficient comparable trials or matching embeddings", () => {
-    const examples = [sample("a", "en", [1, 0]), sample("b", "ja", [0, 1])];
-    expect(chooseRouterCandidate({ vector: [1, 0], examples, neighborCount: 2 })).toBeUndefined();
-    expect(chooseRouterCandidate({ vector: [1, 0], examples: [examples[0]], neighborCount: 2 }))
-      .toBeUndefined();
-    expect(chooseRouterCandidate({ vector: [1, 0], examples: [
-      { ...examples[0], trials: examples[0].trials.slice(1) },
-      sample("c", "es", [1, 0]),
-    ], neighborCount: 2 })).toBeUndefined();
-    expect(chooseRouterCandidate({ vector: [1, 0], examples: [
-      sample("a", "en", [1, 0]), sample("b", "es", [Number.NaN, 0]),
-    ], neighborCount: 2 })).toBeUndefined();
-  });
-
-  it("excludes a held-out task and reports coverage with actual recorded cost", () => {
-    const examples = [sample("a", "en", [1, 0]), sample("b", "uk", [1, 0]),
-      sample("c", "es", [1, 0])];
-    expect(evaluateRouterCandidate(examples, 2)).toEqual({
-      total: 3, routed: 3, succeeded: 3, candidateCost: 3, terraCost: 9,
+  it("uses cost per completed task and paired quality, with independent families", () => {
+    const examples = Array.from({ length: 60 }, (_, index) => sample(index));
+    expect(chooseRouterCandidate({ vector: [1, 0], examples })).toMatchObject({
+      tier: "cheap",
+      neighbors: 50,
     });
-    expect(evaluateRouterCandidate(examples.slice(0, 2), 2).routed).toBe(0);
-    expect(evaluateRouterCandidate([
-      { ...examples[0], familyId: "translated-task" },
-      { ...examples[1], familyId: "translated-task" },
-      examples[2],
-    ], 2).routed).toBe(0);
+    examples[0] = sample(0, false);
+    expect(chooseRouterCandidate({ vector: [1, 0], examples })?.tier).toBe("medium");
+    expect(chooseRouterCandidate({ vector: [0, 1], examples })).toBeUndefined();
+    expect(
+      chooseRouterCandidate({
+        vector: [1, 0],
+        examples: examples.map((item) => Object.assign({}, item, { familyId: "one" })),
+      }),
+    ).toBeUndefined();
+  });
+
+  it("does not treat 19/20 observed completions as 95% reliable", () => {
+    const examples = Array.from({ length: 20 }, (_, index) => sample(index, index !== 0));
+    expect(chooseRouterCandidate({ vector: [1, 0], examples, neighborCount: 20 })).toBeUndefined();
+  });
+
+  it("holds out whole task families and reports coverage and realized costs", () => {
+    const examples = Array.from({ length: 101 }, (_, index) => sample(index));
+    const result = evaluateRouterCandidate(examples);
+    expect(result).toMatchObject({
+      total: 101,
+      routed: 101,
+      succeeded: 101,
+      baselineSucceeded: 101,
+      candidateCost: 101,
+      terraCost: 303,
+      costPerSuccess: 1,
+      terraCostPerSuccess: 3,
+    });
+    expect(evaluateRouterCandidate(examples.slice(0, 50)).routed).toBe(0);
   });
 });

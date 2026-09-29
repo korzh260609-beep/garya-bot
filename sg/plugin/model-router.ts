@@ -1,7 +1,16 @@
+import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
+import type { OpenClawConfig } from "openclaw/plugin-sdk/config-runtime";
+import type { EmbeddingProvider } from "openclaw/plugin-sdk/embedding-providers";
 import { withFileLock } from "openclaw/plugin-sdk/file-lock";
 import { readJsonFileWithFallback, writeJsonFileAtomically } from "openclaw/plugin-sdk/json-store";
 import { resolveWorkspaceContext } from "./context.js";
+import {
+  chooseRouterCandidate,
+  evaluateRouterCandidate,
+  validRouterCorpus,
+  type RouterCorpus,
+} from "./model-router-knn.js";
 
 export type SgModelMode = "auto" | "cheap" | "medium" | "expensive";
 export type SgModelTier = Exclude<SgModelMode, "auto">;
@@ -15,12 +24,6 @@ export type SgModelRoute = {
   capabilities: readonly SgModelCapability[];
   enabled: boolean;
   priority: number;
-};
-
-export type SgModelAssessment = {
-  tier: SgModelTier;
-  score: number;
-  reasons: readonly string[];
 };
 
 type SgModelPreference = {
@@ -51,7 +54,7 @@ type RouterCommand = {
 };
 
 type RouterApi = {
-  config?: { session?: { identityLinks?: Record<string, string[]> } };
+  config?: OpenClawConfig;
   runtime?: {
     subagent?: {
       getSessionMessages(params: {
@@ -254,98 +257,6 @@ export function resolveSgModelRouterActivation(
     : "shadow";
 }
 
-export function assessSgModelTier(params: {
-  prompt: string;
-  attachments?: readonly RouterAttachment[];
-}): SgModelAssessment {
-  const prompt = params.prompt.normalize("NFKC").trim();
-  const attachments = params.attachments ?? [];
-  const length = prompt.replace(/\s+/gu, " ").length;
-  const codeFenceCount = (prompt.match(/```/gu) ?? []).length;
-  const urlCount = (prompt.match(/https?:\/\/\S+/giu) ?? []).length;
-  const stepCount = (prompt.match(/^\s*(?:[-*]|\d+[.)])\s+/gmu) ?? []).length;
-  const structuredData =
-    /(?:[{[]\s*["'][^\n]{1,80}["']\s*:|\b(?:error|exception)\b[^\n]*\n\s+at\s)/iu.test(prompt);
-  const analysisIntent =
-    /(?:проанализ|исследу|провед[иі].{0,20}аудит|оцен[иі]|analy[sz]|investigat|audit|evaluate)/iu.test(
-      prompt,
-    );
-  const outcomeIntent =
-    /(?:найд[иі].{0,20}риск|предлож[иі].{0,20}план|рекомендац|сравн|find.{0,20}risk|propose.{0,20}plan|recommend|compar)/iu.test(
-      prompt,
-    );
-  const domainCount = [
-    /архитектур|architect/iu,
-    /безопасност|security/iu,
-    /памят|memory/iu,
-    /биллинг|оплат|billing/iu,
-    /маршрутиз|routing/iu,
-    /изоляц|isolation/iu,
-  ].filter((pattern) => pattern.test(prompt)).length;
-  const requiredCapabilities: SgModelCapability[] = attachments.length ? ["attachments"] : [];
-  const reasons: string[] = [];
-  let score = 0;
-
-  // A short instruction can still require investigation or a consequential change.
-  const consequentialWork =
-    /(?:аудит|перевір|проверк|исслед|дослід|уязвим|вразлив|безопасност|безпек|архитектур|архітектур|внедр|впровад|реализ|реаліз|исправ|виправ|разработ|розроб|audit|investigat|vulnerab|security|architect|implement|debug|deploy|déploy|auditoría|seguridad|revisar|implementar|sécurité|prüf|sicherheit|監査|安全|审计|安全)/iu.test(
-      prompt,
-    );
-
-  if (length >= 6_000) {
-    score += 6;
-    reasons.push("very-long-prompt");
-  } else if (length >= 2_000) {
-    score += 3;
-    reasons.push("long-prompt");
-  } else if (length >= 700) {
-    score += 1;
-    reasons.push("medium-prompt");
-  }
-  if (codeFenceCount >= 2 || structuredData) {
-    score += length >= 1_200 ? 3 : 1;
-    reasons.push("code-or-structured-data");
-  }
-  if (stepCount >= 8) {
-    score += 3;
-    reasons.push("many-steps");
-  } else if (stepCount >= 3) {
-    score += 1;
-    reasons.push("multi-step");
-  }
-  if (urlCount >= 2) {
-    score += 2;
-    reasons.push("multiple-sources");
-  }
-  if (attachments.length) {
-    score += attachments.some((item) => item.kind === "document" || item.kind === "video") ? 2 : 1;
-    reasons.push("attachments");
-  }
-  if (analysisIntent && outcomeIntent && domainCount >= 2) {
-    score += 5;
-    reasons.push("multi-domain-analysis");
-  }
-
-  if (score >= 5) {
-    return { tier: "expensive", score, reasons };
-  }
-  if (consequentialWork) {
-    return { tier: "medium", score, reasons: ["consequential-work"] };
-  }
-  const isBoundedSimpleRequest =
-    length > 0 &&
-    length <= 180 &&
-    codeFenceCount === 0 &&
-    urlCount === 0 &&
-    stepCount <= 1 &&
-    !structuredData &&
-    requiredCapabilities.length === 0;
-  if (isBoundedSimpleRequest) {
-    return { tier: "cheap", score, reasons: reasons.length ? reasons : ["bounded-short-request"] };
-  }
-  return { tier: "medium", score, reasons: reasons.length ? reasons : ["conservative-default"] };
-}
-
 function isShortContinuation(prompt: string): boolean {
   return /^(?:да|так|продолжай|продовжуй|проверь|перевір|дальше|далі|yes|ok|continue|go on|check|verify|sigue|continúa|continuer|vérifie|weiter|prüfe|继续|检查)[.!?。\s]*$/iu.test(
     prompt.normalize("NFKC").trim(),
@@ -389,6 +300,48 @@ function formatRoute(route: SgModelRoute | undefined): string {
   return route ? `${route.provider}/${route.model}` : "маршрут недоступен";
 }
 
+async function loadQualifiedCorpus(stateDir: string): Promise<RouterCorpus | undefined> {
+  const file = path.join(stateDir, "sg", "model-router-corpus.json");
+  try {
+    if ((await stat(file)).size > 5_000_000) {
+      return undefined;
+    }
+    const value: unknown = JSON.parse(await readFile(file, "utf8"));
+    if (!validRouterCorpus(value)) {
+      return undefined;
+    }
+    const families = new Set(value.examples.map((example) => example.familyId));
+    const languages = new Map<string, number>();
+    for (const example of value.examples) {
+      languages.set(example.language, (languages.get(example.language) ?? 0) + 1);
+    }
+    if (families.size < 100 || [...languages.values()].filter((count) => count >= 20).length < 3) {
+      return undefined;
+    }
+    const heldOut = evaluateRouterCandidate(value.examples);
+    if (
+      heldOut.routed < value.examples.length * 0.8 ||
+      heldOut.succeeded < heldOut.baselineSucceeded ||
+      heldOut.costPerSuccess === null ||
+      heldOut.terraCostPerSuccess === null ||
+      heldOut.costPerSuccess >= heldOut.terraCostPerSuccess ||
+      Object.values(heldOut.byLanguage).some(
+        (result) =>
+          result.total >= 20 &&
+          (result.succeeded < result.baselineSucceeded ||
+            result.succeeded === 0 ||
+            result.baselineSucceeded === 0 ||
+            result.candidateCost / result.succeeded >= result.terraCost / result.baselineSucceeded),
+      )
+    ) {
+      return undefined;
+    }
+    return value;
+  } catch {
+    return undefined;
+  }
+}
+
 export function registerSgModelRouter(params: {
   api: RouterApi;
   stateDir: string;
@@ -399,6 +352,39 @@ export function registerSgModelRouter(params: {
   const activation = resolveSgModelRouterActivation(params.env);
   const registry = params.registry ?? new SgModelRegistry();
   const preferences = new SgModelPreferenceRegistry(stateDir);
+  let corpusPromise: Promise<RouterCorpus | undefined> | undefined;
+  let providerPromise: Promise<EmbeddingProvider | null> | undefined;
+
+  async function semanticTier(prompt: string): Promise<SgModelTier | undefined> {
+    const corpus = await (corpusPromise ??= loadQualifiedCorpus(stateDir));
+    if (!corpus || !api.config) {
+      return undefined;
+    }
+    try {
+      const provider = await (providerPromise ??= (async () => {
+        const { getEmbeddingProvider } = await import("openclaw/plugin-sdk/embedding-providers");
+        const adapter = getEmbeddingProvider(corpus.embedding.provider, api.config);
+        const result = await adapter?.create({
+          config: api.config!,
+          provider: corpus.embedding.provider,
+          model: corpus.embedding.model,
+        });
+        return result?.provider?.model === corpus.embedding.model ? result.provider : null;
+      })());
+      if (!provider) {
+        return undefined;
+      }
+      const vector = await provider.embed(prompt, {
+        inputType: "query",
+        signal: AbortSignal.timeout(2_000),
+      });
+      return chooseRouterCandidate({ vector, examples: corpus.examples })?.tier;
+    } catch {
+      providerPromise = undefined;
+      api.logger?.warn("[sg-model-router] semantic-embedding-unavailable");
+      return undefined;
+    }
+  }
 
   api.registerCommand({
     name: "sg_model",
@@ -474,8 +460,9 @@ export function registerSgModelRouter(params: {
         );
         return;
       }
-      let assessment = assessSgModelTier(event);
-      if (mode === "auto" && isShortContinuation(event.prompt)) {
+      let reason = "manual";
+      let tier: SgModelTier = mode === "auto" ? "medium" : mode;
+      if (mode === "auto" && !event.attachments?.length && isShortContinuation(event.prompt)) {
         // The hook has no history. Read only the current native session when needed.
         let prior: string | undefined;
         if (isDirectSessionKey(ctx.sessionKey) && api.runtime?.subagent?.getSessionMessages) {
@@ -489,18 +476,24 @@ export function registerSgModelRouter(params: {
             api.logger?.warn("[sg-model-router] continuation-history-unavailable");
           }
         }
-        const priorTier = prior ? assessSgModelTier({ prompt: prior }).tier : "medium";
-        assessment = {
-          tier: priorTier === "cheap" ? "medium" : priorTier,
-          score: 0,
-          reasons: [prior ? "session-continuation" : "continuation-context-unavailable"],
-        };
+        if (prior) {
+          tier = (await semanticTier(prior)) ?? "medium";
+          reason = "session-continuation";
+        } else {
+          reason = "continuation-context-unavailable";
+        }
+      } else if (mode === "auto" && !event.attachments?.length) {
+        tier = (await semanticTier(event.prompt)) ?? "medium";
+        reason = tier === "medium" ? "terra-or-abstain" : "semantic-paired-evidence";
+      } else if (mode === "auto") {
+        reason = "attachment-evidence-unavailable";
       }
-      const tier = mode === "auto" ? assessment.tier : mode;
       const requiredCapabilities: SgModelCapability[] = event.attachments?.length
         ? ["text", "attachments"]
         : ["text"];
-      const route = registry.select(tier, requiredCapabilities);
+      const route =
+        registry.select(tier, requiredCapabilities) ??
+        (mode === "auto" ? registry.select("medium", requiredCapabilities) : undefined);
       if (!route) {
         api.logger?.warn(
           `[sg-model-router] decision=retain activation=${activation} mode=${mode} tier=${tier} reason=route-unavailable`,
@@ -508,7 +501,7 @@ export function registerSgModelRouter(params: {
         return;
       }
       api.logger?.info(
-        `[sg-model-router] decision=${activation === "active" ? "override" : "shadow"} mode=${mode} tier=${tier} route=${route.provider}/${route.model} reasons=${assessment.reasons.join(",")}`,
+        `[sg-model-router] decision=${activation === "active" ? "override" : "shadow"} mode=${mode} tier=${tier} route=${route.provider}/${route.model} reason=${reason}`,
       );
       if (activation !== "active") {
         return;
@@ -518,6 +511,9 @@ export function registerSgModelRouter(params: {
       api.logger?.warn(
         `[sg-model-router] decision=retain reason=router-error error=${error instanceof Error ? error.message : String(error)}`,
       );
+      // Explicit for TypeScript's noImplicitReturns on this async hook.
+      // eslint-disable-next-line no-useless-return
+      return undefined;
     }
   });
 }

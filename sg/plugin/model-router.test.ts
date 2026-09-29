@@ -2,8 +2,14 @@ import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
+vi.mock("openclaw/plugin-sdk/embedding-providers", () => ({
+  getEmbeddingProvider: () => ({
+    create: async () => ({
+      provider: { model: "text-embedding-3-small", embed: async () => [1, 0] },
+    }),
+  }),
+}));
 import {
-  assessSgModelTier,
   registerSgModelRouter,
   resolveSgModelRouterActivation,
   SgModelPreferenceRegistry,
@@ -38,6 +44,7 @@ function registerRouter(
     stateDir,
     env: { SG_MODEL_ROUTING_ACTIVATION: activation },
     api: {
+      config: {},
       on: vi.fn((name, handler) => hooks.set(name, handler)),
       registerCommand: vi.fn((command) => commands.push(command)),
       logger,
@@ -53,56 +60,45 @@ function registerRouter(
 }
 
 describe("SG model router", () => {
-  it("classifies only bounded short work as cheap and escalates structured large work", () => {
-    expect(assessSgModelTier({ prompt: "Переведи слово hello" })).toMatchObject({
-      tier: "cheap",
-      reasons: ["bounded-short-request"],
-    });
-    expect(
-      assessSgModelTier({ prompt: "Сколько будет 17 + 25? Ответь одним числом." }),
-    ).toMatchObject({
-      tier: "cheap",
-      reasons: ["bounded-short-request"],
-    });
-    expect(
-      assessSgModelTier({
-        prompt: "Проанализируй документ и составь рекомендации для проекта.",
-        attachments: [{ kind: "document", mimeType: "application/pdf" }],
+  it("uses the same semantic hook for multilingual requests after a qualified corpus is supplied", async () => {
+    const stateDir = await createStateDir();
+    const file = path.join(stateDir, "sg", "model-router-corpus.json");
+    await mkdir(path.dirname(file), { recursive: true });
+    await writeFile(
+      file,
+      JSON.stringify({
+        version: 1,
+        embedding: { provider: "openai", model: "text-embedding-3-small" },
+        examples: Array.from({ length: 101 }, (_, index) => ({
+          taskId: `task-${index}`,
+          familyId: `family-${index}`,
+          language: ["ru", "en", "ja"][index % 3],
+          vector: [1, 0],
+          trials: [
+            { tier: "cheap", succeeded: true, quality: 1, totalCost: 1 },
+            { tier: "medium", succeeded: true, quality: 1, totalCost: 3 },
+            { tier: "expensive", succeeded: true, quality: 1, totalCost: 7 },
+          ],
+        })),
       }),
-    ).toMatchObject({ tier: "medium" });
-    expect(
-      assessSgModelTier({
-        prompt: `Исправь архитектуру:\n\n\`\`\`ts\n${"const value = 1;\n".repeat(150)}\`\`\``,
-      }),
-    ).toMatchObject({ tier: "expensive" });
-    expect(assessSgModelTier({ prompt: "" })).toMatchObject({
-      tier: "medium",
-      reasons: ["conservative-default"],
-    });
-    expect(
-      assessSgModelTier({
-        prompt:
-          "Проанализируй архитектуру многопользовательского ИИ-помощника: безопасность, память, биллинг и маршрутизацию моделей. Найди риски и предложи план проверки.",
-      }),
-    ).toMatchObject({ tier: "expensive", reasons: ["multi-domain-analysis"] });
-  });
-
-  it("ignores formatting for simple work and preserves complex intent across languages", () => {
-    const simple = "Перефразируй это предложение: Сегодня хорошая погода.";
-    expect(assessSgModelTier({ prompt: simple }).tier).toBe("cheap");
-    expect(assessSgModelTier({ prompt: simple.replace(": ", ":  ") }).tier).toBe("cheap");
-    expect(assessSgModelTier({ prompt: "Сколько\nбудет\n2+2?" }).tier).toBe("cheap");
-    for (const prompt of [
-      "Проведи аудит безопасности SG",
-      "Перевір безпеку SG",
-      "Audit the security of SG",
-      "Revisar la seguridad de SG",
-      "审计 SG 安全",
-    ]) {
-      expect(assessSgModelTier({ prompt }).tier).not.toBe("cheap");
+    );
+    const { hook } = registerRouter(stateDir, "active");
+    for (const prompt of ["Проведи аудит системы", "Audit the system", "システムを監査して"]) {
+      await expect(hook({ prompt }, { channel: "telegram", senderId: "100" })).resolves.toEqual({
+        providerOverride: "openai",
+        modelOverride: "gpt-5.6-luna",
+      });
     }
+    await expect(
+      hook(
+        { prompt: "Audit", attachments: [{ kind: "document" }] },
+        { channel: "telegram", senderId: "100" },
+      ),
+    ).resolves.toEqual({
+      providerOverride: "openai",
+      modelOverride: "gpt-5.6-terra",
+    });
   });
-
   it("selects the highest-priority enabled provider route with required capabilities", () => {
     const routes: SgModelRoute[] = [
       {
@@ -173,7 +169,7 @@ describe("SG model router", () => {
       ),
     ).resolves.toBeUndefined();
     expect(logger.info).toHaveBeenCalledWith(
-      expect.stringContaining("decision=shadow mode=auto tier=cheap route=openai/gpt-5.6-luna"),
+      expect.stringContaining("decision=shadow mode=auto tier=medium route=openai/gpt-5.6-terra"),
     );
   });
 
@@ -192,15 +188,15 @@ describe("SG model router", () => {
 
     await expect(hook({ prompt: arithmetic }, { ...session, runId: "turn-1" })).resolves.toEqual({
       providerOverride: "openai",
-      modelOverride: "gpt-5.6-luna",
+      modelOverride: "gpt-5.6-terra",
     });
     await expect(hook({ prompt: analysis }, { ...session, runId: "turn-1" })).resolves.toEqual({
       providerOverride: "openai",
-      modelOverride: "gpt-5.6-sol",
+      modelOverride: "gpt-5.6-terra",
     });
     await expect(hook({ prompt: analysis }, { ...session, runId: "turn-2" })).resolves.toEqual({
       providerOverride: "openai",
-      modelOverride: "gpt-5.6-sol",
+      modelOverride: "gpt-5.6-terra",
     });
   });
 
@@ -231,7 +227,7 @@ describe("SG model router", () => {
           trigger: "user",
         },
       ),
-    ).resolves.toEqual({ providerOverride: "openai", modelOverride: "gpt-5.6-sol" });
+    ).resolves.toEqual({ providerOverride: "openai", modelOverride: "gpt-5.6-terra" });
     expect(getSessionMessages).toHaveBeenCalledWith({
       sessionKey: "agent:main:telegram:direct:100",
       limit: 8,
@@ -321,7 +317,7 @@ describe("SG model router", () => {
         { prompt: "Сколько будет 2+2?" },
         { ...session, runId: "telegram-turn", trigger: "user" },
       ),
-    ).resolves.toEqual({ providerOverride: "openai", modelOverride: "gpt-5.6-luna" });
+    ).resolves.toEqual({ providerOverride: "openai", modelOverride: "gpt-5.6-terra" });
     expect(logger.info).not.toHaveBeenCalledWith(expect.stringContaining("internal-review"));
   });
 

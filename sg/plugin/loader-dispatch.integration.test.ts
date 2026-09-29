@@ -27,7 +27,7 @@ describe("SG Workspace Manager real loader and dispatch runner", () => {
       modelRouterHookRegistered: true,
       modelRouterOverride: {
         providerOverride: "openai",
-        modelOverride: "gpt-5.6-luna",
+        modelOverride: "gpt-5.6-terra",
       },
       lifecycleHooksRegistered: true,
       onboardingToolsAbsent: true,

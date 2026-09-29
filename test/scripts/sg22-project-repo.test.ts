@@ -312,16 +312,16 @@ describe("SG GitHub repository workspace", () => {
   });
 
   it("uses native Git and GitHub without destructive recovery or a repository allowlist", async () => {
-    const [agents, script, overlay] = await Promise.all([
-      readFile(path.join(repoRoot, "sg", "workspace", "AGENTS.md"), "utf8"),
+    const [githubWorkflow, script, overlay] = await Promise.all([
+      readFile(path.join(repoRoot, "sg", "workspace", "skills", "sg-project-operations", "references", "github.md"), "utf8"),
       readFile(scriptPath, "utf8"),
       readFile(path.join(repoRoot, "Dockerfile.sg22-overlay"), "utf8"),
     ]);
 
-    expect(agents).toContain("any repository accessible to the authenticated GitHub account");
-    expect(agents).toContain("any existing branch");
-    expect(agents).toContain("defaults, not an allowlist");
-    expect(agents).toContain(
+    expect(githubWorkflow).toContain("any repository accessible to the authenticated GitHub account");
+    expect(githubWorkflow).toContain("any existing branch");
+    expect(githubWorkflow).toContain("defaults, not an allowlist");
+    expect(githubWorkflow).toContain(
       "do not introduce repository or branch allowlists without separate owner approval",
     );
     expect(script).not.toContain("--single-branch");

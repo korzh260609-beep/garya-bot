@@ -250,11 +250,9 @@ export function assessSgModelTier(params: {
   prompt: string;
   attachments?: readonly RouterAttachment[];
 }): SgModelAssessment {
-  const prompt = params.prompt.trim();
+  const prompt = params.prompt.normalize("NFKC").trim();
   const attachments = params.attachments ?? [];
-  const length = prompt.length;
-  const words = prompt ? prompt.split(/\s+/u).length : 0;
-  const lineCount = prompt ? prompt.split(/\r?\n/u).length : 0;
+  const length = prompt.replace(/\s+/gu, " ").length;
   const codeFenceCount = (prompt.match(/```/gu) ?? []).length;
   const urlCount = (prompt.match(/https?:\/\/\S+/giu) ?? []).length;
   const stepCount = (prompt.match(/^\s*(?:[-*]|\d+[.)])\s+/gmu) ?? []).length;
@@ -279,6 +277,12 @@ export function assessSgModelTier(params: {
   const requiredCapabilities: SgModelCapability[] = attachments.length ? ["attachments"] : [];
   const reasons: string[] = [];
   let score = 0;
+
+  // A short instruction can still require investigation or a consequential change.
+  const consequentialWork =
+    /(?:аудит|перевір|проверк|исслед|дослід|уязвим|вразлив|безопасност|безпек|архитектур|архітектур|внедр|впровад|реализ|реаліз|исправ|виправ|разработ|розроб|audit|investigat|vulnerab|security|architect|implement|debug|deploy|déploy|auditoría|seguridad|revisar|implementar|sécurité|prüf|sicherheit|監査|安全|审计|安全)/iu.test(
+      prompt,
+    );
 
   if (length >= 6_000) {
     score += 6;
@@ -317,11 +321,12 @@ export function assessSgModelTier(params: {
   if (score >= 5) {
     return { tier: "expensive", score, reasons };
   }
+  if (consequentialWork) {
+    return { tier: "medium", score, reasons: ["consequential-work"] };
+  }
   const isBoundedSimpleRequest =
     length > 0 &&
     length <= 180 &&
-    words <= 24 &&
-    lineCount <= 2 &&
     codeFenceCount === 0 &&
     urlCount === 0 &&
     stepCount <= 1 &&

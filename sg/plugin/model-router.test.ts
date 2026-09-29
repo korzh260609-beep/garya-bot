@@ -82,6 +82,22 @@ describe("SG model router", () => {
     ).toMatchObject({ tier: "expensive", reasons: ["multi-domain-analysis"] });
   });
 
+  it("ignores formatting for simple work and preserves complex intent across languages", () => {
+    const simple = "Перефразируй это предложение: Сегодня хорошая погода.";
+    expect(assessSgModelTier({ prompt: simple }).tier).toBe("cheap");
+    expect(assessSgModelTier({ prompt: simple.replace(": ", ":  ") }).tier).toBe("cheap");
+    expect(assessSgModelTier({ prompt: "Сколько\nбудет\n2+2?" }).tier).toBe("cheap");
+    for (const prompt of [
+      "Проведи аудит безопасности SG",
+      "Перевір безпеку SG",
+      "Audit the security of SG",
+      "Revisar la seguridad de SG",
+      "审计 SG 安全",
+    ]) {
+      expect(assessSgModelTier({ prompt }).tier).not.toBe("cheap");
+    }
+  });
+
   it("selects the highest-priority enabled provider route with required capabilities", () => {
     const routes: SgModelRoute[] = [
       {

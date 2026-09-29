@@ -387,7 +387,7 @@ describe("SG Workspace Manager", () => {
             identifierPolicy: "off",
             qualityGuard: { enabled: true, maxRetries: 1 },
             midTurnPrecheck: { enabled: true },
-            memoryFlush: { enabled: false },
+            memoryFlush: { enabled: true },
             maxActiveTranscriptBytes: "128kb",
           },
           contextPruning: { mode: "cache-ttl", ttl: "5m", hardClear: { enabled: true } },

@@ -77,12 +77,12 @@ export function buildSgCostDiagnostic(input: {
     ),
     check(
       "shared_memory_flush",
-      compaction?.memoryFlush?.enabled === false,
+      compaction?.memoryFlush?.enabled === true,
       `enabled=${String(compaction?.memoryFlush?.enabled)}`,
     ),
     check(
       "tool_result_pruning",
-      pruning?.mode === "cache-ttl" && pruning.ttl === "5m" && pruning.hardClear?.enabled === true,
+      pruning?.mode === "cache-ttl" && Boolean(pruning.ttl) && pruning.hardClear?.enabled === true,
       `mode=${pruning?.mode ?? "unset"},ttl=${pruning?.ttl ?? "unset"}`,
     ),
   ];
@@ -91,6 +91,6 @@ export function buildSgCostDiagnostic(input: {
     `SG COST DIAG — ${failed === 0 ? "PASS" : "FAIL"}`,
     ...checks.map((item) => `${item.name}: ${item.pass ? "PASS" : "FAIL"} (${item.detail})`),
     `summary: pass=${checks.length - failed}, fail=${failed}`,
-    "usage: проверь фактические токены штатной командой /status",
+    "configuration checks do not measure actual savings; inspect /context detail and /usage tokens",
   ].join("\n");
 }

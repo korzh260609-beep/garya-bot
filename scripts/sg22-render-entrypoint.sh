@@ -67,6 +67,18 @@ for file in IDENTITY.md SOUL.md AGENTS.md; do
   cp "$source_workspace/$file" "$workspace/$file"
 done
 
+# Keep the Project SG workflow in a native, on-demand workspace Skill.
+skill_source="$source_workspace/skills/sg-project-operations"
+skill_target="$workspace/skills/sg-project-operations"
+for file in SKILL.md references/github.md references/render.md; do
+  if [ ! -f "$skill_source/$file" ]; then
+    echo "SG 2.2 bootstrap error: missing $skill_source/$file" >&2
+    exit 1
+  fi
+  mkdir -p "$(dirname "$skill_target/$file")"
+  cp "$skill_source/$file" "$skill_target/$file"
+done
+
 if [ ! -f "$config_path" ]; then
   cat > "$config_path" <<EOF
 {
@@ -200,7 +212,7 @@ if [ -n "$telegram_owner_id" ]; then
 fi
 
 node /app/openclaw.mjs config set --batch-json "$config_batch"
-node /app/openclaw.mjs config set agents.defaults.models "{\"${primary_model}\":{\"agentRuntime\":{\"id\":\"openclaw\"}}}" --strict-json --merge
+node /app/openclaw.mjs config set agents.defaults.models "{\"openai/gpt-5.6-luna\":{\"agentRuntime\":{\"id\":\"openclaw\"}},\"openai/gpt-5.6-terra\":{\"agentRuntime\":{\"id\":\"openclaw\"}},\"openai/gpt-5.6-sol\":{\"agentRuntime\":{\"id\":\"openclaw\"}},\"${primary_model}\":{\"agentRuntime\":{\"id\":\"openclaw\"}}}" --strict-json --merge
 
 echo "SG workspace diagnostic: image_commit=${SG22_IMAGE_COMMIT:-unknown} enabled=${workspace_plugin_enabled}"
 if command -v gh >/dev/null 2>&1; then

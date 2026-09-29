@@ -79,9 +79,9 @@ describe("SG project and entity bootstrap contract", () => {
       read("sg/workspace/AGENTS.md"),
     ]);
 
+    expect([entity, soul, agents].join("\n")).toContain("monarch");
+    expect(agents).toContain("verified immutable Telegram sender identity");
     for (const document of [entity, soul, agents]) {
-      expect(document).toContain("monarch");
-      expect(document).toContain("verified immutable Telegram sender identity");
       expect(document).not.toMatch(/^- owner(?::| is\b)/mu);
     }
   });

@@ -13,7 +13,7 @@ const protectedConfig: SgCostDiagnosticConfig = {
         identifierPolicy: "off",
         qualityGuard: { enabled: true, maxRetries: 1 },
         midTurnPrecheck: { enabled: true },
-        memoryFlush: { enabled: false },
+        memoryFlush: { enabled: true },
         maxActiveTranscriptBytes: "128kb",
       },
       contextPruning: {
@@ -46,5 +46,18 @@ describe("SG cost diagnostics", () => {
     expect(result).toContain("SG COST DIAG — FAIL");
     expect(result).toContain("dm_scope: FAIL (unset)");
     expect(result).toContain("current_session: FAIL (shared-or-unknown)");
+  });
+
+  it("does not require disabling memory flush or hard-code a pruning TTL", () => {
+    const config: SgCostDiagnosticConfig = structuredClone(protectedConfig);
+    config.agents!.defaults!.contextPruning!.ttl = "30m";
+    const result = buildSgCostDiagnostic({
+      config,
+      channel: "telegram",
+      sessionKey: "agent:main:telegram:direct:100",
+    });
+    expect(result).toContain("shared_memory_flush: PASS (enabled=true)");
+    expect(result).toContain("tool_result_pruning: PASS (mode=cache-ttl,ttl=30m)");
+    expect(result).toContain("configuration checks do not measure actual savings");
   });
 });

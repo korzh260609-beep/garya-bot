@@ -68,9 +68,7 @@ describe("SG general behavior contract", () => {
     expect(agents).toContain("Capability never implies authorization.");
     expect(agents).toContain("Do not turn an audit into a mutation");
     expect(agents).toContain("Do not add unrequested cleanup, refactoring, or improvements.");
-    expect(agents).toContain(
-      "Project SG repository work delegates to the Project development workflow below.",
-    );
+    expect(agents).toContain("Project SG repository work uses the `sg-project-operations` Skill");
   });
 
   it("requires source-aware verification, visible failures, and precise reporting", async () => {
@@ -93,9 +91,10 @@ describe("SG general behavior contract", () => {
   it("requires verified native project-memory appends without fixed anchors", async () => {
     const agents = await readAgents();
 
-    expect(agents).toContain("read the current `MEMORY.md` immediately before changing it");
-    expect(agents).toContain("append the new record without depending on a fixed heading");
-    expect(agents).toContain("re-read `MEMORY.md` and confirm that the new record is present");
+    expect(agents).toContain("Search for relevant existing records");
+    expect(agents).toContain("Append without replacing or truncating existing content");
+    expect(agents).toContain("read the current file before a full rewrite");
+    expect(agents).toContain("verify the added record with a bounded read");
     expect(agents).toContain("Never claim that project memory was saved after a failed");
   });
 

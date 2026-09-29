@@ -114,6 +114,11 @@ async function createEntrypointHarness() {
   for (const file of ["IDENTITY.md", "SOUL.md", "AGENTS.md"]) {
     await writeHarnessFile(path.join(appRoot, "sg", "workspace", file));
   }
+  for (const file of ["SKILL.md", "references/github.md", "references/render.md"]) {
+    await writeHarnessFile(
+      path.join(appRoot, "sg", "workspace", "skills", "sg-project-operations", file),
+    );
+  }
   for (const file of [
     "index.ts",
     "register.ts",
@@ -207,7 +212,7 @@ exit 0
     ) as RuntimeConfig;
   };
 
-  return { run, stateDir, projectRepoRoot };
+  return { run, stateDir, projectRepoRoot, nodeLog };
 }
 
 function effectiveTools(config: RuntimeConfig, senderId: string) {
@@ -241,6 +246,15 @@ describe("SG 2.2 Phase 1 full capability contracts", () => {
     expect(config.tools?.profile).toBe("full");
     expect(config.agents?.defaults?.repoRoot).toBe(harness.projectRepoRoot);
     expect(config.agents?.defaults?.compaction?.memoryFlush?.enabled).toBe(true);
+    const startupCalls = await readFile(harness.nodeLog, "utf8");
+    const modelConfig = startupCalls.match(
+      /config set agents\.defaults\.models (\{[^\n]+\}) --strict-json --merge/u,
+    );
+    expect(modelConfig).not.toBeNull();
+    const models = JSON.parse(modelConfig![1]!) as Record<string, { agentRuntime: { id: string } }>;
+    for (const model of ["gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol"]) {
+      expect(models[`openai/${model}`]?.agentRuntime.id).toBe("openclaw");
+    }
   });
 
   it("builds the Render image with the standard Playwright Chromium runtime", async () => {

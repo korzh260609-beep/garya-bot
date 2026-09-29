@@ -19,6 +19,10 @@ function registerRouter(
   stateDir: string,
   activation: "off" | "shadow" | "active",
   logger = { info: vi.fn(), warn: vi.fn() },
+  getSessionMessages?: (params: {
+    sessionKey: string;
+    limit: number;
+  }) => Promise<{ messages: unknown[] }>,
 ) {
   const hooks = new Map<string, (...args: unknown[]) => unknown>();
   const commands: Array<{
@@ -37,6 +41,7 @@ function registerRouter(
       on: vi.fn((name, handler) => hooks.set(name, handler)),
       registerCommand: vi.fn((command) => commands.push(command)),
       logger,
+      ...(getSessionMessages ? { runtime: { subagent: { getSessionMessages } } } : {}),
     },
   });
   const hook = hooks.get("before_model_resolve");
@@ -197,6 +202,102 @@ describe("SG model router", () => {
       providerOverride: "openai",
       modelOverride: "gpt-5.6-sol",
     });
+  });
+
+  it("uses only the native session for short continuations of complex work", async () => {
+    const stateDir = await createStateDir();
+    const getSessionMessages = vi.fn(async () => ({
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: "Проанализируй архитектуру: безопасность, память, биллинг. Найди риски и предложи план.",
+            },
+          ],
+        },
+        { role: "assistant", content: [{ type: "text", text: "Сначала проверю." }] },
+      ],
+    }));
+    const { hook } = registerRouter(stateDir, "active", undefined, getSessionMessages);
+    await expect(
+      hook(
+        { prompt: "Продолжай" },
+        {
+          channel: "telegram",
+          senderId: "100",
+          sessionKey: "agent:main:telegram:direct:100",
+          trigger: "user",
+        },
+      ),
+    ).resolves.toEqual({ providerOverride: "openai", modelOverride: "gpt-5.6-sol" });
+    expect(getSessionMessages).toHaveBeenCalledWith({
+      sessionKey: "agent:main:telegram:direct:100",
+      limit: 8,
+    });
+  });
+
+  it("never classifies a continuation as cheap without trustworthy context", async () => {
+    const stateDir = await createStateDir();
+    const { hook } = registerRouter(stateDir, "active");
+    await expect(
+      hook({ prompt: "Continue" }, { channel: "telegram", senderId: "100" }),
+    ).resolves.toEqual({ providerOverride: "openai", modelOverride: "gpt-5.6-terra" });
+  });
+
+  it("does not read a group transcript containing other users' requests", async () => {
+    const stateDir = await createStateDir();
+    const getSessionMessages = vi.fn(async () => ({ messages: [] }));
+    const { hook } = registerRouter(stateDir, "active", undefined, getSessionMessages);
+    await expect(
+      hook(
+        { prompt: "Continue" },
+        {
+          channel: "telegram",
+          senderId: "100",
+          sessionKey: "agent:main:telegram:group:500",
+        },
+      ),
+    ).resolves.toEqual({ providerOverride: "openai", modelOverride: "gpt-5.6-terra" });
+    expect(getSessionMessages).not.toHaveBeenCalled();
+  });
+
+  it("falls back conservatively if the native session read fails", async () => {
+    const stateDir = await createStateDir();
+    const getSessionMessages = vi.fn(async () => {
+      throw new Error("session read unavailable");
+    });
+    const { hook, logger } = registerRouter(stateDir, "active", undefined, getSessionMessages);
+    await expect(
+      hook(
+        { prompt: "Продовжуй" },
+        {
+          channel: "telegram",
+          senderId: "100",
+          sessionKey: "agent:main:telegram:direct:100",
+        },
+      ),
+    ).resolves.toEqual({ providerOverride: "openai", modelOverride: "gpt-5.6-terra" });
+    expect(logger.warn).toHaveBeenCalledWith("[sg-model-router] continuation-history-unavailable");
+  });
+
+  it("does not read history when a user selected a fixed model", async () => {
+    const stateDir = await createStateDir();
+    const getSessionMessages = vi.fn(async () => ({ messages: [] }));
+    const { hook, command } = registerRouter(stateDir, "active", undefined, getSessionMessages);
+    await command.handler({ channel: "telegram", senderId: "100", args: "cheap", config: {} });
+    await expect(
+      hook(
+        { prompt: "Continue" },
+        {
+          channel: "telegram",
+          senderId: "100",
+          sessionKey: "agent:main:telegram:direct:100",
+        },
+      ),
+    ).resolves.toEqual({ providerOverride: "openai", modelOverride: "gpt-5.6-luna" });
+    expect(getSessionMessages).not.toHaveBeenCalled();
   });
 
   it("routes only user turns and does not let internal controller runs select a route", async () => {

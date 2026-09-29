@@ -52,6 +52,14 @@ type RouterCommand = {
 
 type RouterApi = {
   config?: { session?: { identityLinks?: Record<string, string[]> } };
+  runtime?: {
+    subagent?: {
+      getSessionMessages(params: {
+        sessionKey: string;
+        limit: number;
+      }): Promise<{ messages: unknown[] }>;
+    };
+  };
   on(
     hookName: "before_model_resolve",
     handler: (
@@ -338,6 +346,45 @@ export function assessSgModelTier(params: {
   return { tier: "medium", score, reasons: reasons.length ? reasons : ["conservative-default"] };
 }
 
+function isShortContinuation(prompt: string): boolean {
+  return /^(?:да|так|продолжай|продовжуй|проверь|перевір|дальше|далі|yes|ok|continue|go on|check|verify|sigue|continúa|continuer|vérifie|weiter|prüfe|继续|检查)[.!?。\s]*$/iu.test(
+    prompt.normalize("NFKC").trim(),
+  );
+}
+
+function isDirectSessionKey(sessionKey: string | undefined): sessionKey is string {
+  return typeof sessionKey === "string" && /:(?:direct|dm):/iu.test(sessionKey);
+}
+
+function previousUserPrompt(messages: unknown[], currentPrompt: string): string | undefined {
+  for (const message of messages.toReversed()) {
+    if (!message || typeof message !== "object" || Array.isArray(message)) {
+      continue;
+    }
+    const record = message as { role?: unknown; content?: unknown };
+    if (record.role !== "user") {
+      continue;
+    }
+    const content = record.content;
+    const text =
+      typeof content === "string"
+        ? content
+        : Array.isArray(content)
+          ? content
+              .filter(
+                (part): part is { type: "text"; text: string } =>
+                  part?.type === "text" && typeof part.text === "string",
+              )
+              .map((part) => part.text)
+              .join(" ")
+          : "";
+    if (text && text.trim() !== currentPrompt.trim() && !isShortContinuation(text)) {
+      return text.slice(0, 8_000);
+    }
+  }
+  return undefined;
+}
+
 function formatRoute(route: SgModelRoute | undefined): string {
   return route ? `${route.provider}/${route.model}` : "маршрут недоступен";
 }
@@ -427,7 +474,28 @@ export function registerSgModelRouter(params: {
         );
         return;
       }
-      const assessment = assessSgModelTier(event);
+      let assessment = assessSgModelTier(event);
+      if (mode === "auto" && isShortContinuation(event.prompt)) {
+        // The hook has no history. Read only the current native session when needed.
+        let prior: string | undefined;
+        if (isDirectSessionKey(ctx.sessionKey) && api.runtime?.subagent?.getSessionMessages) {
+          try {
+            const history = await api.runtime.subagent.getSessionMessages({
+              sessionKey: ctx.sessionKey,
+              limit: 8,
+            });
+            prior = previousUserPrompt(history.messages, event.prompt);
+          } catch {
+            api.logger?.warn("[sg-model-router] continuation-history-unavailable");
+          }
+        }
+        const priorTier = prior ? assessSgModelTier({ prompt: prior }).tier : "medium";
+        assessment = {
+          tier: priorTier === "cheap" ? "medium" : priorTier,
+          score: 0,
+          reasons: [prior ? "session-continuation" : "continuation-context-unavailable"],
+        };
+      }
       const tier = mode === "auto" ? assessment.tier : mode;
       const requiredCapabilities: SgModelCapability[] = event.attachments?.length
         ? ["text", "attachments"]

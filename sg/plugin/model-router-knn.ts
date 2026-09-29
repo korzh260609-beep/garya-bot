@@ -10,6 +10,8 @@ export type RouterTrial = {
 
 export type RouterExample = {
   taskId: string;
+  /** Translations and near duplicates of one task share a family. */
+  familyId: string;
   language: string;
   vector: readonly number[];
   trials: readonly RouterTrial[];
@@ -49,6 +51,7 @@ export function chooseRouterCandidate(params: {
   vector: readonly number[];
   examples: readonly RouterExample[];
   excludeTaskId?: string;
+  excludeFamilyId?: string;
   neighborCount?: number;
   minSuccess?: number;
   minSimilarity?: number;
@@ -60,10 +63,9 @@ export function chooseRouterCandidate(params: {
       minSimilarity < -1 || minSimilarity > 1) {
     return undefined;
   }
-  const seenTasks = new Set<string>();
-  const neighbors = params.examples.flatMap((example) => {
-    if (example.taskId === params.excludeTaskId ||
-        !example.taskId || seenTasks.has(example.taskId) ||
+  const candidates = params.examples.flatMap((example) => {
+    if (example.taskId === params.excludeTaskId || example.familyId === params.excludeFamilyId ||
+        !example.taskId || !example.familyId ||
         new Set(example.trials.map((trial) => trial.tier)).size !== TIERS.length ||
         example.trials.length !== TIERS.length ||
         example.trials.some((trial) => typeof trial.succeeded !== "boolean" ||
@@ -74,9 +76,16 @@ export function chooseRouterCandidate(params: {
     if (similarity === undefined || similarity < minSimilarity) {
       return [];
     }
-    seenTasks.add(example.taskId);
     return [{ example, similarity }];
-  }).sort((a, b) => b.similarity - a.similarity).slice(0, count);
+  }).sort((a, b) => b.similarity - a.similarity);
+  const seenFamilies = new Set<string>();
+  const neighbors = candidates.filter(({ example }) => {
+    if (seenFamilies.has(example.familyId)) {
+      return false;
+    }
+    seenFamilies.add(example.familyId);
+    return true;
+  }).slice(0, count);
   if (neighbors.length < count) {
     return undefined;
   }
@@ -104,6 +113,7 @@ export function evaluateRouterCandidate(examples: readonly RouterExample[], neig
       vector: example.vector,
       examples,
       excludeTaskId: example.taskId,
+      excludeFamilyId: example.familyId,
       neighborCount,
     });
     if (!candidate) {

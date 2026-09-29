@@ -3,6 +3,7 @@ import { chooseRouterCandidate, evaluateRouterCandidate, type RouterExample } fr
 
 const sample = (taskId: string, language: string, vector: number[], cheapSuccess = true): RouterExample => ({
   taskId,
+  familyId: taskId,
   language,
   vector,
   trials: [
@@ -43,5 +44,10 @@ describe("offline model router candidate", () => {
       total: 3, routed: 3, succeeded: 3, candidateCost: 3, terraCost: 9,
     });
     expect(evaluateRouterCandidate(examples.slice(0, 2), 2).routed).toBe(0);
+    expect(evaluateRouterCandidate([
+      { ...examples[0], familyId: "translated-task" },
+      { ...examples[1], familyId: "translated-task" },
+      examples[2],
+    ], 2).routed).toBe(0);
   });
 });

@@ -8,8 +8,9 @@ To evaluate it, collect independent tasks in multiple languages. Embed the user
 request with one fixed multilingual model and version. For each task, run Luna,
 Terra, and Sol on the same inputs and environment; record human-checked completion,
 total provider charge including every retry, tool call, and embedding charge,
-and a stable task ID. Exclude personal content from the published dataset.
-Split by task ID and task family before tuning thresholds. Run the held-out
+and a stable task ID and family ID shared by translations and near duplicates.
+Exclude personal content from the published dataset. Split by task family
+before tuning thresholds. Run the held-out
 set through `evaluateRouterCandidate` and compare its completion rate,
 coverage, and cost of successfully completed tasks with the current router
 and Terra baseline. Include hard short tasks, long simple tasks, attachments,

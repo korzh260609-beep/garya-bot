@@ -18,6 +18,22 @@ export type ToolObservation = {
   callId: string; tool: string; requestedHost?: string; target?: "github" | "project-memory";
   errorCode?: string; errorAtMs?: number; result: "error" | "returned" | "unknown";
 };
+type TranscriptFacts = {
+  agentSource: "run" | "current-job";
+  runAgentMatchesCurrent: boolean | "UNKNOWN";
+  sessionWindow: "PRESENT" | "ABSENT" | "UNAVAILABLE";
+  sessionKeyMatch: "EQUAL" | "DIFFERS" | "UNKNOWN";
+  archivedGenerations: number | "UNKNOWN";
+  totalEvents: number;
+  selectedEvents: number;
+  parsedEvents: number;
+  eventsInRunWindow: number;
+  assistantToolCallsInWindow: number;
+  toolResultsInWindow: number;
+  firstSelectedAtMs?: number;
+  lastSelectedAtMs?: number;
+  partial: boolean;
+};
 export type AutomationEvidence = {
   job?: RecordValue;
   run?: RecordValue;
@@ -26,6 +42,7 @@ export type AutomationEvidence = {
   billingSessionOwner?: RecordValue;
   billingCandidateCount?: number;
   declarations?: RecordValue;
+  transcript?: TranscriptFacts;
   calls: ToolObservation[];
   sources: Source[];
 };
@@ -223,6 +240,7 @@ export function analyzeAutomationEvidence(e: AutomationEvidence): AutomationRepo
       reportedNativeUsage: usage ? { input: number(usage.input_tokens), output: number(usage.output_tokens), total: number(usage.total_tokens) } : "UNKNOWN",
       nativeFailedPhases: nativePhases,
       delivered: typeof run?.delivered === "boolean" ? run.delivered : "UNKNOWN",
+      transcript: e.transcript ?? "UNKNOWN",
       calls: calls.slice(0, 12), totalObservedCalls: calls.length,
     },
     sources: e.sources,
@@ -251,9 +269,21 @@ async function withReadOnlyDb<T>(root: string, relative: string, fn: (db: Databa
     return fn(db);
   } finally { try { db.exec("ROLLBACK"); } finally { db.close(); } }
 }
-function readTranscript(db: DatabaseSync, sessionId: string): { rows: unknown[]; truncated: boolean } {
+function readTranscript(db: DatabaseSync, sessionId: string, run: RecordValue, agentSource: TranscriptFacts["agentSource"], currentAgentId: string): { rows: unknown[]; facts: TranscriptFacts } {
   const fields = columns(db, "transcript_events");
   if (!["session_id", "seq", "event_json"].every(field => fields.has(field))) throw new Error("UNSUPPORTED_TRANSCRIPT_SCHEMA");
+  const total = db.prepare("SELECT count(*) AS n FROM transcript_events WHERE session_id=?").get(sessionId);
+  const windowFields = columns(db, "session_windows");
+  const window = windowFields.has("session_id") && windowFields.has("session_key")
+    ? db.prepare("SELECT session_key FROM session_windows WHERE session_id=?").get(sessionId) : undefined;
+  const sessionWindow: TranscriptFacts["sessionWindow"] = windowFields.has("session_id") && windowFields.has("session_key")
+    ? window ? "PRESENT" : "ABSENT" : "UNAVAILABLE";
+  const sessionKeyMatch: TranscriptFacts["sessionKeyMatch"] = text(window?.session_key) && text(run.sessionKey)
+    ? window?.session_key === run.sessionKey ? "EQUAL" : "DIFFERS" : "UNKNOWN";
+  const archiveFields = columns(db, "session_transcript_archives");
+  const archivedGenerations = archiveFields.has("session_id")
+    ? number(db.prepare("SELECT count(*) AS n FROM session_transcript_archives WHERE session_id=?").get(sessionId)?.n) ?? "UNKNOWN"
+    : "UNKNOWN";
   // Native per-agent SQLite is the transcript owner. Bound rows and bytes, and never read raw
   // command text into the report. An oversized or malformed event makes the source partial.
   const events = db.prepare(`SELECT CASE WHEN length(CAST(event_json AS BLOB)) <= 65536
@@ -268,7 +298,34 @@ function readTranscript(db: DatabaseSync, sessionId: string): { rows: unknown[];
     if (bytes > MAX_BYTES) { truncated = true; continue; }
     try { rows.push(JSON.parse(event.event_json)); } catch { truncated = true; }
   }
-  return { rows, truncated };
+  const start = number(run.runAtMs);
+  const end = number(run.ts) ?? (start !== undefined && number(run.durationMs) !== undefined ? start + Number(run.durationMs) : undefined);
+  let eventsInRunWindow = 0;
+  let assistantToolCallsInWindow = 0;
+  let toolResultsInWindow = 0;
+  const times: number[] = [];
+  for (const event of rows) {
+    const row = record(event);
+    const at = timestamp(row?.timestamp);
+    if (at !== undefined) times.push(at);
+    if (at === undefined || start === undefined || end === undefined || at < start || at > end) continue;
+    eventsInRunWindow++;
+    const message = record(row?.message);
+    if (message?.role === "assistant" && Array.isArray(message.content)) {
+      assistantToolCallsInWindow += message.content.filter(item => record(item)?.type === "toolCall").length;
+    }
+    if (message?.role === "toolResult") toolResultsInWindow++;
+  }
+  return { rows, facts: {
+    agentSource,
+    runAgentMatchesCurrent: text(run.agentId) ? run.agentId === currentAgentId : "UNKNOWN",
+    sessionWindow, sessionKeyMatch, archivedGenerations,
+    totalEvents: number(total?.n) ?? 0, selectedEvents: Math.min(events.length, MAX_ROWS), parsedEvents: rows.length,
+    eventsInRunWindow, assistantToolCallsInWindow, toolResultsInWindow,
+    firstSelectedAtMs: times.length ? Math.min(...times) : undefined,
+    lastSelectedAtMs: times.length ? Math.max(...times) : undefined,
+    partial: truncated,
+  } };
 }
 function columns(db: DatabaseSync, table: string): Set<string> {
   if (!/^[a-z_]+$/u.test(table)) throw new Error("UNSUPPORTED_SCHEMA");
@@ -327,7 +384,7 @@ export async function readAutomationEvidence(input: {
       const taskFields = columns(db, "task_runs");
       let taskRunAmbiguous = false;
       if (["runtime", "source_id", "started_at", "ended_at", "child_session_key", "detail_json"].every(c => taskFields.has(c))) {
-        const taskRows = db.prepare(`SELECT started_at, ended_at, child_session_key,
+      const taskRows = db.prepare(`SELECT started_at, ended_at, child_session_key, ${taskFields.has("agent_id") ? "agent_id" : "NULL AS agent_id"},
           CASE WHEN length(CAST(detail_json AS BLOB)) <= ${MAX_BYTES} THEN detail_json ELSE NULL END AS detail_json
           FROM task_runs WHERE runtime='cron' AND source_id=?
           ${input.runAtMs !== undefined ? "AND started_at=?" : ""}
@@ -341,7 +398,7 @@ export async function readAutomationEvidence(input: {
               (number(detail.runAtMs) !== undefined && detail.runAtMs !== item.started_at)) return [];
           return [{ jobId: job.id, runAtMs: item.started_at, ts: item.ended_at,
             durationMs: number(detail.durationMs), sessionId: detail.sessionId,
-            sessionKey: item.child_session_key, diagnostics: detail.diagnostics,
+            sessionKey: item.child_session_key, agentId: item.agent_id, diagnostics: detail.diagnostics,
             usage: detail.usage, delivered: detail.delivered, runId: detail.runId }];
         });
         if (taskRuns.length > 1 && taskRuns[0].runAtMs === taskRuns[1].runAtMs) {
@@ -400,12 +457,14 @@ export async function readAutomationEvidence(input: {
   const job = evidence.job;
   const run = evidence.run;
   const sessionId = text(run?.sessionId);
-  const agentId = text(job?.agentId) ?? "main";
+  const currentAgentId = text(job?.agentId) ?? "main";
+  const agentId = text(run?.agentId) ?? currentAgentId;
   if (sessionId && IDENTIFIER.test(sessionId) && IDENTIFIER.test(agentId) && run) {
     try {
-      const result = await withReadOnlyDb(input.stateDir, `agents/${agentId}/agent/openclaw-agent.sqlite`, db => readTranscript(db, sessionId));
+      const result = await withReadOnlyDb(input.stateDir, `agents/${agentId}/agent/openclaw-agent.sqlite`, db => readTranscript(db, sessionId, run, text(run.agentId) ? "run" : "current-job", currentAgentId));
       evidence.calls = observeTranscript(result.rows, run);
-      note("native-session-transcript", undefined, result.truncated);
+      evidence.transcript = result.facts;
+      note("native-session-transcript", undefined, result.facts.partial);
     } catch (error) { note("native-session-transcript", error); }
   } else note("native-session-transcript", new Error("EXACT_RUN_SESSION_NOT_AVAILABLE"));
   if (job) {
@@ -442,6 +501,7 @@ export function formatSgAutomationDiagnostic(report: AutomationReport): string {
     `Первое доказанное расхождение: ${mismatch ? `${mismatch.stage}/${mismatch.code} (${mismatch.scope})` : "UNKNOWN"}`,
     `Первое неизвестное звено: ${report.first_unknown_stage ?? "нет"}`,
     `Отказ инструмента: ${first ? `${first.tool}; ${first.errorCode}; call=${first.callId}` : "UNKNOWN"}`,
+    `Транскрипт выбранного запуска: ${JSON.stringify(report.facts.transcript)}`,
     "Причина всего сбоя: UNKNOWN — требуется доказательство всей связи, не пересказ модели.",
     ...report.checks.filter(c => c.status !== "UNKNOWN").slice(0, 8).map(c => `${c.status} [${c.scope}] ${c.stage}: ${c.code}`),
     `Источники: ${report.sources.map(s => `${s.name}=${s.status}${s.reason ? `:${s.reason}` : ""}${s.truncated ? ":PARTIAL" : ""}`).join("; ")}`,

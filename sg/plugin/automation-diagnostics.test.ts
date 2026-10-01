@@ -9,10 +9,11 @@ import { analyzeAutomationEvidence, readAutomationEvidence } from "./automation-
 const started = Date.parse("2026-10-01T18:00:00Z");
 const roots: string[] = [];
 
-function fixture(options: { stale?: boolean } = {}) {
+function fixture(options: { stale?: boolean; runAgentId?: string } = {}) {
   const root = mkdtempSync(path.join(os.tmpdir(), "sg-automation-diagnostic-"));
   roots.push(root);
-  for (const directory of ["state", "sg", "agents/main/agent"]) {
+  const runAgentId = options.runAgentId ?? "main";
+  for (const directory of ["state", "sg", `agents/${runAgentId}/agent`]) {
     mkdirSync(path.join(root, directory), { recursive: true });
   }
   const job = {
@@ -34,7 +35,7 @@ function fixture(options: { stale?: boolean } = {}) {
     );
     CREATE TABLE task_runs (
       runtime TEXT, source_id TEXT, started_at INTEGER, ended_at INTEGER,
-      child_session_key TEXT, detail_json TEXT
+      child_session_key TEXT, agent_id TEXT, detail_json TEXT
     );
   `);
   db.prepare("INSERT INTO cron_jobs VALUES (?, ?, ?, ?)").run(
@@ -42,8 +43,8 @@ function fixture(options: { stale?: boolean } = {}) {
     JSON.stringify({ lastRunAtMs: started, lastDurationMs: 40000 }),
   );
   const taskStarted = options.stale ? started - 86400000 : started;
-  db.prepare("INSERT INTO task_runs VALUES (?, ?, ?, ?, ?, ?)").run(
-    "cron", job.id, taskStarted, taskStarted + 40000, "cron-session",
+  db.prepare("INSERT INTO task_runs VALUES (?, ?, ?, ?, ?, ?, ?)").run(
+    "cron", job.id, taskStarted, taskStarted + 40000, "cron-session", runAgentId,
     JSON.stringify({
       kind: "cron-run", storeKey: "cron-partition", runAtMs: taskStarted,
       sessionId: "exact-session", durationMs: 40000,
@@ -66,8 +67,9 @@ function fixture(options: { stale?: boolean } = {}) {
       content: [{ type: "text", text: "SG could not verify the requester Global ID for device access" }],
     },
   };
-  const agent = new DatabaseSync(path.join(root, "agents/main/agent/openclaw-agent.sqlite"));
-  agent.exec("CREATE TABLE transcript_events (session_id TEXT, seq INTEGER, event_json TEXT, created_at INTEGER, PRIMARY KEY(session_id, seq))");
+  const agent = new DatabaseSync(path.join(root, `agents/${runAgentId}/agent/openclaw-agent.sqlite`));
+  agent.exec("CREATE TABLE session_windows (session_id TEXT PRIMARY KEY, session_key TEXT); CREATE TABLE transcript_events (session_id TEXT, seq INTEGER, event_json TEXT, created_at INTEGER, PRIMARY KEY(session_id, seq)); CREATE TABLE session_transcript_archives (session_id TEXT, generation TEXT)");
+  agent.prepare("INSERT INTO session_windows VALUES (?, ?)").run("exact-session", "cron-session");
   for (const [index, event] of [call, result].entries()) {
     agent.prepare("INSERT INTO transcript_events VALUES (?, ?, ?, ?)").run("exact-session", index + 1, JSON.stringify(event), started + index * 1000);
   }
@@ -98,6 +100,11 @@ describe("SG project automation diagnostic", () => {
     expect(evidence.run?.sessionId).toBe("exact-session");
     expect(evidence.calls[0]?.errorCode).toBe("DEVICE_IDENTITY_ERROR_OBSERVED");
     expect(evidence.calls).toHaveLength(1);
+    expect(evidence.transcript).toMatchObject({
+      agentSource: "run", sessionWindow: "PRESENT", sessionKeyMatch: "EQUAL", archivedGenerations: 0,
+      totalEvents: 2, parsedEvents: 2, eventsInRunWindow: 2,
+      assistantToolCallsInWindow: 1, toolResultsInWindow: 1, partial: false,
+    });
     const report = analyzeAutomationEvidence(evidence);
     expect(report.facts.scheduledPolicyMode).toBe("account");
     expect(report.checks).toContainEqual(expect.objectContaining({ stage: "owner-policy-binding", status: "OBSERVED" }));
@@ -117,5 +124,22 @@ describe("SG project automation diagnostic", () => {
     expect(evidence.sources).toContainEqual(expect.objectContaining({
       name: "task_runs:cron-history", reason: "RUN_HISTORY_BEHIND_CURRENT_STATE",
     }));
+  });
+
+  it("uses the run's agent database if the current job agent differs", async () => {
+    const root = fixture({ runAgentId: "audit" });
+    const evidence = await readAutomationEvidence({ stateDir: root, selector: "project", config: {} });
+    expect(evidence.calls[0]?.errorCode).toBe("DEVICE_IDENTITY_ERROR_OBSERVED");
+    expect(evidence.transcript).toMatchObject({ agentSource: "run", runAgentMatchesCurrent: false });
+  });
+
+  it("distinguishes an existing empty transcript from a tool-free run", async () => {
+    const root = fixture();
+    const agent = new DatabaseSync(path.join(root, "agents/main/agent/openclaw-agent.sqlite"));
+    agent.prepare("DELETE FROM transcript_events WHERE session_id=?").run("exact-session");
+    agent.close();
+    const evidence = await readAutomationEvidence({ stateDir: root, selector: "project", config: {} });
+    expect(evidence.calls).toEqual([]);
+    expect(evidence.transcript).toMatchObject({ sessionWindow: "PRESENT", totalEvents: 0, parsedEvents: 0 });
   });
 });

@@ -5,7 +5,13 @@ import { registerSgBillingHooks } from "./billing-hooks.js";
 import { registerSgBillingReconciliation } from "./billing-reconciliation-lifecycle.js";
 import { BILLING_TOOL_NAMES, createSgBillingTool } from "./billing-tools.js";
 import { SgContentRegistry } from "./content-registry.js";
-import { formatWorkspaceContext, resolveWorkspaceContext } from "./context.js";
+import {
+  findExistingSgProfile,
+  formatWorkspaceContext,
+  resolveSgCanonicalIdentity,
+  resolveWorkspaceContext,
+} from "./context.js";
+import { buildSgAutomationDiagnostic } from "./automation-diagnostics.js";
 import { buildSgCostDiagnostic, type SgCostDiagnosticConfig } from "./cost-diagnostics.js";
 import {
   createSgDeviceTools,
@@ -338,7 +344,31 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
     name: "sg_cost_diag",
     description: "Проверить изоляцию сессии и защиту стоимости SG",
     requireAuth: false,
+    acceptsArgs: true,
     handler: async (ctx) => {
+      if (ctx.args?.trim()) {
+        // This branch must precede resolveWorkspaceContext: diagnostics must not ensureProfile.
+        try {
+          const canonicalIdentity = resolveSgCanonicalIdentity({
+            channel: ctx.channel,
+            senderId: ctx.senderId ?? "",
+            identityLinks: ctx.config.session?.identityLinks,
+          });
+          const profile = canonicalIdentity
+            ? await findExistingSgProfile(canonicalIdentity, stateDir)
+            : undefined;
+          return {
+            text: await buildSgAutomationDiagnostic({
+              stateDir,
+              args: ctx.args,
+              config: ctx.config,
+              actor: profile,
+            }),
+          };
+        } catch {
+          return { text: "SG AUTOMATION DIAG — UNKNOWN: подтверждённый профиль не прочитан" };
+        }
+      }
       const actor = await resolveWorkspaceContext(
         {
           channel: ctx.channel,

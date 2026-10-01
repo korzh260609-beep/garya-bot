@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, describe, expect, it } from "vitest";
-import { analyzeAutomationEvidence, readAutomationEvidence } from "./automation-diagnostics.js";
+import { analyzeAutomationEvidence, formatSgAutomationDiagnostic, readAutomationEvidence } from "./automation-diagnostics.js";
 
 const started = Date.parse("2026-10-01T18:00:00Z");
 const roots: string[] = [];
@@ -56,7 +56,7 @@ function fixture(options: { stale?: boolean; runAgentId?: string } = {}) {
     message: {
       role: "assistant", content: [{
         type: "toolCall", id: "call-1", name: "exec",
-        arguments: { host: "gateway", command: "gh api repos/korzh260609-beep/garya-bot" },
+        arguments: { host: "gateway", command: "gh api repos/korzh260609-beep/garya-bot --token DUMMY_SECRET" },
       }],
     },
   };
@@ -107,12 +107,27 @@ describe("SG project automation diagnostic", () => {
     });
     const report = analyzeAutomationEvidence(evidence);
     expect(report.facts.scheduledPolicyMode).toBe("account");
+    const output = formatSgAutomationDiagnostic(report);
+    expect(output).toContain("Вызовы выбранного запуска (1/1; returned ≠ успех)");
+    expect(output).toContain("tool=exec; status=error; code=DEVICE_IDENTITY_ERROR_OBSERVED; target=github; host=gateway");
+    expect(output).not.toContain("DUMMY_SECRET");
+    expect(output).not.toContain("gh api");
     expect(report.checks).toContainEqual(expect.objectContaining({ stage: "owner-policy-binding", status: "OBSERVED" }));
     expect(evidence.sources).toContainEqual(expect.objectContaining({
       name: "task_runs:cron-history", status: "OBSERVED",
     }));
     expect(digest(dbPath)).toBe(before);
     expect(digest(agentPath)).toBe(agentBefore);
+  });
+
+  it("shows returned as unverified rather than successful", () => {
+    const calls = [{ callId: "call-1", tool: "read", target: "project-memory" as const, result: "returned" as const }];
+    const report = analyzeAutomationEvidence({
+      job: { id: "project-job" }, run: { jobId: "project-job", runAtMs: started }, calls, sources: [],
+    });
+    const output = formatSgAutomationDiagnostic(report);
+    expect(output).toContain("Вызовы выбранного запуска (1/1; returned ≠ успех)");
+    expect(output).toContain("tool=read; status=returned; code=UNKNOWN; target=project-memory; host=UNKNOWN");
   });
 
   it("does not attach an older task transcript to the latest cron run", async () => {

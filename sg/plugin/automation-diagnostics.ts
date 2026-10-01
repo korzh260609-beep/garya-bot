@@ -495,12 +495,15 @@ export async function readAutomationEvidence(input: {
 export function formatSgAutomationDiagnostic(report: AutomationReport): string {
   const mismatch = report.first_confirmed_mismatch;
   const first = report.first_observed_run_block;
+  const calls = report.facts.calls as ToolObservation[];
   return [
     `SG AUTOMATION DIAG — ${report.status}`,
     `Job: ${report.jobId ?? "UNKNOWN"}; запуск: ${report.runAtMs ? new Date(report.runAtMs).toISOString() : "UNKNOWN"}`,
     `Первое доказанное расхождение: ${mismatch ? `${mismatch.stage}/${mismatch.code} (${mismatch.scope})` : "UNKNOWN"}`,
     `Первое неизвестное звено: ${report.first_unknown_stage ?? "нет"}`,
     `Отказ инструмента: ${first ? `${first.tool}; ${first.errorCode}; call=${first.callId}` : "UNKNOWN"}`,
+    `Вызовы выбранного запуска (${calls.length}/${report.facts.totalObservedCalls}; returned ≠ успех):`,
+    ...calls.map(c => `tool=${c.tool}; status=${c.result}; code=${c.errorCode ?? "UNKNOWN"}; target=${c.target ?? "UNKNOWN"}; host=${c.requestedHost ?? "UNKNOWN"}`),
     `Транскрипт выбранного запуска: ${JSON.stringify(report.facts.transcript)}`,
     "Причина всего сбоя: UNKNOWN — требуется доказательство всей связи, не пересказ модели.",
     ...report.checks.filter(c => c.status !== "UNKNOWN").slice(0, 8).map(c => `${c.status} [${c.scope}] ${c.stage}: ${c.code}`),

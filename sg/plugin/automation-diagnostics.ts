@@ -1,7 +1,6 @@
 /** On-demand SG diagnostic. No policy changes, network calls, profile creation or cron execution. */
 import { createHash } from "node:crypto";
-import { constants } from "node:fs";
-import { lstat, open, realpath } from "node:fs/promises";
+import { lstat, realpath } from "node:fs/promises";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
@@ -159,11 +158,15 @@ export function analyzeAutomationEvidence(e: AutomationEvidence): AutomationRepo
   let run = e.run;
   const owner = record(job?.owner);
   const policy = record(job?.scheduledToolPolicy);
-  const policyOwner = record(policy?.owner);
+  const policyMode = policy?.version === 1 && policy.mode === "trusted" && Object.keys(policy).every(key => key === "version" || key === "mode")
+    ? "trusted" : policy?.version === 1 && policy.mode === "account" && text(policy.ownerSessionKey) && text(policy.ownerAccountId) &&
+      Object.keys(policy).every(key => ["version", "mode", "ownerSessionKey", "ownerAccountId"].includes(key)) ? "account" : undefined;
+  const policyOwnerSessionKey = policyMode === "account" ? policy?.ownerSessionKey : undefined;
+  const policyOwnerAccountId = policyMode === "account" ? policy?.ownerAccountId : undefined;
   add("creation", "UNKNOWN", "run", "CREATION_OR_UPDATE_AUDIT_NOT_RECORDED");
   add("saved-owner", owner && text(owner.sessionKey) ? "OBSERVED" : "UNKNOWN", "current", owner && text(owner.sessionKey) ? "OWNER_BINDING_PRESENT_NOT_GLOBAL_ID_PROOF" : "SAVED_OWNER_NOT_VERIFIED");
-  if (owner && policyOwner && text(owner.sessionKey) && text(policyOwner.sessionKey)) {
-    const differs = owner.sessionKey !== policyOwner.sessionKey || (owner.accountId ?? "") !== (policyOwner.accountId ?? "");
+  if (owner && text(owner.sessionKey) && text(policyOwnerSessionKey) && text(policyOwnerAccountId)) {
+    const differs = owner.sessionKey !== policyOwnerSessionKey || owner.accountId !== policyOwnerAccountId;
     add("owner-policy-binding", differs ? "MISMATCH" : "OBSERVED", "current", differs ? "OWNER_POLICY_BINDING_DIFFERS" : "OWNER_POLICY_BINDING_EQUAL");
   } else add("owner-policy-binding", "UNKNOWN", "current", "OWNER_OR_POLICY_BINDING_NOT_AVAILABLE");
   if (e.authority) {
@@ -208,9 +211,9 @@ export function analyzeAutomationEvidence(e: AutomationEvidence): AutomationRepo
     first_observed_run_block: blockedCall ?? null,
     root_cause: "UNKNOWN", checks,
     facts: {
-      ownerSessionHash: digest(owner?.sessionKey), policyOwnerSessionHash: digest(policyOwner?.sessionKey),
+      ownerSessionHash: digest(owner?.sessionKey), policyOwnerSessionHash: digest(policyOwnerSessionKey),
       storedToolsAllow: stringList(record(job?.payload)?.toolsAllow),
-      scheduledPolicyToolsAllow: stringList(policy?.toolsAllow),
+      scheduledPolicyMode: policyMode ?? "UNKNOWN",
       toolsAllowIsDefault: record(job?.payload)?.toolsAllowIsDefault === true,
       toolsAllowProvenance: record(job?.toolsAllowProvenance) ? "present" : "UNKNOWN",
       currentPolicyDeclarations: e.declarations,
@@ -239,27 +242,6 @@ async function safePath(root: string, relative: string): Promise<string> {
   return candidate;
 }
 
-async function jsonlTail(root: string, relative: string): Promise<{ rows: unknown[]; truncated: boolean }> {
-  const file = await safePath(root, relative);
-  const handle = await open(file, constants.O_RDONLY | constants.O_NOFOLLOW);
-  try {
-    const stat = await handle.stat();
-    const length = Math.min(stat.size, MAX_BYTES);
-    const buffer = Buffer.alloc(length);
-    const read = await handle.read(buffer, 0, length, Math.max(0, stat.size - length));
-    let value = buffer.subarray(0, read.bytesRead).toString("utf8");
-    const truncated = stat.size > length;
-    if (truncated) value = value.slice(value.indexOf("\n") + 1);
-    const rows: unknown[] = [];
-    let malformed = false;
-    for (const line of value.split("\n")) {
-      if (!line.trim()) continue;
-      try { rows.push(JSON.parse(line)); } catch { malformed = true; }
-    }
-    return { rows, truncated: truncated || malformed };
-  } finally { await handle.close(); }
-}
-
 async function withReadOnlyDb<T>(root: string, relative: string, fn: (db: DatabaseSync) => T): Promise<T> {
   const file = await safePath(root, relative);
   // Do not create a database, run schema migrations, perform recovery or ignore WAL.
@@ -268,6 +250,25 @@ async function withReadOnlyDb<T>(root: string, relative: string, fn: (db: Databa
     db.exec("PRAGMA query_only=ON; PRAGMA trusted_schema=OFF; PRAGMA busy_timeout=250; BEGIN;");
     return fn(db);
   } finally { try { db.exec("ROLLBACK"); } finally { db.close(); } }
+}
+function readTranscript(db: DatabaseSync, sessionId: string): { rows: unknown[]; truncated: boolean } {
+  const fields = columns(db, "transcript_events");
+  if (!["session_id", "seq", "event_json"].every(field => fields.has(field))) throw new Error("UNSUPPORTED_TRANSCRIPT_SCHEMA");
+  // Native per-agent SQLite is the transcript owner. Bound rows and bytes, and never read raw
+  // command text into the report. An oversized or malformed event makes the source partial.
+  const events = db.prepare(`SELECT CASE WHEN length(CAST(event_json AS BLOB)) <= 65536
+    THEN event_json ELSE NULL END AS event_json FROM transcript_events
+    WHERE session_id=? ORDER BY seq DESC LIMIT ?`).all(sessionId, MAX_ROWS + 1);
+  const rows: unknown[] = [];
+  let bytes = 0;
+  let truncated = events.length > MAX_ROWS;
+  for (const event of events.slice(0, MAX_ROWS).reverse()) {
+    if (typeof event.event_json !== "string") { truncated = true; continue; }
+    bytes += Buffer.byteLength(event.event_json);
+    if (bytes > MAX_BYTES) { truncated = true; continue; }
+    try { rows.push(JSON.parse(event.event_json)); } catch { truncated = true; }
+  }
+  return { rows, truncated };
 }
 function columns(db: DatabaseSync, table: string): Set<string> {
   if (!/^[a-z_]+$/u.test(table)) throw new Error("UNSUPPORTED_SCHEMA");
@@ -402,7 +403,7 @@ export async function readAutomationEvidence(input: {
   const agentId = text(job?.agentId) ?? "main";
   if (sessionId && IDENTIFIER.test(sessionId) && IDENTIFIER.test(agentId) && run) {
     try {
-      const result = await jsonlTail(input.stateDir, `agents/${agentId}/sessions/${sessionId}.jsonl`);
+      const result = await withReadOnlyDb(input.stateDir, `agents/${agentId}/agent/openclaw-agent.sqlite`, db => readTranscript(db, sessionId));
       evidence.calls = observeTranscript(result.rows, run);
       note("native-session-transcript", undefined, result.truncated);
     } catch (error) { note("native-session-transcript", error); }
@@ -445,7 +446,7 @@ export function formatSgAutomationDiagnostic(report: AutomationReport): string {
     ...report.checks.filter(c => c.status !== "UNKNOWN").slice(0, 8).map(c => `${c.status} [${c.scope}] ${c.stage}: ${c.code}`),
     `Источники: ${report.sources.map(s => `${s.name}=${s.status}${s.reason ? `:${s.reason}` : ""}${s.truncated ? ":PARTIAL" : ""}`).join("; ")}`,
     `Текущие декларации политик (НЕ итоговая политика запуска): ${JSON.stringify(report.facts.currentPolicyDeclarations)}`,
-    `Сохранённые toolsAllow: ${JSON.stringify(report.facts.storedToolsAllow ?? "UNKNOWN")}; scheduledToolPolicy: ${JSON.stringify(report.facts.scheduledPolicyToolsAllow ?? "UNKNOWN")}`,
+    `Сохранённые toolsAllow: ${JSON.stringify(report.facts.storedToolsAllow ?? "UNKNOWN")}; scheduledToolPolicy.mode: ${JSON.stringify(report.facts.scheduledPolicyMode ?? "UNKNOWN")}`,
     "Доставка ≠ выполнение. Плательщик ≠ полномочия. Расходы без точной связи запуска: UNKNOWN.",
   ].join("\n").slice(0, 3700);
 }

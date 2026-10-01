@@ -9,6 +9,7 @@ import { formatWorkspaceContext, resolveWorkspaceContext } from "./context.js";
 import { buildSgCostDiagnostic, type SgCostDiagnosticConfig } from "./cost-diagnostics.js";
 import {
   createSgDeviceTools,
+  registerSgDeviceCommand,
   registerSgDeviceOwnershipPolicy,
   SG_DEVICE_TOOL_NAMES,
 } from "./device-access.js";
@@ -66,13 +67,7 @@ type WorkspacePluginApi = {
     channel?: Pick<OpenClawPluginApi["runtime"]["channel"], "outbound">;
   };
   registerInteractiveHandler?: OpenClawPluginApi["registerInteractiveHandler"];
-  registerCommand(command: {
-    name: string;
-    description: string;
-    acceptsArgs?: boolean;
-    requireAuth: boolean;
-    handler(ctx: CommandContext): Promise<{ text: string }>;
-  }): void;
+  registerCommand: OpenClawPluginApi["registerCommand"];
   registerTool: OpenClawPluginApi["registerTool"];
   on: OpenClawPluginApi["on"];
   logger?: { info(message: string): void; warn(message: string): void };
@@ -184,6 +179,7 @@ export function registerWorkspaceManager(api: WorkspacePluginApi): void {
   wsp6Lifecycle.register(api);
   registerSgActionPolicy({ api, stateDir });
   registerSgDeviceOwnershipPolicy({ api, stateDir });
+  registerSgDeviceCommand(api, stateDir);
   registerSgBillingHooks({ api, stateDir });
   registerSgBillingCommands({ api, stateDir });
   registerSgModelRouter({ api, stateDir });

@@ -1,17 +1,15 @@
 import { unlink } from "node:fs/promises";
 import path from "node:path";
+import { issueDeviceBootstrapToken, listDevicePairing } from "openclaw/plugin-sdk/device-bootstrap";
+import { withFileLock } from "openclaw/plugin-sdk/file-lock";
+import { readJsonFileWithFallback, writeJsonFileAtomically } from "openclaw/plugin-sdk/json-store";
 import type {
   AnyAgentTool,
   OpenClawPluginApi,
   OpenClawPluginToolContext,
+  PluginCommandContext,
 } from "openclaw/plugin-sdk/plugin-entry";
 import { jsonResult } from "openclaw/plugin-sdk/tool-results";
-import { withFileLock } from "openclaw/plugin-sdk/file-lock";
-import { readJsonFileWithFallback, writeJsonFileAtomically } from "openclaw/plugin-sdk/json-store";
-import {
-  issueDeviceBootstrapToken,
-  listDevicePairing,
-} from "openclaw/plugin-sdk/device-bootstrap";
 import { resolveSgCanonicalIdentity, resolveWorkspaceContext } from "./context.js";
 import { SgGlobalProfileRegistry } from "./global-profile-registry.js";
 
@@ -35,11 +33,7 @@ type SgPairingSession = {
 };
 
 type PairingStore = {
-  register(
-    key: string,
-    value: SgPairingSession,
-    opts?: { ttlMs?: number },
-  ): Promise<void>;
+  register(key: string, value: SgPairingSession, opts?: { ttlMs?: number }): Promise<void>;
   registerIfAbsent(
     key: string,
     value: SgPairingSession,
@@ -104,10 +98,7 @@ function deviceRoles(device: { role?: string; roles?: string[] }): string[] {
   return [...out];
 }
 
-function isNodeOnlyBootstrapDevice(
-  device: PairedDevice,
-  session: SgPairingSession,
-): boolean {
+function isNodeOnlyBootstrapDevice(device: PairedDevice, session: SgPairingSession): boolean {
   const roles = deviceRoles(device);
   const scopes = Array.isArray(device.scopes)
     ? device.scopes.map((scope) => clean(scope)).filter(Boolean)
@@ -278,31 +269,29 @@ async function beginPairing(params: {
   if (!acquired) {
     const active = await store.lookup(PAIRING_KEY);
     return {
-      status: "busy",
+      status: "busy" as const,
       owner: active?.globalId === params.globalId ? "self" : "another-user",
       expiresAtMs: active?.expiresAtMs,
     };
   }
 
   try {
+    const gatewayUrl = resolveGatewayUrl(params.api.config);
     const issued = await params.deps.issueNodeBootstrap(params.stateDir);
     await store.register(
       PAIRING_KEY,
       { ...session, expiresAtMs: issued.expiresAtMs },
       { ttlMs: Math.max(1_000, issued.expiresAtMs - params.deps.now()) },
     );
-    const gatewayUrl = resolveGatewayUrl(params.api.config);
     const setupCode = encodeSetupCode({
       gatewayUrl,
       token: issued.token,
       expiresAtMs: issued.expiresAtMs,
     });
-    const version = clean(params.api.runtime.version) || "2026.8.1";
     return {
-      status: "ready",
+      status: "ready" as const,
       expiresAtMs: issued.expiresAtMs,
-      setupCode,
-      command: `npx openclaw@${version} connect "oc-pair://${setupCode}" --service`,
+      command: `openclaw connect "oc-pair://${setupCode}" --service`,
     };
   } catch (error) {
     await store.delete(PAIRING_KEY).catch(() => false);
@@ -381,10 +370,7 @@ async function confirmPairing(params: {
   const owner = await deviceOwner(params.registry, device.deviceId);
   if (owner && owner !== params.globalId) return { status: "ownership-conflict" };
 
-  await params.registry.linkIdentity(
-    params.globalId,
-    canonicalSgDeviceIdentity(device.deviceId),
-  );
+  await params.registry.linkIdentity(params.globalId, canonicalSgDeviceIdentity(device.deviceId));
   await store.delete(PAIRING_KEY);
   return {
     status: "paired",
@@ -416,8 +402,7 @@ async function listOwnedDevices(params: {
     .filter((device) => owned.has(normalizeDeviceId(device.deviceId)))
     .map((device) => {
       const node = runtime.nodes.find(
-        (candidate) =>
-          normalizeDeviceId(candidate.nodeId) === normalizeDeviceId(device.deviceId),
+        (candidate) => normalizeDeviceId(candidate.nodeId) === normalizeDeviceId(device.deviceId),
       );
       return {
         deviceId: device.deviceId,
@@ -435,6 +420,74 @@ async function listOwnedDevices(params: {
     });
 }
 
+export function registerSgDeviceCommand(
+  api: SgDeviceApi & Pick<OpenClawPluginApi, "registerCommand">,
+  stateDir: string,
+  deps: SgDeviceAccessDeps = defaultDeps,
+): void {
+  api.registerCommand({
+    name: "sg_connect",
+    description: "Подключить личное устройство к SG",
+    requireAuth: true,
+    handler: async (ctx: PluginCommandContext) => {
+      const senderId = clean(ctx.senderId);
+      const channel = clean(ctx.channel);
+      const peer = `${channel}:${senderId}`;
+      // Native peer routes identify a DM; shared routes have a different From.
+      // Native slash commands use slash:<sender> for To. Unknown routes fail closed.
+      const privateRoute =
+        channel &&
+        senderId &&
+        ctx.from === peer &&
+        (ctx.to === peer || ctx.to === `slash:${senderId}`) &&
+        !ctx.threadParentId;
+      if (!ctx.isAuthorizedSender || !privateRoute) {
+        return {
+          text: "Не удалось подтвердить личный чат. Выполни /sg_connect в личном чате с SG.",
+        };
+      }
+      try {
+        const actor = await resolveWorkspaceContext(
+          {
+            channel,
+            senderId,
+            accountId: ctx.accountId,
+            to: ctx.to,
+            identityLinks: ctx.config.session?.identityLinks,
+          },
+          stateDir,
+        );
+        if (!actor.globalId) {
+          return { text: "Не удалось определить Global ID. Подключение не начато." };
+        }
+        const result = await beginPairing({ api, globalId: actor.globalId, stateDir, deps });
+        if (result.status === "busy") {
+          return {
+            text: "Подключение уже начато. Заверши его или дождись истечения текущего кода и повтори /sg_connect.",
+          };
+        }
+        return {
+          text: [
+            "На ноутбуке с установленным OpenClaw выполни в терминале:",
+            "",
+            "```",
+            result.command,
+            "```",
+            "",
+            `Код одноразовый, действует до ${new Date(result.expiresAtMs).toISOString()}.`,
+            "После запуска напиши SG «готово»: SG покажет найденное устройство и попросит подтвердить его.",
+          ].join("\n"),
+        };
+      } catch {
+        // Dependency errors can contain credential-bearing URLs. Never echo them.
+        return {
+          text: "Не удалось подготовить подключение. Проверь доступность Gateway и повтори /sg_connect.",
+        };
+      }
+    },
+  });
+}
+
 export function createSgDeviceTools(
   ctx: OpenClawPluginToolContext,
   stateDir: string,
@@ -447,7 +500,7 @@ export function createSgDeviceTools(
       name: "sg_device",
       label: "Устройства SG",
       description:
-        "Подключает и показывает устройства текущего Global ID. OpenClaw остаётся владельцем pairing, Node transport и device capabilities.",
+        "Показывает и привязывает устройства текущего Global ID через штатный OpenClaw. Для начала подключения пользователь выполняет /sg_connect в личном чате; инструмент не выдаёт коды. После запуска команды на устройстве: finish, затем confirm только после явного подтверждения пользователя.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -465,15 +518,15 @@ export function createSgDeviceTools(
           const action = clean((rawParameters as Record<string, unknown>).action);
           switch (action) {
             case "connect":
-              return jsonResult(await beginPairing({ api, globalId, stateDir, deps }));
+              return jsonResult({
+                status: "command-required",
+                command: "/sg_connect",
+                instruction: "Попроси пользователя выполнить /sg_connect в личном чате с SG.",
+              });
             case "finish":
-              return jsonResult(
-                await finishPairing({ api, registry, globalId, stateDir, deps }),
-              );
+              return jsonResult(await finishPairing({ api, registry, globalId, stateDir, deps }));
             case "confirm":
-              return jsonResult(
-                await confirmPairing({ api, registry, globalId, stateDir, deps }),
-              );
+              return jsonResult(await confirmPairing({ api, registry, globalId, stateDir, deps }));
             case "list":
               return jsonResult({
                 status: "ok",

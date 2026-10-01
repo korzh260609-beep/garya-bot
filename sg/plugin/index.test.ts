@@ -173,6 +173,7 @@ describe("SG Workspace Manager", () => {
     });
 
     expect(registerCommand.mock.calls.map((call) => call[0]?.name)).toEqual([
+      "sg_connect",
       "sg_balance",
       "sg_billing",
       "sg_model",

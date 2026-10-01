@@ -1,20 +1,35 @@
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { describe, expect, it, vi } from "vitest";
+import {
+  createPluginCommandRuntime,
+  type PluginCommandDispatchContext,
+} from "openclaw/plugin-sdk/plugin-command-runtime";
 import type { OpenClawPluginToolContext } from "openclaw/plugin-sdk/plugin-entry";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { decodePairingSetupCode } from "../../src/pairing/setup-code.js";
+import { registerPluginCommandInRegistry } from "../../src/plugins/command-registration.js";
+import { createEmptyPluginRegistry } from "../../src/plugins/registry-empty.js";
+import { withPluginRuntimeRegistryScope } from "../../src/plugins/runtime/gateway-request-scope.js";
 import {
   canonicalSgDeviceIdentity,
   createSgDeviceTools,
+  registerSgDeviceCommand,
   registerSgDeviceOwnershipPolicy,
   type SgDeviceAccessDeps,
 } from "./device-access.js";
 import { SgGlobalProfileRegistry } from "./global-profile-registry.js";
 
 const timestamp = "2026-01-01T00:00:00.000Z";
+const roots: string[] = [];
+
+afterEach(async () => {
+  await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
+});
 
 async function fixture() {
   const root = await mkdtemp(path.join(os.tmpdir(), "sg-device-"));
+  roots.push(root);
   await mkdir(path.join(root, "sg"), { recursive: true });
   await writeFile(
     path.join(root, "sg", "global-profiles.json"),
@@ -92,16 +107,84 @@ function details(result: unknown): Record<string, unknown> {
   return (result as { details: Record<string, unknown> }).details;
 }
 
+function nativeConnect(
+  root: string,
+  deps: SgDeviceAccessDeps,
+  config = {
+    gateway: { publicOrigin: "https://sg.example" },
+  },
+) {
+  const registry = createEmptyPluginRegistry();
+  registerSgDeviceCommand(
+    {
+      config,
+      runtime: {},
+      on: vi.fn(),
+      registerCommand: (command) => {
+        expect(registerPluginCommandInRegistry(registry, "sg-workspace-manager", command).ok).toBe(
+          true,
+        );
+      },
+    },
+    root,
+    deps,
+  );
+  const runtime = withPluginRuntimeRegistryScope(registry, () => createPluginCommandRuntime());
+  return async (overrides: Partial<PluginCommandDispatchContext> = {}) => {
+    const channel = overrides.channel ?? "telegram";
+    const candidate = runtime
+      .listNativeCandidates(channel)
+      .find((entry) => entry.name === "sg_connect");
+    expect(candidate?.requireAuth).toBe(true);
+    const dispatch = candidate!.prepareDispatch();
+    if (dispatch.kind !== "plugin") throw new Error("native-command-not-registered");
+    return dispatch.execute({
+      channel,
+      senderId: "100",
+      from: `${channel}:100`,
+      to: `${channel}:100`,
+      isAuthorizedSender: true,
+      commandBody: "/sg_connect",
+      config,
+      ...overrides,
+    });
+  };
+}
+
 describe("SG device access", () => {
+  it("never issues or exposes pairing credentials through the agent tool", async () => {
+    const root = await fixture();
+    const issueNodeBootstrap = vi.fn(async () => ({ token: "secret", expiresAtMs: 1_600_000 }));
+    const tool = createSgDeviceTools(
+      toolContext("100"),
+      root,
+      {
+        config: { gateway: { publicOrigin: "https://sg.example" } },
+        runtime: {},
+        on: vi.fn(),
+      },
+      {
+        now: () => 1_000_000,
+        listPairing: async () => ({ pending: [], paired: [] }),
+        issueNodeBootstrap,
+      },
+    )[0]!;
+
+    const result = details(await tool.execute("connect", { action: "connect" }));
+    expect(issueNodeBootstrap).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ status: "command-required", command: "/sg_connect" });
+    expect(result).not.toHaveProperty("setupCode");
+  });
+
   it("stores OpenClaw device ownership in the existing Global ID identity registry", async () => {
     const root = await fixture();
     const registry = new SgGlobalProfileRegistry(root);
 
     await registry.linkIdentity("usr_a", canonicalSgDeviceIdentity("NODE-A"));
 
-    await expect(
-      registry.findByCanonicalIdentity("device:openclaw:node-a"),
-    ).resolves.toMatchObject({ globalId: "usr_a" });
+    await expect(registry.findByCanonicalIdentity("device:openclaw:node-a")).resolves.toMatchObject(
+      { globalId: "usr_a" },
+    );
     await expect(
       registry.linkIdentity("usr_b", canonicalSgDeviceIdentity("NODE-A")),
     ).rejects.toThrow("sg-profile-identity-conflict");
@@ -109,7 +192,7 @@ describe("SG device access", () => {
 
   it("serializes onboarding and binds only after explicit confirmation", async () => {
     const root = await fixture();
-    let paired: any[] = [];
+    let paired: Awaited<ReturnType<SgDeviceAccessDeps["listPairing"]>>["paired"] = [];
     const deps: SgDeviceAccessDeps = {
       now: () => 1_000_000,
       listPairing: async () => ({ pending: [], paired }),
@@ -130,11 +213,20 @@ describe("SG device access", () => {
     const alice = createSgDeviceTools(toolContext("100"), root, api, deps)[0]!;
     const bob = createSgDeviceTools(toolContext("200"), root, api, deps)[0]!;
 
-    expect(details(await alice.execute("1", { action: "connect" }))).toMatchObject({
-      status: "ready",
-      command: expect.stringContaining("openclaw@2026.8.1 connect"),
+    const connect = nativeConnect(root, deps);
+    const ready = await connect();
+    const target = ready.text?.match(/openclaw connect "(oc-pair:\/\/[^\"]+)" --service/)?.[1];
+    expect(target).toBeDefined();
+    expect(decodePairingSetupCode(target!, { nowMs: 1_000_000 })).toEqual({
+      url: "wss://sg.example",
+      bootstrapToken: "secret",
+      expiresAtMs: 1_600_000,
     });
-    expect(details(await bob.execute("2", { action: "connect" }))).toMatchObject({
+    expect(ready.continueAgent).not.toBe(true);
+    expect(
+      (await connect({ senderId: "200", from: "telegram:200", to: "telegram:200" })).text,
+    ).toContain("Подключение уже начато");
+    expect(details(await bob.execute("2", { action: "finish" }))).toMatchObject({
       status: "busy",
       owner: "another-user",
     });
@@ -142,6 +234,7 @@ describe("SG device access", () => {
     paired = [
       {
         deviceId: "node-a",
+        publicKey: "test-public-key-a",
         displayName: "Laptop A",
         platform: "windows",
         role: "node",
@@ -150,7 +243,7 @@ describe("SG device access", () => {
         approvedVia: "bootstrap",
         createdAtMs: 1_000_100,
         approvedAtMs: 1_000_100,
-        pendingNodeSurface: { requestId: "req-node-a" },
+        pendingNodeSurface: { requestId: "req-node-a", revision: "r1", ts: 1_000_100 },
       },
     ];
 
@@ -172,6 +265,81 @@ describe("SG device access", () => {
     ).resolves.toMatchObject({ globalId: "usr_a" });
   });
 
+  it.each([
+    { channel: "telegram", from: "telegram:group:-1001", to: "telegram:-1001" },
+    { channel: "discord", from: "discord:channel:100", to: "slash:100" },
+    { channel: "discord", from: "discord:group:100", to: "slash:100" },
+    { channel: "slack", from: "slack:channel:C100", to: "slash:100" },
+    { from: undefined },
+    { senderId: undefined },
+    { to: "telegram:200" },
+    { isAuthorizedSender: false },
+  ])("does not mint credentials on an unverified private route: %j", async (route) => {
+    const root = await fixture();
+    const issueNodeBootstrap = vi.fn();
+    const connect = nativeConnect(root, {
+      now: () => 1_000_000,
+      listPairing: async () => ({ pending: [], paired: [] }),
+      issueNodeBootstrap,
+    });
+    const result = await connect(route);
+    expect(issueNodeBootstrap).not.toHaveBeenCalled();
+    expect(result.text).toBeTruthy();
+    expect(result.text).not.toContain("oc-pair://");
+    expect(result.continueAgent).not.toBe(true);
+  });
+
+  it("uses the existing linked Global ID across native chat transports", async () => {
+    const root = await fixture();
+    const registry = new SgGlobalProfileRegistry(root);
+    await registry.linkIdentity("usr_a", "linked:alice");
+    const deps: SgDeviceAccessDeps = {
+      now: () => 1_000_000,
+      listPairing: async () => ({ pending: [], paired: [] }),
+      issueNodeBootstrap: vi.fn(async () => ({ token: "secret", expiresAtMs: 1_600_000 })),
+    };
+    const config = { session: { identityLinks: { alice: ["discord:100", "slack:100"] } } };
+    const connect = nativeConnect(root, deps);
+    expect(
+      (await connect({ channel: "discord", from: "discord:100", to: "slash:100", config })).text,
+    ).toContain("openclaw connect");
+    const tool = createSgDeviceTools(
+      {
+        config,
+        messageChannel: "slack",
+        requesterSenderId: "100",
+      },
+      root,
+      { runtime: {}, on: vi.fn() },
+      deps,
+    )[0]!;
+    expect(details(await tool.execute("finish", { action: "finish" }))).toMatchObject({
+      status: "waiting",
+    });
+    expect(
+      (await connect({ channel: "slack", from: "slack:100", to: "slash:100", config })).text,
+    ).toContain("Подключение уже начато");
+    expect(deps.issueNodeBootstrap).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns a safe native reply on issuance failure and allows retry", async () => {
+    const root = await fixture();
+    const issueNodeBootstrap = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("credential-bearing-url-must-not-escape"))
+      .mockResolvedValueOnce({ token: "secret", expiresAtMs: 1_600_000 });
+    const connect = nativeConnect(root, {
+      now: () => 1_000_000,
+      listPairing: async () => ({ pending: [], paired: [] }),
+      issueNodeBootstrap,
+    });
+    const failure = await connect();
+    expect(failure.text).toContain("Не удалось подготовить подключение");
+    expect(failure.text).not.toContain("credential-bearing-url");
+    expect(failure.continueAgent).not.toBe(true);
+    expect((await connect()).text).toContain("openclaw connect");
+  });
+
   it("enforces Global ID ownership for stock node tools", async () => {
     const root = await fixture();
     const registry = new SgGlobalProfileRegistry(root);
@@ -179,76 +347,81 @@ describe("SG device access", () => {
     await registry.linkIdentity("usr_b", canonicalSgDeviceIdentity("node-b"));
 
     const hooks = new Map<string, (...args: any[]) => any>();
-    registerSgDeviceOwnershipPolicy({
-      stateDir: root,
-      api: {
-        config: {},
-        runtime: {
-          state: pluginState(),
-          nodes: {
-            list: async () => ({
-              nodes: [
-                {
-                  nodeId: "node-a",
-                  connected: true,
-                  caps: ["browser"],
-                  commands: ["browser.proxy"],
-                  nodePluginTools: [
-                    {
-                      name: "alice_local_tool",
-                      pluginId: "local",
-                      description: "local",
-                      parameters: {},
-                      command: "local.call",
-                    },
-                  ],
-                },
-                {
-                  nodeId: "node-b",
-                  connected: true,
-                  nodePluginTools: [
-                    {
-                      name: "bob_local_tool",
-                      pluginId: "local",
-                      description: "local",
-                      parameters: {},
-                      command: "local.call",
-                    },
-                  ],
-                },
-              ],
-            }),
+    registerSgDeviceOwnershipPolicy(
+      {
+        stateDir: root,
+        api: {
+          config: {},
+          runtime: {
+            state: pluginState(),
+            nodes: {
+              list: async () => ({
+                nodes: [
+                  {
+                    nodeId: "node-a",
+                    connected: true,
+                    caps: ["browser"],
+                    commands: ["browser.proxy"],
+                    nodePluginTools: [
+                      {
+                        name: "alice_local_tool",
+                        pluginId: "local",
+                        description: "local",
+                        parameters: {},
+                        command: "local.call",
+                      },
+                    ],
+                  },
+                  {
+                    nodeId: "node-b",
+                    connected: true,
+                    nodePluginTools: [
+                      {
+                        name: "bob_local_tool",
+                        pluginId: "local",
+                        description: "local",
+                        parameters: {},
+                        command: "local.call",
+                      },
+                    ],
+                  },
+                ],
+              }),
+            },
           },
-        },
-        on: vi.fn((name, handler) => hooks.set(name, handler)),
-      } as never,
-    }, {
-      listPairing: async () => ({
-        pending: [],
-        paired: [
-          {
-            deviceId: "node-a",
-            role: "node",
-            roles: ["node"],
-            scopes: [],
-            approvedVia: "bootstrap",
-            createdAtMs: 1,
-            approvedAtMs: 2,
-            pendingNodeSurface: { requestId: "req-node-a" },
-          },
-          {
-            deviceId: "node-b",
-            role: "node",
-            roles: ["node"],
-            scopes: [],
-            approvedVia: "bootstrap",
-            createdAtMs: 1,
-            approvedAtMs: 2,
-            pendingNodeSurface: { requestId: "req-node-b" },
-          },
-        ],
-      }),
-    });
+          on: vi.fn((name, handler) => hooks.set(name, handler)),
+        } as never,
+      },
+      {
+        listPairing: async () => ({
+          pending: [],
+          paired: [
+            {
+              deviceId: "node-a",
+              publicKey: "test-public-key-a",
+              role: "node",
+              roles: ["node"],
+              scopes: [],
+              approvedVia: "bootstrap",
+              createdAtMs: 1,
+              approvedAtMs: 2,
+              pendingNodeSurface: { requestId: "req-node-a", revision: "r1", ts: 1_000_100 },
+            },
+            {
+              deviceId: "node-b",
+              publicKey: "test-public-key-b",
+              role: "node",
+              roles: ["node"],
+              scopes: [],
+              approvedVia: "bootstrap",
+              createdAtMs: 1,
+              approvedAtMs: 2,
+              pendingNodeSurface: { requestId: "req-node-b", revision: "r1", ts: 1_000_100 },
+            },
+          ],
+        }),
+      },
+    );
     const hook = hooks.get("before_tool_call")!;
     const ctx = { requester: { channel: "telegram", senderId: "100" } };
 
@@ -267,17 +440,15 @@ describe("SG device access", () => {
     await expect(
       hook({ toolName: "nodes", params: { action: "approve", requestId: "req-node-b" } }, ctx),
     ).resolves.toMatchObject({ block: true });
-    await expect(
-      hook({ toolName: "browser", params: { action: "status" } }, ctx),
-    ).resolves.toEqual({
-      params: { action: "status", target: "node", node: "node-a" },
+    await expect(hook({ toolName: "browser", params: { action: "status" } }, ctx)).resolves.toEqual(
+      {
+        params: { action: "status", target: "node", node: "node-a" },
+      },
+    );
+    await expect(hook({ toolName: "alice_local_tool", params: {} }, ctx)).resolves.toBeUndefined();
+    await expect(hook({ toolName: "bob_local_tool", params: {} }, ctx)).resolves.toMatchObject({
+      block: true,
     });
-    await expect(
-      hook({ toolName: "alice_local_tool", params: {} }, ctx),
-    ).resolves.toBeUndefined();
-    await expect(
-      hook({ toolName: "bob_local_tool", params: {} }, ctx),
-    ).resolves.toMatchObject({ block: true });
   });
 
   it("lists only devices owned by the current Global ID after restart", async () => {
@@ -293,6 +464,7 @@ describe("SG device access", () => {
         paired: [
           {
             deviceId: "node-a",
+            publicKey: "test-public-key-a",
             displayName: "A",
             platform: "windows",
             role: "node",
@@ -301,10 +473,11 @@ describe("SG device access", () => {
             approvedVia: "bootstrap",
             createdAtMs: 1,
             approvedAtMs: 2,
-            pendingNodeSurface: { requestId: "req-node-a" },
+            pendingNodeSurface: { requestId: "req-node-a", revision: "r1", ts: 1_000_100 },
           },
           {
             deviceId: "node-b",
+            publicKey: "test-public-key-b",
             displayName: "B",
             platform: "linux",
             role: "node",

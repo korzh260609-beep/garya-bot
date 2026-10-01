@@ -138,7 +138,7 @@ describe("SG OpenAI billing reconciliation", () => {
     expect(calls[0]?.searchParams.get("bucket_width")).toBe("1d");
     expect(calls[1]?.searchParams.get("page")).toBe("page-two");
     const ledger = new SgBillingLedger(root);
-    await expect(ledger.financialReport()).resolves.toMatchObject({
+    await expect(ledger.financialReport(options.now)).resolves.toMatchObject({
       reconciliationAdjustmentNanoUsd: 1_750_000_000,
       projectProviderCostNanoUsd: 1_750_000_000,
       reconciliationWindowCount: 2,

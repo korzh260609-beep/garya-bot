@@ -80,6 +80,12 @@ function safeLabel(value: unknown): string | undefined {
   const raw = text(value);
   return raw && /^[\w.:/-]{1,160}$/u.test(raw) ? raw : undefined;
 }
+// Tool-call IDs are opaque and may contain provider separators such as "|fc_".
+// They stay internal for pairing calls to results and are never printed raw.
+function safeCallId(value: unknown): string | undefined {
+  const raw = text(value);
+  return raw && raw.length <= 256 && !/[\u0000-\u001f\u007f]/u.test(raw) ? raw : undefined;
+}
 function stringList(value: unknown): string[] | undefined {
   if (!Array.isArray(value) || value.length > 256 || value.some(x => typeof x !== "string" || !/^[\w.:*?/-]{1,160}$/u.test(x))) return undefined;
   return value as string[];
@@ -138,7 +144,7 @@ export function observeTranscript(rows: unknown[], run: RecordValue): ToolObserv
     if (message.role === "assistant" && Array.isArray(message.content)) {
       for (const item of message.content) {
         const call = record(item);
-        if (call?.type !== "toolCall" || !safeLabel(call.id) || !safeLabel(call.name)) continue;
+        if (call?.type !== "toolCall" || !safeCallId(call.id) || !safeLabel(call.name)) continue;
         const p = record(call.arguments) ?? {};
         const callId = String(call.id);
         if (calls.has(callId)) { calls.delete(callId); duplicateIds.add(callId); }
@@ -157,7 +163,7 @@ export function observeTranscript(rows: unknown[], run: RecordValue): ToolObserv
         if (calls.size > MAX_ROWS) break;
       }
     } else if (message.role === "toolResult") {
-      const callId = text(message.toolCallId);
+      const callId = safeCallId(message.toolCallId);
       const existing = callId ? calls.get(callId) : undefined;
       if (!existing || (text(message.toolName) && message.toolName !== existing.tool)) continue;
       existing.result = message.isError === true ? "error" : "returned";
@@ -501,7 +507,7 @@ export function formatSgAutomationDiagnostic(report: AutomationReport): string {
     `Job: ${report.jobId ?? "UNKNOWN"}; запуск: ${report.runAtMs ? new Date(report.runAtMs).toISOString() : "UNKNOWN"}`,
     `Первое доказанное расхождение: ${mismatch ? `${mismatch.stage}/${mismatch.code} (${mismatch.scope})` : "UNKNOWN"}`,
     `Первое неизвестное звено: ${report.first_unknown_stage ?? "нет"}`,
-    `Отказ инструмента: ${first ? `${first.tool}; ${first.errorCode}; call=${first.callId}` : "UNKNOWN"}`,
+    `Отказ инструмента: ${first ? `${first.tool}; ${first.errorCode}; callHash=${digest(first.callId)}` : "UNKNOWN"}`,
     `Вызовы выбранного запуска (${calls.length}/${report.facts.totalObservedCalls}; returned ≠ успех):`,
     ...calls.map(c => `tool=${c.tool}; status=${c.result}; code=${c.errorCode ?? "UNKNOWN"}; target=${c.target ?? "UNKNOWN"}; host=${c.requestedHost ?? "UNKNOWN"}`),
     `Транскрипт выбранного запуска: ${JSON.stringify(report.facts.transcript)}`,

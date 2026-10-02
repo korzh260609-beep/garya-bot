@@ -55,7 +55,7 @@ function fixture(options: { stale?: boolean; runAgentId?: string } = {}) {
     type: "message", timestamp: new Date(started + 1000).toISOString(),
     message: {
       role: "assistant", content: [{
-        type: "toolCall", id: "call-1", name: "exec",
+        type: "toolCall", id: "call_example|fc_example", name: "exec",
         arguments: { host: "gateway", command: "gh api repos/korzh260609-beep/garya-bot --token DUMMY_SECRET" },
       }],
     },
@@ -63,7 +63,7 @@ function fixture(options: { stale?: boolean; runAgentId?: string } = {}) {
   const result = {
     type: "message", timestamp: new Date(started + 2000).toISOString(),
     message: {
-      role: "toolResult", toolCallId: "call-1", toolName: "exec", isError: true,
+      role: "toolResult", toolCallId: "call_example|fc_example", toolName: "exec", isError: true,
       content: [{ type: "text", text: "SG could not verify the requester Global ID for device access" }],
     },
   };
@@ -111,6 +111,7 @@ describe("SG project automation diagnostic", () => {
     expect(output).toContain("Вызовы выбранного запуска (1/1; returned ≠ успех)");
     expect(output).toContain("tool=exec; status=error; code=DEVICE_IDENTITY_ERROR_OBSERVED; target=github; host=gateway");
     expect(output).not.toContain("DUMMY_SECRET");
+    expect(output).not.toContain("call_example|fc_example");
     expect(output).not.toContain("gh api");
     expect(report.checks).toContainEqual(expect.objectContaining({ stage: "owner-policy-binding", status: "OBSERVED" }));
     expect(evidence.sources).toContainEqual(expect.objectContaining({

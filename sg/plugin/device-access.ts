@@ -596,6 +596,19 @@ function cronRunHash(sessionId?: string): string {
   return sessionId ? createHash("sha256").update(sessionId).digest("hex").slice(0, 12) : "UNKNOWN";
 }
 
+function logCronAuthority(
+  api: SgDeviceApi,
+  kind: "proof" | "exec",
+  sessionId: string | undefined,
+  code: string,
+): void {
+  try {
+    api.logger?.info(`[sg-device] cron-${kind} runHash=${cronRunHash(sessionId)} code=${code}`);
+  } catch {
+    // Diagnostic logging must not change tool access or cron execution.
+  }
+}
+
 function cronJobIdFromRunContext(ctx: {
   agentId?: string;
   sessionKey?: string;
@@ -655,9 +668,7 @@ export function registerSgDeviceOwnershipPolicy(
 
   api.on("before_agent_run", async (_event, ctx) => {
     if (ctx.trigger !== "cron") return;
-    const audit = (code: string) => api.logger?.info(
-      `[sg-device] cron-proof runHash=${cronRunHash(ctx.sessionId)} code=${code}`,
-    );
+    const audit = (code: string) => logCronAuthority(api, "proof", ctx.sessionId, code);
     const jobId = cronJobIdFromRunContext(ctx);
     if (!jobId) return audit("SESSION_BINDING_INVALID");
     if (!ctx.runId || !ctx.sessionId) return audit("RUN_CONTEXT_INCOMPLETE");
@@ -722,7 +733,7 @@ export function registerSgDeviceOwnershipPolicy(
     if (event.toolName === "exec" && ctx.sessionKey?.includes(":cron:")) {
       const code = cronProof && (cronProfile?.status !== "active" ||
         cronProfile.role !== "monarch") ? "PROOF_PROFILE_INVALID" : cronCheck.code;
-      api.logger?.info(`[sg-device] cron-exec runHash=${cronRunHash(ctx.sessionId)} code=${code}`);
+      logCronAuthority(api, "exec", ctx.sessionId, code);
     }
     if (event.toolName === "exec" && cronProfile?.status === "active" &&
         cronProfile.role === "monarch") {

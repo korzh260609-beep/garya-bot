@@ -506,6 +506,9 @@ describe("SG device access", () => {
     await expect(beforeTool({ toolName: "exec", params: {} }, toolCtx))
       .resolves.toEqual({ params: { host: "gateway" } });
     expect(info).toHaveBeenCalledWith(expect.stringContaining("code=PROOF_VALID"));
+    info.mockImplementationOnce(() => { throw new Error("log unavailable"); });
+    await expect(beforeTool({ toolName: "exec", params: {} }, toolCtx))
+      .resolves.toEqual({ params: { host: "gateway" } });
     await expect(beforeTool({ toolName: "exec", params: { host: "gateway" } }, toolCtx))
       .resolves.toBeUndefined();
     await expect(beforeTool({ toolName: "exec", params: { host: "node", node: "foreign" } }, toolCtx))

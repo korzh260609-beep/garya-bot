@@ -76,6 +76,7 @@ type WorkspacePluginApi = {
   registerCommand: OpenClawPluginApi["registerCommand"];
   registerTool: OpenClawPluginApi["registerTool"];
   on: OpenClawPluginApi["on"];
+  runContext?: OpenClawPluginApi["runContext"];
   logger?: { info(message: string): void; warn(message: string): void };
 };
 

@@ -4,6 +4,7 @@ import path from "node:path";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
 import { afterEach, describe, expect, it } from "vitest";
 import { registerSgActionPolicy } from "./action-policy.js";
+import { SgBillingLedger } from "./billing-ledger.js";
 
 const roots: string[] = [];
 
@@ -52,8 +53,16 @@ async function fixture() {
     }),
   );
   const hooks = new Map<string, Array<(event: any, ctx: any) => unknown>>();
+  const runData = new Map<string, unknown>();
   const api = {
     config: {},
+    runContext: {
+      setRunContext: ({ runId, namespace, value }: any) => {
+        runData.set(`${runId}:${namespace}`, value);
+        return true;
+      },
+      getRunContext: ({ runId, namespace }: any) => runData.get(`${runId}:${namespace}`),
+    },
     on(name: string, handler: (event: any, ctx: any) => unknown) {
       hooks.set(name, [...(hooks.get(name) ?? []), handler]);
     },
@@ -69,7 +78,7 @@ async function fixture() {
       { requester: { channel: "telegram", senderId } },
     );
   };
-  return { hooks, invoke };
+  return { hooks, invoke, runData, stateDir };
 }
 
 afterEach(async () => {
@@ -91,6 +100,29 @@ describe("SG action policy", () => {
     for (const stop of hooks.get("gateway_stop") ?? []) {
       await stop({}, {});
     }
+  });
+
+  it("does not turn a cron payer or report recipient into monarch authority", async () => {
+    const { hooks, runData, stateDir } = await fixture();
+    const ledger = new SgBillingLedger(stateDir);
+    const sessionKey = "agent:main:cron:job-a:run:run-a";
+    await ledger.bindSessionOwner({
+      sessionKey, globalId: "usr_monarch", role: "monarch",
+      source: { kind: "automation", id: "job-a" },
+    });
+    const handler = hooks.get("before_tool_call")?.[0]!;
+    const context = { runId: "run-a", sessionId: "run-a", sessionKey,
+      requester: { channel: "telegram", senderId: "200" } };
+    await expect(handler({ toolName: "sg_render", params: { action: "status" } }, context))
+      .resolves.toMatchObject({ block: true });
+    runData.set("run-a:sg-cron-creator", {
+      jobId: "job-a", globalId: "usr_monarch", agentId: "main",
+      sessionKey, sessionId: "run-a",
+    });
+    await expect(handler({ toolName: "sg_render", params: { action: "status" } }, context))
+      .resolves.toBeUndefined();
+    ledger.close();
+    for (const stop of hooks.get("gateway_stop") ?? []) await stop({}, {});
   });
 
   it("uses native approval for Render and billing mutations", async () => {

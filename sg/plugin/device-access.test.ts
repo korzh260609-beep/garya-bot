@@ -27,7 +27,7 @@ afterEach(async () => {
   await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
 });
 
-async function fixture() {
+async function fixture(monarch = false) {
   const root = await mkdtemp(path.join(os.tmpdir(), "sg-device-"));
   roots.push(root);
   await mkdir(path.join(root, "sg"), { recursive: true });
@@ -35,11 +35,12 @@ async function fixture() {
     path.join(root, "sg", "global-profiles.json"),
     JSON.stringify({
       version: 5,
+      ...(monarch ? { monarchGlobalId: "usr_a" } : {}),
       profiles: [
         {
           globalId: "usr_a",
           canonicalIdentity: "channel:telegram:100",
-          role: "citizen",
+          role: monarch ? "monarch" : "citizen",
           status: "active",
           createdAt: timestamp,
           updatedAt: timestamp,
@@ -449,6 +450,86 @@ describe("SG device access", () => {
     await expect(hook({ toolName: "bob_local_tool", params: {} }, ctx)).resolves.toMatchObject({
       block: true,
     });
+  });
+
+  it("uses native cron creator provenance for one monarch run, without treating delivery as identity", async () => {
+    const root = await fixture(true);
+    const jobId = "job-a";
+    const ownerSessionKey = "agent:main:telegram:direct:100";
+    const sessionId = "run-a";
+    const sessionKey = `agent:main:cron:${jobId}:run:${sessionId}`;
+    const job = {
+      id: jobId,
+      enabled: true,
+      agentId: "main",
+      sessionTarget: "isolated",
+      owner: { agentId: "main", sessionKey: ownerSessionKey, accountId: "default" },
+      scheduledToolPolicy: {
+        version: 1, mode: "account",
+        ownerSessionKey, ownerAccountId: "default",
+      },
+      payload: { kind: "agentTurn", message: "audit", toolsAllow: ["exec"] },
+    };
+    const runData = new Map<string, unknown>();
+    const hooks = new Map<string, (...args: any[]) => any>();
+    const api = {
+      config: {},
+      runtime: {},
+      runContext: {
+        setRunContext: ({ runId, namespace, value }: any) => {
+          runData.set(`${runId}:${namespace}`, value);
+          return true;
+        },
+        getRunContext: ({ runId, namespace }: any) => runData.get(`${runId}:${namespace}`),
+      },
+      on: vi.fn((name, handler) => hooks.set(name, handler)),
+    } as never;
+    const current = { ...job };
+    registerSgDeviceOwnershipPolicy(
+      { api, stateDir: root },
+      {
+        listPairing: async () => ({ pending: [], paired: [] }),
+        loadCronJobs: async () => ({ version: 1, jobs: [current] }) as never,
+      },
+    );
+    const beforeRun = hooks.get("before_agent_run")!;
+    const beforeTool = hooks.get("before_tool_call")!;
+    const cronCtx = { trigger: "cron", jobId, runId: sessionId, sessionId,
+      sessionKey, agentId: "main", channel: "telegram", accountId: "default" };
+    await beforeRun({ prompt: "audit", messages: [] }, cronCtx);
+    const toolCtx = { runId: sessionId, sessionId, sessionKey,
+      requester: { channel: "telegram" } };
+    await expect(beforeTool({ toolName: "exec", params: {} }, toolCtx))
+      .resolves.toEqual({ params: { host: "gateway" } });
+    await expect(beforeTool({ toolName: "exec", params: { host: "gateway" } }, toolCtx))
+      .resolves.toBeUndefined();
+    await expect(beforeTool({ toolName: "exec", params: { host: "node", node: "foreign" } }, toolCtx))
+      .resolves.toMatchObject({ block: true });
+    await expect(beforeTool({ toolName: "exec", params: {} },
+      { ...toolCtx, runId: "other", sessionId: "other" }))
+      .resolves.toMatchObject({ block: true });
+
+    current.owner = { ...current.owner, sessionKey: "agent:main:telegram:group:100" };
+    current.scheduledToolPolicy = { ...current.scheduledToolPolicy,
+      ownerSessionKey: current.owner.sessionKey };
+    await beforeRun({}, { ...cronCtx, runId: "group-run", sessionId: "group-run",
+      sessionKey: "agent:main:cron:job-a:run:group-run" });
+    await expect(beforeTool({ toolName: "exec", params: {} },
+      { runId: "group-run", sessionId: "group-run",
+        sessionKey: "agent:main:cron:job-a:run:group-run",
+        requester: { channel: "telegram" } }))
+      .resolves.toMatchObject({ block: true });
+
+    current.owner = { ...current.owner, sessionKey: "agent:main:telegram:direct:200" };
+    current.scheduledToolPolicy = { ...current.scheduledToolPolicy,
+      ownerSessionKey: current.owner.sessionKey };
+    await beforeRun({}, { ...cronCtx, runId: "citizen-run", sessionId: "citizen-run",
+      sessionKey: "agent:main:cron:job-a:run:citizen-run" });
+    await expect(beforeTool({ toolName: "exec", params: {} },
+      { runId: "citizen-run", sessionId: "citizen-run",
+        sessionKey: "agent:main:cron:job-a:run:citizen-run",
+        requester: { channel: "telegram" } }))
+      .resolves.toMatchObject({ block: true });
   });
 
   it("lists only devices owned by the current Global ID after restart", async () => {

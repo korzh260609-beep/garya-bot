@@ -1,11 +1,13 @@
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
 import { SgBillingLedger } from "./billing-ledger.js";
+import { readSgCronProof } from "./device-access.js";
 import { resolveSgCanonicalIdentity } from "./context.js";
 import { SgGlobalProfileRegistry } from "./global-profile-registry.js";
 
 type SgActionPolicyApi = {
   config?: OpenClawPluginApi["config"];
   on: OpenClawPluginApi["on"];
+  runContext?: OpenClawPluginApi["runContext"];
   logger?: { warn(message: string): void };
 };
 
@@ -68,7 +70,16 @@ export function registerSgActionPolicy(params: { api: SgActionPolicyApi; stateDi
   const resolveRole = async (ctx: {
     requester?: { channel?: string; senderId?: string };
     sessionKey?: string;
+    sessionId?: string;
+    runId?: string;
   }) => {
+    if (ctx.sessionKey?.includes(":cron:")) {
+      const proof = readSgCronProof(api, ctx);
+      const profile = proof ? await profiles.findByGlobalId(proof.globalId) : undefined;
+      return profile?.status === "active" && profile.role === "monarch"
+        ? "monarch"
+        : undefined;
+    }
     const channel = ctx.requester?.channel;
     const senderId = ctx.requester?.senderId;
     if (channel && senderId) {

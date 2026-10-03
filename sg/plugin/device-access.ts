@@ -10,6 +10,9 @@ import type {
   PluginCommandContext,
 } from "openclaw/plugin-sdk/plugin-entry";
 import { jsonResult } from "openclaw/plugin-sdk/tool-results";
+import type { loadCronStore } from "openclaw/plugin-sdk/cron-store-runtime";
+
+type CronStoreFile = Awaited<ReturnType<typeof loadCronStore>>;
 import { resolveSgCanonicalIdentity, resolveWorkspaceContext } from "./context.js";
 import { SgGlobalProfileRegistry } from "./global-profile-registry.js";
 
@@ -50,6 +53,7 @@ type SgDeviceApi = {
     nodes?: Pick<OpenClawPluginApi["runtime"]["nodes"], "list">;
   };
   on: OpenClawPluginApi["on"];
+  runContext?: OpenClawPluginApi["runContext"];
 };
 
 export type SgDeviceAccessDeps = {
@@ -546,6 +550,59 @@ export function createSgDeviceTools(
   ];
 }
 
+export const SG_CRON_AUTHORITY_NAMESPACE = "sg-cron-creator";
+
+type SgCronProof = {
+  jobId: string;
+  globalId: string;
+  sessionKey: string;
+  sessionId: string;
+  agentId: string;
+};
+
+export function readSgCronProof(
+  api: { runContext?: OpenClawPluginApi["runContext"] },
+  ctx: { runId?: string; sessionKey?: string; sessionId?: string },
+): SgCronProof | undefined {
+  if (!ctx.runId || !ctx.sessionKey || !ctx.sessionId || ctx.runId !== ctx.sessionId) {
+    return undefined;
+  }
+  const raw = api.runContext?.getRunContext({
+    runId: ctx.runId,
+    namespace: SG_CRON_AUTHORITY_NAMESPACE,
+  });
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+  const proof = raw as Partial<SgCronProof>;
+  return proof.jobId && proof.globalId && proof.sessionKey === ctx.sessionKey &&
+    proof.sessionId === ctx.sessionId &&
+    ctx.sessionKey === `agent:${proof.agentId}:cron:${proof.jobId}:run:${ctx.sessionId}`
+    ? proof as SgCronProof
+    : undefined;
+}
+
+function cronCreatorIdentity(job: CronStoreFile["jobs"][number]): {
+  channel: string; senderId: string;
+} | undefined {
+  const owner = job.owner;
+  const policy = job.scheduledToolPolicy;
+  if (!owner?.agentId || !owner.sessionKey || !owner.accountId ||
+      policy?.mode !== "account" ||
+      policy.ownerSessionKey !== owner.sessionKey ||
+      policy.ownerAccountId !== owner.accountId ||
+      job.payload.kind !== "agentTurn" ||
+      !job.payload.toolsAllow?.includes("exec")) return undefined;
+  const parts = owner.sessionKey.split(":");
+  if (parts[0] !== "agent" || parts[1] !== owner.agentId) return undefined;
+  if (parts.length === 5 && parts[3] === "direct" && parts[2] && parts[4]) {
+    return { channel: parts[2], senderId: parts[4] };
+  }
+  if (parts.length === 6 && parts[3] === owner.accountId &&
+      parts[4] === "direct" && parts[2] && parts[5]) {
+    return { channel: parts[2], senderId: parts[5] };
+  }
+  return undefined;
+}
+
 function ownedNode(value: unknown, owned: Set<string>): string | undefined {
   const node = clean(value);
   return node && owned.has(normalizeDeviceId(node)) ? node : undefined;
@@ -560,13 +617,72 @@ export function registerSgDeviceOwnershipPolicy(
     api: SgDeviceApi;
     stateDir: string;
   },
-  deps: Pick<SgDeviceAccessDeps, "listPairing"> = defaultDeps,
+  deps: Pick<SgDeviceAccessDeps, "listPairing"> & {
+    loadCronJobs?: () => Promise<CronStoreFile>;
+  } = defaultDeps,
 ): void {
   const { api, stateDir } = params;
   const registry = new SgGlobalProfileRegistry(stateDir);
 
+  api.on("before_agent_run", async (_event, ctx) => {
+    if (ctx.trigger !== "cron" || !ctx.jobId || !ctx.runId || !ctx.sessionId ||
+        !ctx.sessionKey || ctx.runId !== ctx.sessionId || !api.runContext) return;
+    try {
+      const store = deps.loadCronJobs
+        ? await deps.loadCronJobs()
+        : await (async () => {
+            const { loadCronStore, resolveCronStorePath } =
+              await import("openclaw/plugin-sdk/cron-store-runtime");
+            return loadCronStore(resolveCronStorePath(api.config?.cron?.store));
+          })();
+      const job = store.jobs.find((candidate) => candidate.id === ctx.jobId);
+      if (!job?.enabled || !job.owner?.agentId || ctx.agentId !== job.owner.agentId ||
+          ctx.sessionKey !==
+            `agent:${job.owner.agentId}:cron:${job.id}:run:${ctx.sessionId}`) return;
+      const creator = cronCreatorIdentity(job);
+      if (!creator) return;
+      const canonical = resolveSgCanonicalIdentity({
+        ...creator,
+        identityLinks: api.config?.session?.identityLinks,
+      });
+      const profile = canonical
+        ? await registry.findByCanonicalIdentity(canonical)
+        : undefined;
+      if (profile?.status !== "active" || profile.role !== "monarch") return;
+      api.runContext.setRunContext({
+        runId: ctx.runId,
+        namespace: SG_CRON_AUTHORITY_NAMESPACE,
+        value: {
+          jobId: job.id,
+          globalId: profile.globalId,
+          sessionKey: ctx.sessionKey,
+          sessionId: ctx.sessionId,
+          agentId: job.owner.agentId,
+        },
+      });
+    } catch {
+      // Missing or unreadable native authority fails closed.
+    }
+  });
+
   api.on("before_tool_call", async (event, ctx) => {
-    if (!ctx.requester) return undefined;
+    const cronProof = readSgCronProof(api, ctx);
+    const cronProfile = cronProof
+      ? await registry.findByGlobalId(cronProof.globalId)
+      : undefined;
+    if (event.toolName === "exec" && cronProfile?.status === "active" &&
+        cronProfile.role === "monarch") {
+      const host = clean(event.params.host);
+      if (!host) return { params: { ...event.params, host: "gateway" } };
+      if (host === "gateway") return undefined;
+    }
+    if (!ctx.requester) {
+      return ctx.sessionKey?.includes(":cron:") &&
+        ["exec", "nodes", "computer", "mobile_ui", "file_fetch",
+          "dir_list", "dir_fetch", "file_write"].includes(event.toolName)
+        ? blocked("SG could not verify the requester Global ID for device access")
+        : undefined;
+    }
     const globalId = await requesterGlobalId(api, stateDir, ctx).catch(() => undefined);
     const nodeTool =
       event.toolName === "nodes" ||

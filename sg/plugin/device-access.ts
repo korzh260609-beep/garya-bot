@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { unlink } from "node:fs/promises";
 import path from "node:path";
 import { issueDeviceBootstrapToken, listDevicePairing } from "openclaw/plugin-sdk/device-bootstrap";
@@ -54,6 +55,7 @@ type SgDeviceApi = {
   };
   on: OpenClawPluginApi["on"];
   runContext?: OpenClawPluginApi["runContext"];
+  logger?: Pick<OpenClawPluginApi["logger"], "info">;
 };
 
 export type SgDeviceAccessDeps = {
@@ -560,24 +562,38 @@ type SgCronProof = {
   agentId: string;
 };
 
-export function readSgCronProof(
+type CronProofInspection = { proof?: SgCronProof; code: string };
+
+function inspectSgCronProof(
   api: { runContext?: OpenClawPluginApi["runContext"] },
   ctx: { runId?: string; sessionKey?: string; sessionId?: string },
-): SgCronProof | undefined {
-  if (!ctx.runId || !ctx.sessionKey || !ctx.sessionId || ctx.runId !== ctx.sessionId) {
-    return undefined;
-  }
+): CronProofInspection {
+  if (!ctx.runId || !ctx.sessionKey || !ctx.sessionId) return { code: "TOOL_CONTEXT_INCOMPLETE" };
+  if (ctx.runId !== ctx.sessionId) return { code: "TOOL_RUN_ID_MISMATCH" };
   const raw = api.runContext?.getRunContext({
     runId: ctx.runId,
     namespace: SG_CRON_AUTHORITY_NAMESPACE,
   });
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+  if (!raw) return { code: "PROOF_ABSENT" };
+  if (typeof raw !== "object" || Array.isArray(raw)) return { code: "PROOF_INVALID" };
   const proof = raw as Partial<SgCronProof>;
-  return proof.jobId && proof.globalId && proof.sessionKey === ctx.sessionKey &&
-    proof.sessionId === ctx.sessionId &&
-    ctx.sessionKey === `agent:${proof.agentId}:cron:${proof.jobId}:run:${ctx.sessionId}`
-    ? proof as SgCronProof
-    : undefined;
+  if (!proof.jobId || !proof.globalId || !proof.agentId ||
+      proof.sessionKey !== ctx.sessionKey || proof.sessionId !== ctx.sessionId ||
+      ctx.sessionKey !== `agent:${proof.agentId}:cron:${proof.jobId}:run:${ctx.sessionId}`) {
+    return { code: "PROOF_BINDING_INVALID" };
+  }
+  return { proof: proof as SgCronProof, code: "PROOF_VALID" };
+}
+
+export function readSgCronProof(
+  api: { runContext?: OpenClawPluginApi["runContext"] },
+  ctx: { runId?: string; sessionKey?: string; sessionId?: string },
+): SgCronProof | undefined {
+  return inspectSgCronProof(api, ctx).proof;
+}
+
+function cronRunHash(sessionId?: string): string {
+  return sessionId ? createHash("sha256").update(sessionId).digest("hex").slice(0, 12) : "UNKNOWN";
 }
 
 function cronJobIdFromRunContext(ctx: {
@@ -638,9 +654,16 @@ export function registerSgDeviceOwnershipPolicy(
   const registry = new SgGlobalProfileRegistry(stateDir);
 
   api.on("before_agent_run", async (_event, ctx) => {
+    if (ctx.trigger !== "cron") return;
+    const audit = (code: string) => api.logger?.info(
+      `[sg-device] cron-proof runHash=${cronRunHash(ctx.sessionId)} code=${code}`,
+    );
     const jobId = cronJobIdFromRunContext(ctx);
-    if (ctx.trigger !== "cron" || !jobId || !ctx.runId || !ctx.sessionId ||
-        ctx.runId !== ctx.sessionId || !api.runContext) return;
+    if (!jobId) return audit("SESSION_BINDING_INVALID");
+    if (!ctx.runId || !ctx.sessionId) return audit("RUN_CONTEXT_INCOMPLETE");
+    if (ctx.runId !== ctx.sessionId) return audit("RUN_ID_MISMATCH");
+    if (!api.runContext) return audit("RUN_CONTEXT_API_UNAVAILABLE");
+    let stage = "STORE_READ";
     try {
       const store = deps.loadCronJobs
         ? await deps.loadCronJobs()
@@ -650,20 +673,29 @@ export function registerSgDeviceOwnershipPolicy(
             return loadCronStore(resolveCronStorePath(api.config?.cron?.store));
           })();
       const job = store.jobs.find((candidate) => candidate.id === jobId);
-      if (!job?.enabled || !job.owner?.agentId || ctx.agentId !== job.owner.agentId ||
-          ctx.sessionKey !==
-            `agent:${job.owner.agentId}:cron:${job.id}:run:${ctx.sessionId}`) return;
+      if (!job) return audit("JOB_NOT_FOUND");
+      if (!job.enabled) return audit("JOB_DISABLED");
+      if (!job.owner?.agentId) return audit("OWNER_AGENT_MISSING");
+      if (ctx.agentId !== job.owner.agentId) return audit("AGENT_ID_MISMATCH");
+      if (ctx.sessionKey !==
+          `agent:${job.owner.agentId}:cron:${job.id}:run:${ctx.sessionId}`) {
+        return audit("SESSION_KEY_MISMATCH");
+      }
       const creator = cronCreatorIdentity(job);
-      if (!creator) return;
+      if (!creator) return audit("OWNER_POLICY_INVALID");
       const canonical = resolveSgCanonicalIdentity({
         ...creator,
         identityLinks: api.config?.session?.identityLinks,
       });
-      const profile = canonical
-        ? await registry.findByCanonicalIdentity(canonical)
-        : undefined;
-      if (profile?.status !== "active" || profile.role !== "monarch") return;
-      api.runContext.setRunContext({
+      if (!canonical) return audit("OWNER_IDENTITY_UNRESOLVED");
+      stage = "PROFILE_LOOKUP";
+      const profile = await registry.findByCanonicalIdentity(canonical);
+      if (!profile) return audit("PROFILE_NOT_FOUND");
+      if (profile.status !== "active" || profile.role !== "monarch") {
+        return audit("PROFILE_NOT_ACTIVE_MONARCH");
+      }
+      stage = "PROOF_SET";
+      const saved = api.runContext.setRunContext({
         runId: ctx.runId,
         namespace: SG_CRON_AUTHORITY_NAMESPACE,
         value: {
@@ -674,16 +706,24 @@ export function registerSgDeviceOwnershipPolicy(
           agentId: job.owner.agentId,
         },
       });
+      audit(saved ? "PROOF_SET" : "PROOF_SET_REJECTED");
     } catch {
-      // Missing or unreadable native authority fails closed.
+      // Fail closed; never log credential-bearing dependency errors.
+      audit(`${stage}_ERROR`);
     }
   });
 
   api.on("before_tool_call", async (event, ctx) => {
-    const cronProof = readSgCronProof(api, ctx);
+    const cronCheck = inspectSgCronProof(api, ctx);
+    const cronProof = cronCheck.proof;
     const cronProfile = cronProof
       ? await registry.findByGlobalId(cronProof.globalId)
       : undefined;
+    if (event.toolName === "exec" && ctx.sessionKey?.includes(":cron:")) {
+      const code = cronProof && (cronProfile?.status !== "active" ||
+        cronProfile.role !== "monarch") ? "PROOF_PROFILE_INVALID" : cronCheck.code;
+      api.logger?.info(`[sg-device] cron-exec runHash=${cronRunHash(ctx.sessionId)} code=${code}`);
+    }
     if (event.toolName === "exec" && cronProfile?.status === "active" &&
         cronProfile.role === "monarch") {
       const host = clean(event.params.host);

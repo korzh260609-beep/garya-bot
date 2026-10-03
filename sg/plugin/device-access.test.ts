@@ -472,11 +472,14 @@ describe("SG device access", () => {
     };
     const runData = new Map<string, unknown>();
     const hooks = new Map<string, (...args: any[]) => any>();
+    const info = vi.fn();
     const api = {
       config: {},
       runtime: {},
+      logger: { info },
       runContext: {
         setRunContext: ({ runId, namespace, value }: any) => {
+          if (runId === "rejected-run") return false;
           runData.set(`${runId}:${namespace}`, value);
           return true;
         },
@@ -497,10 +500,12 @@ describe("SG device access", () => {
     const cronCtx = { trigger: "cron", runId: sessionId, sessionId,
       sessionKey, agentId: "main", channel: "telegram", accountId: "default" };
     await beforeRun({ prompt: "audit", messages: [] }, cronCtx);
+    expect(info).toHaveBeenCalledWith(expect.stringContaining("code=PROOF_SET"));
     const toolCtx = { runId: sessionId, sessionId, sessionKey,
       requester: { channel: "telegram" } };
     await expect(beforeTool({ toolName: "exec", params: {} }, toolCtx))
       .resolves.toEqual({ params: { host: "gateway" } });
+    expect(info).toHaveBeenCalledWith(expect.stringContaining("code=PROOF_VALID"));
     await expect(beforeTool({ toolName: "exec", params: { host: "gateway" } }, toolCtx))
       .resolves.toBeUndefined();
     await expect(beforeTool({ toolName: "exec", params: { host: "node", node: "foreign" } }, toolCtx))
@@ -508,6 +513,19 @@ describe("SG device access", () => {
     await expect(beforeTool({ toolName: "exec", params: {} },
       { ...toolCtx, runId: "other", sessionId: "other" }))
       .resolves.toMatchObject({ block: true });
+    expect(info).toHaveBeenCalledWith(expect.stringContaining("code=PROOF_ABSENT"));
+
+    await beforeRun({}, { ...cronCtx, runId: "no-agent-run", sessionId: "no-agent-run",
+      sessionKey: "agent:main:cron:job-a:run:no-agent-run", agentId: undefined });
+    expect(info).toHaveBeenCalledWith(expect.stringContaining("code=SESSION_BINDING_INVALID"));
+    await beforeRun({}, { ...cronCtx, runId: "rejected-run", sessionId: "rejected-run",
+      sessionKey: "agent:main:cron:job-a:run:rejected-run" });
+    expect(info).toHaveBeenCalledWith(expect.stringContaining("code=PROOF_SET_REJECTED"));
+    await expect(beforeTool({ toolName: "exec", params: {} },
+      { runId: "rejected-run", sessionId: "rejected-run",
+        sessionKey: "agent:main:cron:job-a:run:rejected-run" }))
+      .resolves.toMatchObject({ block: true });
+    expect(info.mock.calls.flat().join(" ")).not.toContain("usr_a");
 
     await beforeRun({}, { ...cronCtx, runId: "wrong-job-run", sessionId: "wrong-job-run",
       sessionKey: "agent:main:cron:other-job:run:wrong-job-run" });

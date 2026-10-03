@@ -580,6 +580,19 @@ export function readSgCronProof(
     : undefined;
 }
 
+function cronJobIdFromRunContext(ctx: {
+  agentId?: string;
+  sessionKey?: string;
+  sessionId?: string;
+}): string | undefined {
+  const parts = ctx.sessionKey?.split(":");
+  return parts?.length === 6 && parts[0] === "agent" &&
+    parts[1] === ctx.agentId && parts[2] === "cron" &&
+    parts[3] && parts[4] === "run" && parts[5] === ctx.sessionId
+    ? parts[3]
+    : undefined;
+}
+
 function cronCreatorIdentity(job: CronStoreFile["jobs"][number]): {
   channel: string; senderId: string;
 } | undefined {
@@ -625,8 +638,9 @@ export function registerSgDeviceOwnershipPolicy(
   const registry = new SgGlobalProfileRegistry(stateDir);
 
   api.on("before_agent_run", async (_event, ctx) => {
-    if (ctx.trigger !== "cron" || !ctx.jobId || !ctx.runId || !ctx.sessionId ||
-        !ctx.sessionKey || ctx.runId !== ctx.sessionId || !api.runContext) return;
+    const jobId = cronJobIdFromRunContext(ctx);
+    if (ctx.trigger !== "cron" || !jobId || !ctx.runId || !ctx.sessionId ||
+        ctx.runId !== ctx.sessionId || !api.runContext) return;
     try {
       const store = deps.loadCronJobs
         ? await deps.loadCronJobs()
@@ -635,7 +649,7 @@ export function registerSgDeviceOwnershipPolicy(
               await import("openclaw/plugin-sdk/cron-store-runtime");
             return loadCronStore(resolveCronStorePath(api.config?.cron?.store));
           })();
-      const job = store.jobs.find((candidate) => candidate.id === ctx.jobId);
+      const job = store.jobs.find((candidate) => candidate.id === jobId);
       if (!job?.enabled || !job.owner?.agentId || ctx.agentId !== job.owner.agentId ||
           ctx.sessionKey !==
             `agent:${job.owner.agentId}:cron:${job.id}:run:${ctx.sessionId}`) return;

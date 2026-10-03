@@ -452,7 +452,7 @@ describe("SG device access", () => {
     });
   });
 
-  it("uses native cron creator provenance for one monarch run, without treating delivery as identity", async () => {
+  it("resolves native cron owner from the run session when before_agent_run omits jobId", async () => {
     const root = await fixture(true);
     const jobId = "job-a";
     const ownerSessionKey = "agent:main:telegram:direct:100";
@@ -494,7 +494,7 @@ describe("SG device access", () => {
     );
     const beforeRun = hooks.get("before_agent_run")!;
     const beforeTool = hooks.get("before_tool_call")!;
-    const cronCtx = { trigger: "cron", jobId, runId: sessionId, sessionId,
+    const cronCtx = { trigger: "cron", runId: sessionId, sessionId,
       sessionKey, agentId: "main", channel: "telegram", accountId: "default" };
     await beforeRun({ prompt: "audit", messages: [] }, cronCtx);
     const toolCtx = { runId: sessionId, sessionId, sessionKey,
@@ -507,6 +507,13 @@ describe("SG device access", () => {
       .resolves.toMatchObject({ block: true });
     await expect(beforeTool({ toolName: "exec", params: {} },
       { ...toolCtx, runId: "other", sessionId: "other" }))
+      .resolves.toMatchObject({ block: true });
+
+    await beforeRun({}, { ...cronCtx, runId: "wrong-job-run", sessionId: "wrong-job-run",
+      sessionKey: "agent:main:cron:other-job:run:wrong-job-run" });
+    await expect(beforeTool({ toolName: "exec", params: {} },
+      { runId: "wrong-job-run", sessionId: "wrong-job-run",
+        sessionKey: "agent:main:cron:other-job:run:wrong-job-run" }))
       .resolves.toMatchObject({ block: true });
 
     current.owner = { ...current.owner, sessionKey: "agent:main:telegram:group:100" };

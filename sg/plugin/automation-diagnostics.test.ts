@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, describe, expect, it } from "vitest";
-import { analyzeAutomationEvidence, formatSgAutomationDiagnostic, readAutomationEvidence } from "./automation-diagnostics.js";
+import { analyzeAutomationEvidence, formatSgAutomationDiagnostic, observeTranscript, readAutomationEvidence } from "./automation-diagnostics.js";
 
 const started = Date.parse("2026-10-01T18:00:00Z");
 const roots: string[] = [];
@@ -109,7 +109,7 @@ describe("SG project automation diagnostic", () => {
     expect(report.facts.scheduledPolicyMode).toBe("account");
     const output = formatSgAutomationDiagnostic(report);
     expect(output).toContain("Вызовы выбранного запуска (1/1; returned ≠ успех)");
-    expect(output).toContain("tool=exec; status=error; code=DEVICE_IDENTITY_ERROR_OBSERVED; target=github; host=gateway");
+    expect(output).toContain("tool=exec; inner=UNKNOWN; status=error; code=DEVICE_IDENTITY_ERROR_OBSERVED; target=github; host=gateway");
     expect(output).not.toContain("DUMMY_SECRET");
     expect(output).not.toContain("call_example|fc_example");
     expect(output).not.toContain("gh api");
@@ -128,7 +128,43 @@ describe("SG project automation diagnostic", () => {
     });
     const output = formatSgAutomationDiagnostic(report);
     expect(output).toContain("Вызовы выбранного запуска (1/1; returned ≠ успех)");
-    expect(output).toContain("tool=read; status=returned; code=UNKNOWN; target=project-memory; host=UNKNOWN");
+    expect(output).toContain("tool=read; inner=UNKNOWN; status=returned; code=UNKNOWN; target=project-memory; host=UNKNOWN; evidence=UNKNOWN");
+  });
+
+  it("identifies structured blocks and tool_call targets without exposing input or result text", () => {
+    const toolCall = (id: string, name: string, args: Record<string, unknown>, offset: number) => ({
+      timestamp: started + offset, message: { role: "assistant", content: [{ type: "toolCall", id, name, arguments: args }] },
+    });
+    const toolResult = (id: string, name: string, extra: Record<string, unknown>, offset: number) => ({
+      timestamp: started + offset, message: { role: "toolResult", toolCallId: id, toolName: name, isError: false, ...extra },
+    });
+    const deviceError = "SG could not verify the requester Global ID for device access";
+    const rows = [
+      toolCall("exec-id", "exec", { host: "sandbox", command: "PRIVATE_COMMAND" }, 1000),
+      toolResult("exec-id", "exec", { details: { status: "blocked" }, content: [{ type: "text", text: deviceError }] }, 2000),
+      toolCall("github-id", "tool_call", { id: "github-id", args: { token: "PRIVATE_TOKEN" } }, 3000),
+      toolResult("github-id", "tool_call", { content: [{ type: "text", text: JSON.stringify({
+        tool: { name: "github_publish" }, result: { details: { status: "failed", error: "PRIVATE_ERROR" } }, status: "failed",
+      }) }] }, 4000),
+      toolCall("memory-id", "tool_call", { id: "read", args: { path: "/data/workspace/MEMORY.md" } }, 5000),
+      toolResult("memory-id", "tool_call", { details: {
+        tool: { name: "read" }, result: { details: { status: "blocked" }, content: [{ type: "text", text: deviceError }] }, status: "blocked",
+      } }, 6000),
+      toolCall("unknown-id", "read", { path: "/data/workspace/MEMORY.md" }, 7000),
+      toolResult("unknown-id", "read", { content: [{ type: "text", text: "PRIVATE_CONTENT" }] }, 8000),
+    ];
+    const run = { jobId: "project-job", runAtMs: started, ts: started + 10000 };
+    const calls = observeTranscript(rows, run);
+    expect(calls.map(call => call.result)).toEqual(["blocked", "error", "blocked", "returned"]);
+    expect(calls[0]).toMatchObject({ errorCode: "DEVICE_IDENTITY_ERROR_OBSERVED", requestedHost: "sandbox" });
+    expect(calls[1]).toMatchObject({ innerTool: "github_publish", target: "github", errorCode: "STATUS_FAILED" });
+    expect(calls[2]).toMatchObject({ innerTool: "read", target: "project-memory", resultEvidence: "structured" });
+    expect(calls[3]).toMatchObject({ resultEvidence: "unavailable" });
+    const report = analyzeAutomationEvidence({ job: { id: "project-job" }, run, calls, sources: [] });
+    expect(report.first_unknown_stage).toBe("global-id");
+    const output = formatSgAutomationDiagnostic(report);
+    expect(output).toContain("tool=tool_call; inner=github_publish; status=error");
+    expect(output).not.toMatch(/PRIVATE_COMMAND|PRIVATE_TOKEN|PRIVATE_ERROR|PRIVATE_CONTENT/);
   });
 
   it("does not attach an older task transcript to the latest cron run", async () => {

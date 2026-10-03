@@ -15,8 +15,10 @@ type Status = "OBSERVED" | "MISMATCH" | "BLOCKED" | "UNKNOWN";
 export type Check = { stage: string; status: Status; scope: "current" | "run"; code: string };
 type Source = { name: string; status: "OBSERVED" | "UNKNOWN"; reason?: string; truncated?: boolean };
 export type ToolObservation = {
-  callId: string; tool: string; requestedHost?: string; target?: "github" | "project-memory";
-  errorCode?: string; errorAtMs?: number; result: "error" | "returned" | "unknown";
+  callId: string; tool: string; innerTool?: string; requestedHost?: string; target?: "github" | "project-memory";
+  errorCode?: string; errorAtMs?: number; atMs?: number;
+  result: "blocked" | "error" | "returned" | "unknown";
+  resultEvidence?: "structured" | "isError" | "exact-tool-result" | "unavailable";
 };
 type TranscriptFacts = {
   agentSource: "run" | "current-job";
@@ -119,6 +121,44 @@ function errorFingerprint(content: unknown): string | undefined {
   return "TOOL_ERROR_ORIGIN_UNKNOWN";
 }
 
+function toolTarget(tool: string, params: RecordValue): ToolObservation["target"] {
+  const file = text(params.path) ?? text(params.file_path);
+  const patch = text(params.patch) ?? text(params.input) ?? "";
+  if (file === PROJECT_MEMORY || patch.split("\n").some(line =>
+    line === `*** Update File: ${PROJECT_MEMORY}` || line === `*** Add File: ${PROJECT_MEMORY}`)) return "project-memory";
+  if (/github/iu.test(tool) || tool === "exec" && /(?:^|[\s;&|])gh\s+(?:api|repo|run|workflow|pr|issue)\b/u.test(text(params.command) ?? "")) return "github";
+  return undefined;
+}
+
+// The native tool_call result is {tool, result}, often serialized into one JSON text
+// block. Parse only this bounded, exact envelope; never print its content or inputs.
+function toolCallEnvelope(message: RecordValue): RecordValue | undefined {
+  const details = record(message.details);
+  if (record(details?.tool) && record(details?.result)) return details;
+  const blocks = Array.isArray(message.content) ? message.content : [];
+  if (blocks.length !== 1) return undefined;
+  const block = record(blocks[0]);
+  const raw = block?.type === "text" ? text(block.text) : undefined;
+  if (!raw || Buffer.byteLength(raw) > 32768 || !raw.trimStart().startsWith("{")) return undefined;
+  try {
+    const parsed = record(JSON.parse(raw));
+    return record(parsed?.tool) && record(parsed?.result) ? parsed : undefined;
+  } catch { return undefined; }
+}
+
+function structuredFailure(value: RecordValue | undefined): { result: "blocked" | "error"; code: string } | undefined {
+  const details = record(value?.details);
+  if (!details) return undefined;
+  const status = text(details.status)?.toLowerCase();
+  if (status === "blocked" || status === "denied" || status === "forbidden") return { result: "blocked", code: `STATUS_${status.toUpperCase()}` };
+  if (["error", "failed", "failure", "timeout", "timed_out", "unavailable", "approval-unavailable", "disabled", "aborted", "cancelled", "canceled", "killed", "invalid"].includes(status ?? "")) return { result: "error", code: `STATUS_${status?.toUpperCase().replace(/-/gu, "_")}` };
+  if (details.ok === false || details.success === false) return { result: "error", code: "STRUCTURED_FALSE" };
+  if (details.timedOut === true) return { result: "error", code: "STRUCTURED_TIMEOUT" };
+  if (details.error) return { result: "error", code: "STRUCTURED_ERROR" };
+  if (typeof details.exitCode === "number" && Number.isFinite(details.exitCode) && details.exitCode !== 0) return { result: "error", code: "EXIT_NONZERO" };
+  return undefined;
+}
+
 export function parseAutomationArguments(args: string): { selector: string; runAtMs?: number } {
   const parts = args.trim().split(/\s+/u);
   if (args.length > 250 || parts[0] !== "automation" || parts.length < 2 || parts.length > 3 || !IDENTIFIER.test(parts[1])) {
@@ -134,6 +174,7 @@ export function observeTranscript(rows: unknown[], run: RecordValue): ToolObserv
   const end = number(run.ts) ?? (start !== undefined && number(run.durationMs) !== undefined ? start + Number(run.durationMs) : undefined);
   if (start === undefined || end === undefined || end < start) return [];
   const calls = new Map<string, ToolObservation>();
+  const requestedByCall = new Map<string, RecordValue>();
   const duplicateIds = new Set<string>();
   for (const raw of rows) {
     const row = record(raw);
@@ -147,17 +188,16 @@ export function observeTranscript(rows: unknown[], run: RecordValue): ToolObserv
         if (call?.type !== "toolCall" || !safeCallId(call.id) || !safeLabel(call.name)) continue;
         const p = record(call.arguments) ?? {};
         const callId = String(call.id);
-        if (calls.has(callId)) { calls.delete(callId); duplicateIds.add(callId); }
+        if (calls.has(callId)) { calls.delete(callId); requestedByCall.delete(callId); duplicateIds.add(callId); }
         if (duplicateIds.has(callId) || calls.size >= MAX_ROWS) continue;
         // Do not emit commands, patches, file contents, secrets or device IDs.
-        const file = text(p.path) ?? text(p.file_path);
-        const patch = text(p.patch) ?? text(p.input) ?? "";
-        const targetsMemory = file === PROJECT_MEMORY || patch.split("\n").some(line => line === `*** Update File: ${PROJECT_MEMORY}` || line === `*** Add File: ${PROJECT_MEMORY}`);
-        const github = /github/iu.test(String(call.name)) || call.name === "exec" && /(?:^|[\s;&|])gh\s+(?:api|repo|run|workflow|pr|issue)\b/u.test(text(p.command) ?? "");
+        const requested = call.name === "tool_call" ? record(p.args) ?? {} : p;
+        if (call.name === "tool_call") requestedByCall.set(callId, requested);
         calls.set(callId, {
           callId, tool: String(call.name),
-          requestedHost: ["node", "gateway", "sandbox"].includes(String(p.host)) ? String(p.host) : undefined,
-          target: targetsMemory ? "project-memory" : github ? "github" : undefined,
+          atMs: at,
+          requestedHost: ["node", "gateway", "sandbox"].includes(String(requested.host)) ? String(requested.host) : undefined,
+          target: call.name === "tool_call" ? undefined : toolTarget(String(call.name), requested),
           result: "unknown",
         });
         if (calls.size > MAX_ROWS) break;
@@ -166,9 +206,36 @@ export function observeTranscript(rows: unknown[], run: RecordValue): ToolObserv
       const callId = safeCallId(message.toolCallId);
       const existing = callId ? calls.get(callId) : undefined;
       if (!existing || (text(message.toolName) && message.toolName !== existing.tool)) continue;
-      existing.result = message.isError === true ? "error" : "returned";
-      existing.errorCode = message.isError === true ? errorFingerprint(message.content) : undefined;
-      existing.errorAtMs = message.isError === true ? at : undefined;
+      const envelope = existing.tool === "tool_call" ? toolCallEnvelope(message) : undefined;
+      const inner = record(envelope?.result);
+      const name = safeLabel(record(envelope?.tool)?.name);
+      if (name) {
+        existing.innerTool = name;
+        // The requested arguments identify an intended target, not proof of success.
+        existing.target = toolTarget(name, requestedByCall.get(callId) ?? {});
+      }
+      const failure = structuredFailure(inner) ?? structuredFailure(message) ?? structuredFailure(envelope);
+      const content = inner?.content ?? message.content;
+      const exactCode = errorFingerprint(content);
+      if (failure) {
+        existing.result = failure.result;
+        existing.errorCode = exactCode === "TOOL_ERROR_ORIGIN_UNKNOWN" ? failure.code : exactCode;
+        existing.errorAtMs = at;
+        existing.resultEvidence = "structured";
+      } else if (message.isError === true || inner?.isError === true) {
+        existing.result = "error";
+        existing.errorCode = exactCode;
+        existing.errorAtMs = at;
+        existing.resultEvidence = "isError";
+      } else if (exactCode === "DEVICE_IDENTITY_ERROR_OBSERVED" || exactCode === "DEVICE_EXEC_SCOPE_ERROR_OBSERVED") {
+        existing.result = "blocked";
+        existing.errorCode = exactCode;
+        existing.errorAtMs = at;
+        existing.resultEvidence = "exact-tool-result";
+      } else {
+        existing.result = "returned";
+        existing.resultEvidence = inner || record(message.details) ? "structured" : "unavailable";
+      }
     }
   }
   return [...calls.values()].slice(0, MAX_ROWS);
@@ -207,10 +274,10 @@ export function analyzeAutomationEvidence(e: AutomationEvidence): AutomationRepo
   add("effective-policy", "UNKNOWN", "run", "EXECUTED_POLICY_AND_MATCHED_SENDER_NOT_RECORDED");
   add("tool-search", "UNKNOWN", "run", "CATALOG_COUNT_IS_NOT_FINAL_ALLOWLIST");
   const calls = run ? e.calls : [];
-  const blockedCall = calls.filter(c => c.errorCode === "DEVICE_IDENTITY_ERROR_OBSERVED" || c.errorCode === "DEVICE_EXEC_SCOPE_ERROR_OBSERVED").sort((a, b) => (a.errorAtMs ?? Infinity) - (b.errorAtMs ?? Infinity))[0];
+  const blockedCall = calls.filter(c => c.result === "blocked" || c.errorCode === "DEVICE_IDENTITY_ERROR_OBSERVED" || c.errorCode === "DEVICE_EXEC_SCOPE_ERROR_OBSERVED").sort((a, b) => (a.errorAtMs ?? Infinity) - (b.errorAtMs ?? Infinity))[0];
   add("tool-call", blockedCall ? "BLOCKED" : "UNKNOWN", "run", blockedCall?.errorCode ?? (calls.length ? "TOOL_CALLS_OBSERVED_NO_ATTRIBUTED_DENIAL" : "NO_LINKED_TOOL_CALLS"));
   for (const target of ["github", "project-memory"] as const) {
-    const errors = calls.filter(c => c.target === target && c.result === "error");
+    const errors = calls.filter(c => c.target === target && (c.result === "error" || c.result === "blocked"));
     add(target, errors.length ? "BLOCKED" : "UNKNOWN", "run", errors.length ? "LINKED_TARGET_TOOL_ERROR" : "TARGET_SUCCESS_NOT_INDEPENDENTLY_VERIFIED");
   }
   add("completion", "UNKNOWN", "run", "DELIVERY_OR_AGENT_OK_IS_NOT_TASK_VERIFICATION");
@@ -230,7 +297,8 @@ export function analyzeAutomationEvidence(e: AutomationEvidence): AutomationRepo
   return {
     version: 1, baseRef: BASE_REF, jobId: safeLabel(job?.id), runAtMs: number(run?.runAtMs), status,
     first_confirmed_mismatch: first,
-    first_unknown_stage: checks.find(c => c.status === "UNKNOWN")?.stage ?? null,
+    first_unknown_stage: checks.find(c => c.status === "UNKNOWN" && c.scope === "run" &&
+      ["global-id", "effective-policy", "tool-search", "tool-call", "github", "project-memory", "completion"].includes(c.stage))?.stage ?? null,
     first_observed_run_block: blockedCall ?? null,
     root_cause: "UNKNOWN", checks,
     facts: {
@@ -509,8 +577,9 @@ export function formatSgAutomationDiagnostic(report: AutomationReport): string {
     `Первое неизвестное звено: ${report.first_unknown_stage ?? "нет"}`,
     `Отказ инструмента: ${first ? `${first.tool}; ${first.errorCode}; callHash=${digest(first.callId)}` : "UNKNOWN"}`,
     `Вызовы выбранного запуска (${calls.length}/${report.facts.totalObservedCalls}; returned ≠ успех):`,
-    ...calls.map(c => `tool=${c.tool}; status=${c.result}; code=${c.errorCode ?? "UNKNOWN"}; target=${c.target ?? "UNKNOWN"}; host=${c.requestedHost ?? "UNKNOWN"}`),
+    ...calls.map(c => `at=${c.atMs ? new Date(c.atMs).toISOString() : "UNKNOWN"}; tool=${c.tool}; inner=${c.innerTool ?? "UNKNOWN"}; status=${c.result}; code=${c.errorCode ?? "UNKNOWN"}; target=${c.target ?? "UNKNOWN"}; host=${c.requestedHost ?? "UNKNOWN"}; evidence=${c.resultEvidence ?? "UNKNOWN"}`),
     `Транскрипт выбранного запуска: ${JSON.stringify(report.facts.transcript)}`,
+    "Подтверждённый Global ID и итоговая политика выбранного запуска: UNKNOWN (не записаны в доступных источниках).",
     "Причина всего сбоя: UNKNOWN — требуется доказательство всей связи, не пересказ модели.",
     ...report.checks.filter(c => c.status !== "UNKNOWN").slice(0, 8).map(c => `${c.status} [${c.scope}] ${c.stage}: ${c.code}`),
     `Источники: ${report.sources.map(s => `${s.name}=${s.status}${s.reason ? `:${s.reason}` : ""}${s.truncated ? ":PARTIAL" : ""}`).join("; ")}`,

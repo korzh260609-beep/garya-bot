@@ -3,16 +3,29 @@ services:
     name: garya-bot
     runtime: docker
     plan: 1c-2g
+    region: oregon
+    repo: https://github.com/korzh260609-beep/garya-bot
     branch: dev/sg2.3-openclaw
-    autoDeploy: false
+    autoDeployTrigger: off
     dockerfilePath: ./Dockerfile.render
-    dockerCommand: node openclaw.mjs gateway --allow-unconfigured --bind lan
+    dockerContext: .
+    dockerCommand: /app/sg23-entrypoint.sh
     healthCheckPath: /healthz
     envVars:
+      - key: GARYA_PILOT_TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENCLAW_GATEWAY_PORT
+        sync: false
+      - key: OPENCLAW_GATEWAY_TOKEN
+        sync: false
       - key: OPENCLAW_STATE_DIR
-        value: /data/.openclaw
+        sync: false
       - key: OPENCLAW_WORKSPACE_DIR
-        value: /data/workspace
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
     disk:
       name: disk
       mountPath: /data

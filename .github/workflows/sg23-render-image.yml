@@ -1,0 +1,63 @@
+name: SG 2.3 Render Image
+
+on:
+  push:
+    branches:
+      - dev/sg2.3-openclaw
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: sg23-render-image-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout SG 2.3
+        uses: actions/checkout@v4
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build small runtime wrapper from pinned OpenClaw image
+        env:
+          IMAGE: ghcr.io/korzh260609-beep/garya-bot-sg23
+        run: |
+          set -eu
+          context="$RUNNER_TEMP/sg23-image-context"
+          mkdir -p "$context/render"
+          cp Dockerfile.render "$context/Dockerfile.render"
+          cp render/sg23-entrypoint.sh "$context/render/sg23-entrypoint.sh"
+          docker build --pull \
+            --file "$context/Dockerfile.render" \
+            --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
+            --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+            --tag "$IMAGE:$GITHUB_SHA" \
+            --tag "$IMAGE:dev" \
+            "$context"
+
+      - name: Smoke-test image and branch entrypoint
+        env:
+          IMAGE: ghcr.io/korzh260609-beep/garya-bot-sg23
+        run: |
+          docker run --rm --entrypoint sh "$IMAGE:$GITHUB_SHA" -ec '
+            test -x /app/sg23-entrypoint.sh
+            test -f /app/openclaw.mjs
+            node /app/openclaw.mjs --version
+          '
+
+      - name: Publish immutable commit tag and development tag
+        env:
+          IMAGE: ghcr.io/korzh260609-beep/garya-bot-sg23
+        run: |
+          docker push "$IMAGE:$GITHUB_SHA"
+          docker push "$IMAGE:dev"

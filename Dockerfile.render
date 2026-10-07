@@ -1,0 +1,8 @@
+# SG 2.3 Render runtime wrapper.
+# The OpenClaw core stays on the official immutable image.
+# SG-specific runtime wiring is sourced from dev/sg2.3-openclaw.
+FROM ghcr.io/openclaw/openclaw@sha256:d0ded1dd76939b2bf4d67ef2d13247b8b160aa5666331d4a0b0e58811182cbb8
+
+COPY --chown=node:node --chmod=0755 render/sg23-entrypoint.sh /app/sg23-entrypoint.sh
+
+CMD ["/app/sg23-entrypoint.sh"]

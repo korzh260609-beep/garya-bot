@@ -1,7 +1,6 @@
-# SG 2.3 Render runtime wrapper.
-# The OpenClaw core stays on the official immutable image.
-# SG-specific runtime wiring is sourced from dev/sg2.3-openclaw.
-FROM ghcr.io/openclaw/openclaw@sha256:d0ded1dd76939b2bf4d67ef2d13247b8b160aa5666331d4a0b0e58811182cbb8
+# SG 2.3 image is built from this branch in GitHub Actions.
+# Render only adds the SG 2.3 startup command, as in SG 2.2's prebuilt-image deployment.
+FROM ghcr.io/korzh260609-beep/garya-bot-sg23:3b2ae0662b24d281c3c01a96e2db6aefe9f52c73
 
 COPY --chown=node:node --chmod=0755 render/sg23-entrypoint.sh /app/sg23-entrypoint.sh
 
